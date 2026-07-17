@@ -1,0 +1,11 @@
+{
+  "name": "AppRating",
+  "type": "object",
+  "properties": {
+    "rating": { "type": "number" },
+    "comment": { "type": "string" },
+    "user_email": { "type": "string" },
+    "submitted_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["rating"]
+}

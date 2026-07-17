@@ -1,0 +1,10 @@
+{
+  "name": "ExperienceProfile",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "template_type": { "type": "string" },
+    "content": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" }
+  }
+}

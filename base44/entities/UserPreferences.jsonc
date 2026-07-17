@@ -1,0 +1,35 @@
+{
+  "name": "UserPreferences",
+  "type": "object",
+  "properties": {
+    "genre_tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "color": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "mix_bus_presets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "color": { "type": "string" },
+          "bus_number": { "type": "number" },
+          "bus_type": { "type": "string" },
+          "label": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "profile_photo_url": { "type": "string" },
+    "display_name": { "type": "string" },
+    "username": { "type": "string" },
+    "last_rating_date": { "type": "string", "format": "date-time" }
+  },
+  "required": []
+}

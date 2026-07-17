@@ -1,0 +1,49 @@
+{
+  "name": "TourManagerRequest",
+  "type": "object",
+  "properties": {
+    "invite_token": { "type": "string" },
+    "engineer_user_id": { "type": "string" },
+    "engineer_name": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "submitted"],
+      "default": "pending"
+    },
+    "band_name": { "type": "string" },
+    "venue": { "type": "string" },
+    "date": { "type": "string", "format": "date" },
+    "location": { "type": "string" },
+    "event_time": { "type": "string" },
+    "console": { "type": "string" },
+    "wifi_network": { "type": "string" },
+    "wifi_password": { "type": "string" },
+    "contacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "band_members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "instrument": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "general_notes": { "type": "string" },
+    "created_show_id": { "type": "string" }
+  },
+  "required": []
+}

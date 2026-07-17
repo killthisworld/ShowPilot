@@ -1,0 +1,105 @@
+{
+  "name": "Show",
+  "type": "object",
+  "properties": {
+    "band_name": { "type": "string" },
+    "venue": { "type": "string" },
+    "date": { "type": "string", "format": "date" },
+    "location": { "type": "string" },
+    "event_time": { "type": "string" },
+    "wifi_network": { "type": "string" },
+    "wifi_password": { "type": "string" },
+    "console": { "type": "string" },
+    "genre_tag": { "type": "string" },
+    "genre_tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "genre_color": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["not_started", "in_progress", "complete"],
+      "default": "not_started"
+    },
+    "starred": { "type": "boolean", "default": false },
+    "contacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "stage_plot_url": { "type": "string" },
+    "stage_plot_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "input_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "channel": { "type": "number" },
+          "source": { "type": "string" },
+          "mic_di": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "input_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "power_notes": { "type": "string" },
+    "band_members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "instrument": { "type": "string" },
+          "bus_color": { "type": "string" },
+          "bus_number": { "type": "number" },
+          "bus_type": { "type": "string" },
+          "bus_label": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "artist_fx_notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "artist_name": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "default": []
+    },
+    "general_notes": { "type": "string" },
+    "share_token": { "type": "string" },
+    "owner_id": { "type": "string" }
+  },
+  "required": ["band_name", "date"]
+}
