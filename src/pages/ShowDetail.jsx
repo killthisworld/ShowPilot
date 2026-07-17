@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Users, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Users, Mic, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -25,7 +25,7 @@ export default function ShowDetail() {
     band_name: "", venue: "", date: "", location: "", event_time: "",
     wifi_network: "", wifi_password: "", console: "", genre_tag: "", genre_color: "",
     status: "not_started", starred: false, contacts: [],
-    stage_plot_url: "", stage_plot_files: [],
+    stage_plot_url: "", stage_plot_files: [], input_list: [], input_files: [],
     power_notes: "", band_members: [], artist_fx_notes: [], general_notes: "", share_token: "",
   };
 
@@ -73,7 +73,7 @@ export default function ShowDetail() {
       if (!user) throw new Error("Not logged in");
 
       if (isNew) {
-        const { id: _discard, share_token: _discardToken, ...showData } = show; // don't send an empty id or empty-string share_token (it's a uuid column, "" is invalid)
+        const { id: _discard, ...showData } = show; // don't send an empty id
         const { data: created, error } = await supabase
           .from("shows")
           .insert({ ...showData, owner_id: user.id })
@@ -84,7 +84,6 @@ export default function ShowDetail() {
         navigate(`/show/${created.id}`, { replace: true, state: location.state });
       } else {
         const { id: _discard, ...showData } = show;
-        if (!showData.share_token) delete showData.share_token; // same fix for updates
         const { error } = await supabase.from("shows").update(showData).eq("id", id);
         if (error) throw error;
         showPill("Saved ✓");
@@ -112,7 +111,7 @@ export default function ShowDetail() {
     if (!isNew) supabase.from("shows").update({ starred: newVal }).eq("id", id).then(({ error }) => { if (error) console.error(error); });
   };
 
-  // Generic uploader used by the Stage Plot section
+  // Generic uploader used by both Stage Plot and Input List sections
   const uploadFileToBucket = async (file, bucket) => {
     const { data: { user } } = await supabase.auth.getUser();
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
@@ -143,10 +142,34 @@ export default function ShowDetail() {
   };
   const removeStagePlotFile = (i) => setShow(s => ({ ...s, stage_plot_files: (s.stage_plot_files || []).filter((_, idx) => idx !== i) }));
 
+  // Input list file uploads
+  const handleInputFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      try {
+        const file_url = await uploadFileToBucket(file, "input-files");
+        setShow(s => ({
+          ...s,
+          input_files: [...(s.input_files || []), { url: file_url, name: file.name, type: file.type }],
+        }));
+      } catch (err) {
+        console.error(err);
+        showPill("Upload failed");
+      }
+    }
+    e.target.value = "";
+  };
+  const removeInputFile = (i) => setShow(s => ({ ...s, input_files: (s.input_files || []).filter((_, idx) => idx !== i) }));
+
   // Contacts
   const addContact = () => update("contacts", [...(show.contacts || []), { name: "", role: "", phone: "", email: "" }]);
   const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
+
+  // Input rows
+  const addInputRow = () => update("input_list", [...(show.input_list || []), { channel: (show.input_list?.length || 0) + 1, source: "", mic_di: "", notes: "" }]);
+  const updateInputRow = (i, f, v) => { const r = [...(show.input_list || [])]; r[i] = { ...r[i], [f]: v }; update("input_list", r); };
+  const removeInputRow = (i) => update("input_list", (show.input_list || []).filter((_, idx) => idx !== i));
 
   // Band members
   const addMember = () => update("band_members", [...(show.band_members || []), { name: "", instrument: "", bus_color: "", bus_number: 1, bus_type: "IEM", bus_label: "" }]);
@@ -155,6 +178,9 @@ export default function ShowDetail() {
     m[i] = { ...m[i], [f]: v };
     if (f === "bus_color" || f === "bus_number" || f === "bus_type") {
       m[i].bus_label = `${m[i].bus_type} ${m[i].bus_number}`;
+    }
+    if (f === "input_channel") {
+      m[i].input_channel = v;
     }
     update("band_members", m);
   };
@@ -432,6 +458,55 @@ export default function ShowDetail() {
           </div>
         </CollapsibleSection>
 
+        {/* Input List */}
+        <CollapsibleSection title="Input List" icon={Mic} badge={show.input_list?.length || 0}>
+          <div className="space-y-2 pt-3">
+            {(show.input_list || []).map((row, i) => (
+              <div key={i} className="flex items-center gap-2 bg-[#111] rounded-xl p-2">
+                <span className="text-xs text-[#8CFF3D] font-mono w-6 text-center">{row.channel}</span>
+                <Input value={row.source} onChange={(e) => updateInputRow(i, "source", e.target.value)} placeholder="Source" className="flex-1 h-7 bg-transparent border-0 text-white text-sm" />
+                <Input value={row.mic_di} onChange={(e) => updateInputRow(i, "mic_di", e.target.value)} placeholder="Mic/DI" className="w-20 h-7 bg-transparent border-0 text-white text-sm" />
+                <button onClick={() => removeInputRow(i)} className="p-1 text-white/30 hover:text-red-400">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            <Button variant="ghost" size="sm" onClick={addInputRow} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Channel
+            </Button>
+
+            {/* Input files */}
+            {(show.input_files || []).length > 0 && (
+              <div className="space-y-2 pt-1">
+                {(show.input_files || []).map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-[#111] rounded-xl p-2">
+                    {f.type?.startsWith("image/") ? (
+                      <img src={f.url} alt={f.name} className="w-10 h-10 object-cover rounded-lg border border-[#222]" />
+                    ) : (
+                      <div className="w-10 h-10 flex items-center justify-center bg-[#1a1a1a] rounded-lg border border-[#222]">
+                        <FileText className="w-4 h-4 text-white/40" />
+                      </div>
+                    )}
+                    <span className="flex-1 text-sm text-white/60 truncate">{f.name}</span>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8CFF3D] hover:underline">View</a>
+                    <button onClick={() => removeInputFile(i)} className="p-1 text-white/30 hover:text-red-400"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label className="flex items-center gap-3 py-4 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors px-4">
+              <Paperclip className="w-5 h-5 text-white/30" />
+              <span className="text-sm text-white/40">Upload input list files</span>
+              <input type="file" accept="image/*,.pdf,.csv,.xlsx" multiple className="hidden" onChange={handleInputFileUpload} />
+            </label>
+
+            <div className="pt-1">
+              <Label className="text-white/50 text-xs">Power Requirements</Label>
+              <Textarea value={show.power_notes || ""} onChange={(e) => update("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white min-h-[60px]" placeholder="Power notes..." />
+            </div>
+          </div>
+        </CollapsibleSection>
+
         {/* Band Members & Mix Bus */}
         <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={show.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
@@ -505,28 +580,44 @@ export default function ShowDetail() {
                   )}
                 </div>
 
-                {/* Number of channels needed */}
+                {/* Channel assignment — adds to input list */}
                 <div className="border-t border-[#222] pt-2">
-                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-1">Number of Channels Needed</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={m.channels_needed || ""}
-                    onChange={(e) => updateMember(i, "channels_needed", e.target.value ? parseInt(e.target.value) : "")}
-                    placeholder="e.g. 7"
-                    className="w-24 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm text-center"
-                  />
+                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-1">Assign to Input Channel</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={m.input_channel || ""}
+                      onChange={(e) => updateMember(i, "input_channel", e.target.value ? parseInt(e.target.value) : "")}
+                      placeholder="Ch #"
+                      className="w-20 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm text-center"
+                    />
+                    <span className="text-white/30 text-xs">→ links to Input List</span>
+                    {m.input_channel && m.name && (
+                      <button
+                        className="ml-auto text-[10px] text-[#8CFF3D] hover:underline"
+                        onClick={() => {
+                          const rows = [...(show.input_list || [])];
+                          const chIdx = rows.findIndex(r => r.channel === m.input_channel);
+                          if (chIdx >= 0) {
+                            rows[chIdx] = { ...rows[chIdx], source: m.name, notes: `${m.instrument || ""} — ${m.bus_label || ""}`.trim() };
+                          } else {
+                            rows.push({ channel: m.input_channel, source: m.name, mic_di: "", notes: `${m.instrument || ""} — ${m.bus_label || ""}`.trim() });
+                            rows.sort((a, b) => a.channel - b.channel);
+                          }
+                          update("input_list", rows);
+                        }}
+                      >
+                        Sync →
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
             </Button>
-
-            <div className="pt-1 border-t border-[#222]">
-              <Label className="text-white/50 text-xs">Power Requirements</Label>
-              <Textarea value={show.power_notes || ""} onChange={(e) => update("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white min-h-[60px]" placeholder="Power notes..." />
-            </div>
           </div>
         </CollapsibleSection>
 

@@ -10,10 +10,8 @@ const DEFAULT_GENRE_TAGS = [
 ];
 
 const DEFAULT_MIX_BUS_PRESETS = [
-  { color: "#EAB308", bus_number: 1, bus_type: "IEM", label: "IEM 1" },
-  { color: "#22C55E", bus_number: 2, bus_type: "IEM", label: "IEM 2" },
-  { color: "#F97316", bus_number: 1, bus_type: "Monitor", label: "Monitor 1" },
-  { color: "#EF4444", bus_number: 2, bus_type: "Monitor", label: "Monitor 2" },
+  { bus_type: "IEM", color: "#EAB308" },
+  { bus_type: "Monitor", color: "#F97316" },
 ];
 
 export function usePreferences() {
@@ -29,11 +27,6 @@ export function usePreferences() {
         return;
       }
 
-      // Using upsert (instead of select-then-insert) avoids a race condition:
-      // if two parts of the app both call this at nearly the same moment right
-      // after login, a plain select-then-insert can have both see "no row yet"
-      // and both try to create one, causing a duplicate-key conflict. Upsert
-      // with onConflict handles this atomically at the database level.
       const { data: existing, error: fetchError } = await supabase
         .from("user_preferences")
         .select("*")
