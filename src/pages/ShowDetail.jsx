@@ -18,6 +18,7 @@ const emptyBand = (isHeadliner, sortOrder) => ({
   genre_tag: "",
   genre_tags: [],
   genre_color: "",
+  set_length_minutes: null,
   stage_plot_url: "",
   stage_plot_files: [],
   band_members: [],
@@ -259,7 +260,7 @@ export default function ShowDetail() {
   const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
 
-  const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "" }]);
+  const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
   const updateMember = (i, f, v) => {
     const m = [...(activeBand.band_members || [])];
     m[i] = { ...m[i], [f]: v };
@@ -370,7 +371,6 @@ export default function ShowDetail() {
 
   const genreTags = preferences?.genre_tags || [];
   const busPresets = preferences?.mix_bus_presets || [];
-  const memberNames = (activeBand.band_members || []).map(m => m.name).filter(Boolean);
 
   const iemMonitorColors = {
     IEM: busPresets.find(p => p.bus_type === "IEM")?.color || "#EAB308",
@@ -464,6 +464,17 @@ export default function ShowDetail() {
           <div>
             <Label className="text-white/50 text-xs">Band Name *</Label>
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={activeBand.set_length_minutes ?? ""}
+              onChange={(e) => updateBandField("set_length_minutes", e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="e.g. 90"
+              className="mt-1 bg-[#111] border-[#222] text-white w-28"
+            />
           </div>
           <div>
             <Label className="text-white/50 text-xs mb-2 block">Genre / Tag</Label>
@@ -587,6 +598,9 @@ export default function ShowDetail() {
                     {m.channels_needed && (
                       <span className="text-white/40 text-xs">· {m.channels_needed} ch</span>
                     )}
+                    {m.phantom_power && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
+                    )}
                   </div>
                   <button onClick={() => removeMember(i)} className="p-1.5 ml-2 shrink-0 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -615,16 +629,24 @@ export default function ShowDetail() {
                   })}
                 </div>
 
-                <div className="border-t border-[#222] pt-2">
-                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-1">Number of Channels Needed</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={m.channels_needed || ""}
-                    onChange={(e) => updateMember(i, "channels_needed", e.target.value ? parseInt(e.target.value) : "")}
-                    placeholder="e.g. 7"
-                    className="w-24 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm text-center"
-                  />
+                <div className="border-t border-[#222] pt-2 flex items-end gap-3">
+                  <div>
+                    <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-1">Number of Channels Needed</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={m.channels_needed || ""}
+                      onChange={(e) => updateMember(i, "channels_needed", e.target.value ? parseInt(e.target.value) : "")}
+                      placeholder="e.g. 7"
+                      className="w-24 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm text-center"
+                    />
+                  </div>
+                  <button
+                    onClick={() => updateMember(i, "phantom_power", !m.phantom_power)}
+                    className={`h-8 px-3 rounded-lg text-xs font-bold border transition-all ${m.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                  >
+                    +48V
+                  </button>
                 </div>
               </div>
             ))}
@@ -653,12 +675,13 @@ export default function ShowDetail() {
               <button onClick={() => setSelectedArtistFx("__general__")} className={`px-2.5 py-1 rounded-full text-xs border transition-all ${selectedArtistFx === "__general__" ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
                 General {activeBand.general_notes ? "●" : ""}
               </button>
-              {memberNames.map((name) => {
-                const hasNote = (activeBand.artist_fx_notes || []).find(n => n.artist_name === name)?.notes;
+              {(activeBand.band_members || []).filter(m => m.name).map((m) => {
+                const hasNote = (activeBand.artist_fx_notes || []).find(n => n.artist_name === m.name)?.notes;
                 return (
-                  <button key={name} onClick={() => setSelectedArtistFx(name)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-all ${selectedArtistFx === name ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
-                    {name} {hasNote ? "●" : ""}
+                  <button key={m.name} onClick={() => setSelectedArtistFx(m.name)}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-all flex items-center gap-1 ${selectedArtistFx === m.name ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
+                    {m.name} {hasNote ? "●" : ""}
+                    {m.phantom_power && <span className="text-amber-400 font-bold">+48V</span>}
                   </button>
                 );
               })}
