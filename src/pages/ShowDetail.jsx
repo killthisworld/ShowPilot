@@ -58,7 +58,7 @@ export default function ShowDetail() {
   const backTo = location.state?.from === "calendar" ? "/calendar" : "/";
 
   const emptyShow = {
-    venue: "", date: location.state?.prefillDate || "", location: "", event_time: "",
+    venue: "", date: location.state?.prefillDate || "", city: "", state: "", event_time: "",
     wifi_network: "", wifi_password: "", console: "",
     status: "not_started", starred: false, contacts: [],
     power_notes: "", share_token: "", venue_checklist: {},
@@ -78,6 +78,7 @@ export default function ShowDetail() {
   const [genreDraft, setGenreDraft] = useState([]);
   const [busDraft, setBusDraft] = useState({ IEM: "#EAB308", Monitor: "#F97316" });
   const [savingPrefs, setSavingPrefs] = useState(false);
+  const [openNotes, setOpenNotes] = useState({});
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
@@ -92,7 +93,8 @@ export default function ShowDetail() {
             navigate("/");
             return;
           }
-          setShow(showRes.data);
+          const [parsedCity, parsedState] = (showRes.data.location || "").split(",").map((s) => s.trim());
+          setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "" });
           if (bandsRes.data && bandsRes.data.length > 0) {
             setBands(bandsRes.data);
           } else {
@@ -169,7 +171,7 @@ export default function ShowDetail() {
       if (!user) throw new Error("Not logged in");
 
       const sharedPayload = {
-        venue: show.venue, location: show.location, event_time: show.event_time,
+        venue: show.venue, location: [show.city, show.state].filter(Boolean).join(", "), event_time: show.event_time,
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
@@ -288,9 +290,8 @@ export default function ShowDetail() {
   const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
 
-  const [cityPart, statePart] = (show.location || "").split(",").map((s) => s.trim());
-  const updateCity = (val) => update("location", [val, statePart].filter(Boolean).join(", "));
-  const updateState = (val) => update("location", [cityPart, val].filter(Boolean).join(", "));
+  const updateCity = (val) => update("city", val);
+  const updateState = (val) => update("state", val);
 
   const toggleChecklistItem = (key) => {
     const current = show.venue_checklist || {};
@@ -301,6 +302,7 @@ export default function ShowDetail() {
     const current = show.venue_checklist || {};
     update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
   };
+  const toggleNotesOpen = (key) => setOpenNotes((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
   const updateMember = (i, f, v) => {
@@ -707,11 +709,11 @@ export default function ShowDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-white/50 text-xs">City</Label>
-                <Input value={cityPart || ""} onChange={(e) => updateCity(e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
+                <Input value={show.city || ""} onChange={(e) => updateCity(e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
               </div>
               <div>
                 <Label className="text-white/50 text-xs">State</Label>
-                <Select value={statePart || ""} onValueChange={updateState}>
+                <Select value={show.state || ""} onValueChange={updateState}>
                   <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
                     <SelectValue placeholder="State" />
                   </SelectTrigger>
@@ -725,48 +727,62 @@ export default function ShowDetail() {
             </div>
 
             <div className="pt-1">
-              <Label className="text-white/50 text-xs mb-1.5 block">Venue Provides</Label>
-              <div className="space-y-1">
+              <Label className="text-white/50 text-xs mb-2 block">Venue Provides</Label>
+              <div className="flex gap-2.5 overflow-x-auto pb-1 px-1">
                 {VENUE_CHECKLIST_ITEMS.map((item) => {
                   const checked = !!show.venue_checklist?.[item.key]?.checked;
+                  const notesOpen = !!openNotes[item.key];
                   return (
-                    <div key={item.key} className="rounded-lg overflow-hidden border border-[#222]">
+                    <div key={item.key} className="flex flex-col items-center gap-1.5 w-12 shrink-0">
+                      <span className="text-[8px] text-white/40 text-center leading-tight h-6 flex items-center justify-center">{item.label}</span>
                       <button
                         onClick={() => toggleChecklistItem(item.key)}
-                        className="relative w-full h-8 text-left overflow-hidden bg-[#111]"
+                        className="relative w-4 h-20 rounded-full bg-[#111] border border-[#2a2a2a] overflow-visible"
                       >
                         <div
-                          className="absolute inset-y-0 left-0 bg-[#8CFF3D]/20 transition-all duration-500 ease-out"
-                          style={{ width: checked ? "100%" : "0%" }}
+                          className="absolute bottom-0 left-0 right-0 rounded-full bg-[#8CFF3D]/25 transition-all duration-500 ease-out"
+                          style={{ height: checked ? "100%" : "4%" }}
                         />
-                        <div className="relative z-10 h-full flex items-center justify-between px-2.5">
-                          <span className={`text-xs font-medium ${checked ? "text-[#8CFF3D]" : "text-white/50"}`}>{item.label}</span>
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${checked ? "rotate-180 text-[#8CFF3D]" : "text-white/30"}`} />
-                        </div>
+                        <div
+                          className="absolute left-1/2 -translate-x-1/2 w-6 h-2.5 rounded-sm border transition-all duration-500 ease-out"
+                          style={{
+                            bottom: checked ? "calc(100% - 10px)" : "2px",
+                            backgroundColor: checked ? "#8CFF3D" : "#3a3a3a",
+                            borderColor: checked ? "#8CFF3D" : "#4a4a4a",
+                          }}
+                        />
                       </button>
-                      {checked && (
-                        <div className="p-2.5 bg-[#0d0d0d] space-y-2">
-                          {item.key === "wifi" ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                              <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                            </div>
-                          ) : item.key === "console" ? (
-                            <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                          ) : (
-                            <Textarea
-                              value={show.venue_checklist?.[item.key]?.notes || ""}
-                              onChange={(e) => updateChecklistNote(item.key, e.target.value)}
-                              placeholder={`${item.label} details...`}
-                              className="bg-[#111] border-[#222] text-white text-xs min-h-[50px]"
-                            />
-                          )}
-                        </div>
-                      )}
+                      <button
+                        onClick={() => toggleNotesOpen(item.key)}
+                        className={`w-6 h-5 rounded flex items-center justify-center transition-colors ${notesOpen ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "bg-white/5 text-white/30 hover:text-white/50"}`}
+                      >
+                        <ChevronDown className={`w-3 h-3 transition-transform ${notesOpen ? "rotate-180" : ""}`} />
+                      </button>
                     </div>
                   );
                 })}
               </div>
+
+              {VENUE_CHECKLIST_ITEMS.filter((item) => openNotes[item.key]).map((item) => (
+                <div key={item.key} className="mt-2 p-2.5 bg-[#0d0d0d] border border-[#222] rounded-lg space-y-2">
+                  <Label className="text-white/40 text-[10px] uppercase tracking-wide">{item.label}</Label>
+                  {item.key === "wifi" ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                      <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                    </div>
+                  ) : item.key === "console" ? (
+                    <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                  ) : (
+                    <Textarea
+                      value={show.venue_checklist?.[item.key]?.notes || ""}
+                      onChange={(e) => updateChecklistNote(item.key, e.target.value)}
+                      placeholder={`${item.label} details...`}
+                      className="bg-[#111] border-[#222] text-white text-xs min-h-[50px]"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </CollapsibleSection>
