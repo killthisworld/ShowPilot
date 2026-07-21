@@ -239,19 +239,27 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={key}
-                    onClick={() => hasShows ? setDayModalKey(key) : (isCurrentMonth && newShowOnDate(key))}
-                    className={`rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616]" : "bg-transparent"} ${isToday ? "ring-1 ring-[#8CFF3D]/50" : ""} ${isCurrentMonth ? "cursor-pointer hover:bg-[#1f1f1f]" : ""}`}
+                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616]" : "bg-transparent"} ${isToday ? "ring-1 ring-[#8CFF3D]/50" : ""}`}
                     style={{ minHeight: hasShows ? "72px" : "48px" }}
                   >
-                    <div className="px-1 pt-1">
-                      <span className={`text-xs block text-center font-medium ${isCurrentMonth ? "text-white/60" : "text-white/15"} ${isToday ? "text-[#8CFF3D] font-bold" : ""}`}>
+                    <div className="px-1 pt-1 flex items-center justify-between">
+                      <span className={`text-xs font-medium ${isCurrentMonth ? "text-white/60" : "text-white/15"} ${isToday ? "text-[#8CFF3D] font-bold" : ""}`}>
                         {day.date()}
                       </span>
+                      {isCurrentMonth && (
+                        <button
+                          onClick={() => newShowOnDate(key)}
+                          className="w-4 h-4 rounded-full bg-[#8CFF3D]/15 text-[#8CFF3D] flex items-center justify-center text-[10px] font-bold leading-none hover:bg-[#8CFF3D]/30 shrink-0"
+                          title="Add a show on this day"
+                        >
+                          +
+                        </button>
+                      )}
                     </div>
                     {dayShows.slice(0, 2).map((s) => {
                       const color = getShowAccentColor(s);
                       return (
-                        <button key={s.id} onClick={(e) => { e.stopPropagation(); openShow(s.id); }} className="w-full mt-0.5 px-1 pb-0.5">
+                        <button key={s.id} onClick={() => openShow(s.id)} className="w-full mt-0.5 px-1 pb-0.5">
                           <div className="rounded-md px-1 py-0.5 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
                             <p className="text-[9px] font-medium leading-tight truncate" style={{ color }}>
                               {s.band_name}
@@ -262,9 +270,14 @@ export default function CalendarPage() {
                       );
                     })}
                     {dayShows.length > 2 && (
-                      <span className="block w-full px-1 pb-1 text-[8px] text-white/30 text-center">
+                      <button onClick={() => setDayModalKey(key)} className="block w-full px-1 pb-1 text-[8px] text-white/30 text-center hover:text-white/60">
                         +{dayShows.length - 2} more
-                      </span>
+                      </button>
+                    )}
+                    {dayShows.length > 0 && (
+                      <button onClick={() => setDayModalKey(key)} className="block w-full text-[7px] text-white/20 hover:text-white/50 text-center pb-0.5">
+                        view all
+                      </button>
                     )}
                   </div>
                 );
