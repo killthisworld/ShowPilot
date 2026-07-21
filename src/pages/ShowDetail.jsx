@@ -79,6 +79,7 @@ export default function ShowDetail() {
   const [busDraft, setBusDraft] = useState({ IEM: "#EAB308", Monitor: "#F97316" });
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [openNotes, setOpenNotes] = useState({});
+  const [collapsedMembers, setCollapsedMembers] = useState({});
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
@@ -303,6 +304,7 @@ export default function ShowDetail() {
     update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
   };
   const toggleNotesOpen = (key) => setOpenNotes((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleMemberCollapsed = (i) => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }));
 
   const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
   const updateMember = (i, f, v) => {
@@ -840,11 +842,16 @@ export default function ShowDetail() {
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
                     )}
                   </div>
-                  <button onClick={() => removeMember(i)} className="p-1.5 ml-2 shrink-0 text-white/30 hover:text-red-400">
+                  <button onClick={() => toggleMemberCollapsed(i)} className="p-1.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${collapsedMembers[i] ? "" : "rotate-180"}`} />
+                  </button>
+                  <button onClick={() => removeMember(i)} className="p-1.5 ml-1 shrink-0 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
+                {!collapsedMembers[i] && (
+                <>
                 <div className="grid grid-cols-2 gap-2">
                   <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
                   <Input value={m.instrument} onChange={(e) => updateMember(i, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
@@ -892,6 +899,8 @@ export default function ShowDetail() {
                     +48V
                   </button>
                 </div>
+                </>
+                )}
               </div>
             ))}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
