@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Star, ClipboardList, Copy, X, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, ClipboardList, Copy, X, Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
@@ -22,6 +22,7 @@ export default function CalendarPage() {
   const [tmLink, setTmLink] = useState(null);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [dayModalKey, setDayModalKey] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
   const navigate = useNavigate();
 
   const handleTourManagerLink = async () => {
@@ -231,27 +232,19 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={key}
-                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616]" : "bg-transparent"} ${isToday ? "ring-1 ring-[#8CFF3D]/50" : ""}`}
+                    onClick={() => isCurrentMonth && setSelectedDate(key)}
+                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616] cursor-pointer hover:bg-[#1c1c1c]" : "bg-transparent"} ${selectedDate === key ? "ring-2 ring-[#8CFF3D]" : ""}`}
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
-                    <div className="px-1.5 pt-1.5 flex items-center justify-between">
+                    <div className="px-1.5 pt-1.5">
                       <span className={`text-sm font-medium ${isCurrentMonth ? "text-white/60" : "text-white/15"} ${isToday ? "text-[#8CFF3D] font-bold" : ""}`}>
                         {day.date()}
                       </span>
-                      {isCurrentMonth && (
-                        <button
-                          onClick={() => newShowOnDate(key)}
-                          className="w-6 h-6 rounded-full bg-[#8CFF3D]/15 text-[#8CFF3D] flex items-center justify-center text-sm font-bold leading-none hover:bg-[#8CFF3D]/30 shrink-0"
-                          title="Add a show on this day"
-                        >
-                          +
-                        </button>
-                      )}
                     </div>
                     {dayShows.slice(0, 2).map((s) => {
                       const color = getShowAccentColor(s);
                       return (
-                        <button key={s.id} onClick={() => openShow(s.id)} className="w-full mt-1 px-1.5 pb-0.5">
+                        <button key={s.id} onClick={(e) => { e.stopPropagation(); openShow(s.id); }} className="w-full mt-1 px-1.5 pb-0.5">
                           <div className="rounded-md px-1.5 py-1 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
                             <p className="text-[11px] font-medium leading-tight truncate" style={{ color }}>
                               {s.band_name}
@@ -262,12 +255,12 @@ export default function CalendarPage() {
                       );
                     })}
                     {dayShows.length > 2 && (
-                      <button onClick={() => setDayModalKey(key)} className="block w-full px-1.5 pb-1 text-[10px] text-white/30 text-center hover:text-white/60">
+                      <button onClick={(e) => { e.stopPropagation(); setDayModalKey(key); }} className="block w-full px-1.5 pb-1 text-[10px] text-white/30 text-center hover:text-white/60">
                         +{dayShows.length - 2} more
                       </button>
                     )}
                     {dayShows.length > 0 && (
-                      <button onClick={() => setDayModalKey(key)} className="block w-full text-[9px] text-white/20 hover:text-white/50 text-center pb-1">
+                      <button onClick={(e) => { e.stopPropagation(); setDayModalKey(key); }} className="block w-full text-[9px] text-white/20 hover:text-white/50 text-center pb-1">
                         view all
                       </button>
                     )}
@@ -285,6 +278,16 @@ export default function CalendarPage() {
           {generatingLink ? "Generating..." : "Create import link"}
         </Button>
       </div>
+
+      {/* Single global add button — creates a show prefilled with the selected
+          day, if any, otherwise blank. Positioned above the Experience tab. */}
+      <button
+        onClick={() => newShowOnDate(selectedDate)}
+        className="fixed bottom-20 right-5 z-40 w-14 h-14 rounded-full bg-[#8CFF3D] text-black shadow-lg flex items-center justify-center hover:bg-[#7ae62e] transition-colors"
+        title="Add a show"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       <BottomTabs />
     </div>
