@@ -69,3 +69,14 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* Prevents mobile browsers (especially iOS Safari) from auto-zooming the whole
+   page whenever a text input is focused. Zoom triggers automatically when a
+   focused input's font is smaller than 16px — this applies to every input,
+   textarea, and select across the entire app at once, so the page stays put
+   no matter which field someone is filling in. */
+@media screen and (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}

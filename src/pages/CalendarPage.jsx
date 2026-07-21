@@ -202,10 +202,10 @@ export default function CalendarPage() {
 
         {/* Legend */}
         <div className="flex items-center gap-3 px-4 pb-3 max-w-lg mx-auto text-[10px] text-white/40 flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#555]" />New</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Frequent</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#8CFF3D]" />Worked</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Starred</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Frequent</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#555]" />Never Worked</span>
         </div>
       </div>
 
@@ -232,7 +232,15 @@ export default function CalendarPage() {
                 return (
                   <div
                     key={key}
-                    onClick={() => isCurrentMonth && setSelectedDate(key)}
+                    onClick={() => {
+                      if (!isCurrentMonth) return;
+                      if (selectedDate === key) {
+                        if (hasShows) setDayModalKey(key);
+                        else newShowOnDate(key);
+                      } else {
+                        setSelectedDate(key);
+                      }
+                    }}
                     className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616] cursor-pointer hover:bg-[#1c1c1c]" : "bg-transparent"} ${selectedDate === key ? "ring-2 ring-[#8CFF3D]" : ""}`}
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
