@@ -322,7 +322,7 @@ export default function ShowDetail() {
 
   const applyBusType = (memberIdx, type) => {
     const m = [...(activeBand.band_members || [])];
-    m[memberIdx] = { ...m[memberIdx], bus_type: type, bus_color: iemMonitorColors[type] };
+    m[memberIdx] = { ...m[memberIdx], bus_type: type };
     updateBandField("band_members", m);
   };
 
@@ -825,18 +825,18 @@ export default function ShowDetail() {
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                    {m.bus_color && <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: m.bus_color }} />}
+                    {m.bus_type && <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: iemMonitorColors[m.bus_type] }} />}
                     <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
                     <span className="text-white/30 text-sm">→</span>
                     <span className="text-white/60 text-sm">{m.instrument || <span className="text-white/25 italic">Role</span>}</span>
                     {m.bus_type && (
                       <>
                         <span className="text-white/30 text-sm">→</span>
-                        <span className="text-sm font-bold" style={{ color: m.bus_color }}>{m.bus_type}</span>
+                        <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
                     )}
                     {m.channels_needed && (
-                      <span className="text-white/40 text-xs">· {m.channels_needed} ch</span>
+                      <span className="text-white/40 text-xs">· {m.channels_needed} ch(s)</span>
                     )}
                     {m.phantom_power && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
