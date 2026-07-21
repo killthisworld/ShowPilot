@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Users, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Users, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
+import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -30,13 +31,13 @@ export default function ShowDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { preferences } = usePreferences();
+  const { preferences, reload: reloadPreferences } = usePreferences();
   const isNew = id === "new";
 
   const backTo = location.state?.from === "calendar" ? "/calendar" : "/";
 
   const emptyShow = {
-    venue: "", date: "", location: "", event_time: "",
+    venue: "", date: location.state?.prefillDate || "", location: "", event_time: "",
     wifi_network: "", wifi_password: "", console: "",
     status: "not_started", starred: false, contacts: [],
     power_notes: "", share_token: "",
@@ -51,6 +52,11 @@ export default function ShowDetail() {
   const [tmCopied, setTmCopied] = useState(false);
   const [savedToast, setSavedToast] = useState("");
   const [selectedArtistFx, setSelectedArtistFx] = useState("__general__");
+  const [showGenreSettings, setShowGenreSettings] = useState(false);
+  const [showBusSettings, setShowBusSettings] = useState(false);
+  const [genreDraft, setGenreDraft] = useState([]);
+  const [busDraft, setBusDraft] = useState({ IEM: "#EAB308", Monitor: "#F97316" });
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
@@ -310,6 +316,59 @@ export default function ShowDetail() {
     updateBandField("artist_fx_notes", existing);
   };
 
+  const openGenreSettings = () => {
+    setGenreDraft(preferences?.genre_tags ? [...preferences.genre_tags] : []);
+    setShowGenreSettings(true);
+  };
+  const addGenreDraftTag = () => setGenreDraft((d) => [...d, { name: "", color: "#8CFF3D" }]);
+  const updateGenreDraftTag = (i, field, val) => setGenreDraft((d) => { const next = [...d]; next[i] = { ...next[i], [field]: val }; return next; });
+  const removeGenreDraftTag = (i) => setGenreDraft((d) => d.filter((_, idx) => idx !== i));
+  const saveGenreSettings = async () => {
+    setSavingPrefs(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({ user_id: user.id, genre_tags: genreDraft }, { onConflict: "user_id" });
+      if (error) throw error;
+      await reloadPreferences();
+      setShowGenreSettings(false);
+    } catch (e) {
+      console.error(e);
+      showPill("Error saving genres");
+    }
+    setSavingPrefs(false);
+  };
+
+  const openBusSettings = () => {
+    setBusDraft({ ...iemMonitorColors });
+    setShowBusSettings(true);
+  };
+  const saveBusSettings = async () => {
+    setSavingPrefs(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({
+          user_id: user.id,
+          mix_bus_presets: [
+            { bus_type: "IEM", color: busDraft.IEM },
+            { bus_type: "Monitor", color: busDraft.Monitor },
+          ],
+        }, { onConflict: "user_id" });
+      if (error) throw error;
+      await reloadPreferences();
+      setShowBusSettings(false);
+    } catch (e) {
+      console.error(e);
+      showPill("Error saving colors");
+    }
+    setSavingPrefs(false);
+  };
+
   const handleTourManagerLink = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -389,6 +448,79 @@ export default function ShowDetail() {
       <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-sm font-semibold px-4 py-2 rounded-full shadow-lg transition-all duration-1000 ${tmCopied ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
         Tour Manager link copied!
       </div>
+
+      {showGenreSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowGenreSettings(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-base">Genre Colors</h3>
+              <button onClick={() => setShowGenreSettings(false)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 mb-3">
+              {genreDraft.map((tag, i) => (
+                <div key={i} className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
+                  <ColorPicker value={tag.color} onChange={(c) => updateGenreDraftTag(i, "color", c)} label="" />
+                  <Input
+                    value={tag.name}
+                    onChange={(e) => updateGenreDraftTag(i, "name", e.target.value)}
+                    placeholder="Genre name"
+                    className="flex-1 h-8 bg-transparent border-0 text-white text-sm"
+                  />
+                  <button onClick={() => removeGenreDraftTag(i)} className="p-1 text-white/30 hover:text-red-400">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {genreDraft.length === 0 && (
+                <p className="text-xs text-white/30 text-center py-3">No genre tags yet</p>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={addGenreDraftTag} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full mb-3">
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Genre
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowGenreSettings(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Back
+              </Button>
+              <Button onClick={saveGenreSettings} disabled={savingPrefs} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                {savingPrefs ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBusSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowBusSettings(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-base">Mix Bus Colors</h3>
+              <button onClick={() => setShowBusSettings(false)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-white/40 mb-3">Channel numbers are tracked on your console — just pick a color for each type here.</p>
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
+                <ColorPicker value={busDraft.IEM} onChange={(c) => setBusDraft((d) => ({ ...d, IEM: c }))} label="IEM" />
+              </div>
+              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
+                <ColorPicker value={busDraft.Monitor} onChange={(c) => setBusDraft((d) => ({ ...d, Monitor: c }))} label="Monitor" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowBusSettings(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Back
+              </Button>
+              <Button onClick={saveBusSettings} disabled={savingPrefs} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                {savingPrefs ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
@@ -477,7 +609,12 @@ export default function ShowDetail() {
             />
           </div>
           <div>
-            <Label className="text-white/50 text-xs mb-2 block">Genre / Tag</Label>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-white/50 text-xs">Genre / Tag</Label>
+              <button onClick={openGenreSettings} className="text-white/30 hover:text-[#8CFF3D] p-1 -m-1">
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
               {genreTags.map((tag) => {
                 const selectedTags = activeBand.genre_tags || (activeBand.genre_tag ? [activeBand.genre_tag] : []);
@@ -612,19 +749,25 @@ export default function ShowDetail() {
                   <Input value={m.instrument} onChange={(e) => updateMember(i, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
                 </div>
 
-                <div className="flex gap-2">
-                  {["IEM", "Monitor"].map((type) => {
+                <div className="flex items-center gap-2">
+                  {["IEM", "Monitor"].map((type, ti) => {
                     const color = iemMonitorColors[type];
                     const active = m.bus_type === type;
                     return (
-                      <button
-                        key={type}
-                        onClick={() => applyBusType(i, type)}
-                        className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-white/40" : "border-transparent opacity-60 hover:opacity-100"}`}
-                        style={{ backgroundColor: color + "22", color }}
-                      >
-                        {type}
-                      </button>
+                      <React.Fragment key={type}>
+                        <button
+                          onClick={() => applyBusType(i, type)}
+                          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-white/40" : "border-transparent opacity-60 hover:opacity-100"}`}
+                          style={{ backgroundColor: color + "22", color }}
+                        >
+                          {type}
+                        </button>
+                        {ti === 0 && (
+                          <button onClick={openBusSettings} className="text-white/30 hover:text-[#8CFF3D] p-1.5 shrink-0">
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </div>
