@@ -12,6 +12,16 @@ import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import { usePreferences } from "@/hooks/usePreferences";
 
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
+  "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi",
+  "Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico",
+  "New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia",
+];
+
 const VENUE_CHECKLIST_ITEMS = [
   { key: "wifi", label: "WiFi" },
   { key: "console", label: "Console" },
@@ -277,6 +287,10 @@ export default function ShowDetail() {
   const addContact = () => update("contacts", [...(show.contacts || []), { name: "", role: "", phone: "", email: "" }]);
   const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
+
+  const [cityPart, statePart] = (show.location || "").split(",").map((s) => s.trim());
+  const updateCity = (val) => update("location", [val, statePart].filter(Boolean).join(", "));
+  const updateState = (val) => update("location", [cityPart, val].filter(Boolean).join(", "));
 
   const toggleChecklistItem = (key) => {
     const current = show.venue_checklist || {};
@@ -660,7 +674,7 @@ export default function ShowDetail() {
           </div>
         </div>
 
-        <CollapsibleSection title="Venue Info" icon={Info} defaultOpen={true}>
+        <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
             <div>
               <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
@@ -690,47 +704,69 @@ export default function ShowDetail() {
               <Label className="text-white/50 text-xs">Venue</Label>
               <Input value={show.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
             </div>
-            <div>
-              <Label className="text-white/50 text-xs">Location</Label>
-              <Input value={show.location} onChange={(e) => update("location", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City, State" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-white/50 text-xs">City</Label>
+                <Input value={cityPart || ""} onChange={(e) => updateCity(e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">State</Label>
+                <Select value={statePart || ""} onValueChange={updateState}>
+                  <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64">
+                    {US_STATES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-1.5 pt-1">
-              {VENUE_CHECKLIST_ITEMS.map((item) => {
-                const checked = !!show.venue_checklist?.[item.key]?.checked;
-                return (
-                  <div key={item.key} className="rounded-xl overflow-hidden border border-[#222]">
-                    <button
-                      onClick={() => toggleChecklistItem(item.key)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-all ${checked ? "bg-[#8CFF3D]/10" : "bg-[#111] hover:bg-[#161616]"}`}
-                    >
-                      <span className={`text-sm font-medium ${checked ? "text-[#8CFF3D]" : "text-white/60"}`}>{item.label}</span>
-                      <span className={`w-4 h-4 rounded flex items-center justify-center border ${checked ? "bg-[#8CFF3D] border-[#8CFF3D]" : "border-white/20"}`}>
-                        {checked && <span className="text-black text-[10px] font-bold leading-none">✓</span>}
-                      </span>
-                    </button>
-                    {checked && (
-                      <div className="p-3 bg-[#0d0d0d] space-y-2">
-                        {item.key === "wifi" ? (
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
-                            <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
-                          </div>
-                        ) : item.key === "console" ? (
-                          <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
-                        ) : (
-                          <Textarea
-                            value={show.venue_checklist?.[item.key]?.notes || ""}
-                            onChange={(e) => updateChecklistNote(item.key, e.target.value)}
-                            placeholder={`${item.label} details...`}
-                            className="bg-[#111] border-[#222] text-white text-sm min-h-[60px]"
-                          />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="pt-1">
+              <Label className="text-white/50 text-xs mb-1.5 block">Venue Provides</Label>
+              <div className="space-y-1">
+                {VENUE_CHECKLIST_ITEMS.map((item) => {
+                  const checked = !!show.venue_checklist?.[item.key]?.checked;
+                  return (
+                    <div key={item.key} className="rounded-lg overflow-hidden border border-[#222]">
+                      <button
+                        onClick={() => toggleChecklistItem(item.key)}
+                        className="relative w-full h-8 text-left overflow-hidden bg-[#111]"
+                      >
+                        <div
+                          className="absolute inset-y-0 left-0 bg-[#8CFF3D]/20 transition-all duration-500 ease-out"
+                          style={{ width: checked ? "100%" : "0%" }}
+                        />
+                        <div className="relative z-10 h-full flex items-center justify-between px-2.5">
+                          <span className={`text-xs font-medium ${checked ? "text-[#8CFF3D]" : "text-white/50"}`}>{item.label}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${checked ? "rotate-180 text-[#8CFF3D]" : "text-white/30"}`} />
+                        </div>
+                      </button>
+                      {checked && (
+                        <div className="p-2.5 bg-[#0d0d0d] space-y-2">
+                          {item.key === "wifi" ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                              <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                            </div>
+                          ) : item.key === "console" ? (
+                            <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
+                          ) : (
+                            <Textarea
+                              value={show.venue_checklist?.[item.key]?.notes || ""}
+                              onChange={(e) => updateChecklistNote(item.key, e.target.value)}
+                              placeholder={`${item.label} details...`}
+                              className="bg-[#111] border-[#222] text-white text-xs min-h-[50px]"
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </CollapsibleSection>
