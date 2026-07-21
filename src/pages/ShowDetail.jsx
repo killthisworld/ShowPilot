@@ -728,23 +728,25 @@ export default function ShowDetail() {
 
             <div className="pt-1">
               <Label className="text-white/50 text-xs mb-2 block">Venue Provides</Label>
-              <div className="flex gap-2.5 overflow-x-auto pb-1 px-1">
+              <div className="flex gap-1">
                 {VENUE_CHECKLIST_ITEMS.map((item) => {
                   const checked = !!show.venue_checklist?.[item.key]?.checked;
                   const notesOpen = !!openNotes[item.key];
                   return (
-                    <div key={item.key} className="flex flex-col items-center gap-1.5 w-12 shrink-0">
-                      <span className="text-[8px] text-white/40 text-center leading-tight h-6 flex items-center justify-center">{item.label}</span>
+                    <div key={item.key} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+                      <span className={`text-[9px] font-semibold text-center leading-tight h-7 flex items-center justify-center transition-colors ${checked ? "text-[#8CFF3D]" : "text-white/40"}`}>
+                        {item.label}
+                      </span>
                       <button
                         onClick={() => toggleChecklistItem(item.key)}
-                        className="relative w-4 h-20 rounded-full bg-[#111] border border-[#2a2a2a] overflow-visible"
+                        className="relative w-3 h-16 rounded-full bg-[#111] border border-[#2a2a2a] overflow-visible"
                       >
                         <div
                           className="absolute bottom-0 left-0 right-0 rounded-full bg-[#8CFF3D]/25 transition-all duration-500 ease-out"
                           style={{ height: checked ? "100%" : "4%" }}
                         />
                         <div
-                          className="absolute left-1/2 -translate-x-1/2 w-6 h-2.5 rounded-sm border transition-all duration-500 ease-out"
+                          className="absolute left-1/2 -translate-x-1/2 w-5 h-2.5 rounded-sm border transition-all duration-500 ease-out"
                           style={{
                             bottom: checked ? "calc(100% - 10px)" : "2px",
                             backgroundColor: checked ? "#8CFF3D" : "#3a3a3a",
@@ -754,9 +756,9 @@ export default function ShowDetail() {
                       </button>
                       <button
                         onClick={() => toggleNotesOpen(item.key)}
-                        className={`w-6 h-5 rounded flex items-center justify-center transition-colors ${notesOpen ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "bg-white/5 text-white/30 hover:text-white/50"}`}
+                        className={`w-5 h-4 rounded flex items-center justify-center transition-colors ${notesOpen ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "bg-white/5 text-white/30 hover:text-white/50"}`}
                       >
-                        <ChevronDown className={`w-3 h-3 transition-transform ${notesOpen ? "rotate-180" : ""}`} />
+                        <ChevronDown className={`w-2.5 h-2.5 transition-transform ${notesOpen ? "rotate-180" : ""}`} />
                       </button>
                     </div>
                   );
