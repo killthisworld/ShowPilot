@@ -6,11 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Users, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import { usePreferences } from "@/hooks/usePreferences";
+
+const VENUE_CHECKLIST_ITEMS = [
+  { key: "wifi", label: "WiFi" },
+  { key: "console", label: "Console" },
+  { key: "mics", label: "Mics" },
+  { key: "di_boxes", label: "DI Boxes" },
+  { key: "xlrs", label: "XLR's" },
+  { key: "pa_house_monitors", label: "PA/House Monitors" },
+  { key: "sub", label: "Sub" },
+  { key: "onstage_monitors", label: "On-Stage Monitors" },
+];
 
 const emptyBand = (isHeadliner, sortOrder) => ({
   is_headliner: isHeadliner,
@@ -40,7 +51,7 @@ export default function ShowDetail() {
     venue: "", date: location.state?.prefillDate || "", location: "", event_time: "",
     wifi_network: "", wifi_password: "", console: "",
     status: "not_started", starred: false, contacts: [],
-    power_notes: "", share_token: "",
+    power_notes: "", share_token: "", venue_checklist: {},
   };
 
   const [show, setShow] = useState(emptyShow);
@@ -152,6 +163,7 @@ export default function ShowDetail() {
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
+        venue_checklist: show.venue_checklist,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
         stage_plot_url: headliner.stage_plot_url, stage_plot_files: headliner.stage_plot_files,
@@ -265,6 +277,16 @@ export default function ShowDetail() {
   const addContact = () => update("contacts", [...(show.contacts || []), { name: "", role: "", phone: "", email: "" }]);
   const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
+
+  const toggleChecklistItem = (key) => {
+    const current = show.venue_checklist || {};
+    const wasChecked = !!current[key]?.checked;
+    update("venue_checklist", { ...current, [key]: { ...current[key], checked: !wasChecked } });
+  };
+  const updateChecklistNote = (key, notes) => {
+    const current = show.venue_checklist || {};
+    update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
+  };
 
   const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
   const updateMember = (i, f, v) => {
@@ -598,6 +620,10 @@ export default function ShowDetail() {
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
           <div>
+            <Label className="text-white/50 text-xs">Date *</Label>
+            <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
+          </div>
+          <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
             <Input
               type="number"
@@ -634,12 +660,32 @@ export default function ShowDetail() {
           </div>
         </div>
 
-        <CollapsibleSection title="Header Info" icon={Info} defaultOpen={true}>
-          <div className="space-y-3 pt-3">
+        <CollapsibleSection title="Venue Info" icon={Info} defaultOpen={true}>
+          <div className="space-y-4 pt-3">
             <div>
-              <Label className="text-white/50 text-xs">Date *</Label>
-              <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
+              <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
+              <div className="space-y-2">
+                {(show.contacts || []).map((c, i) => (
+                  <div key={i} className="bg-[#111] rounded-xl p-3">
+                    <div className="flex justify-between items-start">
+                      <div className="grid grid-cols-2 gap-2 flex-1">
+                        <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                      </div>
+                      <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <Button variant="ghost" size="sm" onClick={addContact} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Contact
+                </Button>
+              </div>
             </div>
+
             <div>
               <Label className="text-white/50 text-xs">Venue</Label>
               <Input value={show.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
@@ -648,43 +694,44 @@ export default function ShowDetail() {
               <Label className="text-white/50 text-xs">Location</Label>
               <Input value={show.location} onChange={(e) => update("location", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City, State" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-white/50 text-xs">WiFi Network</Label>
-                <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">WiFi Password</Label>
-                <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-white/50 text-xs">Console</Label>
-              <Input value={show.console} onChange={(e) => update("console", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Yamaha CL5" />
-            </div>
-          </div>
-        </CollapsibleSection>
 
-        <CollapsibleSection title="Contacts" icon={Users} badge={show.contacts?.length || 0}>
-          <div className="space-y-3 pt-3">
-            {(show.contacts || []).map((c, i) => (
-              <div key={i} className="bg-[#111] rounded-xl p-3">
-                <div className="flex justify-between items-start">
-                  <div className="grid grid-cols-2 gap-2 flex-1">
-                    <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+            <div className="space-y-1.5 pt-1">
+              {VENUE_CHECKLIST_ITEMS.map((item) => {
+                const checked = !!show.venue_checklist?.[item.key]?.checked;
+                return (
+                  <div key={item.key} className="rounded-xl overflow-hidden border border-[#222]">
+                    <button
+                      onClick={() => toggleChecklistItem(item.key)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition-all ${checked ? "bg-[#8CFF3D]/10" : "bg-[#111] hover:bg-[#161616]"}`}
+                    >
+                      <span className={`text-sm font-medium ${checked ? "text-[#8CFF3D]" : "text-white/60"}`}>{item.label}</span>
+                      <span className={`w-4 h-4 rounded flex items-center justify-center border ${checked ? "bg-[#8CFF3D] border-[#8CFF3D]" : "border-white/20"}`}>
+                        {checked && <span className="text-black text-[10px] font-bold leading-none">✓</span>}
+                      </span>
+                    </button>
+                    {checked && (
+                      <div className="p-3 bg-[#0d0d0d] space-y-2">
+                        {item.key === "wifi" ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
+                            <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
+                          </div>
+                        ) : item.key === "console" ? (
+                          <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-8 bg-[#111] border-[#222] text-white text-sm" />
+                        ) : (
+                          <Textarea
+                            value={show.venue_checklist?.[item.key]?.notes || ""}
+                            onChange={(e) => updateChecklistNote(item.key, e.target.value)}
+                            placeholder={`${item.label} details...`}
+                            className="bg-[#111] border-[#222] text-white text-sm min-h-[60px]"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={addContact} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Contact
-            </Button>
+                );
+              })}
+            </div>
           </div>
         </CollapsibleSection>
 
