@@ -237,7 +237,7 @@ export default function CalendarPage() {
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
                     <div className="px-1.5 pt-1.5">
-                      <span className={`text-sm font-medium ${isCurrentMonth ? "text-white/60" : "text-white/15"} ${isToday ? "text-[#8CFF3D] font-bold" : ""}`}>
+                      <span className={`text-sm font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`}>
                         {day.date()}
                       </span>
                     </div>
