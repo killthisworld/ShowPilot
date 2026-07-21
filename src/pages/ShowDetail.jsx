@@ -78,7 +78,7 @@ export default function ShowDetail() {
   const [genreDraft, setGenreDraft] = useState([]);
   const [busDraft, setBusDraft] = useState({ IEM: "#EAB308", Monitor: "#F97316" });
   const [savingPrefs, setSavingPrefs] = useState(false);
-  const [openNotes, setOpenNotes] = useState({});
+  const [openNotesKey, setOpenNotesKey] = useState(null);
   const [collapsedMembers, setCollapsedMembers] = useState({});
 
   const activeBand = bands[activeBandIndex] || bands[0];
@@ -303,7 +303,7 @@ export default function ShowDetail() {
     const current = show.venue_checklist || {};
     update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
   };
-  const toggleNotesOpen = (key) => setOpenNotes((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleNotesOpen = (key) => setOpenNotesKey((prev) => (prev === key ? null : key));
   const toggleMemberCollapsed = (i) => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }));
 
   const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
@@ -733,7 +733,7 @@ export default function ShowDetail() {
               <div className="flex gap-1">
                 {VENUE_CHECKLIST_ITEMS.map((item) => {
                   const checked = !!show.venue_checklist?.[item.key]?.checked;
-                  const notesOpen = !!openNotes[item.key];
+                  const notesOpen = openNotesKey === item.key;
                   return (
                     <div key={item.key} className="flex flex-col items-center gap-1 flex-1 min-w-0">
                       <span className={`text-[9px] font-semibold text-center leading-tight h-7 flex items-center justify-center transition-colors ${checked ? "text-[#8CFF3D]" : "text-white/40"}`}>
@@ -767,7 +767,7 @@ export default function ShowDetail() {
                 })}
               </div>
 
-              {VENUE_CHECKLIST_ITEMS.filter((item) => openNotes[item.key]).map((item) => (
+              {VENUE_CHECKLIST_ITEMS.filter((item) => openNotesKey === item.key).map((item) => (
                 <div key={item.key} className="mt-2 p-2.5 bg-[#0d0d0d] border border-[#222] rounded-lg space-y-2">
                   <Label className="text-white/40 text-[10px] uppercase tracking-wide">{item.label}</Label>
                   {item.key === "wifi" ? (
@@ -835,7 +835,7 @@ export default function ShowDetail() {
                         <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
                     )}
-                    {m.channels_needed && (
+                    {!!m.channels_needed && (
                       <span className="text-white/40 text-xs">· {m.channels_needed} ch(s)</span>
                     )}
                     {m.phantom_power && (
