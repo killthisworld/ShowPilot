@@ -80,3 +80,14 @@
     font-size: 16px !important;
   }
 }
+
+/* Slightly compacts the whole app on mobile — most spacing (padding, gaps,
+   margins) is Tailwind's rem-based scale, which is relative to this root
+   font-size. Scaling it down a touch shrinks everything proportionally in
+   one place, rather than needing to hand-edit spacing in every file.
+   Easy to tune: raise toward 100% for less shrink, lower for more. */
+@media screen and (max-width: 768px) {
+  html {
+    font-size: 93.75%; /* 15px base instead of the default 16px */
+  }
+}
