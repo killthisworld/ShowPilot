@@ -62,7 +62,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("profile-photos")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 

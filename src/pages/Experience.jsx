@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Copy, Check, Star, LogOut, Users, Trash2 } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Copy, Check, Star, LogOut, Users, Trash2, RotateCw } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -28,6 +28,9 @@ export default function Cockpit() {
   const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [savedToast, setSavedToast] = useState("");
+  const [showBack, setShowBack] = useState(false);
+  const photoInputRef = useRef(null);
+  const bgInputRef = useRef(null);
 
   const showPill = (msg) => {
     setSavedToast(msg);
@@ -84,7 +87,7 @@ export default function Cockpit() {
     if (!file || !user) return;
     try {
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("profile-photos").upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from("profile-photos").upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
       update("profile_photo_url", urlData.publicUrl);
@@ -99,7 +102,7 @@ export default function Cockpit() {
     if (!file || !user) return;
     try {
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("card-backgrounds").upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from("card-backgrounds").upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from("card-backgrounds").getPublicUrl(filePath);
       update("card_bg_image_url", urlData.publicUrl);
@@ -202,50 +205,71 @@ export default function Cockpit() {
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-4">
         {activeTab === "pilot" && (
           <>
-            {/* Live card preview */}
-            <div
-              className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
-              style={{
-                backgroundColor: draft.card_bg_color || "#111111",
-                backgroundImage: draft.card_bg_image_url ? `url(${draft.card_bg_image_url})` : undefined,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-              <div className="relative z-10 flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: textColor }}>
-                  {draft.profile_photo_url ? (
-                    <img src={draft.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-6 h-6" style={{ color: textColor }} />
-                  )}
+            {/* Live card preview — press the background to change it, press the
+                photo to change that specifically, and flip to see the back */}
+            {showBack ? (
+              <div className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] bg-black flex items-center justify-center">
+                <p className="text-white/30 text-sm">Soundwave coming soon ✈️</p>
+              </div>
+            ) : (
+              <div
+                onClick={() => bgInputRef.current?.click()}
+                className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6 cursor-pointer"
+                style={{
+                  backgroundColor: draft.card_bg_color || "#111111",
+                  backgroundImage: draft.card_bg_image_url ? `url(${draft.card_bg_image_url})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="relative z-10 flex items-center gap-3 mb-3">
+                  <div
+                    onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click(); }}
+                    className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
+                    style={{ borderColor: textColor }}
+                  >
+                    {draft.profile_photo_url ? (
+                      <img src={draft.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6" style={{ color: textColor }} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-lg truncate" style={{ color: textColor }}>{draft.display_name || "Your Name"}</p>
+                    {draft.job_title && (
+                      <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: textColor }}>
+                        <Briefcase className="w-3 h-3 shrink-0" /> {draft.job_title}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-lg truncate" style={{ color: textColor }}>{draft.display_name || "Your Name"}</p>
-                  {draft.job_title && (
-                    <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: textColor }}>
-                      <Briefcase className="w-3 h-3 shrink-0" /> {draft.job_title}
+                <div className="relative z-10 space-y-1">
+                  {draft.contact_email && (
+                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
+                      <Mail className="w-3 h-3 shrink-0" /> {draft.contact_email}
+                    </p>
+                  )}
+                  {draft.contact_phone && (
+                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
+                      <Phone className="w-3 h-3 shrink-0" /> {draft.contact_phone}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="relative z-10 space-y-1">
-                {draft.contact_email && (
-                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                    <Mail className="w-3 h-3 shrink-0" /> {draft.contact_email}
-                  </p>
-                )}
-                {draft.contact_phone && (
-                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                    <Phone className="w-3 h-3 shrink-0" /> {draft.contact_phone}
-                  </p>
-                )}
-              </div>
-            </div>
+            )}
+            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+            <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={handleBgImageUpload} />
 
-            <Button onClick={handleShareId} variant="outline" className="w-full border-[#2a2a2a] text-white hover:bg-[#161616]">
-              {shareCopied ? <Check className="w-4 h-4 mr-2 text-[#8CFF3D]" /> : <Copy className="w-4 h-4 mr-2" />}
+            <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full border-[#2a2a2a] text-white/60 hover:bg-[#161616]">
+              <RotateCw className="w-3.5 h-3.5 mr-2" /> Flip Card
+            </Button>
+
+            <Button
+              onClick={handleShareId}
+              className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#2a2a2a] text-white hover:bg-[#161616]"}`}
+            >
+              {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
               {shareCopied ? "Link Copied!" : "Share ID"}
             </Button>
 
@@ -282,17 +306,6 @@ export default function Cockpit() {
               </div>
               <div className="flex items-center gap-2">
                 <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
-              </div>
-              <div>
-                <label className="text-sm text-[#8CFF3D] cursor-pointer hover:underline">
-                  {draft.card_bg_image_url ? "Change background image" : "Upload background image"}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleBgImageUpload} />
-                </label>
-                {draft.card_bg_image_url && (
-                  <button onClick={() => update("card_bg_image_url", "")} className="ml-3 text-xs text-red-400 hover:underline">
-                    Remove image
-                  </button>
-                )}
               </div>
               <div className="flex items-center gap-2">
                 <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
