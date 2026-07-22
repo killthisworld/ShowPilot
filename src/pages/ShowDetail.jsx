@@ -543,23 +543,11 @@ export default function ShowDetail() {
             </div>
             <p className="text-xs text-white/40 mb-3">Channel numbers are tracked on your console — just pick a color for each type here.</p>
             <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3">
-                <input
-                  type="color"
-                  value={busDraft.IEM}
-                  onChange={(e) => setBusDraft((d) => ({ ...d, IEM: e.target.value }))}
-                  className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
-                />
-                <span className="text-sm text-white/70 font-medium">IEM</span>
+              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
+                <ColorPicker value={busDraft.IEM} onChange={(c) => setBusDraft((d) => ({ ...d, IEM: c }))} label="IEM" />
               </div>
-              <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3">
-                <input
-                  type="color"
-                  value={busDraft.Monitor}
-                  onChange={(e) => setBusDraft((d) => ({ ...d, Monitor: e.target.value }))}
-                  className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
-                />
-                <span className="text-sm text-white/70 font-medium">Monitor</span>
+              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
+                <ColorPicker value={busDraft.Monitor} onChange={(c) => setBusDraft((d) => ({ ...d, Monitor: c }))} label="Monitor" />
               </div>
             </div>
             <div className="flex gap-2">
