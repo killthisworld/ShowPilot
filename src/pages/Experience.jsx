@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Copy, Check, Star, LogOut, Users, Trash2, RotateCw } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2 } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
+import Soundwave from "@/components/showpilot/Soundwave";
 import { usePreferences } from "@/hooks/usePreferences";
+
+const SOUNDWAVE_TEMPLATES = {
+  black: { bg: "#000000", wave: "#FFFFFF", label: "Black / White" },
+  white: { bg: "#FFFFFF", wave: "#000000", label: "White / Black" },
+  green: { bg: "#8CFF3D", wave: "#000000", label: "Green / Black" },
+};
 
 const TABS = [
   { id: "pilot", label: "My Pilot" },
@@ -18,6 +26,7 @@ const TABS = [
 
 export default function Cockpit() {
   const { preferences, reload } = usePreferences();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("pilot");
   const [draft, setDraft] = useState(null);
   const [user, setUser] = useState(null);
@@ -112,9 +121,17 @@ export default function Cockpit() {
     }
   };
 
-  const handleShareId = () => {
+  const handleShareId = async () => {
     if (!draft?.card_share_token) return;
     const url = `${window.location.origin}/pilot/${draft.card_share_token}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${draft.display_name || "My"} Pilot ID`, url });
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
     navigator.clipboard.writeText(url).catch(() => {});
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 1500);
@@ -205,11 +222,17 @@ export default function Cockpit() {
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-4">
         {activeTab === "pilot" && (
           <>
-            {/* Live card preview — press the background to change it, press the
-                photo to change that specifically, and flip to see the back */}
             {showBack ? (
-              <div className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] bg-black flex items-center justify-center">
-                <p className="text-white/30 text-sm">Soundwave coming soon ✈️</p>
+              <div
+                onClick={() => draft.card_share_token && navigate(`/pilot/${draft.card_share_token}/history`)}
+                className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] flex items-center justify-center cursor-pointer p-8"
+                style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[draft.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
+                title="View work history"
+              >
+                <Soundwave
+                  seed={user?.id || "pilot"}
+                  color={(SOUNDWAVE_TEMPLATES[draft.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
+                />
               </div>
             ) : (
               <div
@@ -278,35 +301,53 @@ export default function Cockpit() {
               onClick={handleShareId}
               className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#2a2a2a] text-white hover:bg-[#161616]"}`}
             >
-              {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+              {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
               {shareCopied ? "Link Copied!" : "Share ID"}
             </Button>
 
-            {/* Editor */}
-            <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-              <div>
-                <Label className="text-white/50 text-xs">Display Name</Label>
-                <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+            {showBack ? (
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+                <Label className="text-white/50 text-xs block mb-1">Soundwave Style</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(SOUNDWAVE_TEMPLATES).map(([key, tpl]) => (
+                    <button
+                      key={key}
+                      onClick={() => update("soundwave_template", key)}
+                      className={`rounded-xl border-2 overflow-hidden aspect-[4/3] flex items-center justify-center p-2 transition-all ${draft.soundwave_template === key || (!draft.soundwave_template && key === "black") ? "border-[#8CFF3D]" : "border-[#2a2a2a]"}`}
+                      style={{ backgroundColor: tpl.bg }}
+                    >
+                      <Soundwave seed={user?.id || "pilot"} color={tpl.wave} bars={16} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-white/30 pt-1">Tap the soundwave to view your work history, grouped by state and city.</p>
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Job Title</Label>
-                <Input value={draft.job_title || ""} onChange={(e) => update("job_title", e.target.value)} placeholder="e.g. FOH Engineer" className="mt-1 bg-[#111] border-[#222] text-white" />
+            ) : (
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+                <div>
+                  <Label className="text-white/50 text-xs">Display Name</Label>
+                  <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div>
+                  <Label className="text-white/50 text-xs">Job Title</Label>
+                  <Input value={draft.job_title || ""} onChange={(e) => update("job_title", e.target.value)} placeholder="e.g. FOH Engineer" className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div>
+                  <Label className="text-white/50 text-xs">Contact Email</Label>
+                  <Input value={draft.contact_email || ""} onChange={(e) => update("contact_email", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div>
+                  <Label className="text-white/50 text-xs">Contact Phone</Label>
+                  <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
+                </div>
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Contact Email</Label>
-                <Input value={draft.contact_email || ""} onChange={(e) => update("contact_email", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">Contact Phone</Label>
-                <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div className="flex items-center gap-2">
-                <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
-              </div>
-              <div className="flex items-center gap-2">
-                <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
-              </div>
-            </div>
+            )}
 
             <Button onClick={savePilotCard} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
               {saving ? "Saving..." : "Save Pilot Card"}
