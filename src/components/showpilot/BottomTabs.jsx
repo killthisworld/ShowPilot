@@ -5,7 +5,7 @@ import { Home, CalendarDays, Briefcase } from "lucide-react";
 const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
-  { path: "/experience", label: "Experience", icon: Briefcase },
+  { path: "/experience", label: "Cockpit", icon: Briefcase },
 ];
 
 export default function BottomTabs() {

@@ -17,6 +17,7 @@ import CalendarPage from '@/pages/CalendarPage';
 import Experience from '@/pages/Experience';
 import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
+import PilotCardView from '@/pages/PilotCardView';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -46,6 +47,7 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
+      <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/" element={<Home />} />
         <Route path="/show/:id" element={<ShowDetail />} />
