@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { User, Mail, Phone, Briefcase, Copy, Check, Star, LogOut, Users, Trash2, RotateCw } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
+import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const TABS = [
@@ -31,6 +32,8 @@ export default function Cockpit() {
   const [showBack, setShowBack] = useState(false);
   const photoInputRef = useRef(null);
   const bgInputRef = useRef(null);
+  const [cropFile, setCropFile] = useState(null);
+  const [cropTarget, setCropTarget] = useState(null);
 
   const showPill = (msg) => {
     setSavedToast(msg);
@@ -82,33 +85,30 @@ export default function Cockpit() {
     setSaving(false);
   };
 
-  const handlePhotoUpload = async (e) => {
+  const handleFileSelected = (e, target) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
-    try {
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("profile-photos").upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
-      update("profile_photo_url", urlData.publicUrl);
-    } catch (e) {
-      console.error(e);
-      showPill("Error uploading photo");
-    }
+    if (!file) return;
+    setCropFile(file);
+    setCropTarget(target);
+    e.target.value = "";
   };
 
-  const handleBgImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const handleCropped = async (blob) => {
+    const target = cropTarget;
+    setCropFile(null);
+    setCropTarget(null);
+    if (!user) return;
+    const bucket = target === "photo" ? "profile-photos" : "card-backgrounds";
+    const field = target === "photo" ? "profile_photo_url" : "card_bg_image_url";
     try {
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("card-backgrounds").upload(filePath, file);
+      const filePath = `${user.id}/${Date.now()}_cropped.jpg`;
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, blob, { contentType: "image/jpeg" });
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("card-backgrounds").getPublicUrl(filePath);
-      update("card_bg_image_url", urlData.publicUrl);
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      update(field, urlData.publicUrl);
     } catch (e) {
       console.error(e);
-      showPill("Error uploading background");
+      showPill(target === "photo" ? "Error uploading photo" : "Error uploading background");
     }
   };
 
@@ -223,6 +223,15 @@ export default function Cockpit() {
                 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                {draft.card_bg_image_url && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); update("card_bg_image_url", ""); }}
+                    className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full bg-black/50 text-white/80 hover:text-white hover:bg-black/70 flex items-center justify-center text-xs"
+                    title="Remove background image, use solid color"
+                  >
+                    ✕
+                  </button>
+                )}
                 <div className="relative z-10 flex items-center gap-3 mb-3">
                   <div
                     onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click(); }}
@@ -258,8 +267,8 @@ export default function Cockpit() {
                 </div>
               </div>
             )}
-            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-            <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={handleBgImageUpload} />
+            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
+            <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "background")} />
 
             <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full border-[#2a2a2a] text-white/60 hover:bg-[#161616]">
               <RotateCw className="w-3.5 h-3.5 mr-2" /> Flip Card
@@ -285,7 +294,7 @@ export default function Cockpit() {
                 </div>
                 <label className="text-sm text-[#8CFF3D] cursor-pointer hover:underline">
                   Upload Photo
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
                 </label>
               </div>
               <div>
@@ -409,6 +418,17 @@ export default function Cockpit() {
           </div>
         )}
       </div>
+
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          shape={cropTarget === "photo" ? "circle" : "rect"}
+          aspectW={cropTarget === "photo" ? 1 : 16}
+          aspectH={cropTarget === "photo" ? 1 : 10}
+          onCancel={() => { setCropFile(null); setCropTarget(null); }}
+          onCropped={handleCropped}
+        />
+      )}
 
       <BottomTabs />
     </div>
