@@ -284,19 +284,6 @@ export default function Cockpit() {
 
             {/* Editor */}
             <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2 border-[#333]">
-                  {draft.profile_photo_url ? (
-                    <img src={draft.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-6 h-6 text-white/30" />
-                  )}
-                </div>
-                <label className="text-sm text-[#8CFF3D] cursor-pointer hover:underline">
-                  Upload Photo
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
-                </label>
-              </div>
               <div>
                 <Label className="text-white/50 text-xs">Display Name</Label>
                 <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
