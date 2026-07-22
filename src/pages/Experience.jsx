@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { User, Mail, Phone, Briefcase, Copy, Check, Star, LogOut, Users, Trash2 } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
-import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const TABS = [
@@ -28,7 +27,12 @@ export default function Cockpit() {
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
-  const { toast } = useToast();
+  const [savedToast, setSavedToast] = useState("");
+
+  const showPill = (msg) => {
+    setSavedToast(msg);
+    setTimeout(() => setSavedToast(""), 1000);
+  };
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data?.user || null));
@@ -67,10 +71,10 @@ export default function Cockpit() {
         .upsert({ user_id: user.id, ...rest }, { onConflict: "user_id" });
       if (error) throw error;
       await reload();
-      toast({ title: "Pilot card saved" });
+      showPill("Pilot card saved ✓");
     } catch (e) {
       console.error(e);
-      toast({ title: "Error saving", variant: "destructive" });
+      showPill("Error saving");
     }
     setSaving(false);
   };
@@ -86,7 +90,7 @@ export default function Cockpit() {
       update("profile_photo_url", urlData.publicUrl);
     } catch (e) {
       console.error(e);
-      toast({ title: "Error uploading photo", variant: "destructive" });
+      showPill("Error uploading photo");
     }
   };
 
@@ -101,7 +105,7 @@ export default function Cockpit() {
       update("card_bg_image_url", urlData.publicUrl);
     } catch (e) {
       console.error(e);
-      toast({ title: "Error uploading background", variant: "destructive" });
+      showPill("Error uploading background");
     }
   };
 
@@ -156,10 +160,10 @@ export default function Cockpit() {
       setDraft(updated);
       setRating(0);
       setRatingComment("");
-      toast({ title: "Thanks for your feedback! ⭐" });
+      showPill("Thanks for your feedback! ⭐");
     } catch (e) {
       console.error(e);
-      toast({ title: "Error saving feedback", variant: "destructive" });
+      showPill("Error saving feedback");
     }
     setRatingSubmitting(false);
   };
@@ -176,11 +180,13 @@ export default function Cockpit() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="px-4 py-4 max-w-lg mx-auto">
-          <h1 className="text-lg font-bold text-white">Cockpit</h1>
+      {savedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          {savedToast}
         </div>
-        <div className="flex gap-1 px-4 pb-3 max-w-lg mx-auto">
+      )}
+      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+        <div className="flex gap-1 px-4 pt-4 pb-3 max-w-lg mx-auto">
           {TABS.map((t) => (
             <button
               key={t.id}

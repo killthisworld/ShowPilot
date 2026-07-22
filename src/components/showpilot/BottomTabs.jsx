@@ -1,11 +1,11 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, Briefcase } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff } from "lucide-react";
 
 const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
-  { path: "/experience", label: "Cockpit", icon: Briefcase },
+  { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
 export default function BottomTabs() {
