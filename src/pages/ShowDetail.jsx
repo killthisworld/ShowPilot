@@ -543,11 +543,23 @@ export default function ShowDetail() {
             </div>
             <p className="text-xs text-white/40 mb-3">Channel numbers are tracked on your console — just pick a color for each type here.</p>
             <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
-                <ColorPicker value={busDraft.IEM} onChange={(c) => setBusDraft((d) => ({ ...d, IEM: c }))} label="IEM" />
+              <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3">
+                <input
+                  type="color"
+                  value={busDraft.IEM}
+                  onChange={(e) => setBusDraft((d) => ({ ...d, IEM: e.target.value }))}
+                  className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
+                />
+                <span className="text-sm text-white/70 font-medium">IEM</span>
               </div>
-              <div className="flex items-center gap-2 bg-[#1a1a1a] rounded-xl p-2">
-                <ColorPicker value={busDraft.Monitor} onChange={(c) => setBusDraft((d) => ({ ...d, Monitor: c }))} label="Monitor" />
+              <div className="flex items-center gap-3 bg-[#1a1a1a] rounded-xl p-3">
+                <input
+                  type="color"
+                  value={busDraft.Monitor}
+                  onChange={(e) => setBusDraft((d) => ({ ...d, Monitor: e.target.value }))}
+                  className="w-10 h-10 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
+                />
+                <span className="text-sm text-white/70 font-medium">Monitor</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -825,7 +837,6 @@ export default function ShowDetail() {
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                    {m.bus_type && <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: iemMonitorColors[m.bus_type] }} />}
                     <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
                     <span className="text-white/30 text-sm">→</span>
                     <span className="text-white/60 text-sm">{m.instrument || <span className="text-white/25 italic">Role</span>}</span>
