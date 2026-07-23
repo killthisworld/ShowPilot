@@ -229,10 +229,12 @@ export default function Cockpit() {
                 style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[draft.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
                 title="View work history"
               >
-                <Soundwave
-                  seed={user?.id || "pilot"}
-                  color={(SOUNDWAVE_TEMPLATES[draft.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
-                />
+                <div className="w-2/3 max-w-[220px] h-14">
+                  <Soundwave
+                    seed={user?.id || "pilot"}
+                    color={(SOUNDWAVE_TEMPLATES[draft.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
+                  />
+                </div>
               </div>
             ) : (
               <div

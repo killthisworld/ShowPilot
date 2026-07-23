@@ -88,7 +88,9 @@ export default function PilotCardView() {
           style={{ backgroundColor: template.bg }}
           title="View work history"
         >
-          <Soundwave seed={card.user_id || "pilot"} color={template.wave} />
+          <div className="w-2/3 max-w-[220px] h-14">
+            <Soundwave seed={card.user_id || "pilot"} color={template.wave} />
+          </div>
         </div>
       ) : (
         <div

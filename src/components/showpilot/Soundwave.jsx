@@ -20,22 +20,22 @@ function generateWaveform(seed, bars) {
   return Array.from({ length: bars }, () => 0.15 + rand() * 0.85);
 }
 
-export default function Soundwave({ seed, color = "#FFFFFF", bars = 48, height = 60 }) {
+export default function Soundwave({ seed, color = "#FFFFFF", bars = 64, height = 40 }) {
   const heights = generateWaveform(seed, bars);
   const barWidth = 100 / bars;
 
   return (
-    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="w-full h-full">
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="xMidYMid meet" className="w-full h-full">
       {heights.map((h, i) => {
         const barH = h * height;
         return (
           <rect
             key={i}
-            x={i * barWidth + barWidth * 0.15}
+            x={i * barWidth + barWidth * 0.3}
             y={(height - barH) / 2}
-            width={barWidth * 0.7}
+            width={barWidth * 0.4}
             height={barH}
-            rx={barWidth * 0.35}
+            rx={barWidth * 0.2}
             fill={color}
           />
         );
