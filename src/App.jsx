@@ -18,6 +18,7 @@ import Experience from '@/pages/Experience';
 import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
 import PilotCardView from '@/pages/PilotCardView';
+import PilotWorkHistory from '@/pages/PilotWorkHistory';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
+      <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/" element={<Home />} />
         <Route path="/show/:id" element={<ShowDetail />} />
