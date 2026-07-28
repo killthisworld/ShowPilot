@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, Zap, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
@@ -577,7 +577,7 @@ export default function ShowDetail() {
           </button>
           <div className="flex items-center gap-1">
             <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-white/40 hover:text-[#8CFF3D]" title="FX / Artist Notes">
-              <Zap className="w-4 h-4" />
+              <StickyNote className="w-4 h-4" />
             </button>
             <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-white/25 hover:text-white/50"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
@@ -924,7 +924,7 @@ export default function ShowDetail() {
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-base flex items-center gap-2">
-                <Zap className="w-4 h-4 text-[#8CFF3D]" /> FX / Artist Notes
+                <StickyNote className="w-4 h-4 text-[#8CFF3D]" /> FX / Artist Notes
               </h3>
               <button onClick={() => setShowFxModal(false)} className="text-white/40 hover:text-white">
                 <X className="w-5 h-5" />
