@@ -287,8 +287,15 @@ export default function ShowDetail() {
     });
   };
 
+  const formatPhoneNumber = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
   const addContact = () => update("contacts", [...(show.contacts || []), { name: "", role: "", phone: "", email: "" }]);
-  const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
+  const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: f === "phone" ? formatPhoneNumber(v) : v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
 
   const updateCity = (val) => update("city", val);
@@ -905,11 +912,6 @@ export default function ShowDetail() {
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
             </Button>
-
-            <div className="pt-1 border-t border-[#222]">
-              <Label className="text-white/50 text-xs">Power Requirements</Label>
-              <Textarea value={show.power_notes || ""} onChange={(e) => update("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white min-h-[60px]" placeholder="Power notes..." />
-            </div>
           </div>
         </CollapsibleSection>
 
