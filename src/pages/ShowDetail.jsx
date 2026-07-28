@@ -839,14 +839,14 @@ export default function ShowDetail() {
                     <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
                     <span className="text-white/30 text-sm">→</span>
                     <span className="text-white/60 text-sm">{m.instrument || <span className="text-white/25 italic">Role</span>}</span>
+                    {!!m.channels_needed && (
+                      <span className="text-white/40 text-xs">· {m.channels_needed} ch(s)</span>
+                    )}
                     {m.bus_type && (
                       <>
                         <span className="text-white/30 text-sm">→</span>
                         <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
-                    )}
-                    {!!m.channels_needed && (
-                      <span className="text-white/40 text-xs">· {m.channels_needed} ch(s)</span>
                     )}
                     {m.phantom_power && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
