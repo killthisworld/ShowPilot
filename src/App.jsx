@@ -19,6 +19,7 @@ import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
 import PilotCardView from '@/pages/PilotCardView';
 import PilotWorkHistory from '@/pages/PilotWorkHistory';
+import ArchivedShows from '@/pages/ArchivedShows';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -55,6 +56,7 @@ const AuthenticatedApp = () => {
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />
+        <Route path="/archived" element={<ArchivedShows />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

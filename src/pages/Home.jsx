@@ -31,6 +31,8 @@ export default function Home() {
   const [cityFilter, setCityFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [confirmDeleteShow, setConfirmDeleteShow] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
 
@@ -53,7 +55,8 @@ export default function Home() {
       if (error) {
         console.error("Error loading shows:", error);
       } else if (isMounted) {
-        setShows(data || []);
+        // Archived shows live on their own page (Cockpit → Settings → Archived Shows)
+        setShows((data || []).filter((s) => !s.archived));
       }
       if (isMounted) setLoading(false);
     }
@@ -61,6 +64,27 @@ export default function Home() {
     loadShows();
     return () => { isMounted = false; };
   }, []);
+
+  const handleArchive = async (show) => {
+    setShows((prev) => prev.filter((s) => s.id !== show.id));
+    const { error } = await supabase.from("shows").update({ archived: true }).eq("id", show.id);
+    if (error) console.error(error);
+  };
+
+  const requestDelete = (show) => setConfirmDeleteShow(show);
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteShow) return;
+    setDeleting(true);
+    const { error } = await supabase.from("shows").delete().eq("id", confirmDeleteShow.id);
+    if (error) {
+      console.error(error);
+    } else {
+      setShows((prev) => prev.filter((s) => s.id !== confirmDeleteShow.id));
+    }
+    setDeleting(false);
+    setConfirmDeleteShow(null);
+  };
 
   const years = useMemo(() => {
     const yrs = [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))];
@@ -186,6 +210,26 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
+      {/* Confirm delete modal */}
+      {confirmDeleteShow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteShow(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white font-semibold text-base mb-1">Delete this show?</p>
+            <p className="text-white/40 text-sm mb-4">
+              {confirmDeleteShow.band_name ? `"${confirmDeleteShow.band_name}"` : "This show"} will be permanently deleted. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteShow(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Cancel
+              </Button>
+              <Button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-500 text-white hover:bg-red-600">
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
@@ -413,7 +457,15 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          filtered.map((show) => <ShowCard key={show.id} show={show} genreTagMap={genreTagMap} />)
+          filtered.map((show) => (
+            <ShowCard
+              key={show.id}
+              show={show}
+              genreTagMap={genreTagMap}
+              onArchive={handleArchive}
+              onDeleteRequest={requestDelete}
+            />
+          ))
         )}
       </div>
 

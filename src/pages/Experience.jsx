@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2 } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -441,6 +441,10 @@ export default function Cockpit() {
                 </p>
               )}
             </div>
+
+            <Button onClick={() => navigate("/archived")} variant="outline" className="w-full border-[#2a2a2a] text-white/70 hover:bg-white/5 justify-start">
+              <Archive className="w-4 h-4 mr-2" /> Archived Shows
+            </Button>
 
             <Button onClick={handleLogout} variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 w-full justify-start">
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
