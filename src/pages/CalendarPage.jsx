@@ -252,25 +252,20 @@ export default function CalendarPage() {
                     {dayShows.slice(0, 2).map((s) => {
                       const color = getShowAccentColor(s);
                       return (
-                        <button key={s.id} onClick={(e) => { e.stopPropagation(); openShow(s.id); }} className="w-full mt-1 px-1.5 pb-0.5">
+                        <div key={s.id} className="w-full mt-1 px-1.5 pb-0.5">
                           <div className="rounded-md px-1.5 py-1 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
                             <p className="text-[11px] font-medium leading-tight truncate" style={{ color }}>
                               {s.band_name}
                             </p>
                             {s.venue && <p className="text-[10px] text-white/30 truncate leading-tight">{s.venue}</p>}
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                     {dayShows.length > 2 && (
-                      <button onClick={(e) => { e.stopPropagation(); setDayModalKey(key); }} className="block w-full px-1.5 pb-1 text-[10px] text-white/30 text-center hover:text-white/60">
+                      <p className="w-full px-1.5 pb-1 text-[10px] text-white/30 text-center">
                         +{dayShows.length - 2} more
-                      </button>
-                    )}
-                    {dayShows.length > 0 && (
-                      <button onClick={(e) => { e.stopPropagation(); setDayModalKey(key); }} className="block w-full text-[9px] text-white/20 hover:text-white/50 text-center pb-1">
-                        view all
-                      </button>
+                      </p>
                     )}
                   </div>
                 );
