@@ -80,6 +80,7 @@ export default function ShowDetail() {
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const [collapsedMembers, setCollapsedMembers] = useState({});
+  const [showFxModal, setShowFxModal] = useState(false);
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
@@ -575,6 +576,9 @@ export default function ShowDetail() {
             <ArrowLeft className="w-5 h-5 text-white/70" />
           </button>
           <div className="flex items-center gap-1">
+            <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-white/40 hover:text-[#8CFF3D]" title="FX / Artist Notes">
+              <Zap className="w-4 h-4" />
+            </button>
             <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-white/25 hover:text-white/50"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
@@ -915,33 +919,45 @@ export default function ShowDetail() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="FX / Artist Notes" icon={Zap}>
-          <div className="space-y-3 pt-3">
-            <Textarea
-              key={`${activeBandIndex}-${selectedArtistFx}`}
-              value={getArtistFxNote(selectedArtistFx)}
-              onChange={(e) => setArtistFxNote(selectedArtistFx, e.target.value)}
-              className="bg-[#111] border-[#222] text-white min-h-[120px]"
-              placeholder={selectedArtistFx === "__general__" ? "General notes for the show..." : `FX / notes for ${selectedArtistFx}...`}
-            />
-
-            <div className="flex flex-wrap gap-1.5">
-              <button onClick={() => setSelectedArtistFx("__general__")} className={`px-2.5 py-1 rounded-full text-xs border transition-all ${selectedArtistFx === "__general__" ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
-                General {activeBand.general_notes ? "●" : ""}
+      {showFxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowFxModal(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-base flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#8CFF3D]" /> FX / Artist Notes
+              </h3>
+              <button onClick={() => setShowFxModal(false)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
               </button>
-              {(activeBand.band_members || []).filter(m => m.name).map((m) => {
-                const hasNote = (activeBand.artist_fx_notes || []).find(n => n.artist_name === m.name)?.notes;
-                return (
-                  <button key={m.name} onClick={() => setSelectedArtistFx(m.name)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-all flex items-center gap-1 ${selectedArtistFx === m.name ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
-                    {m.name} {hasNote ? "●" : ""}
-                    {m.phantom_power && <span className="text-amber-400 font-bold">+48V</span>}
-                  </button>
-                );
-              })}
+            </div>
+            <div className="space-y-3">
+              <Textarea
+                key={`${activeBandIndex}-${selectedArtistFx}`}
+                value={getArtistFxNote(selectedArtistFx)}
+                onChange={(e) => setArtistFxNote(selectedArtistFx, e.target.value)}
+                className="bg-[#111] border-[#222] text-white min-h-[120px]"
+                placeholder={selectedArtistFx === "__general__" ? "General notes for the show..." : `FX / notes for ${selectedArtistFx}...`}
+              />
+
+              <div className="flex flex-wrap gap-1.5">
+                <button onClick={() => setSelectedArtistFx("__general__")} className={`px-2.5 py-1 rounded-full text-xs border transition-all ${selectedArtistFx === "__general__" ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
+                  General {activeBand.general_notes ? "●" : ""}
+                </button>
+                {(activeBand.band_members || []).filter(m => m.name).map((m) => {
+                  const hasNote = (activeBand.artist_fx_notes || []).find(n => n.artist_name === m.name)?.notes;
+                  return (
+                    <button key={m.name} onClick={() => setSelectedArtistFx(m.name)}
+                      className={`px-2.5 py-1 rounded-full text-xs border transition-all flex items-center gap-1 ${selectedArtistFx === m.name ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
+                      {m.name} {hasNote ? "●" : ""}
+                      {m.phantom_power && <span className="text-amber-400 font-bold">+48V</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </CollapsibleSection>
+        </div>
+      )}
 
       </div>
     </div>
