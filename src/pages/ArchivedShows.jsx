@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Search, ArchiveRestore, MapPin } from "lucide-react";
@@ -9,6 +9,8 @@ export default function ArchivedShows() {
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -45,6 +47,21 @@ export default function ArchivedShows() {
     );
   }, [shows, search]);
 
+  // Predictive suggestions, same pattern as the Home search bar
+  const suggestions = useMemo(() => {
+    if (!search || search.length < 1) return [];
+    const q = search.toLowerCase();
+    const candidates = new Set();
+    shows.forEach((s) => {
+      if (s.band_name?.toLowerCase().includes(q)) candidates.add(s.band_name);
+      if (s.venue?.toLowerCase().includes(q)) candidates.add(s.venue);
+      if (s.location?.toLowerCase().includes(q)) candidates.add(s.location);
+      const city = s.location?.split(",")[0]?.trim();
+      if (city?.toLowerCase().includes(q)) candidates.add(city);
+    });
+    return [...candidates].slice(0, 6);
+  }, [search, shows]);
+
   // Group by state, then city — location is stored as "City, State"
   const grouped = useMemo(() => {
     const byState = {};
@@ -69,14 +86,27 @@ export default function ArchivedShows() {
           <h1 className="text-lg font-bold text-white">Archived Shows</h1>
         </div>
         <div className="px-4 pb-3 max-w-lg mx-auto">
-          <div className="relative">
+          <div className="relative" ref={searchRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Search archived shows..."
               className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl z-50 overflow-hidden">
+                {suggestions.map((s, i) => (
+                  <button key={i} onMouseDown={() => { setSearch(s); setShowSuggestions(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-[#222] flex items-center gap-2">
+                    <Search className="w-3 h-3 text-white/30" />
+                    <span>{s}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

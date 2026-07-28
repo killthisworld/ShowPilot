@@ -442,7 +442,7 @@ export default function Cockpit() {
               )}
             </div>
 
-            <Button onClick={() => navigate("/archived")} variant="outline" className="w-full border-[#2a2a2a] text-white/70 hover:bg-white/5 justify-start">
+            <Button onClick={() => navigate("/archived")} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
               <Archive className="w-4 h-4 mr-2" /> Archived Shows
             </Button>
 
