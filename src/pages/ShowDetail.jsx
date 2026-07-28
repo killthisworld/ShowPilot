@@ -576,10 +576,10 @@ export default function ShowDetail() {
             <ArrowLeft className="w-5 h-5 text-white/70" />
           </button>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-white/40 hover:text-[#8CFF3D]" title="FX / Artist Notes">
+            <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
               <StickyNote className="w-4 h-4" />
             </button>
-            <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-white/25 hover:text-white/50"}`}>
+            <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/40 hover:text-amber-400/70"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
             {!isNew && (
