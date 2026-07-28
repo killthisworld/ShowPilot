@@ -579,13 +579,13 @@ export default function ShowDetail() {
             <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
               <StickyNote className="w-4 h-4" />
             </button>
-            <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/40 hover:text-amber-400/70"}`}>
+            <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
             {!isNew && (
-              <Button variant="ghost" size="sm" onClick={handleDelete} className="text-red-400/60 hover:text-red-400 h-8 w-8 p-0">
+              <button onClick={handleDelete} className="p-2 rounded-lg transition-colors text-red-400/60 hover:text-red-400">
                 <Trash2 className="w-4 h-4" />
-              </Button>
+              </button>
             )}
             <Button onClick={handleSave} disabled={saving} size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 rounded-lg">
               <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? "..." : "Save"}
