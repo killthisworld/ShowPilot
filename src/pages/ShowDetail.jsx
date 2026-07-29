@@ -151,7 +151,7 @@ export default function ShowDetail() {
           fields.forEach((field) => {
             const computed = window.getComputedStyle(field);
             const replacement = clonedDoc.createElement("div");
-            replacement.textContent = field.value || field.placeholder || "";
+            replacement.textContent = field.value || "";
             replacement.style.cssText = field.style.cssText;
             replacement.style.color = field.value ? computed.color : computed.getPropertyValue("color");
             replacement.style.fontSize = computed.fontSize;
