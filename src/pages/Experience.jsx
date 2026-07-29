@@ -744,7 +744,7 @@ export default function Cockpit() {
                         >
                           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.3), transparent 55%)" }} />
                           <div className="absolute top-12 left-1.5 right-1.5 bottom-1.5 rounded-xl border border-dashed border-black/15 pointer-events-none" />
-                          <div className="absolute top-[42px] left-0 right-0 h-px bg-black/10" />
+                          <div className="absolute top-14 left-0 right-0 h-px bg-black/10" />
                           <div className="relative z-10 flex items-start justify-between">
                             {w.icon_image_url ? (
                               <img src={w.icon_image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-black/10" />
