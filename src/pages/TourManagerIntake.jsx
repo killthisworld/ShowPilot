@@ -233,6 +233,7 @@ export default function TourManagerIntake() {
     setError(null);
     setSubmitting(true);
     try {
+      console.log("SUBMITTING FORM:", JSON.stringify(form, null, 2));
       // Anonymous submitters can't insert a Show owned by someone else through
       // normal permissions — this calls a secure server-side function that
       // verifies the token and does the privileged write. See
