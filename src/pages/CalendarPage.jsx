@@ -63,6 +63,18 @@ export default function CalendarPage() {
     }
   };
 
+  const handleShareMore = async () => {
+    if (!tmLink) return;
+    setTmLink(null);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Manager Import Link", url: tmLink });
+      } catch (e) {
+        // user cancelled the native share sheet — nothing to do
+      }
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -126,27 +138,26 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
-      {/* TM link modal */}
+      {/* Manager Import Link share menu */}
       {tmLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-md">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-bold text-base">Tour Manager Import Link</h3>
-              <button onClick={() => setTmLink(null)} className="text-white/40 hover:text-white">
-                <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setTmLink(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="px-3 pt-3 pb-2">
+              <h3 className="text-white font-bold text-base">Manager Import Link</h3>
+              <p className="text-white/40 text-xs mt-0.5">Share this with a manager or band member. They'll fill out the gig info and it'll appear on your profile.</p>
+            </div>
+            <button onClick={handleCopyLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+              {tmCopied ? <Check className="w-4 h-4 text-[#8CFF3D]" /> : <Copy className="w-4 h-4 text-[#8CFF3D]" />}
+              <span className="text-white text-sm font-medium">{tmCopied ? "Copied!" : "Copy Link"}</span>
+            </button>
+            {typeof navigator !== "undefined" && navigator.share && (
+              <button onClick={handleShareMore} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+                <Copy className="w-4 h-4 text-white/60" />
+                <span className="text-white text-sm font-medium">More Options...</span>
               </button>
-            </div>
-            <p className="text-white/40 text-xs mb-3">Share this link with a tour manager / band member. They'll fill out the gig info and it'll appear on your profile.</p>
-            <div className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl p-3 mb-3 break-all text-xs text-purple-300 select-all">
-              {tmLink}
-            </div>
-            <button
-              onClick={handleCopyLink}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm text-white transition-colors"
-              style={{ backgroundColor: tmCopied ? "#22c55e" : "#a855f7" }}
-            >
-              {tmCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {tmCopied ? "Copied!" : "Copy Link"}
+            )}
+            <button onClick={() => setTmLink(null)} className="w-full text-center py-3 mt-1 text-white/40 hover:text-white text-sm border-t border-[#2a2a2a]">
+              Cancel
             </button>
           </div>
         </div>

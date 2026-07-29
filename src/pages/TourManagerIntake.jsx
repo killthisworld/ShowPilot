@@ -4,21 +4,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Send, CheckCircle, Music, Users, Info, Wifi, Save, X, ImageIcon, FileText, Paperclip } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
+  "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi",
+  "Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico",
+  "New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia",
+];
+
+const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 export default function TourManagerIntake() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const engineerUserId = params.get("engineer");
   const engineerName = params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
-  const engineerEmail = params.get("email") ? decodeURIComponent(params.get("email")) : null;
 
   const [form, setForm] = useState({
     band_name: "",
     venue: "",
     date: "",
-    location: "",
+    city: "",
+    state: "",
+    event_type: "",
     genre_tags: [],
     console: "",
     wifi_network: "",
@@ -120,7 +134,7 @@ export default function TourManagerIntake() {
   const updateContact = (i, f, v) => { const c = [...form.contacts]; c[i] = { ...c[i], [f]: v }; update("contacts", c); };
   const removeContact = (i) => update("contacts", form.contacts.filter((_, idx) => idx !== i));
 
-  const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", monitor_type: "" }]);
+  const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", bus_type: "" }]);
   const updateMember = (i, f, v) => { const m = [...form.band_members]; m[i] = { ...m[i], [f]: v }; update("band_members", m); };
   const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
 
@@ -139,7 +153,7 @@ export default function TourManagerIntake() {
   };
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
 
-  // Anonymous tour managers upload to a folder scoped to their invite token
+  // Anonymous submitters upload to a folder scoped to their invite token
   // (rather than a user ID, since they don't have an account). Requires a
   // storage policy allowing anon uploads to the stage-plots bucket — see
   // supabase/tour_manager_migration.sql.
@@ -181,17 +195,12 @@ export default function TourManagerIntake() {
       // Anonymous submitters can't insert a Show owned by someone else through
       // normal permissions — this calls a secure server-side function that
       // verifies the token and does the privileged write. See
-      // supabase/tour_manager_migration.sql.
+      // supabase/tour_manager_migration.sql and tour_manager_v2_migration.sql.
       const { error: rpcError } = await supabase.rpc("submit_tour_manager_request", {
         p_token: token,
         p_form: form,
       });
       if (rpcError) throw rpcError;
-
-      // TODO: email notification to the engineer isn't wired up yet — Base44 had
-      // built-in email sending, which Supabase doesn't provide out of the box.
-      // This needs a separate email service (e.g. Resend) connected via another
-      // Edge Function. Tracked on the migration checklist.
 
       setSubmitted(true);
     } catch (e) {
@@ -214,7 +223,7 @@ export default function TourManagerIntake() {
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-white/50 text-lg mb-2">Invalid link</p>
-          <p className="text-white/30 text-sm">This tour manager intake link is not valid.</p>
+          <p className="text-white/30 text-sm">This import link is not valid.</p>
         </div>
       </div>
     );
@@ -245,9 +254,9 @@ export default function TourManagerIntake() {
         </div>
 
         <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
-          {/* Read-only TM data */}
+          {/* Read-only submitted data */}
           <div className="bg-[#111] rounded-2xl p-4 space-y-2">
-            <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Tour Manager Submitted</p>
+            <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Manager Submitted</p>
             <p className="text-white font-semibold">{tmRequest.band_name}</p>
             <p className="text-white/50 text-sm">{tmRequest.date}{tmRequest.venue ? ` · ${tmRequest.venue}` : ""}{tmRequest.location ? ` · ${tmRequest.location}` : ""}</p>
             {tmRequest.band_members?.length > 0 && (
@@ -256,9 +265,9 @@ export default function TourManagerIntake() {
                   <div key={i} className="flex items-center gap-2 text-sm">
                     <span className="text-white/60">{m.name}</span>
                     {m.instrument && <span className="text-white/30 text-xs">· {m.instrument}</span>}
-                    {m.monitor_type && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${m.monitor_type === "IEM" ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"}`}>
-                        {m.monitor_type}
+                    {m.bus_type && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${m.bus_type === "IEM" ? "bg-blue-500/20 text-blue-400" : "bg-orange-500/20 text-orange-400"}`}>
+                        {m.bus_type}
                       </span>
                     )}
                   </div>
@@ -338,7 +347,7 @@ export default function TourManagerIntake() {
               <Music className="w-4 h-4 text-[#8CFF3D]" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-base leading-tight">Tour Manager Intake</h1>
+              <h1 className="text-white font-bold text-base leading-tight">Manager Import Link</h1>
               <p className="text-white/40 text-xs">Submitting for {engineerName}</p>
             </div>
           </div>
@@ -362,12 +371,40 @@ export default function TourManagerIntake() {
               <Input type="date" value={form.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
             </div>
             <div>
+              <Label className="text-white/50 text-xs">Event Type</Label>
+              <Select value={form.event_type} onValueChange={(v) => update("event_type", v)}>
+                <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white w-48">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  {EVENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-white/50 text-xs">Venue</Label>
               <Input value={form.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
             </div>
-            <div>
-              <Label className="text-white/50 text-xs">Location</Label>
-              <Input value={form.location} onChange={(e) => update("location", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City, State" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-white/50 text-xs">City</Label>
+                <Input value={form.city} onChange={(e) => update("city", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">State</Label>
+                <Select value={form.state} onValueChange={(v) => update("state", v)}>
+                  <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                    <SelectValue placeholder="State" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64">
+                    {US_STATES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label className="text-white/50 text-xs">Genre / Style</Label>
@@ -486,8 +523,8 @@ export default function TourManagerIntake() {
                   {["IEM", "Monitor"].map((type) => (
                     <button
                       key={type}
-                      onClick={() => updateMember(i, "monitor_type", m.monitor_type === type ? "" : type)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${m.monitor_type === type ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                      onClick={() => updateMember(i, "bus_type", m.bus_type === type ? "" : type)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${m.bus_type === type ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
                     >
                       {type}
                     </button>
