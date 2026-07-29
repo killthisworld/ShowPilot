@@ -660,7 +660,7 @@ export default function ShowDetail() {
               value={activeBand.set_length_minutes ?? ""}
               onChange={(e) => updateBandField("set_length_minutes", e.target.value ? parseInt(e.target.value) : null)}
               placeholder="e.g. 90"
-              className="mt-1 bg-[#111] border-[#222] text-white w-28"
+              className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <div>

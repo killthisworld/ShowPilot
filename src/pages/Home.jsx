@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
-import { Search, Plus, SlidersHorizontal, X, Star, Zap, CalendarDays } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, X, Star, CalendarDays } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -151,21 +151,6 @@ export default function Home() {
     const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     return `${fmt(monday)} – ${fmt(sunday)}`;
   }, []);
-
-  // Shows within the next 4 days (upcoming feed)
-  const upcomingShows = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const soon = new Date(today);
-    soon.setDate(soon.getDate() + 4);
-    return shows
-      .filter((s) => {
-        if (!s.date) return false;
-        const d = new Date(s.date);
-        return d >= today && d <= soon;
-      })
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [shows]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -366,7 +351,7 @@ export default function Home() {
 
       {/* This Week Banner */}
       <div className="px-4 pt-4 max-w-lg mx-auto">
-        <div className="bg-[#111] border border-[#1e1e1e] rounded-2xl p-4">
+        <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-3.5 h-3.5 text-white/40" />
             <p className="text-xs text-white/40 uppercase tracking-wider font-semibold">This Week</p>
@@ -375,7 +360,7 @@ export default function Home() {
           {thisWeekShows.length === 0 ? (
             <p className="text-white/30 text-sm">No shows scheduled this week — enjoy the break.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
               {thisWeekShows.map((show) => {
                 const d = new Date(show.date + "T00:00:00");
                 const color = show.starred ? "#FBBF24" : show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#999";
@@ -383,11 +368,11 @@ export default function Home() {
                   <Link
                     key={show.id}
                     to={`/show/${show.id}`}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 hover:brightness-110 transition-all"
-                    style={{ backgroundColor: color + "1a", borderLeft: `3px solid ${color}` }}
+                    className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0"
+                    style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
                   >
-                    <span className="text-sm font-semibold truncate max-w-[140px]" style={{ color }}>{show.band_name}</span>
-                    <span className="text-[10px] text-white/40 shrink-0">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color }}>{show.band_name}</span>
+                    <span className="text-[9px] text-white/40">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                   </Link>
                 );
               })}
@@ -395,38 +380,6 @@ export default function Home() {
           )}
         </div>
       </div>
-
-      {/* Upcoming Feed */}
-      {upcomingShows.length > 0 && (
-        <div className="px-4 pt-4 max-w-lg mx-auto">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-3.5 h-3.5 text-[#8CFF3D]" />
-            <p className="text-xs text-[#8CFF3D] uppercase tracking-wider font-semibold">Coming Up</p>
-          </div>
-          <div className="space-y-2">
-            {upcomingShows.map((show) => {
-              const d = new Date(show.date);
-              const today = new Date(); today.setHours(0,0,0,0);
-              const diff = Math.round((d - today) / 86400000);
-              const label = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : `In ${diff} days`;
-              return (
-                <Link key={show.id} to={`/show/${show.id}`} className="flex items-center gap-3 bg-[#0f1a07] border border-[#8CFF3D]/20 rounded-xl px-4 py-3 hover:border-[#8CFF3D]/40 transition-all">
-                  <div className="text-center min-w-[52px]">
-                    <p className="text-[#8CFF3D] text-xs font-bold">{label}</p>
-                    <p className="text-white/40 text-[10px]">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                  </div>
-                  <div className="w-px h-8 bg-[#8CFF3D]/20" />
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{show.band_name}</p>
-                    {show.venue && <p className="text-white/40 text-xs truncate">{show.venue}</p>}
-                  </div>
-                  {show.starred && <Star className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-auto" fill="currentColor" />}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Shows List */}
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">

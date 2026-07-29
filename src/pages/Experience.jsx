@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -85,8 +85,9 @@ export default function Cockpit() {
   const [addIdLink, setAddIdLink] = useState("");
   const [addIdError, setAddIdError] = useState("");
   const [savingId, setSavingId] = useState(false);
+  const [viewingCard, setViewingCard] = useState(null);
 
-  const frontDrag = useRef({ dragging: false, startX: 0, moved: false });
+  const frontDrag = useRef({ dragging: false, startX: 0, moved: false, offset: 0 });
   const [frontOffset, setFrontOffset] = useState(0);
 
   const showPill = (msg) => {
@@ -193,20 +194,24 @@ export default function Cockpit() {
     frontDrag.current.dragging = true;
     frontDrag.current.startX = e.clientX;
     frontDrag.current.moved = false;
+    frontDrag.current.offset = 0;
   };
   const onFrontPointerMove = (e) => {
     if (!frontDrag.current.dragging) return;
     const delta = e.clientX - frontDrag.current.startX;
-    if (Math.abs(delta) > 5) frontDrag.current.moved = true;
-    setFrontOffset(Math.min(0, delta));
+    if (Math.abs(delta) > 12) frontDrag.current.moved = true;
+    const clamped = Math.min(0, delta);
+    frontDrag.current.offset = clamped;
+    setFrontOffset(clamped);
   };
   const onFrontPointerUp = (w) => {
     frontDrag.current.dragging = false;
-    if (frontOffset < -70) {
+    if (frontDrag.current.offset < -70) {
       setOpenWalletId(w.id);
     } else if (!frontDrag.current.moved) {
       setActiveWalletId(null);
     }
+    frontDrag.current.offset = 0;
     setFrontOffset(0);
   };
 
@@ -633,8 +638,10 @@ export default function Cockpit() {
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
                         {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
-                        {p.contact_email && <p className="text-white/30 text-xs truncate">{p.contact_email}</p>}
                       </div>
+                      <button onClick={() => setViewingCard(p)} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
+                        <Eye className="w-4 h-4" />
+                      </button>
                       <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -696,6 +703,7 @@ export default function Cockpit() {
                             transform: `translateX(${frontOffset}px)`,
                             transition: frontDrag.current.dragging ? "none" : "transform 0.25s ease-out, top 0.3s",
                             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.45)",
+                            touchAction: "none",
                           }}
                         >
                           <div className="absolute top-[42px] left-0 right-0 h-px bg-black/10" />
@@ -727,6 +735,10 @@ export default function Cockpit() {
                           <p className="relative z-10 text-black font-bold text-lg mt-2 truncate">{w.name}</p>
                           {(w.city || w.state) && <p className="relative z-10 text-black/70 text-xs truncate">{[w.city, w.state].filter(Boolean).join(", ")}</p>}
                           <p className="relative z-10 text-black/60 text-xs mt-1">{idCount} ID{idCount !== 1 ? "s" : ""}</p>
+                          <div className="absolute bottom-3 right-4 flex items-center gap-1 text-black/40">
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                            <span className="text-[9px] font-medium">swipe to open</span>
+                          </div>
                         </div>
                       );
                     }
@@ -929,6 +941,56 @@ export default function Cockpit() {
                 {savingId ? "Adding..." : "Add"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {viewingCard && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4" onClick={() => setViewingCard(null)}>
+          <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
+              style={{
+                backgroundColor: viewingCard.card_bg_color || "#111111",
+                backgroundImage: viewingCard.card_bg_image_url ? `url(${viewingCard.card_bg_image_url})` : undefined,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+              <div className="relative z-10 flex items-center gap-3 mb-3">
+                <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
+                  {viewingCard.profile_photo_url ? (
+                    <img src={viewingCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-6 h-6" style={{ color: viewingCard.card_text_color || "#FFFFFF" }} />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-bold text-lg truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>{viewingCard.display_name || "Pilot"}</p>
+                  {viewingCard.job_title && (
+                    <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                      <Briefcase className="w-3 h-3 shrink-0" /> {viewingCard.job_title}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="relative z-10 space-y-1">
+                {viewingCard.contact_email && (
+                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                    <Mail className="w-3 h-3 shrink-0" /> {viewingCard.contact_email}
+                  </p>
+                )}
+                {viewingCard.contact_phone && (
+                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                    <Phone className="w-3 h-3 shrink-0" /> {viewingCard.contact_phone}
+                  </p>
+                )}
+              </div>
+            </div>
+            <button onClick={() => setViewingCard(null)} className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm">
+              Close
+            </button>
           </div>
         </div>
       )}
