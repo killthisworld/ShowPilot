@@ -435,6 +435,28 @@ export default function ShowDetail() {
     setSavingPrefs(false);
   };
 
+  const addCustomEventType = async () => {
+    const newType = window.prompt("Add a new event type:");
+    if (!newType || !newType.trim()) return;
+    const trimmed = newType.trim();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const existing = preferences?.custom_event_types || [];
+      if (!existing.includes(trimmed)) {
+        const { error } = await supabase
+          .from("user_preferences")
+          .upsert({ user_id: user.id, custom_event_types: [...existing, trimmed] }, { onConflict: "user_id" });
+        if (error) throw error;
+        await reloadPreferences();
+      }
+      update("event_type", trimmed);
+    } catch (e) {
+      console.error(e);
+      showPill("Error adding event type");
+    }
+  };
+
   const openBusSettings = () => {
     setBusDraft({ ...iemMonitorColors });
     setShowBusSettings(true);
@@ -703,14 +725,24 @@ export default function ShowDetail() {
           </div>
           <div>
             <Label className="text-white/50 text-xs">Event Type</Label>
-            <Select value={show.event_type || ""} onValueChange={(v) => update("event_type", v)}>
+            <Select
+              value={show.event_type || ""}
+              onValueChange={(v) => {
+                if (v === "__add_new__") addCustomEventType();
+                else update("event_type", v);
+              }}
+            >
               <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white w-48">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"].map((t) => (
+                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
                 ))}
+                {(preferences?.custom_event_types || []).map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+                <SelectItem value="__add_new__">Other / Add New</SelectItem>
               </SelectContent>
             </Select>
           </div>
