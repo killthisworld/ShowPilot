@@ -702,6 +702,19 @@ export default function ShowDetail() {
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
           <div>
+            <Label className="text-white/50 text-xs">Event Type</Label>
+            <Select value={show.event_type || ""} onValueChange={(v) => update("event_type", v)}>
+              <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white w-48">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"].map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
             <Input
               type="number"

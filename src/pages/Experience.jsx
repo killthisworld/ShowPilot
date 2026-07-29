@@ -141,15 +141,17 @@ export default function Cockpit() {
   }, [activeTab, user]);
 
   const uniqueVenues = [...new Map(completedShows.filter((s) => s.venue).map((s) => [s.venue, s])).values()];
-  const uniqueBands = [...new Set(completedShows.map((s) => s.band_name).filter(Boolean))];
   const uniqueStates = [...new Set(completedShows.map((s) => s.state).filter(Boolean))];
+  const uniqueGenres = [...new Set(completedShows.map((s) => s.genre_tag).filter(Boolean))];
+  const uniqueEventTypes = [...new Set(completedShows.map((s) => s.event_type).filter(Boolean))];
 
-  const BADGE_COLORS = ["#8CFF3D", "#60A5FA", "#F59E0B", "#F472B6", "#A78BFA", "#34D399", "#F87171", "#38BDF8"];
-  const badgeColor = (name) => {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return BADGE_COLORS[Math.abs(hash) % BADGE_COLORS.length];
-  };
+  const BADGE_CATEGORIES = [
+    { key: "shows", label: "Shows Played", color: "#8CFF3D", tiers: [1, 5, 10, 25, 50, 100], value: completedShows.length },
+    { key: "venues", label: "Venues Played", color: "#60A5FA", tiers: [1, 5, 10, 25], value: uniqueVenues.length },
+    { key: "genres", label: "Genres Explored", color: "#F472B6", tiers: [1, 3, 5, 8], value: uniqueGenres.length },
+    { key: "eventTypes", label: "Event Types Explored", color: "#F59E0B", tiers: [1, 3, 5, 8], value: uniqueEventTypes.length },
+    { key: "states", label: "States Played", color: "#A78BFA", tiers: [1, 3, 5, 10], value: uniqueStates.length },
+  ];
 
   // Scrolling past an expanded wallet returns to the main stacked view,
   // similar to Apple Wallet's scroll-to-deselect behavior.
@@ -803,55 +805,53 @@ export default function Cockpit() {
 
         {activeTab === "badges" && (
           <div>
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
-                <p className="text-2xl font-bold text-[#8CFF3D]">{completedShows.length}</p>
-                <p className="text-white/40 text-xs mt-1">Shows Played</p>
-              </div>
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
-                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueVenues.length}</p>
-                <p className="text-white/40 text-xs mt-1">Venues</p>
-              </div>
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
-                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueBands.length}</p>
-                <p className="text-white/40 text-xs mt-1">Artists</p>
-              </div>
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
-                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueStates.length}</p>
-                <p className="text-white/40 text-xs mt-1">States</p>
-              </div>
-            </div>
-
-            <h3 className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Venue Badges</h3>
             {loadingBadges ? (
               <div className="flex justify-center py-20">
                 <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
               </div>
-            ) : uniqueVenues.length === 0 ? (
+            ) : completedShows.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-white/40 text-sm">No badges yet</p>
+                <p className="text-white/40 text-sm">No milestones yet</p>
                 <p className="text-white/25 text-xs mt-1">Mark a show as Worked to start earning badges</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {uniqueVenues.map((s) => {
-                  const color = badgeColor(s.venue);
-                  return (
-                    <div key={s.venue} className="flex flex-col items-center gap-2">
-                      <div
-                        className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black text-black"
-                        style={{
-                          background: `linear-gradient(135deg, ${color}, ${color}bb)`,
-                          boxShadow: `0 4px 14px ${color}66, inset 0 2px 0 rgba(255,255,255,0.35)`,
-                          border: `2px solid ${color}`,
-                        }}
-                      >
-                        {s.venue.charAt(0).toUpperCase()}
-                      </div>
-                      <p className="text-white/70 text-xs text-center truncate w-full">{s.venue}</p>
+              <div className="space-y-6">
+                {BADGE_CATEGORIES.map((cat) => (
+                  <div key={cat.key}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-white/70 text-sm font-semibold">{cat.label}</h3>
+                      <span className="text-white/30 text-xs">{cat.value} total</span>
                     </div>
-                  );
-                })}
+                    <div className="flex gap-3 overflow-x-auto pb-1">
+                      {cat.tiers.map((tier) => {
+                        const unlocked = cat.value >= tier;
+                        return (
+                          <div key={tier} className="shrink-0">
+                            <div
+                              className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-black"
+                              style={
+                                unlocked
+                                  ? {
+                                      background: `linear-gradient(135deg, ${cat.color}, ${cat.color}bb)`,
+                                      boxShadow: `0 4px 12px ${cat.color}66, inset 0 2px 0 rgba(255,255,255,0.35)`,
+                                      border: `2px solid ${cat.color}`,
+                                      color: "#000",
+                                    }
+                                  : {
+                                      backgroundColor: "#1a1a1a",
+                                      border: "2px solid #2a2a2a",
+                                      color: "#444",
+                                    }
+                              }
+                            >
+                              {tier}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
