@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye, Medal, Trophy, Award, Crown, Sparkles, Building, Landmark, Tent, Map, Compass, Globe, Ticket, PartyPopper, Drama, Guitar, Drum, Disc } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye, Medal, Trophy, Award, Crown, Sparkles, Building, Landmark, Tent, Map as MapIcon, Compass, Globe, Ticket, PartyPopper, Drama, Guitar, Drum, Disc } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -150,7 +150,7 @@ export default function Cockpit() {
     { key: "venues", label: "Venues Played", color: "#60A5FA", tiers: [1, 5, 10, 25], icons: [Building, Building2, Tent, Landmark], value: uniqueVenues.length },
     { key: "genres", label: "Genres Explored", color: "#F472B6", tiers: [1, 3, 5, 8], icons: [Drum, Guitar, Music, Disc], value: uniqueGenres.length },
     { key: "eventTypes", label: "Event Types Explored", color: "#F59E0B", tiers: [1, 3, 5, 8], icons: [Ticket, Drama, PartyPopper, Sparkles], value: uniqueEventTypes.length },
-    { key: "states", label: "States Played", color: "#A78BFA", tiers: [1, 3, 5, 10], icons: [MapPin, Map, Compass, Globe], value: uniqueStates.length },
+    { key: "states", label: "States Played", color: "#A78BFA", tiers: [1, 3, 5, 10], icons: [MapPin, MapIcon, Compass, Globe], value: uniqueStates.length },
   ];
 
   // Scrolling past an expanded wallet returns to the main stacked view,
