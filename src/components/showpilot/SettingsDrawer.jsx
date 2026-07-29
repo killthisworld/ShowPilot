@@ -123,7 +123,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
           <Menu className="w-6 h-6 text-white/70" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 bg-[#111] border-[#222] p-0 overflow-y-auto">
+      <SheetContent side="left" className="w-80 bg-[#111] border-[#222] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="p-5">
           <h2 className="text-lg font-bold text-white mb-4">Settings</h2>
 
