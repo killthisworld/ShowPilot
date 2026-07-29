@@ -121,7 +121,15 @@ export default function PilotCardView() {
   const template = SOUNDWAVE_TEMPLATES[card.soundwave_template] || SOUNDWAVE_TEMPLATES.black;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center px-4 py-10">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      style={{
+        backgroundColor: "#0d0d0d",
+        backgroundImage: "url(/pilot-card-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
       {/* Wallet picker modal */}
       {showWalletPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletPicker(false)}>

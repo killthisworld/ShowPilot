@@ -284,12 +284,32 @@ export default function Cockpit() {
     setSaving(false);
   };
 
+  const uploadBackgroundDirectly = async (file) => {
+    if (!user) return;
+    try {
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("card-backgrounds").upload(filePath, file, { contentType: "image/gif" });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("card-backgrounds").getPublicUrl(filePath);
+      update("card_bg_image_url", urlData.publicUrl);
+    } catch (e) {
+      console.error(e);
+      showPill("Error uploading GIF");
+    }
+  };
+
   const handleFileSelected = (e, target) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+    // GIFs skip the crop tool entirely — cropping draws to a canvas, which
+    // only captures a single static frame and would strip the animation.
+    if (target === "background" && file.type === "image/gif") {
+      uploadBackgroundDirectly(file);
+      return;
+    }
     setCropFile(file);
     setCropTarget(target);
-    e.target.value = "";
   };
 
   const handleCropped = async (blob) => {
@@ -326,20 +346,28 @@ export default function Cockpit() {
     }
   };
 
-  const handleShareId = async () => {
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  const copyShareLink = () => {
     if (!draft?.card_share_token) return;
     const url = `${window.location.origin}/pilot/${draft.card_share_token}`;
+    navigator.clipboard.writeText(url).catch(() => {});
+    setShareCopied(true);
+    setShowShareMenu(false);
+    setTimeout(() => setShareCopied(false), 1500);
+  };
+
+  const shareViaSheet = async () => {
+    if (!draft?.card_share_token) return;
+    const url = `${window.location.origin}/pilot/${draft.card_share_token}`;
+    setShowShareMenu(false);
     if (navigator.share) {
       try {
         await navigator.share({ title: `${draft.display_name || "My"} Pilot ID`, url });
-        return;
       } catch (e) {
-        if (e.name === "AbortError") return;
+        // user cancelled the native share sheet — nothing to do
       }
     }
-    navigator.clipboard.writeText(url).catch(() => {});
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 1500);
   };
 
   const removeFellowPilot = async (id) => {
@@ -505,7 +533,7 @@ export default function Cockpit() {
             </Button>
 
             <Button
-              onClick={handleShareId}
+              onClick={() => setShowShareMenu(true)}
               className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]"}`}
             >
               {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
@@ -787,8 +815,28 @@ export default function Cockpit() {
         )}
       </div>
 
+      {showShareMenu && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShowShareMenu(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <button onClick={copyShareLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+              <Share2 className="w-4 h-4 text-[#8CFF3D]" />
+              <span className="text-white text-sm font-medium">Copy Link</span>
+            </button>
+            {typeof navigator !== "undefined" && navigator.share && (
+              <button onClick={shareViaSheet} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+                <Share2 className="w-4 h-4 text-white/60" />
+                <span className="text-white text-sm font-medium">More Options...</span>
+              </button>
+            )}
+            <button onClick={() => setShowShareMenu(false)} className="w-full text-center py-3 mt-1 text-white/40 hover:text-white text-sm border-t border-[#2a2a2a]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {showWalletModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-white font-bold text-base mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
             <div className="space-y-3">
@@ -862,7 +910,7 @@ export default function Cockpit() {
       )}
 
       {showAddIdModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-white font-bold text-base mb-2">Add ID</h3>
             <p className="text-white/40 text-xs mb-3">Paste the Pilot ID link they shared with you.</p>

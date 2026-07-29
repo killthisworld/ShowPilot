@@ -152,8 +152,6 @@ export default function Home() {
     return `${fmt(monday)} – ${fmt(sunday)}`;
   }, []);
 
-  const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
   // Shows within the next 4 days (upcoming feed)
   const upcomingShows = useMemo(() => {
     const today = new Date();
@@ -377,24 +375,19 @@ export default function Home() {
           {thisWeekShows.length === 0 ? (
             <p className="text-white/30 text-sm">No shows scheduled this week — enjoy the break.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
               {thisWeekShows.map((show) => {
                 const d = new Date(show.date + "T00:00:00");
-                const today = new Date(); today.setHours(0,0,0,0);
-                const diff = Math.round((d - today) / 86400000);
-                const dayLabel = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : DAY_NAMES[d.getDay()];
+                const color = show.starred ? "#FBBF24" : show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#999";
                 return (
-                  <Link key={show.id} to={`/show/${show.id}`} className="flex items-center gap-3 hover:bg-white/5 rounded-xl px-2 py-1.5 -mx-2 transition-colors">
-                    <div className="w-14 shrink-0">
-                      <p className={`text-xs font-bold ${diff === 0 ? "text-[#8CFF3D]" : diff === 1 ? "text-amber-400" : "text-white/50"}`}>{dayLabel}</p>
-                      <p className="text-[10px] text-white/25">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                    </div>
-                    <div className="w-px h-7 bg-[#222] shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white text-sm font-medium truncate">{show.band_name}</p>
-                      {show.venue && <p className="text-white/35 text-xs truncate">{show.venue}</p>}
-                    </div>
-                    {show.starred && <Star className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />}
+                  <Link
+                    key={show.id}
+                    to={`/show/${show.id}`}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 hover:brightness-110 transition-all"
+                    style={{ backgroundColor: color + "1a", borderLeft: `3px solid ${color}` }}
+                  >
+                    <span className="text-sm font-semibold truncate max-w-[140px]" style={{ color }}>{show.band_name}</span>
+                    <span className="text-[10px] text-white/40 shrink-0">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                   </Link>
                 );
               })}
