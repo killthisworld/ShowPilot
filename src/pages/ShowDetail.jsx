@@ -143,7 +143,14 @@ export default function ShowDetail() {
     const node = ref.current;
     if (!node) return;
     try {
-      const canvas = await html2canvas(node, { backgroundColor: "#0d0d0d", scale: 2 });
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#0d0d0d",
+        scale: 2,
+        width: node.scrollWidth,
+        height: node.scrollHeight,
+        windowWidth: node.scrollWidth,
+        windowHeight: node.scrollHeight,
+      });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
@@ -955,7 +962,7 @@ export default function ShowDetail() {
         </CollapsibleSection>
         </div>
 
-      <div style={{ position: "fixed", left: "-9999px", top: 0, width: "380px" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -1, width: "380px" }}>
         <div ref={venuePrintRef} className="bg-[#0d0d0d] p-6 space-y-3 text-white">
           <h2 className="text-lg font-bold text-[#8CFF3D] mb-2">Venue Info — {activeBand.band_name || "Untitled"}</h2>
           {(show.contacts || []).length > 0 && (
