@@ -672,7 +672,6 @@ export default function ShowDetail() {
             )}
             <button onClick={() => exportPDF(mainCaptureRef, "Gig-Info.pdf")} className="relative w-7 h-7 ml-auto flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
               <Camera className="w-5 h-5" />
-              <span className="absolute text-[5px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
             </button>
           </div>
           <div>
@@ -720,10 +719,9 @@ export default function ShowDetail() {
           </div>
         </div>
 
-        <div className="relative">
+        <div ref={venuePrintRef} className="relative">
           <button onClick={() => exportPDF(venuePrintRef, "Venue-Info.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
             <Camera className="w-4 h-4" />
-            <span className="absolute text-[4px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
           </button>
           <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
@@ -867,10 +865,9 @@ export default function ShowDetail() {
           </div>
         </CollapsibleSection>
 
-        <div className="relative">
+        <div ref={bandPrintRef} className="relative">
           <button onClick={() => exportPDF(bandPrintRef, "Band-Mix-Bus.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
             <Camera className="w-4 h-4" />
-            <span className="absolute text-[4px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
           </button>
           <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
@@ -961,45 +958,6 @@ export default function ShowDetail() {
           </div>
         </CollapsibleSection>
         </div>
-
-      <div style={{ position: "absolute", top: 0, left: 0, opacity: 0, pointerEvents: "none", zIndex: -1, width: "380px" }}>
-        <div ref={venuePrintRef} className="bg-[#0d0d0d] p-6 space-y-3 text-white">
-          <h2 className="text-lg font-bold text-[#8CFF3D] mb-2">Venue Info — {activeBand.band_name || "Untitled"}</h2>
-          {(show.contacts || []).length > 0 && (
-            <div>
-              <p className="text-white/50 text-xs uppercase mb-1">Contacts</p>
-              {show.contacts.map((c, i) => (
-                <p key={i} className="text-sm">{c.name} ({c.role}) — {c.phone} — {c.email}</p>
-              ))}
-            </div>
-          )}
-          <p className="text-sm"><span className="text-white/50">Venue:</span> {show.venue}</p>
-          <p className="text-sm"><span className="text-white/50">Location:</span> {[show.city, show.state].filter(Boolean).join(", ")}</p>
-          <div>
-            <p className="text-white/50 text-xs uppercase mb-1">Venue Provides</p>
-            {VENUE_CHECKLIST_ITEMS.map((item) => {
-              const entry = show.venue_checklist?.[item.key];
-              if (!entry?.checked) return null;
-              return (
-                <p key={item.key} className="text-sm">
-                  {item.label}
-                  {item.key === "wifi" && (show.wifi_network || show.wifi_password) && ` — ${show.wifi_network || ""} / ${show.wifi_password || ""}`}
-                  {item.key === "console" && show.console && ` — ${show.console}`}
-                  {entry.notes ? ` — ${entry.notes}` : ""}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-        <div ref={bandPrintRef} className="bg-[#0d0d0d] p-6 space-y-2 text-white">
-          <h2 className="text-lg font-bold text-[#8CFF3D] mb-2">Band & Mix Bus — {activeBand.band_name || "Untitled"}</h2>
-          {(activeBand.band_members || []).map((m, i) => (
-            <p key={i} className="text-sm">
-              {m.name} → {m.instrument}{m.bus_type ? ` → ${m.bus_type}` : ""}{m.channels_needed ? ` · ${m.channels_needed} ch(s)` : ""}{m.phantom_power ? " · +48V" : ""}
-            </p>
-          ))}
-        </div>
-      </div>
 
       {showFxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowFxModal(false)}>
