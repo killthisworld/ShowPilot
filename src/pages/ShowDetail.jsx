@@ -69,6 +69,11 @@ export default function ShowDetail() {
   const [show, setShow] = useState(emptyShow);
   const [bands, setBands] = useState([emptyBand(true, 0)]);
   const [activeBandIndex, setActiveBandIndex] = useState(0);
+  const [orderDraft, setOrderDraft] = useState(null);
+
+  useEffect(() => {
+    setOrderDraft(null);
+  }, [activeBandIndex]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -749,22 +754,36 @@ export default function ShowDetail() {
         </div>
 
         {bands.length > 1 && (
-          <div className="flex flex-wrap gap-1.5 -mt-1">
+          <div className="flex flex-wrap items-center gap-1.5 -mt-1">
             {bands.map((b, i) => {
-              const label = b.is_headliner
-                ? (b.band_name || "Headliner")
-                : (b.band_name || `Opener ${++openerCount}`);
+              if (b.is_headliner) return null;
+              const label = b.band_name || `Opener ${++openerCount}`;
               return (
                 <button
                   key={b.id || `new-${i}`}
                   onClick={() => setActiveBandIndex(i)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${activeBandIndex === i ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}
                 >
-                  {b.is_headliner && <Star className="w-3 h-3" fill="currentColor" />}
                   {label}
                 </button>
               );
             })}
+            {(() => {
+              const headlinerIdx = bands.findIndex((b) => b.is_headliner);
+              if (headlinerIdx === -1) return null;
+              const h = bands[headlinerIdx];
+              const isActive = activeBandIndex === headlinerIdx;
+              return (
+                <button
+                  onClick={() => setActiveBandIndex(headlinerIdx)}
+                  className={`ml-auto px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center gap-2 ${isActive ? "border-[#8CFF3D] text-[#8CFF3D] bg-[#8CFF3D]/15" : "border-[#8CFF3D]/40 text-[#8CFF3D]/80 bg-[#8CFF3D]/5"}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" style={{ boxShadow: "0 0 6px 2px rgba(140,255,61,0.8)" }} />
+                  {h.band_name || "Headliner"}
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" style={{ boxShadow: "0 0 6px 2px rgba(140,255,61,0.8)" }} />
+                </button>
+              );
+            })()}
           </div>
         )}
 
@@ -781,8 +800,15 @@ export default function ShowDetail() {
                     type="number"
                     min={1}
                     max={bands.filter((b) => !b.is_headliner).length}
-                    value={bands.filter((b) => !b.is_headliner).findIndex((b) => b === activeBand) + 1}
-                    onChange={(e) => setOpenerPosition(activeBandIndex, e.target.value)}
+                    value={orderDraft !== null ? orderDraft : bands.filter((b) => !b.is_headliner).findIndex((b) => b === activeBand) + 1}
+                    onChange={(e) => setOrderDraft(e.target.value)}
+                    onBlur={() => {
+                      if (orderDraft !== null) {
+                        setOpenerPosition(activeBandIndex, orderDraft);
+                        setOrderDraft(null);
+                      }
+                    }}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
                     className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
