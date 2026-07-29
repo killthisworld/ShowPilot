@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Menu, User, LogOut, Star, Archive } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive, Mail } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
@@ -152,6 +152,10 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
 
             <Button onClick={() => { setOpen(false); navigate("/archived"); }} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
               <Archive className="w-4 h-4 mr-2" /> Archived Shows
+            </Button>
+
+            <Button onClick={() => { setOpen(false); navigate("/manager-links"); }} variant="outline" className="w-full border-blue-400/50 text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-400 justify-start">
+              <Mail className="w-4 h-4 mr-2" /> Manager Links
             </Button>
 
             <Button onClick={save} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">

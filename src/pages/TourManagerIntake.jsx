@@ -20,6 +20,13 @@ const US_STATES = [
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
+const formatPhoneNumber = (value) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 export default function TourManagerIntake() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
@@ -34,6 +41,7 @@ export default function TourManagerIntake() {
     state: "",
     event_type: "",
     genre_tags: [],
+    set_length_minutes: "",
     console: "",
     wifi_network: "",
     wifi_password: "",
@@ -41,9 +49,11 @@ export default function TourManagerIntake() {
     stage_plot_url: "",
     stage_plot_files: [],
     band_members: [],
+    openers: [],
     general_notes: "",
   });
   const [genreInput, setGenreInput] = useState("");
+  const [openerGenreInputs, setOpenerGenreInputs] = useState({});
   const [uploadingStagePlot, setUploadingStagePlot] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -153,6 +163,37 @@ export default function TourManagerIntake() {
   };
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
 
+  // Openers — a lightweight repeater the manager can fill in if they
+  // know the info; each opener supports its own genre tag input, its
+  // own band member list, and set length, same shape as the headliner.
+  const addOpener = () => update("openers", [...form.openers, { band_name: "", genre_tags: [], band_members: [], set_length_minutes: "" }]);
+  const updateOpener = (i, f, v) => { const o = [...form.openers]; o[i] = { ...o[i], [f]: v }; update("openers", o); };
+  const removeOpener = (i) => {
+    update("openers", form.openers.filter((_, idx) => idx !== i));
+    setOpenerGenreInputs((s) => { const next = { ...s }; delete next[i]; return next; });
+  };
+  const addOpenerMember = (i) => updateOpener(i, "band_members", [...form.openers[i].band_members, { name: "", instrument: "", bus_type: "" }]);
+  const updateOpenerMember = (i, mi, f, v) => {
+    const members = [...form.openers[i].band_members];
+    members[mi] = { ...members[mi], [f]: v };
+    updateOpener(i, "band_members", members);
+  };
+  const removeOpenerMember = (i, mi) => updateOpener(i, "band_members", form.openers[i].band_members.filter((_, idx) => idx !== mi));
+  const handleOpenerGenreKeyDown = (i, e) => {
+    const val = openerGenreInputs[i] || "";
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmed = val.trim();
+      if (trimmed && !form.openers[i].genre_tags.includes(trimmed)) {
+        updateOpener(i, "genre_tags", [...form.openers[i].genre_tags, trimmed]);
+      }
+      setOpenerGenreInputs((s) => ({ ...s, [i]: "" }));
+    } else if (e.key === "Backspace" && !val && form.openers[i].genre_tags.length > 0) {
+      updateOpener(i, "genre_tags", form.openers[i].genre_tags.slice(0, -1));
+    }
+  };
+  const removeOpenerGenreTag = (i, tag) => updateOpener(i, "genre_tags", form.openers[i].genre_tags.filter((t) => t !== tag));
+
   // Anonymous submitters upload to a folder scoped to their invite token
   // (rather than a user ID, since they don't have an account). Requires a
   // storage policy allowing anon uploads to the stage-plots bucket — see
@@ -195,7 +236,7 @@ export default function TourManagerIntake() {
       // Anonymous submitters can't insert a Show owned by someone else through
       // normal permissions — this calls a secure server-side function that
       // verifies the token and does the privileged write. See
-      // supabase/tour_manager_migration.sql and tour_manager_v2_migration.sql.
+      // supabase/tour_manager_migration.sql and opener_intake_migration.sql.
       const { error: rpcError } = await supabase.rpc("submit_tour_manager_request", {
         p_token: token,
         p_form: form,
@@ -299,7 +340,7 @@ export default function TourManagerIntake() {
                     <div className="grid grid-cols-2 gap-2 flex-1">
                       <Input value={c.name} onChange={(e) => updateEngineerContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                       <Input value={c.role} onChange={(e) => updateEngineerContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                      <Input value={c.phone} onChange={(e) => updateEngineerContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                      <Input value={c.phone} onChange={(e) => updateEngineerContact(i, "phone", formatPhoneNumber(e.target.value))} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                       <Input value={c.email} onChange={(e) => updateEngineerContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                     </div>
                     <button onClick={() => removeEngineerContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
@@ -434,6 +475,16 @@ export default function TourManagerIntake() {
               </div>
             </div>
             <div>
+              <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
+              <Input
+                type="number"
+                value={form.set_length_minutes}
+                onChange={(e) => update("set_length_minutes", e.target.value)}
+                className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                placeholder="e.g. 60"
+              />
+            </div>
+            <div>
               <Label className="text-white/50 text-xs">Console (if known)</Label>
               <Input value={form.console} onChange={(e) => update("console", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Yamaha CL5" />
             </div>
@@ -459,7 +510,7 @@ export default function TourManagerIntake() {
                   <div className="grid grid-cols-2 gap-2 flex-1">
                     <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                     <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                    <Input value={c.phone} onChange={(e) => updateContact(i, "phone", formatPhoneNumber(e.target.value))} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                     <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
                   </div>
                   <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
@@ -534,6 +585,85 @@ export default function TourManagerIntake() {
             ))}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
+            </Button>
+          </div>
+        </CollapsibleSection>
+
+        {/* Openers — optional, if the manager knows the info */}
+        <CollapsibleSection title="Openers" icon={Users} badge={form.openers.length}>
+          <div className="space-y-4 pt-3">
+            <p className="text-white/30 text-xs -mt-1">If you know who's opening, add them here. Otherwise the engineer can send a separate link directly to each opener.</p>
+            {form.openers.map((o, i) => (
+              <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3 border border-[#222]">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/40 text-xs font-semibold uppercase tracking-wide">Opener {i + 1}</span>
+                  <button onClick={() => removeOpener(i)} className="p-1 text-white/30 hover:text-red-400">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <Input value={o.band_name} onChange={(e) => updateOpener(i, "band_name", e.target.value)} placeholder="Band / Artist Name" className="h-9 bg-[#1a1a1a] border-[#222] text-white text-sm" />
+                <div>
+                  <Label className="text-white/40 text-xs">Set Length (minutes)</Label>
+                  <Input
+                    type="number"
+                    value={o.set_length_minutes}
+                    onChange={(e) => updateOpener(i, "set_length_minutes", e.target.value)}
+                    className="mt-1 h-9 bg-[#1a1a1a] border-[#222] text-white text-sm w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="e.g. 30"
+                  />
+                </div>
+                <div>
+                  <Label className="text-white/40 text-xs">Genre / Style</Label>
+                  <div className="mt-1 flex flex-wrap gap-1.5 p-2 bg-[#1a1a1a] border border-[#222] rounded-lg min-h-[38px]">
+                    {o.genre_tags.map((tag) => (
+                      <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#8CFF3D]/15 text-[#8CFF3D]">
+                        {tag}
+                        <button type="button" onClick={() => removeOpenerGenreTag(i, tag)} className="hover:text-white"><X className="w-2.5 h-2.5" /></button>
+                      </span>
+                    ))}
+                    <input
+                      value={openerGenreInputs[i] || ""}
+                      onChange={(e) => setOpenerGenreInputs((s) => ({ ...s, [i]: e.target.value }))}
+                      onKeyDown={(e) => handleOpenerGenreKeyDown(i, e)}
+                      placeholder="Type a genre, hit Enter..."
+                      className="flex-1 min-w-[80px] bg-transparent text-white text-xs outline-none placeholder:text-white/25"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-white/40 text-xs">Band Members</Label>
+                  {o.band_members.map((m, mi) => (
+                    <div key={mi} className="bg-[#1a1a1a] rounded-lg p-2 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 grid grid-cols-2 gap-2">
+                          <Input value={m.name} onChange={(e) => updateOpenerMember(i, mi, "name", e.target.value)} placeholder="Name" className="h-7 bg-transparent border-[#222] text-white text-xs" />
+                          <Input value={m.instrument} onChange={(e) => updateOpenerMember(i, mi, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-7 bg-transparent border-[#222] text-white text-xs" />
+                        </div>
+                        <button onClick={() => removeOpenerMember(i, mi)} className="p-1 text-white/30 hover:text-red-400">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        {["IEM", "Monitor"].map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => updateOpenerMember(i, mi, "bus_type", m.bus_type === type ? "" : type)}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all ${m.bus_type === type ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => addOpenerMember(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-7 text-xs">
+                    <Plus className="w-3 h-3 mr-1" /> Add Member
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Opener
             </Button>
           </div>
         </CollapsibleSection>

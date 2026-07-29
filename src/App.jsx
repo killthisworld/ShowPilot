@@ -20,6 +20,8 @@ import TourManagerIntake from '@/pages/TourManagerIntake';
 import PilotCardView from '@/pages/PilotCardView';
 import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
+import OpenerIntake from '@/pages/OpenerIntake';
+import ManagerLinksPage from '@/pages/ManagerLinksPage';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -49,6 +51,7 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
+      <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
@@ -57,6 +60,7 @@ const AuthenticatedApp = () => {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />
         <Route path="/archived" element={<ArchivedShows />} />
+        <Route path="/manager-links" element={<ManagerLinksPage />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
