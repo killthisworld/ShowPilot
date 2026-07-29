@@ -143,17 +143,7 @@ export default function ShowDetail() {
     const node = ref.current;
     if (!node) return;
     try {
-      const rect = node.getBoundingClientRect();
-      const canvas = await html2canvas(document.body, {
-        backgroundColor: "#0d0d0d",
-        scale: 2,
-        x: rect.left + window.scrollX,
-        y: rect.top + window.scrollY,
-        width: rect.width,
-        height: rect.height,
-        windowWidth: document.documentElement.scrollWidth,
-        windowHeight: document.documentElement.scrollHeight,
-      });
+      const canvas = await html2canvas(node, { backgroundColor: "#0d0d0d", scale: 2 });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
