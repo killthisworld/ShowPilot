@@ -154,6 +154,10 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
               <Archive className="w-4 h-4 mr-2" /> Archived Shows
             </Button>
 
+            <Button onClick={save} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
+              {saving ? "Saving..." : "Save Settings"}
+            </Button>
+
             <div className="border-t border-[#222] pt-4">
               <Label className="text-white/50 text-xs block mb-2">Rate ShowPilot</Label>
               {canRate ? (
@@ -190,10 +194,6 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>
           </div>
-
-          <Button onClick={save} disabled={saving} className="w-full mt-6 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
-            {saving ? "Saving..." : "Save Settings"}
-          </Button>
         </div>
       </SheetContent>
     </Sheet>
