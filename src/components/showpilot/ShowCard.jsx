@@ -99,10 +99,10 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              {show.frequency_scope === "venue" && <Building2 className="w-3.5 h-3.5 text-blue-400" title="Venue" />}
-              {show.frequency_scope === "artist" && <Mic className="w-3.5 h-3.5 text-blue-400" title="Artist / Band" />}
+              {show.frequency_scope === "venue" && <Building2 className="w-3.5 h-3.5" style={{ color: accentColor }} title="Venue" />}
+              {show.frequency_scope === "artist" && <Mic className="w-3.5 h-3.5" style={{ color: accentColor }} title="Artist / Band" />}
               {show.frequency_scope === "both" && (
-                <span className="flex items-center gap-0.5 text-blue-400" title="Venue & Artist">
+                <span className="flex items-center gap-0.5" style={{ color: accentColor }} title="Venue & Artist">
                   <Building2 className="w-3 h-3" />
                   <Mic className="w-3 h-3" />
                 </span>

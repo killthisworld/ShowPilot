@@ -223,7 +223,7 @@ export default function ShowDetail() {
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
-        venue_checklist: show.venue_checklist,
+        venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
         stage_plot_url: headliner.stage_plot_url, stage_plot_files: headliner.stage_plot_files,
@@ -676,28 +676,41 @@ export default function ShowDetail() {
               </SelectContent>
             </Select>
             <div className="flex gap-1">
-              <button
-                onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
-                className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all ${show.frequency_scope === "venue" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
-                title="Venue"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
-                className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all ${show.frequency_scope === "artist" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
-                title="Artist / Band"
-              >
-                <Mic className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
-                className={`h-7 px-1.5 flex items-center justify-center gap-0.5 rounded-lg border transition-all ${show.frequency_scope === "both" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
-                title="Both"
-              >
-                <Building2 className="w-3 h-3" />
-                <Mic className="w-3 h-3" />
-              </button>
+              {(() => {
+                const statusColor = show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#bbb";
+                const btnStyle = (active) => active
+                  ? { borderColor: statusColor + "80", color: statusColor, backgroundColor: statusColor + "1a" }
+                  : {};
+                return (
+                  <>
+                    <button
+                      onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
+                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      style={btnStyle(show.frequency_scope === "venue")}
+                      title="Venue"
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
+                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      style={btnStyle(show.frequency_scope === "artist")}
+                      title="Artist / Band"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
+                      className="h-7 px-1.5 flex items-center justify-center gap-0.5 rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      style={btnStyle(show.frequency_scope === "both")}
+                      title="Both"
+                    >
+                      <Building2 className="w-3 h-3" />
+                      <Mic className="w-3 h-3" />
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
