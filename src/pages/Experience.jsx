@@ -43,7 +43,7 @@ const US_STATES = [
 const TABS = [
   { id: "pilot", label: "My Pilot" },
   { id: "fellow", label: "Fellow Pilots" },
-  { id: "settings", label: "Settings" },
+  { id: "badges", label: "Badges" },
 ];
 
 const formatPhoneNumber = (value) => {
@@ -86,6 +86,8 @@ export default function Cockpit() {
   const [addIdLink, setAddIdLink] = useState("");
   const [addIdError, setAddIdError] = useState("");
   const [savingId, setSavingId] = useState(false);
+  const [completedShows, setCompletedShows] = useState([]);
+  const [loadingBadges, setLoadingBadges] = useState(false);
   const [viewingCard, setViewingCard] = useState(null);
   const [viewingCardBack, setViewingCardBack] = useState(false);
 
@@ -120,6 +122,34 @@ export default function Cockpit() {
       });
     }
   }, [activeTab, user]);
+
+  useEffect(() => {
+    if (activeTab === "badges" && user) {
+      setLoadingBadges(true);
+      supabase
+        .from("shows")
+        .select("*")
+        .eq("owner_id", user.id)
+        .eq("status", "complete")
+        .order("date", { ascending: false })
+        .then(({ data, error }) => {
+          if (error) console.error(error);
+          else setCompletedShows(data || []);
+          setLoadingBadges(false);
+        });
+    }
+  }, [activeTab, user]);
+
+  const uniqueVenues = [...new Map(completedShows.filter((s) => s.venue).map((s) => [s.venue, s])).values()];
+  const uniqueBands = [...new Set(completedShows.map((s) => s.band_name).filter(Boolean))];
+  const uniqueStates = [...new Set(completedShows.map((s) => s.state).filter(Boolean))];
+
+  const BADGE_COLORS = ["#8CFF3D", "#60A5FA", "#F59E0B", "#F472B6", "#A78BFA", "#34D399", "#F87171", "#38BDF8"];
+  const badgeColor = (name) => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return BADGE_COLORS[Math.abs(hash) % BADGE_COLORS.length];
+  };
 
   // Scrolling past an expanded wallet returns to the main stacked view,
   // similar to Apple Wallet's scroll-to-deselect behavior.
@@ -771,75 +801,59 @@ export default function Cockpit() {
           )
         )}
 
-        {activeTab === "settings" && (
-          <div className="space-y-4">
-            <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2 border-[#333] shrink-0">
-                  {draft.profile_photo_url ? (
-                    <img src={draft.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-8 h-8 text-white/30" />
-                  )}
-                </div>
-                <button onClick={() => settingsPhotoInputRef.current?.click()} className="text-sm text-[#8CFF3D] hover:underline">
-                  Upload Photo
-                </button>
-                <input ref={settingsPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
+        {activeTab === "badges" && (
+          <div>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
+                <p className="text-2xl font-bold text-[#8CFF3D]">{completedShows.length}</p>
+                <p className="text-white/40 text-xs mt-1">Shows Played</p>
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Display Name</Label>
-                <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
+                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueVenues.length}</p>
+                <p className="text-white/40 text-xs mt-1">Venues</p>
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Username</Label>
-                <Input value={draft.username || ""} onChange={(e) => update("username", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
+                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueBands.length}</p>
+                <p className="text-white/40 text-xs mt-1">Artists</p>
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Email</Label>
-                <Input value={user?.email || ""} readOnly className="mt-1 bg-[#111] border-[#222] text-white/50" />
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 text-center">
+                <p className="text-2xl font-bold text-[#8CFF3D]">{uniqueStates.length}</p>
+                <p className="text-white/40 text-xs mt-1">States</p>
               </div>
-              <Button onClick={savePilotCard} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
-                {saving ? "Saving..." : "Save Settings"}
-              </Button>
             </div>
 
-            <div className="bg-[#161616] rounded-2xl border border-[#222] p-4">
-              <Label className="text-white/50 text-xs block mb-2">Rate ShowPilot</Label>
-              {canRate ? (
-                <>
-                  <div className="flex gap-1 mb-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button key={star} onClick={() => setRating(star)} className="transition-transform hover:scale-110">
-                        <Star className="w-6 h-6" fill={star <= rating ? "#8CFF3D" : "none"} stroke={star <= rating ? "#8CFF3D" : "#555"} />
-                      </button>
-                    ))}
-                  </div>
-                  <Textarea
-                    value={ratingComment}
-                    onChange={(e) => setRatingComment(e.target.value)}
-                    placeholder="Any feedback or comments..."
-                    className="bg-[#111] border-[#222] text-white text-sm min-h-[70px] resize-none"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={rating === 0 || ratingSubmitting}
-                    onClick={submitRating}
-                    className="mt-2 w-full bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 border border-[#8CFF3D]/20 disabled:opacity-40"
-                  >
-                    {ratingSubmitting ? "Sending..." : "Submit Rating"}
-                  </Button>
-                </>
-              ) : (
-                <p className="text-xs text-white/30 py-2">
-                  Thanks for your feedback! You can rate again in {Math.ceil(30 - daysSinceRating)} day{Math.ceil(30 - daysSinceRating) !== 1 ? "s" : ""}.
-                </p>
-              )}
-            </div>
-
-            <Button onClick={handleLogout} variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 w-full justify-start">
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </Button>
+            <h3 className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Venue Badges</h3>
+            {loadingBadges ? (
+              <div className="flex justify-center py-20">
+                <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+              </div>
+            ) : uniqueVenues.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-white/40 text-sm">No badges yet</p>
+                <p className="text-white/25 text-xs mt-1">Mark a show as Worked to start earning badges</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {uniqueVenues.map((s) => {
+                  const color = badgeColor(s.venue);
+                  return (
+                    <div key={s.venue} className="flex flex-col items-center gap-2">
+                      <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black text-black"
+                        style={{
+                          background: `linear-gradient(135deg, ${color}, ${color}bb)`,
+                          boxShadow: `0 4px 14px ${color}66, inset 0 2px 0 rgba(255,255,255,0.35)`,
+                          border: `2px solid ${color}`,
+                        }}
+                      >
+                        {s.venue.charAt(0).toUpperCase()}
+                      </div>
+                      <p className="text-white/70 text-xs text-center truncate w-full">{s.venue}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
