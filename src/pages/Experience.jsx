@@ -295,13 +295,13 @@ export default function Cockpit() {
             <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
             <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "background")} />
 
-            <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full border-[#2a2a2a] text-white/60 hover:bg-[#161616]">
+            <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]">
               <RotateCw className="w-3.5 h-3.5 mr-2" /> Flip Card
             </Button>
 
             <Button
               onClick={handleShareId}
-              className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#2a2a2a] text-white hover:bg-[#161616]"}`}
+              className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]"}`}
             >
               {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
               {shareCopied ? "Link Copied!" : "Share ID"}
