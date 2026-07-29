@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -29,11 +30,28 @@ const WALLET_ICONS = {
   calendar: CalendarDays,
 };
 
+const US_STATES = [
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
+  "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi",
+  "Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico",
+  "New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia",
+];
+
 const TABS = [
   { id: "pilot", label: "My Pilot" },
   { id: "fellow", label: "Fellow Pilots" },
   { id: "settings", label: "Settings" },
 ];
+
+const formatPhoneNumber = (value) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
 
 export default function Cockpit() {
   const { preferences, reload } = usePreferences();
@@ -52,6 +70,7 @@ export default function Cockpit() {
   const [showBack, setShowBack] = useState(false);
   const photoInputRef = useRef(null);
   const bgInputRef = useRef(null);
+  const walletIconInputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
   const [cropTarget, setCropTarget] = useState(null);
   const [wallets, setWallets] = useState([]);
@@ -60,8 +79,14 @@ export default function Cockpit() {
   const [walletView, setWalletView] = useState("all");
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState(null);
-  const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", city: "", state: "", business: "" });
+  const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
   const [savingWallet, setSavingWallet] = useState(false);
+  const [showAddIdModal, setShowAddIdModal] = useState(false);
+  const [addIdForm, setAddIdForm] = useState({ display_name: "", job_title: "", contact_email: "", contact_phone: "" });
+  const [savingId, setSavingId] = useState(false);
+
+  const frontDrag = useRef({ dragging: false, startX: 0, moved: false });
+  const [frontOffset, setFrontOffset] = useState(0);
 
   const showPill = (msg) => {
     setSavedToast(msg);
@@ -92,15 +117,24 @@ export default function Cockpit() {
     }
   }, [activeTab, user]);
 
+  // Scrolling past an expanded wallet returns to the main stacked view,
+  // similar to Apple Wallet's scroll-to-deselect behavior.
+  useEffect(() => {
+    if (!activeWalletId) return;
+    const handleScroll = () => setActiveWalletId(null);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [activeWalletId]);
+
   const openCreateWalletModal = () => {
     setEditingWalletId(null);
-    setWalletForm({ name: "", color: "#8CFF3D", icon: "wallet", city: "", state: "", business: "" });
+    setWalletForm({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
     setShowWalletModal(true);
   };
 
   const openEditWalletModal = (w) => {
     setEditingWalletId(w.id);
-    setWalletForm({ name: w.name, color: w.color, icon: w.icon || "wallet", city: w.city || "", state: w.state || "", business: w.business || "" });
+    setWalletForm({ name: w.name, color: w.color, icon: w.icon || "wallet", icon_image_url: w.icon_image_url || "", city: w.city || "", state: w.state || "" });
     setShowWalletModal(true);
   };
 
@@ -112,9 +146,9 @@ export default function Cockpit() {
         name: walletForm.name.trim(),
         color: walletForm.color,
         icon: walletForm.icon,
+        icon_image_url: walletForm.icon_image_url || null,
         city: walletForm.city || null,
         state: walletForm.state || null,
-        business: walletForm.business || null,
       };
       if (editingWalletId) {
         const { data, error } = await supabase.from("wallets").update(payload).eq("id", editingWalletId).select().single();
@@ -143,7 +177,6 @@ export default function Cockpit() {
 
   const visibleWallets = walletView === "starred" ? wallets.filter((w) => w.starred) : wallets;
 
-  // Active wallet renders first/frontmost; everything else stacks below it in order
   const stackedWallets = (() => {
     const ordered = activeWalletId
       ? [visibleWallets.find((w) => w.id === activeWalletId), ...visibleWallets.filter((w) => w.id !== activeWalletId)].filter(Boolean)
@@ -158,8 +191,61 @@ export default function Cockpit() {
   })();
   const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 140 : 56) : 0;
 
+  const onFrontPointerDown = (e) => {
+    frontDrag.current.dragging = true;
+    frontDrag.current.startX = e.clientX;
+    frontDrag.current.moved = false;
+  };
+  const onFrontPointerMove = (e) => {
+    if (!frontDrag.current.dragging) return;
+    const delta = e.clientX - frontDrag.current.startX;
+    if (Math.abs(delta) > 5) frontDrag.current.moved = true;
+    setFrontOffset(Math.min(0, delta));
+  };
+  const onFrontPointerUp = (w) => {
+    frontDrag.current.dragging = false;
+    if (frontOffset < -70) {
+      setOpenWalletId(w.id);
+    } else if (!frontDrag.current.moved) {
+      setActiveWalletId(null);
+    }
+    setFrontOffset(0);
+  };
+
   const openedWallet = wallets.find((w) => w.id === openWalletId);
   const openedWalletPilots = openWalletId ? fellowPilots.filter((p) => p.wallet_id === openWalletId) : [];
+
+  const openAddIdModal = () => {
+    setAddIdForm({ display_name: "", job_title: "", contact_email: "", contact_phone: "" });
+    setShowAddIdModal(true);
+  };
+
+  const saveManualId = async () => {
+    if (!user || !openWalletId || !addIdForm.display_name.trim()) return;
+    setSavingId(true);
+    try {
+      const { data, error } = await supabase
+        .from("fellow_pilots")
+        .insert({
+          owner_id: user.id,
+          pilot_user_id: null,
+          wallet_id: openWalletId,
+          display_name: addIdForm.display_name.trim(),
+          job_title: addIdForm.job_title || null,
+          contact_email: addIdForm.contact_email || null,
+          contact_phone: addIdForm.contact_phone || null,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setFellowPilots((prev) => [data, ...prev]);
+      setShowAddIdModal(false);
+    } catch (e) {
+      console.error(e);
+      showPill("Error adding ID");
+    }
+    setSavingId(false);
+  };
 
   const update = (field, val) => setDraft((d) => ({ ...d, [field]: val }));
 
@@ -195,6 +281,21 @@ export default function Cockpit() {
     setCropFile(null);
     setCropTarget(null);
     if (!user) return;
+
+    if (target === "wallet-icon") {
+      try {
+        const filePath = `${user.id}/${Date.now()}_wallet_icon.jpg`;
+        const { error: uploadError } = await supabase.storage.from("wallet-icons").upload(filePath, blob, { contentType: "image/jpeg" });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("wallet-icons").getPublicUrl(filePath);
+        setWalletForm((f) => ({ ...f, icon_image_url: urlData.publicUrl }));
+      } catch (e) {
+        console.error(e);
+        showPill("Error uploading icon");
+      }
+      return;
+    }
+
     const bucket = target === "photo" ? "profile-photos" : "card-backgrounds";
     const field = target === "photo" ? "profile_photo_url" : "card_bg_image_url";
     try {
@@ -428,7 +529,7 @@ export default function Cockpit() {
                 </div>
                 <div>
                   <Label className="text-white/50 text-xs">Contact Phone</Label>
-                  <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+                  <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", formatPhoneNumber(e.target.value))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
@@ -452,17 +553,26 @@ export default function Cockpit() {
                 <ArrowLeft className="w-4 h-4" /> Back to Wallets
               </button>
               {openedWallet && (
-                <div className="flex items-center gap-3 mb-4 rounded-2xl p-4" style={{ backgroundColor: openedWallet.color }}>
-                  {(() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="w-6 h-6 text-black shrink-0" />; })()}
-                  <div className="min-w-0">
+                <div className="flex items-center gap-3 mb-4 rounded-2xl p-4" style={{ background: `linear-gradient(135deg, ${openedWallet.color}, ${openedWallet.color}bb)` }}>
+                  {openedWallet.icon_image_url ? (
+                    <img src={openedWallet.icon_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-black/10 shrink-0" />
+                  ) : (
+                    (() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="w-6 h-6 text-black shrink-0" />; })()
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="text-black font-bold text-lg truncate">{openedWallet.name}</p>
                     {(openedWallet.city || openedWallet.state) && (
                       <p className="text-black/70 text-xs truncate">{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
                     )}
-                    {openedWallet.business && <p className="text-black/70 text-xs truncate">{openedWallet.business}</p>}
+                    <p className="text-black/60 text-xs">{openedWalletPilots.length} ID{openedWalletPilots.length !== 1 ? "s" : ""}</p>
                   </div>
                 </div>
               )}
+
+              <Button onClick={openAddIdModal} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] mb-3">
+                <Plus className="w-4 h-4 mr-2" /> Add ID
+              </Button>
+
               {openedWalletPilots.length === 0 ? (
                 <p className="text-center text-white/40 py-16 text-sm">No pilots saved in this wallet yet</p>
               ) : (
@@ -523,45 +633,65 @@ export default function Cockpit() {
                 <div className="relative" style={{ height: stackHeight }}>
                   {stackedWallets.map((w) => {
                     const Icon = WALLET_ICONS[w.icon] || Wallet;
+                    const idCount = fellowPilots.filter((p) => p.wallet_id === w.id).length;
+
+                    if (w.isActive) {
+                      return (
+                        <div
+                          key={w.id}
+                          onPointerDown={onFrontPointerDown}
+                          onPointerMove={onFrontPointerMove}
+                          onPointerUp={() => onFrontPointerUp(w)}
+                          onPointerLeave={() => onFrontPointerUp(w)}
+                          className="absolute left-0 right-0 rounded-2xl px-5 py-4 cursor-pointer overflow-hidden select-none"
+                          style={{
+                            top: w.top,
+                            zIndex: w.z,
+                            height: 140,
+                            background: `linear-gradient(135deg, ${w.color}, ${w.color}bb)`,
+                            transform: `translateX(${frontOffset}px)`,
+                            transition: frontDrag.current.dragging ? "none" : "transform 0.25s ease-out, top 0.3s",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.45)",
+                          }}
+                        >
+                          <div className="absolute top-[42px] left-0 right-0 h-px bg-black/10" />
+                          <div className="relative z-10 flex items-start justify-between">
+                            {w.icon_image_url ? (
+                              <img src={w.icon_image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-black/10" />
+                            ) : (
+                              <Icon className="w-7 h-7 text-black" />
+                            )}
+                            <div className="flex items-center gap-1">
+                              <button onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }} className="p-1 text-black/50 hover:text-black">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }} className="p-1 text-black/50 hover:text-black">
+                                <Star className="w-4 h-4" fill={w.starred ? "#000" : "none"} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="relative z-10 text-black font-bold text-lg mt-2 truncate">{w.name}</p>
+                          {(w.city || w.state) && <p className="relative z-10 text-black/70 text-xs truncate">{[w.city, w.state].filter(Boolean).join(", ")}</p>}
+                          <p className="relative z-10 text-black/60 text-xs mt-1">{idCount} ID{idCount !== 1 ? "s" : ""}</p>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={w.id}
-                        onClick={() => {
-                          if (w.isActive) setOpenWalletId(w.id);
-                          else setActiveWalletId(w.id);
-                        }}
-                        className="absolute left-0 right-0 rounded-2xl px-4 shadow-lg border border-black/10 cursor-pointer transition-all duration-300 overflow-hidden flex"
+                        onClick={() => setActiveWalletId(w.id)}
+                        className="absolute left-0 right-0 rounded-2xl px-4 flex items-center cursor-pointer transition-all duration-300 overflow-hidden border-t"
                         style={{
                           top: w.top,
                           zIndex: w.z,
-                          height: w.isActive ? 140 : 56,
-                          backgroundColor: w.color,
-                          alignItems: w.isActive ? "flex-start" : "center",
-                          paddingTop: w.isActive ? 16 : 0,
-                          paddingBottom: w.isActive ? 16 : 0,
+                          height: 56,
+                          background: `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
+                          borderTopColor: "rgba(255,255,255,0.25)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
                         }}
                       >
-                        {w.isActive ? (
-                          <div className="w-full">
-                            <div className="flex items-start justify-between">
-                              <Icon className="w-6 h-6 text-black" />
-                              <div className="flex items-center gap-1">
-                                <button onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }} className="p-1 text-black/50 hover:text-black">
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }} className="p-1 text-black/50 hover:text-black">
-                                  <Star className="w-4 h-4" fill={w.starred ? "#000" : "none"} />
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-black font-bold text-lg mt-2 truncate">{w.name}</p>
-                            {(w.city || w.state) && <p className="text-black/70 text-xs truncate">{[w.city, w.state].filter(Boolean).join(", ")}</p>}
-                            {w.business && <p className="text-black/70 text-xs truncate">{w.business}</p>}
-                            <p className="text-black/40 text-[10px] mt-2">Tap again to open</p>
-                          </div>
-                        ) : (
-                          <span className="text-black font-semibold text-sm truncate">{w.name}</span>
-                        )}
+                        <span className="text-black font-semibold text-sm truncate">{w.name}</span>
                       </div>
                     );
                   })}
@@ -642,17 +772,33 @@ export default function Cockpit() {
               </div>
               <div>
                 <Label className="text-white/50 text-xs mb-2 block">Icon</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(WALLET_ICONS).map(([key, Icon]) => (
-                    <button
-                      key={key}
-                      onClick={() => setWalletForm((f) => ({ ...f, icon: key }))}
-                      className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all ${walletForm.icon === key ? "border-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] bg-[#111]"}`}
-                    >
-                      <Icon className={`w-5 h-5 ${walletForm.icon === key ? "text-[#8CFF3D]" : "text-white/40"}`} />
+                {walletForm.icon_image_url ? (
+                  <div className="flex items-center gap-3">
+                    <img src={walletForm.icon_image_url} alt="" className="w-14 h-14 rounded-xl object-cover border border-[#2a2a2a]" />
+                    <button onClick={() => setWalletForm((f) => ({ ...f, icon_image_url: "" }))} className="text-xs text-red-400 hover:underline flex items-center gap-1">
+                      <X className="w-3 h-3" /> Remove
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.entries(WALLET_ICONS).map(([key, Icon]) => (
+                      <button
+                        key={key}
+                        onClick={() => setWalletForm((f) => ({ ...f, icon: key }))}
+                        className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all ${walletForm.icon === key ? "border-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] bg-[#111]"}`}
+                      >
+                        <Icon className={`w-5 h-5 ${walletForm.icon === key ? "text-[#8CFF3D]" : "text-white/40"}`} />
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => walletIconInputRef.current?.click()}
+                      className="aspect-square rounded-xl flex items-center justify-center border-2 border-dashed border-[#2a2a2a] hover:border-[#8CFF3D]/40 text-white/30 hover:text-[#8CFF3D]"
+                    >
+                      <Upload className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <input ref={walletIconInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "wallet-icon")} />
               </div>
               <div className="flex items-center gap-2">
                 <ColorPicker value={walletForm.color} onChange={(c) => setWalletForm((f) => ({ ...f, color: c }))} label="Color" />
@@ -664,12 +810,17 @@ export default function Cockpit() {
                 </div>
                 <div>
                   <Label className="text-white/50 text-xs">State</Label>
-                  <Input value={walletForm.state} onChange={(e) => setWalletForm((f) => ({ ...f, state: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+                  <Select value={walletForm.state} onValueChange={(v) => setWalletForm((f) => ({ ...f, state: v }))}>
+                    <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64">
+                      {US_STATES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">Business</Label>
-                <Input value={walletForm.business} onChange={(e) => setWalletForm((f) => ({ ...f, business: e.target.value }))} placeholder="e.g. Live Nation" className="mt-1 bg-[#111] border-[#222] text-white" />
               </div>
             </div>
             <div className="flex gap-2 mt-4">
@@ -684,12 +835,46 @@ export default function Cockpit() {
         </div>
       )}
 
+      {showAddIdModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-4">Add ID</h3>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-white/50 text-xs">Name</Label>
+                <Input value={addIdForm.display_name} onChange={(e) => setAddIdForm((f) => ({ ...f, display_name: e.target.value }))} placeholder="Name" className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">Job Title</Label>
+                <Input value={addIdForm.job_title} onChange={(e) => setAddIdForm((f) => ({ ...f, job_title: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">Email</Label>
+                <Input value={addIdForm.contact_email} onChange={(e) => setAddIdForm((f) => ({ ...f, contact_email: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">Phone</Label>
+                <Input value={addIdForm.contact_phone} onChange={(e) => setAddIdForm((f) => ({ ...f, contact_phone: formatPhoneNumber(e.target.value) }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Cancel
+              </Button>
+              <Button onClick={saveManualId} disabled={savingId || !addIdForm.display_name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                {savingId ? "Saving..." : "Add"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cropFile && (
         <ImageCropModal
           file={cropFile}
-          shape={cropTarget === "photo" ? "circle" : "rect"}
-          aspectW={cropTarget === "photo" ? 1 : 16}
-          aspectH={cropTarget === "photo" ? 1 : 10}
+          shape={cropTarget === "background" ? "rect" : "circle"}
+          aspectW={cropTarget === "background" ? 16 : 1}
+          aspectH={cropTarget === "background" ? 10 : 1}
           onCancel={() => { setCropFile(null); setCropTarget(null); }}
           onCropped={handleCropped}
         />
