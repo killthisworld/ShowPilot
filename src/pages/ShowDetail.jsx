@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
@@ -80,6 +82,9 @@ export default function ShowDetail() {
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const [collapsedMembers, setCollapsedMembers] = useState({});
+  const mainCaptureRef = useRef(null);
+  const venuePrintRef = useRef(null);
+  const bandPrintRef = useRef(null);
   const [showFxModal, setShowFxModal] = useState(false);
 
   const activeBand = bands[activeBandIndex] || bands[0];
@@ -132,6 +137,21 @@ export default function ShowDetail() {
   const showPill = (msg) => {
     setSavedToast(msg);
     setTimeout(() => setSavedToast(""), 1000);
+  };
+
+  const exportPDF = async (ref, filename) => {
+    const node = ref.current;
+    if (!node) return;
+    try {
+      const canvas = await html2canvas(node, { backgroundColor: "#0d0d0d", scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save(filename);
+    } catch (e) {
+      console.error(e);
+      showPill("Error creating PDF");
+    }
   };
 
   const addOpener = () => {
@@ -631,18 +651,22 @@ export default function ShowDetail() {
           </div>
         )}
 
-        <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+        <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
           <div className="flex items-center gap-2">
             {activeBand.is_headliner ? (
               <span className="text-[10px] font-bold uppercase tracking-widest text-[#8CFF3D] bg-[#8CFF3D]/10 px-2 py-1 rounded-full">Headliner</span>
             ) : (
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 bg-white/5 px-2 py-1 rounded-full">Opener</span>
                 <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
+            <button onClick={() => exportPDF(mainCaptureRef, "Gig-Info.pdf")} className="relative w-7 h-7 ml-auto flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
+              <Camera className="w-5 h-5" />
+              <span className="absolute text-[5px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
+            </button>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Band Name *</Label>
@@ -689,7 +713,12 @@ export default function ShowDetail() {
           </div>
         </div>
 
-        <CollapsibleSection title="Venue Info" icon={Info}>
+        <div className="relative">
+          <button onClick={() => exportPDF(venuePrintRef, "Venue-Info.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
+            <Camera className="w-4 h-4" />
+            <span className="absolute text-[4px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
+          </button>
+          <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
             <div>
               <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
@@ -801,6 +830,7 @@ export default function ShowDetail() {
             </div>
           </div>
         </CollapsibleSection>
+        </div>
 
         <CollapsibleSection title="Stage Plot" icon={ImageIcon}>
           <div className="pt-3 space-y-3">
@@ -830,7 +860,12 @@ export default function ShowDetail() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={activeBand.band_members?.length || 0}>
+        <div className="relative">
+          <button onClick={() => exportPDF(bandPrintRef, "Band-Mix-Bus.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
+            <Camera className="w-4 h-4" />
+            <span className="absolute text-[4px] font-black" style={{ top: "54%", transform: "translateY(-50%)" }}>PDF</span>
+          </button>
+          <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
             {(activeBand.band_members || []).map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
@@ -918,6 +953,46 @@ export default function ShowDetail() {
             </Button>
           </div>
         </CollapsibleSection>
+        </div>
+
+      <div style={{ position: "fixed", left: "-9999px", top: 0, width: "380px" }}>
+        <div ref={venuePrintRef} className="bg-[#0d0d0d] p-6 space-y-3 text-white">
+          <h2 className="text-lg font-bold text-[#8CFF3D] mb-2">Venue Info — {activeBand.band_name || "Untitled"}</h2>
+          {(show.contacts || []).length > 0 && (
+            <div>
+              <p className="text-white/50 text-xs uppercase mb-1">Contacts</p>
+              {show.contacts.map((c, i) => (
+                <p key={i} className="text-sm">{c.name} ({c.role}) — {c.phone} — {c.email}</p>
+              ))}
+            </div>
+          )}
+          <p className="text-sm"><span className="text-white/50">Venue:</span> {show.venue}</p>
+          <p className="text-sm"><span className="text-white/50">Location:</span> {[show.city, show.state].filter(Boolean).join(", ")}</p>
+          <div>
+            <p className="text-white/50 text-xs uppercase mb-1">Venue Provides</p>
+            {VENUE_CHECKLIST_ITEMS.map((item) => {
+              const entry = show.venue_checklist?.[item.key];
+              if (!entry?.checked) return null;
+              return (
+                <p key={item.key} className="text-sm">
+                  {item.label}
+                  {item.key === "wifi" && (show.wifi_network || show.wifi_password) && ` — ${show.wifi_network || ""} / ${show.wifi_password || ""}`}
+                  {item.key === "console" && show.console && ` — ${show.console}`}
+                  {entry.notes ? ` — ${entry.notes}` : ""}
+                </p>
+              );
+            })}
+          </div>
+        </div>
+        <div ref={bandPrintRef} className="bg-[#0d0d0d] p-6 space-y-2 text-white">
+          <h2 className="text-lg font-bold text-[#8CFF3D] mb-2">Band & Mix Bus — {activeBand.band_name || "Untitled"}</h2>
+          {(activeBand.band_members || []).map((m, i) => (
+            <p key={i} className="text-sm">
+              {m.name} → {m.instrument}{m.bus_type ? ` → ${m.bus_type}` : ""}{m.channels_needed ? ` · ${m.channels_needed} ch(s)` : ""}{m.phantom_power ? " · +48V" : ""}
+            </p>
+          ))}
+        </div>
+      </div>
 
       {showFxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowFxModal(false)}>
