@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building2, Mic } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -720,28 +720,28 @@ export default function ShowDetail() {
                   <>
                     <button
                       onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
-                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
                       style={btnStyle(show.frequency_scope === "venue")}
                       title="Venue"
                     >
-                      <Building2 className="w-3.5 h-3.5" />
+                      <Building className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
-                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
                       style={btnStyle(show.frequency_scope === "artist")}
                       title="Artist / Band"
                     >
-                      <Mic className="w-3.5 h-3.5" />
+                      <Mic2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
-                      className="h-7 px-1.5 flex items-center justify-center gap-0.5 rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                      className="h-8 px-2 flex items-center justify-center gap-1 rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
                       style={btnStyle(show.frequency_scope === "both")}
                       title="Both"
                     >
-                      <Building2 className="w-3 h-3" />
-                      <Mic className="w-3 h-3" />
+                      <Building className="w-3.5 h-3.5" />
+                      <Mic2 className="w-3.5 h-3.5" />
                     </button>
                   </>
                 );
@@ -790,10 +790,10 @@ export default function ShowDetail() {
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
           <div className="flex items-center gap-2">
             {activeBand.is_headliner ? (
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8CFF3D] bg-[#8CFF3D]/10 px-2 py-1 rounded-full">Headliner</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full">Headliner</span>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 bg-white/5 px-2 py-1 rounded-full">Opener</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8CFF3D] bg-[#8CFF3D]/10 px-2 py-1 rounded-full">Opener</span>
                 <div className="flex items-center gap-1.5">
                   <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
                   <Input
@@ -838,7 +838,7 @@ export default function ShowDetail() {
                 else update("event_type", v);
               }}
             >
-              <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white w-48">
+              <SelectTrigger className="mt-1 h-11 bg-[#111] border-[#222] text-white text-base w-52">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
