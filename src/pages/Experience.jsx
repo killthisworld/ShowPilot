@@ -69,6 +69,7 @@ export default function Cockpit() {
   const [savedToast, setSavedToast] = useState("");
   const [showBack, setShowBack] = useState(false);
   const photoInputRef = useRef(null);
+  const settingsPhotoInputRef = useRef(null);
   const bgInputRef = useRef(null);
   const walletIconInputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
@@ -773,6 +774,23 @@ export default function Cockpit() {
         {activeTab === "settings" && (
           <div className="space-y-4">
             <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2 border-[#333] shrink-0">
+                  {draft.profile_photo_url ? (
+                    <img src={draft.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-8 h-8 text-white/30" />
+                  )}
+                </div>
+                <button onClick={() => settingsPhotoInputRef.current?.click()} className="text-sm text-[#8CFF3D] hover:underline">
+                  Upload Photo
+                </button>
+                <input ref={settingsPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">Display Name</Label>
+                <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
               <div>
                 <Label className="text-white/50 text-xs">Username</Label>
                 <Input value={draft.username || ""} onChange={(e) => update("username", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
