@@ -1141,6 +1141,22 @@ export default function ShowDetail() {
               </button>
             </div>
             <div className="space-y-3">
+              {bands.length > 1 && (
+                <div className="flex flex-wrap gap-1.5 pb-1 border-b border-[#222]">
+                  {bands.map((b, i) => {
+                    const bandLabel = b.is_headliner ? (b.band_name || "Headliner") : (b.band_name || `Opener`);
+                    return (
+                      <button
+                        key={b.id || `fxband-${i}`}
+                        onClick={() => { setActiveBandIndex(i); setSelectedArtistFx("__general__"); }}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${activeBandIndex === i ? (b.is_headliner ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10") : "border-[#222] text-white/40 hover:text-white/60"}`}
+                      >
+                        {bandLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <Textarea
                 key={`${activeBandIndex}-${selectedArtistFx}`}
                 value={getArtistFxNote(selectedArtistFx)}
