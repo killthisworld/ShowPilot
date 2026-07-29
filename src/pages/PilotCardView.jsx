@@ -70,6 +70,8 @@ export default function PilotCardView() {
         card_bg_color: card.card_bg_color,
         card_bg_image_url: card.card_bg_image_url,
         card_text_color: card.card_text_color,
+        soundwave_template: card.soundwave_template,
+        card_share_token: token,
       });
       if (error) throw error;
       setSaved(true);

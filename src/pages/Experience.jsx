@@ -256,6 +256,8 @@ export default function Cockpit() {
           card_bg_color: card.card_bg_color,
           card_bg_image_url: card.card_bg_image_url,
           card_text_color: card.card_text_color,
+          soundwave_template: card.soundwave_template,
+          card_share_token: token,
         })
         .select()
         .single();
@@ -950,9 +952,17 @@ export default function Cockpit() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4" onClick={() => setViewingCard(null)}>
           <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             {viewingCardBack ? (
-              <div className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8" style={{ backgroundColor: "#000000" }}>
+              <div
+                onClick={() => viewingCard.card_share_token && navigate(`/pilot/${viewingCard.card_share_token}/history`)}
+                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8 cursor-pointer"
+                style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
+                title={viewingCard.card_share_token ? "View work history" : ""}
+              >
                 <div className="w-2/3 max-w-[220px] h-14">
-                  <Soundwave seed={viewingCard.pilot_user_id || viewingCard.id || "pilot"} color="#FFFFFF" />
+                  <Soundwave
+                    seed={viewingCard.pilot_user_id || viewingCard.id || "pilot"}
+                    color={(SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
+                  />
                 </div>
               </div>
             ) : (
