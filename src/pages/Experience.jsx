@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -16,6 +16,17 @@ const SOUNDWAVE_TEMPLATES = {
   black: { bg: "#000000", wave: "#FFFFFF", label: "Black / White" },
   white: { bg: "#FFFFFF", wave: "#000000", label: "White / Black" },
   green: { bg: "#8CFF3D", wave: "#000000", label: "Green / Black" },
+};
+
+const WALLET_ICONS = {
+  wallet: Wallet,
+  music: Music,
+  briefcase: Briefcase,
+  building: Building2,
+  "map-pin": MapPin,
+  star: Star,
+  users: Users,
+  calendar: CalendarDays,
 };
 
 const TABS = [
@@ -44,11 +55,13 @@ export default function Cockpit() {
   const [cropFile, setCropFile] = useState(null);
   const [cropTarget, setCropTarget] = useState(null);
   const [wallets, setWallets] = useState([]);
-  const [selectedWallet, setSelectedWallet] = useState(null);
-  const [showCreateWallet, setShowCreateWallet] = useState(false);
-  const [newWalletName, setNewWalletName] = useState("");
-  const [newWalletColor, setNewWalletColor] = useState("#8CFF3D");
-  const [creatingWallet, setCreatingWallet] = useState(false);
+  const [activeWalletId, setActiveWalletId] = useState(null);
+  const [openWalletId, setOpenWalletId] = useState(null);
+  const [walletView, setWalletView] = useState("all");
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [editingWalletId, setEditingWalletId] = useState(null);
+  const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", city: "", state: "", business: "" });
+  const [savingWallet, setSavingWallet] = useState(false);
 
   const showPill = (msg) => {
     setSavedToast(msg);
@@ -68,7 +81,7 @@ export default function Cockpit() {
       setLoadingFellows(true);
       Promise.all([
         supabase.from("fellow_pilots").select("*").eq("owner_id", user.id).order("saved_at", { ascending: false }),
-        supabase.from("wallets").select("*").eq("owner_id", user.id).order("created_at", { ascending: true }),
+        supabase.from("wallets").select("*").eq("owner_id", user.id).order("created_at", { ascending: false }),
       ]).then(([fellowsRes, walletsRes]) => {
         if (fellowsRes.error) console.error(fellowsRes.error);
         else setFellowPilots(fellowsRes.data || []);
@@ -79,29 +92,74 @@ export default function Cockpit() {
     }
   }, [activeTab, user]);
 
-  const createWallet = async () => {
-    if (!user || !newWalletName.trim()) return;
-    setCreatingWallet(true);
-    try {
-      const { data, error } = await supabase
-        .from("wallets")
-        .insert({ owner_id: user.id, name: newWalletName.trim(), color: newWalletColor })
-        .select()
-        .single();
-      if (error) throw error;
-      setWallets((prev) => [...prev, data]);
-      setNewWalletName("");
-      setShowCreateWallet(false);
-    } catch (e) {
-      console.error(e);
-      showPill("Error creating wallet");
-    }
-    setCreatingWallet(false);
+  const openCreateWalletModal = () => {
+    setEditingWalletId(null);
+    setWalletForm({ name: "", color: "#8CFF3D", icon: "wallet", city: "", state: "", business: "" });
+    setShowWalletModal(true);
   };
 
-  const filteredFellowPilots = selectedWallet
-    ? fellowPilots.filter((p) => p.wallet_id === selectedWallet)
-    : fellowPilots;
+  const openEditWalletModal = (w) => {
+    setEditingWalletId(w.id);
+    setWalletForm({ name: w.name, color: w.color, icon: w.icon || "wallet", city: w.city || "", state: w.state || "", business: w.business || "" });
+    setShowWalletModal(true);
+  };
+
+  const saveWallet = async () => {
+    if (!user || !walletForm.name.trim()) return;
+    setSavingWallet(true);
+    try {
+      const payload = {
+        name: walletForm.name.trim(),
+        color: walletForm.color,
+        icon: walletForm.icon,
+        city: walletForm.city || null,
+        state: walletForm.state || null,
+        business: walletForm.business || null,
+      };
+      if (editingWalletId) {
+        const { data, error } = await supabase.from("wallets").update(payload).eq("id", editingWalletId).select().single();
+        if (error) throw error;
+        setWallets((prev) => prev.map((w) => (w.id === editingWalletId ? data : w)));
+      } else {
+        const { data, error } = await supabase.from("wallets").insert({ owner_id: user.id, ...payload }).select().single();
+        if (error) throw error;
+        setWallets((prev) => [data, ...prev]);
+        setActiveWalletId(data.id);
+      }
+      setShowWalletModal(false);
+    } catch (e) {
+      console.error(e);
+      showPill("Error saving wallet");
+    }
+    setSavingWallet(false);
+  };
+
+  const toggleStarWallet = async (w) => {
+    const newVal = !w.starred;
+    setWallets((prev) => prev.map((x) => (x.id === w.id ? { ...x, starred: newVal } : x)));
+    const { error } = await supabase.from("wallets").update({ starred: newVal }).eq("id", w.id);
+    if (error) console.error(error);
+  };
+
+  const visibleWallets = walletView === "starred" ? wallets.filter((w) => w.starred) : wallets;
+
+  // Active wallet renders first/frontmost; everything else stacks below it in order
+  const stackedWallets = (() => {
+    const ordered = activeWalletId
+      ? [visibleWallets.find((w) => w.id === activeWalletId), ...visibleWallets.filter((w) => w.id !== activeWalletId)].filter(Boolean)
+      : visibleWallets;
+    let top = 0;
+    return ordered.map((w, i) => {
+      const isActive = w.id === activeWalletId;
+      const item = { ...w, top, isActive, z: ordered.length - i };
+      top += isActive ? 152 : 18;
+      return item;
+    });
+  })();
+  const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 140 : 56) : 0;
+
+  const openedWallet = wallets.find((w) => w.id === openWalletId);
+  const openedWalletPilots = openWalletId ? fellowPilots.filter((p) => p.wallet_id === openWalletId) : [];
 
   const update = (field, val) => setDraft((d) => ({ ...d, [field]: val }));
 
@@ -388,95 +446,129 @@ export default function Cockpit() {
         )}
 
         {activeTab === "fellow" && (
-          <div className="space-y-3">
-            {/* Wallet filter chips */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setSelectedWallet(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${!selectedWallet ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}
-              >
-                All
+          openWalletId ? (
+            <div className="animate-in slide-in-from-right duration-300">
+              <button onClick={() => setOpenWalletId(null)} className="flex items-center gap-2 text-white/60 hover:text-white text-sm mb-4">
+                <ArrowLeft className="w-4 h-4" /> Back to Wallets
               </button>
-              {wallets.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={() => setSelectedWallet(w.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${selectedWallet === w.id ? "border-white/40" : "border-transparent opacity-70 hover:opacity-100"}`}
-                  style={{ backgroundColor: w.color + "22", color: w.color }}
-                >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} />
-                  {w.name}
-                </button>
-              ))}
-              <button
-                onClick={() => setShowCreateWallet(!showCreateWallet)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium border border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> New Wallet
-              </button>
-            </div>
-
-            {showCreateWallet && (
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-                <Input
-                  value={newWalletName}
-                  onChange={(e) => setNewWalletName(e.target.value)}
-                  placeholder="Wallet name, e.g. Coachella"
-                  className="bg-[#111] border-[#222] text-white"
-                />
-                <div className="flex items-center gap-2">
-                  <ColorPicker value={newWalletColor} onChange={setNewWalletColor} label="Color" />
+              {openedWallet && (
+                <div className="flex items-center gap-3 mb-4 rounded-2xl p-4" style={{ backgroundColor: openedWallet.color }}>
+                  {(() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="w-6 h-6 text-black shrink-0" />; })()}
+                  <div className="min-w-0">
+                    <p className="text-black font-bold text-lg truncate">{openedWallet.name}</p>
+                    {(openedWallet.city || openedWallet.state) && (
+                      <p className="text-black/70 text-xs truncate">{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
+                    )}
+                    {openedWallet.business && <p className="text-black/70 text-xs truncate">{openedWallet.business}</p>}
+                  </div>
                 </div>
-                <Button onClick={createWallet} disabled={creatingWallet || !newWalletName.trim()} className="w-full bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
-                  {creatingWallet ? "Creating..." : "Create Wallet"}
-                </Button>
-              </div>
-            )}
-
-            {loadingFellows ? (
-              <div className="flex justify-center py-10">
-                <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
-              </div>
-            ) : filteredFellowPilots.length === 0 ? (
-              <div className="text-center py-16">
-                <Users className="w-10 h-10 text-white/15 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">{selectedWallet ? "No pilots in this wallet yet" : "No fellow pilots saved yet"}</p>
-                <p className="text-white/25 text-xs mt-1">Save someone's Pilot ID when they share it with you</p>
-              </div>
-            ) : (
-              filteredFellowPilots.map((p) => {
-                const wallet = wallets.find((w) => w.id === p.wallet_id);
-                return (
-                  <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
-                    <div className="relative shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
+              )}
+              {openedWalletPilots.length === 0 ? (
+                <p className="text-center text-white/40 py-16 text-sm">No pilots saved in this wallet yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {openedWalletPilots.map((p) => (
+                    <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
                         {p.profile_photo_url ? (
                           <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <User className="w-5 h-5 text-white/30" />
                         )}
                       </div>
-                      {wallet && (
-                        <span
-                          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#161616]"
-                          style={{ backgroundColor: wallet.color }}
-                          title={wallet.name}
-                        />
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
+                        {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
+                        {p.contact_email && <p className="text-white/30 text-xs truncate">{p.contact_email}</p>}
+                      </div>
+                      <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
-                      {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
-                      {p.contact_email && <p className="text-white/30 text-xs truncate">{p.contact_email}</p>}
-                    </div>
-                    <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex gap-1 bg-[#111] rounded-lg p-1">
+                  <button onClick={() => setWalletView("all")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${walletView === "all" ? "bg-[#8CFF3D] text-black" : "text-white/40 hover:text-white/60"}`}>
+                    All
+                  </button>
+                  <button onClick={() => setWalletView("starred")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1 ${walletView === "starred" ? "bg-[#8CFF3D] text-black" : "text-white/40 hover:text-white/60"}`}>
+                    <Star className="w-3 h-3" fill={walletView === "starred" ? "currentColor" : "none"} /> Starred
+                  </button>
+                </div>
+                <button onClick={openCreateWalletModal} className="w-9 h-9 rounded-full bg-[#8CFF3D]/15 text-[#8CFF3D] flex items-center justify-center hover:bg-[#8CFF3D]/25 transition-colors">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {loadingFellows ? (
+                <div className="flex justify-center py-20">
+                  <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+                </div>
+              ) : stackedWallets.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24">
+                  <Wallet className="w-10 h-10 text-white/15 mb-3" />
+                  <p className="text-white/40 text-sm mb-4">{walletView === "starred" ? "No starred wallets" : "No wallets yet"}</p>
+                  {walletView === "all" && (
+                    <Button onClick={openCreateWalletModal} className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold rounded-full px-6">
+                      <Plus className="w-4 h-4 mr-2" /> New Wallet
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="relative" style={{ height: stackHeight }}>
+                  {stackedWallets.map((w) => {
+                    const Icon = WALLET_ICONS[w.icon] || Wallet;
+                    return (
+                      <div
+                        key={w.id}
+                        onClick={() => {
+                          if (w.isActive) setOpenWalletId(w.id);
+                          else setActiveWalletId(w.id);
+                        }}
+                        className="absolute left-0 right-0 rounded-2xl px-4 shadow-lg border border-black/10 cursor-pointer transition-all duration-300 overflow-hidden flex"
+                        style={{
+                          top: w.top,
+                          zIndex: w.z,
+                          height: w.isActive ? 140 : 56,
+                          backgroundColor: w.color,
+                          alignItems: w.isActive ? "flex-start" : "center",
+                          paddingTop: w.isActive ? 16 : 0,
+                          paddingBottom: w.isActive ? 16 : 0,
+                        }}
+                      >
+                        {w.isActive ? (
+                          <div className="w-full">
+                            <div className="flex items-start justify-between">
+                              <Icon className="w-6 h-6 text-black" />
+                              <div className="flex items-center gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }} className="p-1 text-black/50 hover:text-black">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }} className="p-1 text-black/50 hover:text-black">
+                                  <Star className="w-4 h-4" fill={w.starred ? "#000" : "none"} />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-black font-bold text-lg mt-2 truncate">{w.name}</p>
+                            {(w.city || w.state) && <p className="text-black/70 text-xs truncate">{[w.city, w.state].filter(Boolean).join(", ")}</p>}
+                            {w.business && <p className="text-black/70 text-xs truncate">{w.business}</p>}
+                            <p className="text-black/40 text-[10px] mt-2">Tap again to open</p>
+                          </div>
+                        ) : (
+                          <span className="text-black font-semibold text-sm truncate">{w.name}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {activeTab === "settings" && (
@@ -538,6 +630,59 @@ export default function Cockpit() {
           </div>
         )}
       </div>
+
+      {showWalletModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-white/50 text-xs">Name</Label>
+                <Input value={walletForm.name} onChange={(e) => setWalletForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Coachella" className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs mb-2 block">Icon</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(WALLET_ICONS).map(([key, Icon]) => (
+                    <button
+                      key={key}
+                      onClick={() => setWalletForm((f) => ({ ...f, icon: key }))}
+                      className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all ${walletForm.icon === key ? "border-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] bg-[#111]"}`}
+                    >
+                      <Icon className={`w-5 h-5 ${walletForm.icon === key ? "text-[#8CFF3D]" : "text-white/40"}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <ColorPicker value={walletForm.color} onChange={(c) => setWalletForm((f) => ({ ...f, color: c }))} label="Color" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-white/50 text-xs">City</Label>
+                  <Input value={walletForm.city} onChange={(e) => setWalletForm((f) => ({ ...f, city: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div>
+                  <Label className="text-white/50 text-xs">State</Label>
+                  <Input value={walletForm.state} onChange={(e) => setWalletForm((f) => ({ ...f, state: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-white/50 text-xs">Business</Label>
+                <Input value={walletForm.business} onChange={(e) => setWalletForm((f) => ({ ...f, business: e.target.value }))} placeholder="e.g. Live Nation" className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowWalletModal(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Cancel
+              </Button>
+              <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                {savingWallet ? "Saving..." : editingWalletId ? "Save Changes" : "Create Wallet"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cropFile && (
         <ImageCropModal
