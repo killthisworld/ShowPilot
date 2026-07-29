@@ -31,7 +31,13 @@ export default function CalendarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
 
-      const engineerName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || "";
+      const { data: prefs } = await supabase
+        .from("user_preferences")
+        .select("display_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const engineerName = prefs?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email || "";
 
       const { data: request, error } = await supabase
         .from("tour_manager_requests")
