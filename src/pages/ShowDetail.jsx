@@ -776,11 +776,11 @@ export default function ShowDetail() {
               return (
                 <button
                   onClick={() => setActiveBandIndex(headlinerIdx)}
-                  className={`ml-auto px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all flex items-center gap-2 ${isActive ? "border-[#8CFF3D] text-[#8CFF3D] bg-[#8CFF3D]/15" : "border-[#8CFF3D]/40 text-[#8CFF3D]/80 bg-[#8CFF3D]/5"}`}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold border-2 transition-all flex items-center gap-2 ${isActive ? "border-blue-400 text-blue-400 bg-blue-500/15" : "border-blue-400/40 text-blue-400/80 bg-blue-500/5"}`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" style={{ boxShadow: "0 0 6px 2px rgba(140,255,61,0.8)" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" style={{ boxShadow: "0 0 6px 2px rgba(96,165,250,0.8)" }} />
                   {h.band_name || "Headliner"}
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" style={{ boxShadow: "0 0 6px 2px rgba(140,255,61,0.8)" }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" style={{ boxShadow: "0 0 6px 2px rgba(96,165,250,0.8)" }} />
                 </button>
               );
             })()}
