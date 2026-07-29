@@ -218,11 +218,11 @@ export default function Cockpit() {
     return visibleWallets.map((w, i) => {
       const isActive = w.id === activeWalletId;
       const item = { ...w, top, isActive, z: isActive ? 999 : visibleWallets.length - i };
-      top += isActive ? 168 : 40;
+      top += isActive ? 200 : 60;
       return item;
     });
   })();
-  const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 140 : 56) : 0;
+  const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 170 : 72) : 0;
 
   const onFrontPointerDown = (e) => {
     frontDrag.current.dragging = true;
@@ -734,7 +734,7 @@ export default function Cockpit() {
                           style={{
                             top: w.top,
                             zIndex: w.z,
-                            height: 140,
+                            height: 170,
                             background: `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
                             transform: `translateX(${frontOffset}px)`,
                             transition: frontDrag.current.dragging ? "none" : "transform 0.25s ease-out, top 0.3s",
@@ -743,7 +743,6 @@ export default function Cockpit() {
                           }}
                         >
                           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.3), transparent 55%)" }} />
-                          <div className="absolute top-14 left-0 right-0 h-px bg-black/10" />
                           <div className="relative z-10 flex items-start justify-between">
                             {w.icon_image_url ? (
                               <img src={w.icon_image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-black/10" />
@@ -788,7 +787,7 @@ export default function Cockpit() {
                         style={{
                           top: w.top,
                           zIndex: w.z,
-                          height: 56,
+                          height: 72,
                           background: `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
                           borderTopColor: "rgba(255,255,255,0.3)",
                           boxShadow: "0 6px 16px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25)",
