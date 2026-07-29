@@ -82,7 +82,8 @@ export default function Cockpit() {
   const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
   const [savingWallet, setSavingWallet] = useState(false);
   const [showAddIdModal, setShowAddIdModal] = useState(false);
-  const [addIdForm, setAddIdForm] = useState({ display_name: "", job_title: "", contact_email: "", contact_phone: "" });
+  const [addIdLink, setAddIdLink] = useState("");
+  const [addIdError, setAddIdError] = useState("");
   const [savingId, setSavingId] = useState(false);
 
   const frontDrag = useRef({ dragging: false, startX: 0, moved: false });
@@ -178,14 +179,11 @@ export default function Cockpit() {
   const visibleWallets = walletView === "starred" ? wallets.filter((w) => w.starred) : wallets;
 
   const stackedWallets = (() => {
-    const ordered = activeWalletId
-      ? [visibleWallets.find((w) => w.id === activeWalletId), ...visibleWallets.filter((w) => w.id !== activeWalletId)].filter(Boolean)
-      : visibleWallets;
     let top = 0;
-    return ordered.map((w, i) => {
+    return visibleWallets.map((w, i) => {
       const isActive = w.id === activeWalletId;
-      const item = { ...w, top, isActive, z: ordered.length - i };
-      top += isActive ? 152 : 18;
+      const item = { ...w, top, isActive, z: isActive ? 999 : visibleWallets.length - i };
+      top += isActive ? 152 : 26;
       return item;
     });
   })();
@@ -216,24 +214,42 @@ export default function Cockpit() {
   const openedWalletPilots = openWalletId ? fellowPilots.filter((p) => p.wallet_id === openWalletId) : [];
 
   const openAddIdModal = () => {
-    setAddIdForm({ display_name: "", job_title: "", contact_email: "", contact_phone: "" });
+    setAddIdLink("");
+    setAddIdError("");
     setShowAddIdModal(true);
   };
 
-  const saveManualId = async () => {
-    if (!user || !openWalletId || !addIdForm.display_name.trim()) return;
+  const addIdFromLink = async () => {
+    if (!user || !openWalletId || !addIdLink.trim()) return;
     setSavingId(true);
+    setAddIdError("");
     try {
+      let token = addIdLink.trim();
+      const match = token.match(/\/pilot\/([a-zA-Z0-9-]+)/);
+      if (match) token = match[1];
+
+      const { data: cardRows, error: cardError } = await supabase.rpc("get_pilot_card_by_token", { p_token: token });
+      if (cardError || !cardRows || cardRows.length === 0) {
+        setAddIdError("Couldn't find a Pilot ID at that link.");
+        setSavingId(false);
+        return;
+      }
+      const card = cardRows[0];
+
       const { data, error } = await supabase
         .from("fellow_pilots")
         .insert({
           owner_id: user.id,
-          pilot_user_id: null,
+          pilot_user_id: card.user_id,
           wallet_id: openWalletId,
-          display_name: addIdForm.display_name.trim(),
-          job_title: addIdForm.job_title || null,
-          contact_email: addIdForm.contact_email || null,
-          contact_phone: addIdForm.contact_phone || null,
+          display_name: card.display_name,
+          job_title: card.job_title,
+          contact_email: card.contact_email,
+          contact_phone: card.contact_phone,
+          profile_photo_url: card.profile_photo_url,
+          card_bg_color: card.card_bg_color,
+          card_bg_image_url: card.card_bg_image_url,
+          card_text_color: card.card_text_color,
         })
         .select()
         .single();
@@ -662,10 +678,20 @@ export default function Cockpit() {
                               <Icon className="w-7 h-7 text-black" />
                             )}
                             <div className="flex items-center gap-1">
-                              <button onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }} className="p-1 text-black/50 hover:text-black">
+                              <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onPointerUp={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }}
+                                className="p-1 text-black/50 hover:text-black"
+                              >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }} className="p-1 text-black/50 hover:text-black">
+                              <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onPointerUp={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }}
+                                className="p-1 text-black/50 hover:text-black"
+                              >
                                 <Star className="w-4 h-4" fill={w.starred ? "#000" : "none"} />
                               </button>
                             </div>
@@ -681,7 +707,7 @@ export default function Cockpit() {
                       <div
                         key={w.id}
                         onClick={() => setActiveWalletId(w.id)}
-                        className="absolute left-0 right-0 rounded-2xl px-4 flex items-center cursor-pointer transition-all duration-300 overflow-hidden border-t"
+                        className="absolute left-0 right-0 rounded-2xl px-4 pb-1.5 flex items-end cursor-pointer transition-all duration-300 overflow-hidden border-t"
                         style={{
                           top: w.top,
                           zIndex: w.z,
@@ -838,31 +864,21 @@ export default function Cockpit() {
       {showAddIdModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">Add ID</h3>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-white/50 text-xs">Name</Label>
-                <Input value={addIdForm.display_name} onChange={(e) => setAddIdForm((f) => ({ ...f, display_name: e.target.value }))} placeholder="Name" className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">Job Title</Label>
-                <Input value={addIdForm.job_title} onChange={(e) => setAddIdForm((f) => ({ ...f, job_title: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">Email</Label>
-                <Input value={addIdForm.contact_email} onChange={(e) => setAddIdForm((f) => ({ ...f, contact_email: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">Phone</Label>
-                <Input value={addIdForm.contact_phone} onChange={(e) => setAddIdForm((f) => ({ ...f, contact_phone: formatPhoneNumber(e.target.value) }))} className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-            </div>
+            <h3 className="text-white font-bold text-base mb-2">Add ID</h3>
+            <p className="text-white/40 text-xs mb-3">Paste the Pilot ID link they shared with you.</p>
+            <Input
+              value={addIdLink}
+              onChange={(e) => setAddIdLink(e.target.value)}
+              placeholder="https://show-pilot.vercel.app/pilot/..."
+              className="bg-[#111] border-[#222] text-white"
+            />
+            {addIdError && <p className="text-red-400 text-xs mt-2">{addIdError}</p>}
             <div className="flex gap-2 mt-4">
               <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
                 Cancel
               </Button>
-              <Button onClick={saveManualId} disabled={savingId || !addIdForm.display_name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
-                {savingId ? "Saving..." : "Add"}
+              <Button onClick={addIdFromLink} disabled={savingId || !addIdLink.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                {savingId ? "Adding..." : "Add"}
               </Button>
             </div>
           </div>
