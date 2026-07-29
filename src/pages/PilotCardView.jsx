@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { User, Mail, Phone, Briefcase, Check, RotateCw } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
+import ColorPicker from "@/components/showpilot/ColorPicker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const SOUNDWAVE_TEMPLATES = {
   black: { bg: "#000000", wave: "#FFFFFF" },
@@ -20,6 +23,11 @@ export default function PilotCardView() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showBack, setShowBack] = useState(false);
+  const [showWalletPicker, setShowWalletPicker] = useState(false);
+  const [wallets, setWallets] = useState([]);
+  const [creatingWallet, setCreatingWallet] = useState(false);
+  const [newWalletName, setNewWalletName] = useState("");
+  const [newWalletColor, setNewWalletColor] = useState("#8CFF3D");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUser(data?.user || null));
@@ -34,13 +42,26 @@ export default function PilotCardView() {
     });
   }, [token]);
 
-  const handleSave = async () => {
+  const openWalletPicker = async () => {
+    if (!currentUser) return;
+    const { data, error } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("owner_id", currentUser.id)
+      .order("created_at", { ascending: true });
+    if (error) console.error(error);
+    else setWallets(data || []);
+    setShowWalletPicker(true);
+  };
+
+  const saveToWallet = async (walletId) => {
     if (!currentUser || !card) return;
     setSaving(true);
     try {
       const { error } = await supabase.from("fellow_pilots").insert({
         owner_id: currentUser.id,
         pilot_user_id: card.user_id,
+        wallet_id: walletId,
         display_name: card.display_name,
         job_title: card.job_title,
         contact_email: card.contact_email,
@@ -52,10 +73,30 @@ export default function PilotCardView() {
       });
       if (error) throw error;
       setSaved(true);
+      setShowWalletPicker(false);
     } catch (e) {
       console.error(e);
     }
     setSaving(false);
+  };
+
+  const createWalletAndSave = async () => {
+    if (!currentUser || !newWalletName.trim()) return;
+    setSaving(true);
+    try {
+      const { data: wallet, error: walletError } = await supabase
+        .from("wallets")
+        .insert({ owner_id: currentUser.id, name: newWalletName.trim(), color: newWalletColor })
+        .select()
+        .single();
+      if (walletError) throw walletError;
+      await saveToWallet(wallet.id);
+      setCreatingWallet(false);
+      setNewWalletName("");
+    } catch (e) {
+      console.error(e);
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -81,6 +122,70 @@ export default function PilotCardView() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] flex flex-col items-center justify-center px-4 py-10">
+      {/* Wallet picker modal */}
+      {showWalletPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletPicker(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-3">Add to Wallet</h3>
+
+            {!creatingWallet ? (
+              <>
+                <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
+                  {wallets.length === 0 && (
+                    <p className="text-xs text-white/30 text-center py-3">No wallets yet — create one below</p>
+                  )}
+                  {wallets.map((w) => (
+                    <button
+                      key={w.id}
+                      onClick={() => saveToWallet(w.id)}
+                      disabled={saving}
+                      className="w-full flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] rounded-xl p-3 transition-colors text-left"
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                      <span className="text-white text-sm font-medium">{w.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreatingWallet(true)}
+                  className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Create New Wallet
+                </Button>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-white/50 text-xs block mb-1">Wallet Name</label>
+                  <Input
+                    value={newWalletName}
+                    onChange={(e) => setNewWalletName(e.target.value)}
+                    placeholder="e.g. Coachella"
+                    className="bg-[#1a1a1a] border-[#2a2a2a] text-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={newWalletColor} onChange={setNewWalletColor} label="Color" />
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setCreatingWallet(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                    Back
+                  </Button>
+                  <Button
+                    onClick={createWalletAndSave}
+                    disabled={saving || !newWalletName.trim()}
+                    className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold"
+                  >
+                    {saving ? "Saving..." : "Create & Save"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showBack ? (
         <div
           onClick={() => navigate(`/pilot/${token}/history`)}
@@ -150,11 +255,10 @@ export default function PilotCardView() {
             </div>
           ) : (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-[#8CFF3D] text-black font-semibold py-3 rounded-xl hover:bg-[#7ae62e] transition-colors"
+              onClick={openWalletPicker}
+              className="w-full bg-[#8CFF3D] text-black font-semibold py-3 rounded-xl hover:bg-[#7ae62e] transition-colors flex items-center justify-center gap-2"
             >
-              {saving ? "Saving..." : "+ Save to Fellow Pilots"}
+              <Wallet className="w-4 h-4" /> Add to Wallet
             </button>
           )
         ) : (

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Archive, Wallet, Plus } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
@@ -43,6 +43,12 @@ export default function Cockpit() {
   const bgInputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
   const [cropTarget, setCropTarget] = useState(null);
+  const [wallets, setWallets] = useState([]);
+  const [selectedWallet, setSelectedWallet] = useState(null);
+  const [showCreateWallet, setShowCreateWallet] = useState(false);
+  const [newWalletName, setNewWalletName] = useState("");
+  const [newWalletColor, setNewWalletColor] = useState("#8CFF3D");
+  const [creatingWallet, setCreatingWallet] = useState(false);
 
   const showPill = (msg) => {
     setSavedToast(msg);
@@ -60,18 +66,42 @@ export default function Cockpit() {
   useEffect(() => {
     if (activeTab === "fellow" && user) {
       setLoadingFellows(true);
-      supabase
-        .from("fellow_pilots")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("saved_at", { ascending: false })
-        .then(({ data, error }) => {
-          if (error) console.error(error);
-          else setFellowPilots(data || []);
-          setLoadingFellows(false);
-        });
+      Promise.all([
+        supabase.from("fellow_pilots").select("*").eq("owner_id", user.id).order("saved_at", { ascending: false }),
+        supabase.from("wallets").select("*").eq("owner_id", user.id).order("created_at", { ascending: true }),
+      ]).then(([fellowsRes, walletsRes]) => {
+        if (fellowsRes.error) console.error(fellowsRes.error);
+        else setFellowPilots(fellowsRes.data || []);
+        if (walletsRes.error) console.error(walletsRes.error);
+        else setWallets(walletsRes.data || []);
+        setLoadingFellows(false);
+      });
     }
   }, [activeTab, user]);
+
+  const createWallet = async () => {
+    if (!user || !newWalletName.trim()) return;
+    setCreatingWallet(true);
+    try {
+      const { data, error } = await supabase
+        .from("wallets")
+        .insert({ owner_id: user.id, name: newWalletName.trim(), color: newWalletColor })
+        .select()
+        .single();
+      if (error) throw error;
+      setWallets((prev) => [...prev, data]);
+      setNewWalletName("");
+      setShowCreateWallet(false);
+    } catch (e) {
+      console.error(e);
+      showPill("Error creating wallet");
+    }
+    setCreatingWallet(false);
+  };
+
+  const filteredFellowPilots = selectedWallet
+    ? fellowPilots.filter((p) => p.wallet_id === selectedWallet)
+    : fellowPilots;
 
   const update = (field, val) => setDraft((d) => ({ ...d, [field]: val }));
 
@@ -359,36 +389,92 @@ export default function Cockpit() {
 
         {activeTab === "fellow" && (
           <div className="space-y-3">
+            {/* Wallet filter chips */}
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setSelectedWallet(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${!selectedWallet ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}
+              >
+                All
+              </button>
+              {wallets.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => setSelectedWallet(w.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${selectedWallet === w.id ? "border-white/40" : "border-transparent opacity-70 hover:opacity-100"}`}
+                  style={{ backgroundColor: w.color + "22", color: w.color }}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} />
+                  {w.name}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowCreateWallet(!showCreateWallet)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> New Wallet
+              </button>
+            </div>
+
+            {showCreateWallet && (
+              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+                <Input
+                  value={newWalletName}
+                  onChange={(e) => setNewWalletName(e.target.value)}
+                  placeholder="Wallet name, e.g. Coachella"
+                  className="bg-[#111] border-[#222] text-white"
+                />
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={newWalletColor} onChange={setNewWalletColor} label="Color" />
+                </div>
+                <Button onClick={createWallet} disabled={creatingWallet || !newWalletName.trim()} className="w-full bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+                  {creatingWallet ? "Creating..." : "Create Wallet"}
+                </Button>
+              </div>
+            )}
+
             {loadingFellows ? (
               <div className="flex justify-center py-10">
                 <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
               </div>
-            ) : fellowPilots.length === 0 ? (
+            ) : filteredFellowPilots.length === 0 ? (
               <div className="text-center py-16">
                 <Users className="w-10 h-10 text-white/15 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">No fellow pilots saved yet</p>
+                <p className="text-white/40 text-sm">{selectedWallet ? "No pilots in this wallet yet" : "No fellow pilots saved yet"}</p>
                 <p className="text-white/25 text-xs mt-1">Save someone's Pilot ID when they share it with you</p>
               </div>
             ) : (
-              fellowPilots.map((p) => (
-                <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
-                    {p.profile_photo_url ? (
-                      <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-5 h-5 text-white/30" />
-                    )}
+              filteredFellowPilots.map((p) => {
+                const wallet = wallets.find((w) => w.id === p.wallet_id);
+                return (
+                  <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
+                        {p.profile_photo_url ? (
+                          <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-5 h-5 text-white/30" />
+                        )}
+                      </div>
+                      {wallet && (
+                        <span
+                          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#161616]"
+                          style={{ backgroundColor: wallet.color }}
+                          title={wallet.name}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
+                      {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
+                      {p.contact_email && <p className="text-white/30 text-xs truncate">{p.contact_email}</p>}
+                    </div>
+                    <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
-                    {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
-                    {p.contact_email && <p className="text-white/30 text-xs truncate">{p.contact_email}</p>}
-                  </div>
-                  <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
