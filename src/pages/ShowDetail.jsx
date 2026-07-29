@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ChevronUp, ClipboardList, Settings, Camera, Building2, Mic } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building2, Mic } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -205,27 +205,34 @@ export default function ShowDetail() {
     setActiveBandIndex(0);
   };
 
-  const moveOpener = async (idx, direction) => {
-    const targetIdx = idx + direction;
-    if (targetIdx < 0 || targetIdx >= bands.length) return;
-    const a = bands[idx];
-    const b = bands[targetIdx];
-    if (a.is_headliner || b.is_headliner) return;
+  const setOpenerPosition = async (idx, newPositionRaw) => {
+    const band = bands[idx];
+    if (band.is_headliner) return;
 
-    const aOrder = a.sort_order ?? idx;
-    const bOrder = b.sort_order ?? targetIdx;
+    const openerBands = bands.filter((b) => !b.is_headliner);
+    const currentPos = openerBands.findIndex((b) => b === band);
 
-    const updated = [...bands];
-    updated[idx] = { ...a, sort_order: bOrder };
-    updated[targetIdx] = { ...b, sort_order: aOrder };
-    updated.sort((x, y) => (y.is_headliner - x.is_headliner) || ((x.sort_order ?? 0) - (y.sort_order ?? 0)));
-    setBands(updated);
+    let newPosition = parseInt(newPositionRaw, 10);
+    if (isNaN(newPosition)) return;
+    newPosition = Math.max(1, Math.min(openerBands.length, newPosition));
+    const newPos0 = newPosition - 1;
+    if (newPos0 === currentPos) return;
 
-    const newActiveIdx = updated.findIndex((bd) => bd === a);
-    if (newActiveIdx !== -1) setActiveBandIndex(newActiveIdx);
+    const reordered = [...openerBands];
+    const [moved] = reordered.splice(currentPos, 1);
+    reordered.splice(newPos0, 0, moved);
+    const updatedOpeners = reordered.map((b, i) => ({ ...b, sort_order: i + 1 }));
 
-    if (a.id) await supabase.from("show_bands").update({ sort_order: bOrder }).eq("id", a.id);
-    if (b.id) await supabase.from("show_bands").update({ sort_order: aOrder }).eq("id", b.id);
+    const headliner = bands.find((b) => b.is_headliner);
+    const newBands = [headliner, ...updatedOpeners];
+    setBands(newBands);
+    setActiveBandIndex(newBands.findIndex((b) => b === band));
+
+    for (const b of updatedOpeners) {
+      if (b.id) {
+        await supabase.from("show_bands").update({ sort_order: b.sort_order }).eq("id", b.id);
+      }
+    }
   };
 
   const headlinerIndex = bands.findIndex((b) => b.is_headliner);
@@ -748,36 +755,14 @@ export default function ShowDetail() {
                 ? (b.band_name || "Headliner")
                 : (b.band_name || `Opener ${++openerCount}`);
               return (
-                <div
+                <button
                   key={b.id || `new-${i}`}
-                  className={`flex items-center rounded-full border transition-all ${activeBandIndex === i ? "border-[#8CFF3D]/40 bg-[#8CFF3D]/10" : "border-[#222]"}`}
+                  onClick={() => setActiveBandIndex(i)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${activeBandIndex === i ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}
                 >
-                  <button
-                    onClick={() => setActiveBandIndex(i)}
-                    className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 ${activeBandIndex === i ? "text-[#8CFF3D]" : "text-white/40 hover:text-white/60"}`}
-                  >
-                    {b.is_headliner && <Star className="w-3 h-3" fill="currentColor" />}
-                    {label}
-                  </button>
-                  {!b.is_headliner && (
-                    <div className="flex items-center pr-1.5 gap-0.5">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); moveOpener(i, -1); }}
-                        disabled={i <= 1}
-                        className="text-white/20 hover:text-white/60 disabled:opacity-20 disabled:hover:text-white/20"
-                      >
-                        <ChevronUp className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); moveOpener(i, 1); }}
-                        disabled={i >= bands.length - 1}
-                        className="text-white/20 hover:text-white/60 disabled:opacity-20 disabled:hover:text-white/20"
-                      >
-                        <ChevronDown className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                  {b.is_headliner && <Star className="w-3 h-3" fill="currentColor" />}
+                  {label}
+                </button>
               );
             })}
           </div>
@@ -790,6 +775,17 @@ export default function ShowDetail() {
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 bg-white/5 px-2 py-1 rounded-full">Opener</span>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={bands.filter((b) => !b.is_headliner).length}
+                    value={bands.filter((b) => !b.is_headliner).findIndex((b) => b === activeBand) + 1}
+                    onChange={(e) => setOpenerPosition(activeBandIndex, e.target.value)}
+                    className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
                 <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
