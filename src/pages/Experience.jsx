@@ -810,11 +810,6 @@ export default function Cockpit() {
               <div className="flex justify-center py-20">
                 <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
               </div>
-            ) : completedShows.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-white/40 text-sm">No milestones yet</p>
-                <p className="text-white/25 text-xs mt-1">Mark a show as Worked to start earning badges</p>
-              </div>
             ) : (
               <div className="space-y-6">
                 {BADGE_CATEGORIES.map((cat) => (
