@@ -143,7 +143,33 @@ export default function ShowDetail() {
     const node = ref.current;
     if (!node) return;
     try {
-      const canvas = await html2canvas(node, { backgroundColor: "#0d0d0d", scale: 2 });
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#0d0d0d",
+        scale: 2,
+        onclone: (clonedDoc, clonedNode) => {
+          const fields = clonedNode.querySelectorAll("input, textarea");
+          fields.forEach((field) => {
+            const computed = window.getComputedStyle(field);
+            const replacement = clonedDoc.createElement("div");
+            replacement.textContent = field.value || field.placeholder || "";
+            replacement.style.cssText = field.style.cssText;
+            replacement.style.color = field.value ? computed.color : computed.getPropertyValue("color");
+            replacement.style.fontSize = computed.fontSize;
+            replacement.style.fontFamily = computed.fontFamily;
+            replacement.style.fontWeight = computed.fontWeight;
+            replacement.style.padding = computed.padding;
+            replacement.style.border = computed.border;
+            replacement.style.borderRadius = computed.borderRadius;
+            replacement.style.backgroundColor = computed.backgroundColor;
+            replacement.style.width = computed.width;
+            replacement.style.height = computed.height;
+            replacement.style.boxSizing = computed.boxSizing;
+            replacement.style.display = "flex";
+            replacement.style.alignItems = "center";
+            field.parentNode.replaceChild(replacement, field);
+          });
+        },
+      });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
