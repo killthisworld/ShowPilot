@@ -54,11 +54,36 @@ export default function Home() {
 
       if (error) {
         console.error("Error loading shows:", error);
-      } else if (isMounted) {
-        // Archived shows live on their own page (Cockpit → Settings → Archived Shows)
-        setShows((data || []).filter((s) => !s.archived));
+        if (isMounted) setLoading(false);
+        return;
       }
-      if (isMounted) setLoading(false);
+
+      // Archived shows live on their own page (Cockpit → Settings → Archived Shows)
+      const activeShows = (data || []).filter((s) => !s.archived);
+      const showIds = activeShows.map((s) => s.id);
+
+      let openersByShow = {};
+      if (showIds.length > 0) {
+        const { data: openerRows, error: openerError } = await supabase
+          .from("show_bands")
+          .select("show_id, band_name")
+          .in("show_id", showIds)
+          .eq("is_headliner", false);
+        if (openerError) {
+          console.error("Error loading openers:", openerError);
+        } else {
+          (openerRows || []).forEach((row) => {
+            if (!row.band_name) return;
+            if (!openersByShow[row.show_id]) openersByShow[row.show_id] = [];
+            openersByShow[row.show_id].push(row.band_name);
+          });
+        }
+      }
+
+      if (isMounted) {
+        setShows(activeShows.map((s) => ({ ...s, opener_names: openersByShow[s.id] || [] })));
+        setLoading(false);
+      }
     }
 
     loadShows();
@@ -104,13 +129,16 @@ export default function Home() {
     return [...new Set(all)].sort();
   }, [shows]);
 
-  // Predictive suggestions: band names + venues + locations matching current search
+  // Predictive suggestions: band names + openers + venues + locations matching current search
   const suggestions = useMemo(() => {
     if (!search || search.length < 1) return [];
     const q = search.toLowerCase();
     const candidates = new Set();
     shows.forEach((s) => {
       if (s.band_name?.toLowerCase().includes(q)) candidates.add(s.band_name);
+      (s.opener_names || []).forEach((name) => {
+        if (name?.toLowerCase().includes(q)) candidates.add(name);
+      });
       if (s.venue?.toLowerCase().includes(q)) candidates.add(s.venue);
       if (s.location?.toLowerCase().includes(q)) candidates.add(s.location);
       const city = s.location?.split(",")[0]?.trim();
@@ -165,8 +193,9 @@ export default function Home() {
           if (s.status !== activeTab) return false;
         }
       } else {
-        // Search mode: match band name, venue, or location
-        if (!s.band_name?.toLowerCase().includes(q) && !s.venue?.toLowerCase().includes(q) && !s.location?.toLowerCase().includes(q)) return false;
+        // Search mode: match band name, opener names, venue, or location
+        const matchesOpener = (s.opener_names || []).some((name) => name?.toLowerCase().includes(q));
+        if (!s.band_name?.toLowerCase().includes(q) && !matchesOpener && !s.venue?.toLowerCase().includes(q) && !s.location?.toLowerCase().includes(q)) return false;
       }
       // Dropdown filters always apply
       if (yearFilter !== "all" && !s.date?.startsWith(yearFilter)) return false;

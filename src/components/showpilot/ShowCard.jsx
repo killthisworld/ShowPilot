@@ -99,6 +99,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
               )}
             </div>
             <div className="flex items-center gap-1.5">
+              <StatusBadge status={show.status} />
               {show.frequency_scope === "venue" && <Building2 className="w-3.5 h-3.5" style={{ color: accentColor }} title="Venue" />}
               {show.frequency_scope === "artist" && <Mic className="w-3.5 h-3.5" style={{ color: accentColor }} title="Artist / Band" />}
               {show.frequency_scope === "both" && (
@@ -107,7 +108,6 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
                   <Mic className="w-3 h-3" />
                 </span>
               )}
-              <StatusBadge status={show.status} />
             </div>
           </div>
           <div className="flex items-center gap-4 text-xs text-white/40">
