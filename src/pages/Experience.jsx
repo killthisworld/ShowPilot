@@ -218,7 +218,7 @@ export default function Cockpit() {
     return visibleWallets.map((w, i) => {
       const isActive = w.id === activeWalletId;
       const item = { ...w, top, isActive, z: isActive ? 999 : visibleWallets.length - i };
-      top += isActive ? 152 : 26;
+      top += isActive ? 168 : 40;
       return item;
     });
   })();
@@ -735,13 +735,15 @@ export default function Cockpit() {
                             top: w.top,
                             zIndex: w.z,
                             height: 140,
-                            background: `linear-gradient(135deg, ${w.color}, ${w.color}bb)`,
+                            background: `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
                             transform: `translateX(${frontOffset}px)`,
                             transition: frontDrag.current.dragging ? "none" : "transform 0.25s ease-out, top 0.3s",
-                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.45)",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 14px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35)",
                             touchAction: "none",
                           }}
                         >
+                          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.3), transparent 55%)" }} />
+                          <div className="absolute inset-1.5 rounded-xl border border-dashed border-black/15 pointer-events-none" />
                           <div className="absolute top-[42px] left-0 right-0 h-px bg-black/10" />
                           <div className="relative z-10 flex items-start justify-between">
                             {w.icon_image_url ? (
@@ -789,11 +791,12 @@ export default function Cockpit() {
                           zIndex: w.z,
                           height: 56,
                           background: `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
-                          borderTopColor: "rgba(255,255,255,0.25)",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                          borderTopColor: "rgba(255,255,255,0.3)",
+                          boxShadow: "0 6px 16px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25)",
                         }}
                       >
-                        <span className="text-black font-semibold text-sm truncate">{w.name}</span>
+                        <div className="absolute inset-x-3 top-2 h-px bg-black/10 pointer-events-none" />
+                        <span className="relative text-black font-semibold text-sm truncate">{w.name}</span>
                       </div>
                     );
                   })}
