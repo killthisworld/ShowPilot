@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building2, Mic } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -664,16 +664,42 @@ export default function ShowDetail() {
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <div className="flex items-center justify-between gap-3 mb-2">
-          <Select value={show.status} onValueChange={(v) => update("status", v)}>
-            <SelectTrigger className="w-auto h-8 bg-transparent border-0 p-0">
-              <StatusBadge status={show.status} />
-            </SelectTrigger>
-            <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-              <SelectItem value="not_started">New</SelectItem>
-              <SelectItem value="in_progress">Frequent</SelectItem>
-              <SelectItem value="complete">Worked</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={show.status} onValueChange={(v) => update("status", v)}>
+              <SelectTrigger className="w-auto h-8 bg-transparent border-0 p-0">
+                <StatusBadge status={show.status} />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                <SelectItem value="not_started">New</SelectItem>
+                <SelectItem value="in_progress">Frequent</SelectItem>
+                <SelectItem value="complete">Worked</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex gap-1">
+              <button
+                onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
+                className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all ${show.frequency_scope === "venue" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
+                title="Venue"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
+                className={`h-7 w-7 flex items-center justify-center rounded-lg border transition-all ${show.frequency_scope === "artist" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
+                title="Artist / Band"
+              >
+                <Mic className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
+                className={`h-7 px-1.5 flex items-center justify-center gap-0.5 rounded-lg border transition-all ${show.frequency_scope === "both" ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/30 hover:text-white/60"}`}
+                title="Both"
+              >
+                <Building2 className="w-3 h-3" />
+                <Mic className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
           <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Opener
           </Button>

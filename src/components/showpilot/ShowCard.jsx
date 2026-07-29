@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, MapPin, Star, Archive, Trash2 } from "lucide-react";
+import { Calendar, MapPin, Star, Archive, Trash2, Building2, Mic } from "lucide-react";
 import StatusBadge from "./StatusBadge";
 import moment from "moment";
 
@@ -98,7 +98,17 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
                 </div>
               )}
             </div>
-            <StatusBadge status={show.status} />
+            <div className="flex items-center gap-1.5">
+              {show.frequency_scope === "venue" && <Building2 className="w-3.5 h-3.5 text-blue-400" title="Venue" />}
+              {show.frequency_scope === "artist" && <Mic className="w-3.5 h-3.5 text-blue-400" title="Artist / Band" />}
+              {show.frequency_scope === "both" && (
+                <span className="flex items-center gap-0.5 text-blue-400" title="Venue & Artist">
+                  <Building2 className="w-3 h-3" />
+                  <Mic className="w-3 h-3" />
+                </span>
+              )}
+              <StatusBadge status={show.status} />
+            </div>
           </div>
           <div className="flex items-center gap-4 text-xs text-white/40">
             <span className="flex items-center gap-1.5">
