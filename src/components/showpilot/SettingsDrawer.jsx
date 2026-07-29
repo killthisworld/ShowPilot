@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Menu, User, LogOut, Star } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
@@ -17,6 +18,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
   const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const lastRatingDate = prefs.last_rating_date ? new Date(prefs.last_rating_date) : null;
   const daysSinceRating = lastRatingDate ? (Date.now() - lastRatingDate.getTime()) / (1000 * 60 * 60 * 24) : 999;
@@ -123,11 +125,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-[#111] border-[#222] p-0 overflow-y-auto">
         <div className="p-5">
-          <h2 className="text-lg font-bold text-white mb-1">Settings</h2>
-          <p className="text-sm text-white/40 mb-4">Manage your profile</p>
-          <p className="text-xs text-white/30 mb-4 -mt-2">
-            Genre colors and IEM/Monitor colors have moved — find them right on each show's page (next to Genre / Tag, and in Band & Mix Bus).
-          </p>
+          <h2 className="text-lg font-bold text-white mb-4">Settings</h2>
 
           <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -148,13 +146,14 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
               <Input value={prefs.display_name || ""} onChange={(e) => setPrefs({ ...prefs, display_name: e.target.value })} className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white" />
             </div>
             <div>
-              <Label className="text-white/50 text-xs">Username</Label>
-              <Input value={prefs.username || ""} onChange={(e) => setPrefs({ ...prefs, username: e.target.value })} className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white" />
-            </div>
-            <div>
               <Label className="text-white/50 text-xs">Email</Label>
               <Input value={user?.email || ""} readOnly className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white/50" />
             </div>
+
+            <Button onClick={() => { setOpen(false); navigate("/archived"); }} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
+              <Archive className="w-4 h-4 mr-2" /> Archived Shows
+            </Button>
+
             <div className="border-t border-[#222] pt-4">
               <Label className="text-white/50 text-xs block mb-2">Rate ShowPilot</Label>
               {canRate ? (

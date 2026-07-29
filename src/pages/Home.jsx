@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ShowCard from "@/components/showpilot/ShowCard";
+import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
 
@@ -33,7 +34,7 @@ export default function Home() {
   const [confirmDeleteShow, setConfirmDeleteShow] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const searchRef = useRef(null);
-  const { preferences } = usePreferences();
+  const { preferences, reload } = usePreferences();
 
   useEffect(() => {
     let isMounted = true;
@@ -215,7 +216,7 @@ export default function Home() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <div className="w-8 h-8" />
+          <SettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-lg font-bold text-white tracking-tight">
             Show<span className="text-[#8CFF3D]">Pilot</span>
           </h1>
