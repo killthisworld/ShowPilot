@@ -233,7 +233,6 @@ export default function TourManagerIntake() {
     setError(null);
     setSubmitting(true);
     try {
-      window.alert("OPENERS BEING SUBMITTED:\n\n" + JSON.stringify(form.openers, null, 2));
       // Anonymous submitters can't insert a Show owned by someone else through
       // normal permissions — this calls a secure server-side function that
       // verifies the token and does the privileged write. See
@@ -414,7 +413,17 @@ export default function TourManagerIntake() {
             </div>
             <div>
               <Label className="text-white/50 text-xs">Event Type</Label>
-              <Select value={form.event_type} onValueChange={(v) => update("event_type", v)}>
+              <Select
+                value={form.event_type}
+                onValueChange={(v) => {
+                  if (v === "__add_new__") {
+                    const newType = window.prompt("Enter a custom event type:");
+                    if (newType && newType.trim()) update("event_type", newType.trim());
+                  } else {
+                    update("event_type", v);
+                  }
+                }}
+              >
                 <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white w-48">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -422,6 +431,7 @@ export default function TourManagerIntake() {
                   {EVENT_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
+                  <SelectItem value="__add_new__">Other / Add New</SelectItem>
                 </SelectContent>
               </Select>
             </div>

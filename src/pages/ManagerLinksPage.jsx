@@ -76,11 +76,6 @@ export default function ManagerLinksPage() {
     setGeneratingFor(null);
   };
 
-  const copyOpenerLink = (opener) => {
-    const url = `${window.location.origin}/opener-intake?token=${opener.invite_token}`;
-    setShareMenuLink({ url, label: `Opener ${opener.order_index} Link` });
-  };
-
   const handleConfirmedDelete = async () => {
     if (!confirmAction) return;
     setDeleting(true);
@@ -232,12 +227,12 @@ export default function ManagerLinksPage() {
                 <div className="space-y-1.5 mt-2 mb-2">
                   {r.openers.map((o) => (
                     <div key={o.id} className="w-full flex items-center gap-2 bg-[#111] rounded-lg px-3 py-2">
-                      <button onClick={() => copyOpenerLink(o)} className="flex-1 flex items-center justify-between min-w-0 hover:opacity-80 transition-opacity">
+                      <div className="flex-1 flex items-center justify-between min-w-0">
                         <span className="text-white/70 text-xs truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${o.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>
                           {o.status === "submitted" ? "Submitted" : "Pending"}
                         </span>
-                      </button>
+                      </div>
                       <button onClick={() => setConfirmAction({ type: "opener", target: { opener: o, requestId: r.id } })} className="p-1 text-white/20 hover:text-red-400 shrink-0">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
