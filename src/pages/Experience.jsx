@@ -86,6 +86,7 @@ export default function Cockpit() {
   const [addIdError, setAddIdError] = useState("");
   const [savingId, setSavingId] = useState(false);
   const [viewingCard, setViewingCard] = useState(null);
+  const [viewingCardBack, setViewingCardBack] = useState(false);
 
   const frontDrag = useRef({ dragging: false, startX: 0, moved: false, offset: 0 });
   const [frontOffset, setFrontOffset] = useState(0);
@@ -639,7 +640,7 @@ export default function Cockpit() {
                         <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
                         {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
                       </div>
-                      <button onClick={() => setViewingCard(p)} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
+                      <button onClick={() => { setViewingCard(p); setViewingCardBack(false); }} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
                         <Eye className="w-4 h-4" />
                       </button>
                       <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
@@ -948,47 +949,58 @@ export default function Cockpit() {
       {viewingCard && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4" onClick={() => setViewingCard(null)}>
           <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div
-              className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
-              style={{
-                backgroundColor: viewingCard.card_bg_color || "#111111",
-                backgroundImage: viewingCard.card_bg_image_url ? `url(${viewingCard.card_bg_image_url})` : undefined,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-              <div className="relative z-10 flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
-                  {viewingCard.profile_photo_url ? (
-                    <img src={viewingCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-6 h-6" style={{ color: viewingCard.card_text_color || "#FFFFFF" }} />
-                  )}
+            {viewingCardBack ? (
+              <div className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8" style={{ backgroundColor: "#000000" }}>
+                <div className="w-2/3 max-w-[220px] h-14">
+                  <Soundwave seed={viewingCard.pilot_user_id || viewingCard.id || "pilot"} color="#FFFFFF" />
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-lg truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>{viewingCard.display_name || "Pilot"}</p>
-                  {viewingCard.job_title && (
-                    <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                      <Briefcase className="w-3 h-3 shrink-0" /> {viewingCard.job_title}
+              </div>
+            ) : (
+              <div
+                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
+                style={{
+                  backgroundColor: viewingCard.card_bg_color || "#111111",
+                  backgroundImage: viewingCard.card_bg_image_url ? `url(${viewingCard.card_bg_image_url})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="relative z-10 flex items-center gap-3 mb-3">
+                  <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
+                    {viewingCard.profile_photo_url ? (
+                      <img src={viewingCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6" style={{ color: viewingCard.card_text_color || "#FFFFFF" }} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-lg truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>{viewingCard.display_name || "Pilot"}</p>
+                    {viewingCard.job_title && (
+                      <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                        <Briefcase className="w-3 h-3 shrink-0" /> {viewingCard.job_title}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="relative z-10 space-y-1">
+                  {viewingCard.contact_email && (
+                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                      <Mail className="w-3 h-3 shrink-0" /> {viewingCard.contact_email}
+                    </p>
+                  )}
+                  {viewingCard.contact_phone && (
+                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
+                      <Phone className="w-3 h-3 shrink-0" /> {viewingCard.contact_phone}
                     </p>
                   )}
                 </div>
               </div>
-              <div className="relative z-10 space-y-1">
-                {viewingCard.contact_email && (
-                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                    <Mail className="w-3 h-3 shrink-0" /> {viewingCard.contact_email}
-                  </p>
-                )}
-                {viewingCard.contact_phone && (
-                  <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                    <Phone className="w-3 h-3 shrink-0" /> {viewingCard.contact_phone}
-                  </p>
-                )}
-              </div>
-            </div>
-            <button onClick={() => setViewingCard(null)} className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm">
+            )}
+            <button onClick={() => setViewingCardBack(!viewingCardBack)} className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm flex items-center justify-center gap-2">
+              <RotateCw className="w-3.5 h-3.5" /> Flip Card
+            </button>
+            <button onClick={() => setViewingCard(null)} className="w-full mt-2 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm">
               Close
             </button>
           </div>
