@@ -325,16 +325,22 @@ export default function Cockpit() {
   const visibleWallets = walletView === "starred_wallets" ? wallets.filter((w) => w.starred) : wallets;
   const starredPilots = fellowPilots.filter((p) => p.starred);
 
-  const stackedWallets = (() => {
-    let top = 0;
-    return visibleWallets.map((w, i) => {
+  const { stackedWallets, stackHeight } = (() => {
+    let runningTop = 0;
+    const preFlip = visibleWallets.map((w, i) => {
       const isActive = w.id === activeWalletId;
-      const item = { ...w, top, isActive, z: isActive ? 999 : visibleWallets.length - i };
-      top += isActive ? 200 : 60;
+      const item = { ...w, top: runningTop, isActive, z: isActive ? 999 : visibleWallets.length - i };
+      runningTop += isActive ? 200 : 60;
       return item;
     });
+    const lastItem = preFlip[preFlip.length - 1];
+    const totalHeight = lastItem ? lastItem.top + (lastItem.isActive ? 170 : 72) : 0;
+    const flipped = preFlip.map((item) => ({
+      ...item,
+      top: totalHeight - item.top - (item.isActive ? 170 : 72),
+    }));
+    return { stackedWallets: flipped, stackHeight: totalHeight };
   })();
-  const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 170 : 72) : 0;
 
   const onFrontPointerDown = (e) => {
     if (e.target.closest("button")) return;
@@ -980,7 +986,7 @@ export default function Cockpit() {
                       <div
                         key={w.id}
                         onClick={() => setActiveWalletId(w.id)}
-                        className="absolute left-0 right-0 rounded-2xl px-4 pb-1.5 flex items-end cursor-pointer transition-all duration-300 overflow-hidden border-t"
+                        className="absolute left-0 right-0 rounded-2xl px-4 pt-2.5 flex items-start cursor-pointer transition-all duration-300 overflow-hidden border-b"
                         style={{
                           top: w.top,
                           zIndex: w.z,
@@ -989,14 +995,14 @@ export default function Cockpit() {
                           backgroundImage: w.icon_image_url ? `url(${w.icon_image_url})` : undefined,
                           backgroundSize: "cover",
                           backgroundPosition: "center",
-                          borderTopColor: "rgba(255,255,255,0.3)",
+                          borderBottomColor: "rgba(0,0,0,0.25)",
                           boxShadow: "0 6px 16px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25)",
                         }}
                       >
                         {w.icon_image_url && (
                           <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.65))" }} />
                         )}
-                        <div className="absolute inset-x-3 top-2 h-px bg-black/10 pointer-events-none" />
+                        <div className="absolute inset-x-3 bottom-2 h-px bg-black/10 pointer-events-none" />
                         <span className={`relative font-semibold text-sm truncate ${w.icon_image_url ? "text-white" : "text-black"}`}>{w.name}</span>
                       </div>
                     );
@@ -1253,7 +1259,7 @@ export default function Cockpit() {
                     <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
                       <SelectValue placeholder="State" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64">
+                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64 z-[10000]">
                       {US_STATES.map((s) => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
