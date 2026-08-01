@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar, Sliders, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
@@ -19,6 +19,17 @@ function hashColor(str) {
   let hash = 0;
   for (let i = 0; i < (str || "").length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return STAMP_COLORS[Math.abs(hash) % STAMP_COLORS.length];
+}
+
+function generateStoryLine(monthShows) {
+  if (monthShows.length === 0) return "";
+  const venues = new Set(monthShows.map((s) => s.venue).filter(Boolean));
+  const cities = new Set(monthShows.map((s) => s.city).filter(Boolean));
+  const count = monthShows.length;
+  if (count === 1) return `One show this month${monthShows[0].venue ? ` at ${monthShows[0].venue}` : ""}.`;
+  if (cities.size > 1) return `${count} shows across ${cities.size} cities.`;
+  if (venues.size > 1) return `${count} shows across ${venues.size} venues.`;
+  return `${count} shows this month.`;
 }
 
 function ShowStamp({ show, onClick, rotation }) {
@@ -51,6 +62,8 @@ export default function Logbook() {
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedShow, setSelectedShow] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [viewMode, setViewMode] = useState("monthly"); // "monthly" | "showcase"
 
   useEffect(() => {
     const load = async () => {
@@ -68,6 +81,28 @@ export default function Logbook() {
     };
     load();
   }, []);
+
+  const availableYears = useMemo(
+    () => [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
+    [shows]
+  );
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) setSelectedYear(availableYears[0]);
+  }, [availableYears, selectedYear]);
+
+  const yearShows = useMemo(() => shows.filter((s) => s.date?.startsWith(selectedYear)), [shows, selectedYear]);
+
+  const monthGroups = useMemo(() => {
+    const groups = {};
+    yearShows.forEach((s) => {
+      if (!s.date) return;
+      const key = s.date.slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    });
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [yearShows]);
 
   const uniqueVenues = [...new Set(shows.map((s) => s.venue).filter(Boolean))];
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
@@ -115,16 +150,67 @@ export default function Logbook() {
           </div>
         </div>
 
+        {availableYears.length > 0 && (
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex gap-1.5 overflow-x-auto">
+              {availableYears.map((y) => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all ${selectedYear === y ? "bg-[#8CFF3D] text-black" : "bg-white/5 text-white/40 hover:text-white/70"}`}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 shrink-0 ml-2">
+              <button
+                onClick={() => setViewMode("monthly")}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${viewMode === "monthly" ? "bg-white/10 text-white" : "text-white/30 hover:text-white/60"}`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setViewMode("showcase")}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${viewMode === "showcase" ? "bg-white/10 text-white" : "text-white/30 hover:text-white/60"}`}
+              >
+                Showcase
+              </button>
+            </div>
+          </div>
+        )}
+
         {shows.length === 0 ? (
           <div className="text-center py-24">
             <p className="text-white/40 text-sm">No stamps yet</p>
             <p className="text-white/25 text-xs mt-1">Mark a show as Worked to earn your first one</p>
           </div>
-        ) : (
+        ) : viewMode === "showcase" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
             {shows.map((show, i) => (
               <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
             ))}
+          </div>
+        ) : monthGroups.length === 0 ? (
+          <div className="text-center py-24">
+            <p className="text-white/40 text-sm">No shows in {selectedYear}</p>
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {monthGroups.map(([monthKey, monthShows]) => {
+              const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              return (
+                <div key={monthKey}>
+                  <h2 className="text-white font-bold text-lg">{monthLabel}</h2>
+                  <p className="text-[#8CFF3D]/80 text-xs font-medium mb-4">{generateStoryLine(monthShows)}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                    {monthShows.map((show, i) => (
+                      <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
