@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
 
 const TYPE_ICONS = {
   "Concert": Music,
@@ -50,10 +50,16 @@ export default function PublicLogbook() {
   const token = params.get("token");
 
   const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
   const [shows, setShows] = useState([]);
+  const [monthSettingsMap, setMonthSettingsMap] = useState({});
+  const [coverSettings, setCoverSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5 });
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedShow, setSelectedShow] = useState(null);
+  const [selectedYear, setSelectedYear] = useState(null);
+  const [showingCover, setShowingCover] = useState(true);
+  const [monthIndex, setMonthIndex] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -61,10 +67,16 @@ export default function PublicLogbook() {
       try {
         const { data, error } = await supabase.rpc("get_public_logbook", { p_token: token });
         if (error) throw error;
-        if (!data) { setNotFound(true); }
-        else {
+        if (!data) {
+          setNotFound(true);
+        } else {
           setDisplayName(data.display_name || "");
+          setBio(data.bio || "");
           setShows(data.shows || []);
+          const map = {};
+          (data.month_settings || []).forEach((s) => { map[s.month_key] = s; });
+          setMonthSettingsMap(map);
+          if (map.__cover__) setCoverSettings(map.__cover__);
         }
       } catch (e) {
         console.error(e);
@@ -74,6 +86,32 @@ export default function PublicLogbook() {
     };
     load();
   }, [token]);
+
+  const availableYears = useMemo(
+    () => [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
+    [shows]
+  );
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) setSelectedYear(availableYears[0]);
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    setMonthIndex(0);
+  }, [selectedYear]);
+
+  const yearShows = useMemo(() => shows.filter((s) => s.date?.startsWith(selectedYear)), [shows, selectedYear]);
+
+  const monthGroups = useMemo(() => {
+    const groups = {};
+    yearShows.forEach((s) => {
+      if (!s.date) return;
+      const key = s.date.slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    });
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [yearShows]);
 
   const uniqueVenues = [...new Set(shows.map((s) => s.venue).filter(Boolean))];
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
@@ -98,47 +136,142 @@ export default function PublicLogbook() {
     );
   }
 
+  const currentMonthEntry = monthGroups[monthIndex];
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-16">
-      <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-b border-white/5">
-        <div className="px-4 py-4 max-w-2xl mx-auto">
-          <h1 className="text-lg font-bold text-white tracking-tight">{displayName ? `${displayName}'s Logbook` : "Logbook"}</h1>
-          <p className="text-white/30 text-xs">Powered by ShowPilot</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a]">
+      {showingCover ? (
+        <div className="relative min-h-screen flex flex-col items-center justify-center text-center px-6">
+          {coverSettings.background_url && (
+            <>
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${coverSettings.background_url})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  filter: `blur(${coverSettings.blur || 0}px)`,
+                }}
+              />
+              <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${coverSettings.overlay_darkness ?? 0.5})` }} />
+            </>
+          )}
 
-      <div className="px-4 pt-6 max-w-2xl mx-auto">
-        <div className="grid grid-cols-4 gap-2 mb-8">
-          <div className="text-center">
-            <p className="text-xl font-bold text-white">{shows.length}</p>
-            <p className="text-white/30 text-[10px] uppercase tracking-wide">Shows</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-white">{uniqueVenues.length}</p>
-            <p className="text-white/30 text-[10px] uppercase tracking-wide">Venues</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-white">{uniqueBands.length}</p>
-            <p className="text-white/30 text-[10px] uppercase tracking-wide">Artists</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-white">{uniqueCities.length}</p>
-            <p className="text-white/30 text-[10px] uppercase tracking-wide">Cities</p>
+          <div className="relative z-10 max-w-md w-full">
+            <h1 className="text-white font-bold text-3xl tracking-tight mb-3">{displayName ? `${displayName}'s Logbook` : "Logbook"}</h1>
+            {bio && <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap mb-8">{bio}</p>}
+
+            <div className="grid grid-cols-4 gap-2 mb-10">
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{shows.length}</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wide">Shows</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{uniqueVenues.length}</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wide">Venues</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{uniqueBands.length}</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wide">Artists</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-white">{uniqueCities.length}</p>
+                <p className="text-white/40 text-[10px] uppercase tracking-wide">Cities</p>
+              </div>
+            </div>
+
+            {shows.length === 0 ? (
+              <p className="text-white/30 text-sm">No public stamps yet</p>
+            ) : (
+              <button
+                onClick={() => setShowingCover(false)}
+                className="px-6 py-3 rounded-full bg-[#8CFF3D] text-black font-semibold text-sm hover:bg-[#7ae62e] transition-colors"
+              >
+                Enter Logbook
+              </button>
+            )}
+            <p className="text-white/20 text-xs mt-8">Powered by ShowPilot</p>
           </div>
         </div>
+      ) : (
+        <>
+          <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-b border-white/5">
+            <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-2xl mx-auto">
+              <button onClick={() => setShowingCover(true)} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm">
+                <ArrowLeft className="w-4 h-4" /> Cover
+              </button>
+              {availableYears.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto">
+                  {availableYears.map((y) => (
+                    <button
+                      key={y}
+                      onClick={() => setSelectedYear(y)}
+                      className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all ${selectedYear === y ? "bg-[#8CFF3D] text-black" : "bg-white/5 text-white/40 hover:text-white/70"}`}
+                    >
+                      {y}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-        {shows.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="text-white/40 text-sm">No public stamps yet</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-            {shows.map((show, i) => (
-              <ShowStamp key={i} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
-            ))}
-          </div>
-        )}
-      </div>
+          {!currentMonthEntry ? (
+            <div className="text-center py-24">
+              <p className="text-white/40 text-sm">No shows in {selectedYear}</p>
+            </div>
+          ) : (
+            (() => {
+              const [monthKey, monthShows] = currentMonthEntry;
+              const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              const settings = monthSettingsMap[monthKey];
+              const hasBg = !!settings?.background_url;
+              return (
+                <div className="relative min-h-screen">
+                  {hasBg && (
+                    <>
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage: `url(${settings.background_url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          filter: `blur(${settings.blur || 0}px)`,
+                        }}
+                      />
+                      <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${settings.overlay_darkness ?? 0.5})` }} />
+                    </>
+                  )}
+                  <div className="relative max-w-2xl mx-auto px-4 py-10">
+                    <div className="flex items-center justify-between mb-6">
+                      <button
+                        onClick={() => setMonthIndex((i) => Math.min(i + 1, monthGroups.length - 1))}
+                        disabled={monthIndex >= monthGroups.length - 1}
+                        className="p-2 rounded-full text-white/50 hover:text-white disabled:opacity-20 disabled:hover:text-white/50"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <h2 className="text-white font-bold text-xl">{monthLabel}</h2>
+                      <button
+                        onClick={() => setMonthIndex((i) => Math.max(i - 1, 0))}
+                        disabled={monthIndex <= 0}
+                        className="p-2 rounded-full text-white/50 hover:text-white disabled:opacity-20 disabled:hover:text-white/50"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                      {monthShows.map((show, i) => (
+                        <ShowStamp key={i} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+        </>
+      )}
 
       {selectedShow && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 px-4 pb-4 sm:pb-0" onClick={() => setSelectedShow(null)}>
