@@ -22,6 +22,7 @@ import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
+import Logbook from '@/pages/Logbook';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/experience" element={<Experience />} />
         <Route path="/archived" element={<ArchivedShows />} />
         <Route path="/manager-links" element={<ManagerLinksPage />} />
+        <Route path="/logbook" element={<Logbook />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
