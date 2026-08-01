@@ -922,6 +922,12 @@ export default function Cockpit() {
               </div>
             ) : (
               <>
+                <div className="bg-[#8CFF3D]/5 border border-[#8CFF3D]/20 rounded-xl px-3 py-2.5">
+                  <p className="text-[#8CFF3D]/80 text-xs">
+                    Your Logbook is viewable by flipping the soundwave on the back of your digital business card (My Pilot tab).
+                  </p>
+                </div>
+
                 <div>
                   <h3 className="text-white font-bold text-sm mb-1">Cover Page</h3>
                   <p className="text-white/30 text-xs mb-3">The first thing people see when they open your Logbook</p>

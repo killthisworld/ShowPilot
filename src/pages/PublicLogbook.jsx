@@ -57,6 +57,7 @@ export default function PublicLogbook() {
   const [notFound, setNotFound] = useState(false);
   const [selectedShow, setSelectedShow] = useState(null);
   const [showingCover, setShowingCover] = useState(true);
+  const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   useEffect(() => {
@@ -96,9 +97,31 @@ export default function PublicLogbook() {
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [shows]);
 
+  const availableYears = useMemo(
+    () => [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
+    [shows]
+  );
+
+  const monthsInYear = useMemo(
+    () => monthGroups.filter(([key]) => key.startsWith(selectedYear)),
+    [monthGroups, selectedYear]
+  );
+
   useEffect(() => {
-    if (!selectedMonthKey && monthGroups.length > 0) setSelectedMonthKey(monthGroups[0][0]);
-  }, [monthGroups, selectedMonthKey]);
+    if (!selectedYear && availableYears.length > 0) setSelectedYear(availableYears[0]);
+  }, [availableYears, selectedYear]);
+
+  useEffect(() => {
+    if (selectedYear && monthsInYear.length > 0 && (!selectedMonthKey || !selectedMonthKey.startsWith(selectedYear))) {
+      setSelectedMonthKey(monthsInYear[0][0]);
+    }
+  }, [selectedYear, monthsInYear, selectedMonthKey]);
+
+  const handleYearChange = (y) => {
+    setSelectedYear(y);
+    const firstInYear = monthGroups.find(([key]) => key.startsWith(y));
+    if (firstInYear) setSelectedMonthKey(firstInYear[0]);
+  };
 
   const uniqueVenues = [...new Set(shows.map((s) => s.venue).filter(Boolean))];
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
@@ -216,7 +239,22 @@ export default function PublicLogbook() {
                     </>
                   )}
                   <div className="relative max-w-2xl mx-auto px-4 py-10">
-                    <div className="flex justify-center mb-6">
+                    <div className="flex items-center justify-center gap-2 mb-6">
+                      {availableYears.length > 1 && (
+                        <Select value={selectedYear || ""} onValueChange={handleYearChange}>
+                          <SelectTrigger
+                            className="w-auto px-3 py-2.5 rounded-xl border-2 font-bold text-xl h-auto bg-black/30"
+                            style={{ color: settings?.text_color || "#ffffff", borderColor: (settings?.text_color || "#ffffff") + "40" }}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                            {availableYears.map((y) => (
+                              <SelectItem key={y} value={y}>{y}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Select value={selectedMonthKey || ""} onValueChange={setSelectedMonthKey}>
                         <SelectTrigger
                           className="w-auto px-5 py-2.5 rounded-xl border-2 font-bold text-xl h-auto bg-black/30"
@@ -225,9 +263,9 @@ export default function PublicLogbook() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                          {monthGroups.map(([key]) => (
+                          {monthsInYear.map(([key]) => (
                             <SelectItem key={key} value={key}>
-                              {new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                              {new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long" })}
                             </SelectItem>
                           ))}
                         </SelectContent>
