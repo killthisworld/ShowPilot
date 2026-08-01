@@ -86,11 +86,11 @@ export default function Cockpit() {
   const [savingWallet, setSavingWallet] = useState(false);
   const [logbookMonths, setLogbookMonths] = useState([]);
   const [selectedLogbookMonth, setSelectedLogbookMonth] = useState("");
-  const [monthSettings, setMonthSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5 });
+  const [monthSettings, setMonthSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
   const [loadingLogbookTab, setLoadingLogbookTab] = useState(false);
   const [savingMonthSettings, setSavingMonthSettings] = useState(false);
   const [logbookBio, setLogbookBio] = useState("");
-  const [coverSettings, setCoverSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5 });
+  const [coverSettings, setCoverSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
   const [savingCover, setSavingCover] = useState(false);
   const [logbookCropFile, setLogbookCropFile] = useState(null);
   const [logbookCropTarget, setLogbookCropTarget] = useState(null);
@@ -216,7 +216,7 @@ export default function Cockpit() {
         setLogbookMonths(months);
         setSelectedLogbookMonth((prev) => prev || months[0] || "");
         setLogbookBio(bioRes.data?.logbook_bio || "");
-        setCoverSettings(coverRes.data || { background_url: "", blur: 0, overlay_darkness: 0.5 });
+        setCoverSettings(coverRes.data || { background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
         setLoadingLogbookTab(false);
       });
     }
@@ -231,7 +231,7 @@ export default function Cockpit() {
       .eq("month_key", selectedLogbookMonth)
       .maybeSingle()
       .then(({ data }) => {
-        setMonthSettings(data || { background_url: "", blur: 0, overlay_darkness: 0.5 });
+        setMonthSettings(data || { background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
       });
   }, [selectedLogbookMonth, user]);
 
@@ -272,6 +272,7 @@ export default function Cockpit() {
           background_url: monthSettings.background_url || null,
           blur: monthSettings.blur ?? 0,
           overlay_darkness: monthSettings.overlay_darkness ?? 0.5,
+          text_color: monthSettings.text_color || "#ffffff",
         },
         { onConflict: "user_id,month_key" }
       );
@@ -300,6 +301,7 @@ export default function Cockpit() {
           background_url: coverSettings.background_url || null,
           blur: coverSettings.blur ?? 0,
           overlay_darkness: coverSettings.overlay_darkness ?? 0.5,
+          text_color: coverSettings.text_color || "#ffffff",
         },
         { onConflict: "user_id,month_key" }
       );
@@ -977,6 +979,9 @@ export default function Cockpit() {
                       className="w-full mt-2 accent-[#8CFF3D]"
                     />
                   </div>
+                  <div className="mt-3">
+                    <ColorPicker value={coverSettings.text_color || "#ffffff"} onChange={(c) => setCoverSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
+                  </div>
 
                   <Button onClick={saveCoverSettings} disabled={savingCover} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
                     {savingCover ? "Saving..." : "Save Cover Page"}
@@ -1047,6 +1052,9 @@ export default function Cockpit() {
                           onChange={(e) => setMonthSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
                           className="w-full mt-2 accent-[#8CFF3D]"
                         />
+                      </div>
+                      <div className="mt-3">
+                        <ColorPicker value={monthSettings.text_color || "#ffffff"} onChange={(c) => setMonthSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
                       </div>
 
                       <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">

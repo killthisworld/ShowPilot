@@ -167,24 +167,24 @@ export default function Logbook() {
           </button>
 
           <div className="relative z-10 max-w-md w-full">
-            <h1 className="text-white font-bold text-3xl tracking-tight mb-3">Logbook</h1>
-            {bio && <p className="text-white/70 text-sm leading-relaxed whitespace-pre-wrap mb-8">{bio}</p>}
+            <h1 className="font-bold text-3xl tracking-tight mb-3" style={{ color: coverSettings.text_color || "#ffffff" }}>Logbook</h1>
+            {bio && <p className="text-sm leading-relaxed whitespace-pre-wrap mb-8 opacity-80" style={{ color: coverSettings.text_color || "#ffffff" }}>{bio}</p>}
 
             <div className="grid grid-cols-4 gap-2 mb-10">
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{shows.length}</p>
+                <p className="text-xl font-bold" style={{ color: coverSettings.text_color || "#ffffff" }}>{shows.length}</p>
                 <p className="text-white/40 text-[10px] uppercase tracking-wide">Shows</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{uniqueVenues.length}</p>
+                <p className="text-xl font-bold" style={{ color: coverSettings.text_color || "#ffffff" }}>{uniqueVenues.length}</p>
                 <p className="text-white/40 text-[10px] uppercase tracking-wide">Venues</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{uniqueBands.length}</p>
+                <p className="text-xl font-bold" style={{ color: coverSettings.text_color || "#ffffff" }}>{uniqueBands.length}</p>
                 <p className="text-white/40 text-[10px] uppercase tracking-wide">Artists</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{uniqueCities.length}</p>
+                <p className="text-xl font-bold" style={{ color: coverSettings.text_color || "#ffffff" }}>{uniqueCities.length}</p>
                 <p className="text-white/40 text-[10px] uppercase tracking-wide">Cities</p>
               </div>
             </div>
@@ -259,7 +259,7 @@ export default function Logbook() {
                       >
                         <ChevronLeft className="w-5 h-5" />
                       </button>
-                      <h2 className="text-white font-bold text-xl">{monthLabel}</h2>
+                      <h2 className="font-bold text-xl" style={{ color: settings?.text_color || "#ffffff" }}>{monthLabel}</h2>
                       <button
                         onClick={() => setMonthIndex((i) => Math.max(i - 1, 0))}
                         disabled={monthIndex <= 0}
