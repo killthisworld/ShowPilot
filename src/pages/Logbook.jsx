@@ -62,8 +62,6 @@ export default function Logbook() {
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedShow, setSelectedShow] = useState(null);
-  const [shareMenuLink, setShareMenuLink] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [togglingPublic, setTogglingPublic] = useState(false);
   const [selectedYear, setSelectedYear] = useState(null);
   const [viewMode, setViewMode] = useState("monthly"); // "monthly" | "showcase"
@@ -111,52 +109,6 @@ export default function Logbook() {
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
   const uniqueCities = [...new Set(shows.map((s) => s.city).filter(Boolean))];
 
-  const handleShare = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    try {
-      const { data: prefs } = await supabase
-        .from("user_preferences")
-        .select("logbook_share_token")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      let token = prefs?.logbook_share_token;
-      if (!token) {
-        const { data: updated, error } = await supabase
-          .from("user_preferences")
-          .upsert({ user_id: user.id }, { onConflict: "user_id" })
-          .select("logbook_share_token")
-          .single();
-        if (error) throw error;
-        token = updated.logbook_share_token;
-      }
-      const url = `${window.location.origin}/logbook/public?token=${token}`;
-      setShareMenuLink(url);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleCopy = () => {
-    if (!shareMenuLink) return;
-    navigator.clipboard.writeText(shareMenuLink).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const handleShareMore = async () => {
-    const url = shareMenuLink;
-    setShareMenuLink(null);
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "My Logbook", url });
-      } catch (e) {
-        // user cancelled — nothing to do
-      }
-    }
-  };
-
   const togglePublic = async (show) => {
     setTogglingPublic(true);
     const newVal = !show.logbook_public;
@@ -182,43 +134,16 @@ export default function Logbook() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-16">
       <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-b border-white/5">
-        <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-2xl mx-auto">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-white/60 hover:text-white">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Logbook</h1>
-              <p className="text-white/30 text-xs">Every show you've earned</p>
-            </div>
-          </div>
-          <button onClick={handleShare} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20">
-            Share
+        <div className="flex items-center gap-3 px-4 py-4 max-w-2xl mx-auto">
+          <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-white/60 hover:text-white">
+            <ArrowLeft className="w-5 h-5" />
           </button>
+          <div>
+            <h1 className="text-lg font-bold text-white tracking-tight">Logbook</h1>
+            <p className="text-white/30 text-xs">Every show you've earned</p>
+          </div>
         </div>
       </div>
-
-      {shareMenuLink && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShareMenuLink(null)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="px-3 pt-3 pb-2">
-              <h3 className="text-white font-bold text-base">Share Logbook</h3>
-              <p className="text-white/40 text-xs mt-0.5">Only shows you've marked Public will be visible. Anyone with this link can view it, no account needed.</p>
-            </div>
-            <button onClick={handleCopy} className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
-              <span className="text-white text-sm font-medium">{copied ? "Copied!" : "Copy Link"}</span>
-            </button>
-            {typeof navigator !== "undefined" && navigator.share && (
-              <button onClick={handleShareMore} className="w-full text-left px-4 py-3.5 rounded-xl hover:bg-white/5">
-                <span className="text-white text-sm font-medium">More Options...</span>
-              </button>
-            )}
-            <button onClick={() => setShareMenuLink(null)} className="w-full text-center py-3 mt-1 text-white/40 hover:text-white text-sm border-t border-[#2a2a2a]">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="px-4 pt-6 max-w-2xl mx-auto">
         <div className="grid grid-cols-4 gap-2 mb-8">
@@ -357,7 +282,7 @@ export default function Logbook() {
             <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-white text-sm font-medium">Visible on public Logbook</p>
-                <p className="text-white/30 text-xs mt-0.5">Anyone with your share link can see this stamp</p>
+                <p className="text-white/30 text-xs mt-0.5">Anyone who flips your digital business card can see this stamp</p>
               </div>
               <button
                 onClick={() => togglePublic(selectedShow)}

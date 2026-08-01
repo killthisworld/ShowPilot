@@ -198,10 +198,10 @@ export default function PilotCardView() {
 
       {showBack ? (
         <div
-          onClick={() => navigate(`/pilot/${token}/history`)}
+          onClick={() => navigate(`/logbook/public?token=${token}`)}
           className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center cursor-pointer p-8"
           style={{ backgroundColor: template.bg }}
-          title="View work history"
+          title="View Logbook"
         >
           <div className="w-2/3 max-w-[220px] h-14">
             <Soundwave seed={card.user_id || "pilot"} color={template.wave} />
