@@ -182,14 +182,15 @@ export default function Logbook() {
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
   const uniqueCities = [...new Set(shows.map((s) => s.city).filter(Boolean))];
 
-  const togglePublic = async (show) => {
+  const toggleMonthPublic = async (monthShows) => {
     setTogglingPublic(true);
-    const newVal = !show.logbook_public;
+    const allPublic = monthShows.every((s) => s.logbook_public);
+    const newVal = !allPublic;
     try {
-      const { error } = await supabase.from("shows").update({ logbook_public: newVal }).eq("id", show.id);
+      const ids = monthShows.map((s) => s.id);
+      const { error } = await supabase.from("shows").update({ logbook_public: newVal }).in("id", ids);
       if (error) throw error;
-      setShows((prev) => prev.map((s) => (s.id === show.id ? { ...s, logbook_public: newVal } : s)));
-      setSelectedShow((prev) => (prev && prev.id === show.id ? { ...prev, logbook_public: newVal } : prev));
+      setShows((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, logbook_public: newVal } : s)));
     } catch (e) {
       console.error(e);
     }
@@ -333,6 +334,14 @@ export default function Logbook() {
                           ))}
                         </SelectContent>
                       </Select>
+                      <button
+                        onClick={() => toggleMonthPublic(monthShows)}
+                        disabled={togglingPublic}
+                        title="Visible on public Logbook"
+                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${monthShows.every((s) => s.logbook_public) ? "bg-[#8CFF3D]" : "bg-white/10"}`}
+                      >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${monthShows.every((s) => s.logbook_public) ? "translate-x-5" : "translate-x-0"}`} />
+                      </button>
                     </div>
                     {(() => {
                       const { positions, rows } = getConstellationLayout(monthShows);
@@ -398,20 +407,6 @@ export default function Logbook() {
                   <span>{new Date(selectedShow.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
                 </div>
               )}
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between">
-              <div>
-                <p className="text-white text-sm font-medium">Visible on public Logbook</p>
-                <p className="text-white/30 text-xs mt-0.5">Anyone who flips your digital business card can see this stamp</p>
-              </div>
-              <button
-                onClick={() => togglePublic(selectedShow)}
-                disabled={togglingPublic}
-                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ml-3 ${selectedShow.logbook_public ? "bg-[#8CFF3D]" : "bg-white/10"}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${selectedShow.logbook_public ? "translate-x-5" : "translate-x-0"}`} />
-              </button>
             </div>
           </div>
         </div>
