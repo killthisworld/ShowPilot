@@ -42,27 +42,32 @@ function getConstellationLayout(monthShows) {
   if (n === 0) return { positions: [], rows: 0, cols: 0 };
   const cols = Math.max(3, Math.ceil(Math.sqrt(n * 1.5)));
   const rows = Math.ceil(n / cols) + 1;
-  const totalCells = cols * rows;
-  const taken = new Set();
 
-  const positions = monthShows.map((show, idx) => {
-    const seed = hashString(show.id || `${show.band_name}-${show.date}-${idx}`);
-    let cellIndex = seed % totalCells;
-    let attempts = 0;
-    while (taken.has(cellIndex) && attempts < totalCells) {
-      cellIndex = (cellIndex + 7) % totalCells;
-      attempts++;
+  // Order every cell by distance from center, so filling them in sequence
+  // naturally builds outward from the middle of the page.
+  const centerCol = (cols - 1) / 2;
+  const centerRow = (rows - 1) / 2;
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      cells.push({ col: c, row: r, dist: Math.hypot(c - centerCol, r - centerRow) });
     }
-    taken.add(cellIndex);
+  }
+  cells.sort((a, b) => a.dist - b.dist);
 
-    const col = cellIndex % cols;
-    const row = Math.floor(cellIndex / cols);
+  // Earliest show of the month gets the most central cell, so the
+  // constellation reads as growing outward as the month goes on.
+  const sortedShows = [...monthShows].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+  const positions = sortedShows.map((show, idx) => {
+    const cell = cells[idx] || cells[cells.length - 1];
+    const seed = hashString(show.id || `${show.band_name}-${show.date}-${idx}`);
     const jitterX = (seededRandom(seed) - 0.5) * 0.6;
     const jitterY = (seededRandom(seed + 1) - 0.5) * 0.6;
     const rotation = (seededRandom(seed + 2) - 0.5) * 14;
 
-    const xPct = ((col + 0.5 + jitterX) / cols) * 100;
-    const yPct = ((row + 0.5 + jitterY) / rows) * 100;
+    const xPct = ((cell.col + 0.5 + jitterX) / cols) * 100;
+    const yPct = ((cell.row + 0.5 + jitterY) / rows) * 100;
 
     return { show, xPct, yPct, rotation };
   });
