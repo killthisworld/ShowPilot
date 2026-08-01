@@ -1337,10 +1337,10 @@ export default function Cockpit() {
           <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             {viewingCardBack ? (
               <div
-                onClick={() => viewingCard.card_share_token && navigate(`/pilot/${viewingCard.card_share_token}/history`)}
+                onClick={() => viewingCard.card_share_token && navigate(`/logbook/public?token=${viewingCard.card_share_token}`)}
                 className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8 cursor-pointer"
                 style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
-                title={viewingCard.card_share_token ? "View work history" : ""}
+                title={viewingCard.card_share_token ? "View Logbook" : ""}
               >
                 <div className="w-2/3 max-w-[220px] h-14">
                   <Soundwave
