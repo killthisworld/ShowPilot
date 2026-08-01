@@ -335,6 +335,7 @@ export default function Cockpit() {
   const stackHeight = stackedWallets.length ? stackedWallets[stackedWallets.length - 1].top + (stackedWallets[stackedWallets.length - 1].isActive ? 170 : 72) : 0;
 
   const onFrontPointerDown = (e) => {
+    if (e.target.closest("button")) return;
     frontDrag.current.dragging = true;
     frontDrag.current.startX = e.clientX;
     frontDrag.current.moved = false;
@@ -348,7 +349,8 @@ export default function Cockpit() {
     frontDrag.current.offset = clamped;
     setFrontOffset(clamped);
   };
-  const onFrontPointerUp = (w) => {
+  const onFrontPointerUp = (e, w) => {
+    if (e?.target?.closest("button")) return;
     frontDrag.current.dragging = false;
     if (frontDrag.current.offset < -70) {
       setOpenWalletId(w.id);
@@ -528,6 +530,13 @@ export default function Cockpit() {
       return;
     }
     setFellowPilots((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const toggleStarPilot = async (p) => {
+    const newVal = !p.starred;
+    setFellowPilots((prev) => prev.map((x) => (x.id === p.id ? { ...x, starred: newVal } : x)));
+    const { error } = await supabase.from("fellow_pilots").update({ starred: newVal }).eq("id", p.id);
+    if (error) console.error(error);
   };
 
   const handleLogout = async () => {
@@ -785,6 +794,9 @@ export default function Cockpit() {
                         <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
                         {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
                       </div>
+                      <button onClick={() => toggleStarPilot(p)} className="p-1.5 shrink-0" style={{ color: p.starred ? "#8CFF3D" : "rgba(255,255,255,0.2)" }}>
+                        <Star className="w-4 h-4" fill={p.starred ? "#8CFF3D" : "none"} />
+                      </button>
                       <button onClick={() => { setViewingCard(p); setViewingCardBack(false); }} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
                         <Eye className="w-4 h-4" />
                       </button>
@@ -838,8 +850,8 @@ export default function Cockpit() {
                           key={w.id}
                           onPointerDown={onFrontPointerDown}
                           onPointerMove={onFrontPointerMove}
-                          onPointerUp={() => onFrontPointerUp(w)}
-                          onPointerLeave={() => onFrontPointerUp(w)}
+                          onPointerUp={(e) => onFrontPointerUp(e, w)}
+                          onPointerLeave={(e) => onFrontPointerUp(e, w)}
                           className="absolute left-0 right-0 rounded-2xl px-5 py-4 cursor-pointer overflow-hidden select-none"
                           style={{
                             top: w.top,
@@ -924,7 +936,7 @@ export default function Cockpit() {
               <>
                 <div className="bg-[#8CFF3D]/5 border border-[#8CFF3D]/20 rounded-xl px-3 py-2.5">
                   <p className="text-[#8CFF3D]/80 text-xs">
-                    Your Logbook is viewable by flipping the soundwave on the back of your digital business card (My Pilot tab).
+                    Logbook visible via sound wave on digital card
                   </p>
                 </div>
 
