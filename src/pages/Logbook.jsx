@@ -303,7 +303,7 @@ export default function Logbook() {
                     </>
                   )}
                   <div className="relative max-w-2xl mx-auto px-4 py-10">
-                    <div className="flex items-center justify-center gap-2 mb-6">
+                    <div className="flex items-center justify-center gap-2 mb-2">
                       {availableYears.length > 1 && (
                         <Select value={selectedYear || ""} onValueChange={handleYearChange}>
                           <SelectTrigger
@@ -334,15 +334,21 @@ export default function Logbook() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <button
-                        onClick={() => toggleMonthPublic(monthShows)}
-                        disabled={togglingPublic}
-                        title="Visible on public Logbook"
-                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${monthShows.every((s) => s.logbook_public) ? "bg-[#8CFF3D]" : "bg-white/10"}`}
-                      >
-                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${monthShows.every((s) => s.logbook_public) ? "translate-x-5" : "translate-x-0"}`} />
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-xs font-medium" style={{ color: settings?.text_color || "#ffffff", opacity: 0.7 }}>Public</span>
+                        <button
+                          onClick={() => toggleMonthPublic(monthShows)}
+                          disabled={togglingPublic}
+                          title="Visible on public Logbook"
+                          className={`relative w-11 h-6 rounded-full transition-colors ${monthShows.every((s) => s.logbook_public) ? "bg-[#8CFF3D]" : "bg-white/10"}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${monthShows.every((s) => s.logbook_public) ? "translate-x-5" : "translate-x-0"}`} />
+                        </button>
+                      </div>
                     </div>
+                    <p className="text-center text-[11px] mb-4" style={{ color: settings?.text_color || "#ffffff", opacity: 0.4 }}>
+                      Controls whether this month's stamps are visible on your public Logbook
+                    </p>
                     {(() => {
                       const { positions, rows } = getConstellationLayout(monthShows);
                       const containerHeight = Math.max(320, rows * 110);
