@@ -268,7 +268,7 @@ export default function Logbook() {
                 disabled={togglingPublic}
                 className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ml-3 ${selectedShow.logbook_public ? "bg-[#8CFF3D]" : "bg-white/10"}`}
               >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${selectedShow.logbook_public ? "translate-x-5" : "translate-x-0.5"}`} />
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${selectedShow.logbook_public ? "translate-x-5" : "translate-x-0"}`} />
               </button>
             </div>
           </div>
