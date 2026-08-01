@@ -74,7 +74,7 @@ export default function Logbook() {
         .from("shows")
         .select("*")
         .eq("owner_id", user.id)
-        .eq("status", "complete")
+        .eq("done", true)
         .order("date", { ascending: false });
       if (error) console.error(error);
       else setShows(data || []);

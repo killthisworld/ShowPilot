@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2, Check } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -258,7 +258,7 @@ export default function ShowDetail() {
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
-        venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope,
+        venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope, done: show.done,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
         stage_plot_url: headliner.stage_plot_url, stage_plot_files: headliner.stage_plot_files,
@@ -742,6 +742,14 @@ export default function ShowDetail() {
                     >
                       <Building className="w-3.5 h-3.5" />
                       <Mic2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => update("done", !show.done)}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all"
+                      style={show.done ? { borderColor: "#8CFF3D80", color: "#8CFF3D", backgroundColor: "#8CFF3D1a" } : { borderColor: "#333", color: "rgba(255,255,255,0.3)" }}
+                      title="Mark gig as done"
+                    >
+                      <Check className="w-4 h-4" />
                     </button>
                   </>
                 );
