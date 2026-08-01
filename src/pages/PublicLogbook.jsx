@@ -23,24 +23,22 @@ function hashColor(str) {
 function ShowStamp({ show, onClick, rotation }) {
   const color = hashColor(show.venue || show.band_name || "show");
   const TypeIcon = TYPE_ICONS[show.event_type] || Star;
-  const d = show.date ? new Date(show.date + "T00:00:00") : null;
 
   return (
     <button
       onClick={onClick}
-      className="group relative w-full aspect-square rounded-full flex flex-col items-center justify-center text-center px-4 transition-transform duration-200 hover:scale-105"
+      className="group relative w-full aspect-square rounded-full flex flex-col items-center justify-center text-center px-2 transition-transform duration-200 hover:scale-105"
       style={{
         transform: `rotate(${rotation}deg)`,
         background: `radial-gradient(circle at 35% 25%, ${color}33, #111 70%)`,
         border: `2px dashed ${color}88`,
-        boxShadow: `0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 6px #0d0d0d, inset 0 0 0 7px ${color}55`,
+        boxShadow: `0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 4px #0d0d0d, inset 0 0 0 5px ${color}55`,
       }}
     >
       <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ boxShadow: `0 0 24px 4px ${color}66` }} />
-      <TypeIcon className="w-5 h-5 mb-1 relative z-10" style={{ color }} />
-      <p className="relative z-10 text-white font-bold text-xs leading-tight line-clamp-2">{show.band_name || "Untitled"}</p>
-      <p className="relative z-10 text-white/50 text-[10px] mt-0.5 line-clamp-1 px-2">{show.venue || "Venue TBD"}</p>
-      {d && <p className="relative z-10 text-[9px] mt-0.5 font-semibold" style={{ color }}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>}
+      <TypeIcon className="w-4 h-4 mb-0.5 relative z-10" style={{ color }} />
+      <p className="relative z-10 text-white font-bold text-[10px] leading-tight line-clamp-2">{show.band_name || "Untitled"}</p>
+      <p className="relative z-10 text-white/50 text-[8px] mt-0.5 line-clamp-1 px-1">{show.venue || "Venue TBD"}</p>
     </button>
   );
 }
@@ -260,7 +258,7 @@ export default function PublicLogbook() {
                         <ChevronRight className="w-5 h-5" />
                       </button>
                     </div>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {monthShows.map((show, i) => (
                         <ShowStamp key={i} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
                       ))}

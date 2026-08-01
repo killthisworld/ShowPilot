@@ -859,22 +859,22 @@ export default function Cockpit() {
                             ) : (
                               <Icon className="w-7 h-7 text-black" />
                             )}
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1.5">
                               <button
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onPointerUp={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }}
-                                className="p-1 text-black/50 hover:text-black"
+                                className="p-1.5 text-black/50 hover:text-black"
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Pencil className="w-5 h-5" />
                               </button>
                               <button
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onPointerUp={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }}
-                                className="p-1 text-black/50 hover:text-black"
+                                className="p-1.5 text-black/50 hover:text-black"
                               >
-                                <Star className="w-4 h-4" fill={w.starred ? "#000" : "none"} />
+                                <Star className="w-5 h-5" fill={w.starred ? "#000" : "none"} />
                               </button>
                             </div>
                           </div>
