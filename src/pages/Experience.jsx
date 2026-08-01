@@ -80,6 +80,8 @@ export default function Cockpit() {
   const [walletView, setWalletView] = useState("all");
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState(null);
+  const [confirmDeleteWalletId, setConfirmDeleteWalletId] = useState(null);
+  const [deletingWallet, setDeletingWallet] = useState(false);
   const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
   const [savingWallet, setSavingWallet] = useState(false);
   const [showAddIdModal, setShowAddIdModal] = useState(false);
@@ -202,6 +204,25 @@ export default function Cockpit() {
       showPill("Error saving wallet");
     }
     setSavingWallet(false);
+  };
+
+  const deleteWallet = async () => {
+    if (!confirmDeleteWalletId) return;
+    setDeletingWallet(true);
+    try {
+      const { error } = await supabase.from("wallets").delete().eq("id", confirmDeleteWalletId);
+      if (error) throw error;
+      setWallets((prev) => prev.filter((w) => w.id !== confirmDeleteWalletId));
+      setFellowPilots((prev) => prev.map((p) => (p.wallet_id === confirmDeleteWalletId ? { ...p, wallet_id: null } : p)));
+      if (activeWalletId === confirmDeleteWalletId) setActiveWalletId(null);
+      if (openWalletId === confirmDeleteWalletId) setOpenWalletId(null);
+      setShowWalletModal(false);
+      setConfirmDeleteWalletId(null);
+    } catch (e) {
+      console.error(e);
+      showPill("Error deleting wallet");
+    }
+    setDeletingWallet(false);
   };
 
   const toggleStarWallet = async (w) => {
@@ -942,6 +963,28 @@ export default function Cockpit() {
               </Button>
               <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
                 {savingWallet ? "Saving..." : editingWalletId ? "Save Changes" : "Create Wallet"}
+              </Button>
+            </div>
+            {editingWalletId && (
+              <button onClick={() => setConfirmDeleteWalletId(editingWalletId)} className="w-full text-center mt-3 text-red-400/70 hover:text-red-400 text-xs font-medium">
+                Delete Wallet
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteWalletId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteWalletId(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white font-semibold text-base mb-1">Delete this wallet?</p>
+            <p className="text-white/40 text-sm mb-4">Any saved IDs inside it won't be deleted — they'll just no longer be assigned to a wallet.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteWalletId(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Cancel
+              </Button>
+              <Button onClick={deleteWallet} disabled={deletingWallet} className="flex-1 bg-red-500 text-white hover:bg-red-600">
+                {deletingWallet ? "Deleting..." : "Delete"}
               </Button>
             </div>
           </div>
