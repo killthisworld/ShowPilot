@@ -43,6 +43,7 @@ const US_STATES = [
 const TABS = [
   { id: "pilot", label: "My Pilot" },
   { id: "fellow", label: "Fellow Pilots" },
+  { id: "logbook", label: "Logbook" },
 ];
 
 const formatPhoneNumber = (value) => {
@@ -83,6 +84,12 @@ export default function Cockpit() {
   const [deletingWallet, setDeletingWallet] = useState(false);
   const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
   const [savingWallet, setSavingWallet] = useState(false);
+  const [logbookMonths, setLogbookMonths] = useState([]);
+  const [selectedLogbookMonth, setSelectedLogbookMonth] = useState("");
+  const [monthSettings, setMonthSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5 });
+  const [loadingLogbookTab, setLoadingLogbookTab] = useState(false);
+  const [uploadingBg, setUploadingBg] = useState(false);
+  const [savingMonthSettings, setSavingMonthSettings] = useState(false);
   const [showAddIdModal, setShowAddIdModal] = useState(false);
   const [addIdLink, setAddIdLink] = useState("");
   const [addIdError, setAddIdError] = useState("");
@@ -190,6 +197,71 @@ export default function Cockpit() {
       showPill("Error deleting wallet");
     }
     setDeletingWallet(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === "logbook" && user) {
+      setLoadingLogbookTab(true);
+      supabase.from("shows").select("date").eq("owner_id", user.id).eq("done", true).then(({ data, error }) => {
+        if (error) { console.error(error); setLoadingLogbookTab(false); return; }
+        const months = [...new Set((data || []).map((s) => s.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
+        setLogbookMonths(months);
+        setSelectedLogbookMonth((prev) => prev || months[0] || "");
+        setLoadingLogbookTab(false);
+      });
+    }
+  }, [activeTab, user]);
+
+  useEffect(() => {
+    if (!selectedLogbookMonth || !user) return;
+    supabase
+      .from("logbook_month_settings")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("month_key", selectedLogbookMonth)
+      .maybeSingle()
+      .then(({ data }) => {
+        setMonthSettings(data || { background_url: "", blur: 0, overlay_darkness: 0.5 });
+      });
+  }, [selectedLogbookMonth, user]);
+
+  const uploadLogbookBackground = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !selectedLogbookMonth) return;
+    setUploadingBg(true);
+    try {
+      const filePath = `${user.id}/${selectedLogbookMonth}_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("logbook-backgrounds").upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("logbook-backgrounds").getPublicUrl(filePath);
+      setMonthSettings((s) => ({ ...s, background_url: urlData.publicUrl }));
+    } catch (err) {
+      console.error(err);
+    }
+    setUploadingBg(false);
+  };
+
+  const saveMonthSettings = async () => {
+    if (!user || !selectedLogbookMonth) return;
+    setSavingMonthSettings(true);
+    try {
+      const { error } = await supabase.from("logbook_month_settings").upsert(
+        {
+          user_id: user.id,
+          month_key: selectedLogbookMonth,
+          background_url: monthSettings.background_url || null,
+          blur: monthSettings.blur ?? 0,
+          overlay_darkness: monthSettings.overlay_darkness ?? 0.5,
+        },
+        { onConflict: "user_id,month_key" }
+      );
+      if (error) throw error;
+      showPill("Saved");
+    } catch (err) {
+      console.error(err);
+      showPill("Error saving");
+    }
+    setSavingMonthSettings(false);
   };
 
   const toggleStarWallet = async (w) => {
@@ -790,6 +862,86 @@ export default function Cockpit() {
               )}
             </div>
           )
+        )}
+
+        {activeTab === "logbook" && (
+          <div className="space-y-4">
+            {loadingLogbookTab ? (
+              <div className="flex justify-center py-20">
+                <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+              </div>
+            ) : logbookMonths.length === 0 ? (
+              <p className="text-center text-white/40 py-16 text-sm">Mark a show as Done to start customizing your Logbook</p>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-white/50 text-xs">Month</Label>
+                  <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth}>
+                    <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                      {logbookMonths.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {new Date(m + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div
+                  className="relative rounded-2xl overflow-hidden aspect-video border border-[#222] flex items-center justify-center bg-[#111]"
+                  style={{
+                    backgroundImage: monthSettings.background_url ? `url(${monthSettings.background_url})` : undefined,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    filter: monthSettings.background_url ? `blur(${monthSettings.blur || 0}px)` : undefined,
+                  }}
+                >
+                  {monthSettings.background_url && (
+                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${monthSettings.overlay_darkness ?? 0.5})` }} />
+                  )}
+                </div>
+                {!monthSettings.background_url && (
+                  <p className="text-white/30 text-xs text-center -mt-2">No background set for this month yet</p>
+                )}
+
+                <label className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors">
+                  <Upload className="w-4 h-4 text-white/40" />
+                  <span className="text-sm text-white/40">{uploadingBg ? "Uploading..." : "Upload Background Photo"}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={uploadLogbookBackground} disabled={uploadingBg} />
+                </label>
+
+                <div>
+                  <Label className="text-white/50 text-xs">Blur ({monthSettings.blur || 0}px)</Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={monthSettings.blur || 0}
+                    onChange={(e) => setMonthSettings((s) => ({ ...s, blur: parseInt(e.target.value) }))}
+                    className="w-full mt-2 accent-[#8CFF3D]"
+                  />
+                </div>
+                <div>
+                  <Label className="text-white/50 text-xs">Overlay Darkness ({Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}
+                    onChange={(e) => setMonthSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
+                    className="w-full mt-2 accent-[#8CFF3D]"
+                  />
+                </div>
+
+                <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
+                  {savingMonthSettings ? "Saving..." : "Save"}
+                </Button>
+              </>
+            )}
+          </div>
         )}
 
       </div>

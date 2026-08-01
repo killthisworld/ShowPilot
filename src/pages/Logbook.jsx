@@ -60,6 +60,7 @@ function ShowStamp({ show, onClick, rotation }) {
 export default function Logbook() {
   const navigate = useNavigate();
   const [shows, setShows] = useState([]);
+  const [monthSettingsMap, setMonthSettingsMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedShow, setSelectedShow] = useState(null);
   const [togglingPublic, setTogglingPublic] = useState(false);
@@ -78,6 +79,18 @@ export default function Logbook() {
         .order("date", { ascending: false });
       if (error) console.error(error);
       else setShows(data || []);
+
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("logbook_month_settings")
+        .select("*")
+        .eq("user_id", user.id);
+      if (settingsError) console.error(settingsError);
+      else {
+        const map = {};
+        (settingsData || []).forEach((s) => { map[s.month_key] = s; });
+        setMonthSettingsMap(map);
+      }
+
       setLoading(false);
     };
     load();
@@ -214,14 +227,31 @@ export default function Logbook() {
           <div className="space-y-10">
             {monthGroups.map(([monthKey, monthShows]) => {
               const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              const settings = monthSettingsMap[monthKey];
               return (
-                <div key={monthKey}>
-                  <h2 className="text-white font-bold text-lg">{monthLabel}</h2>
-                  <p className="text-[#8CFF3D]/80 text-xs font-medium mb-4">{generateStoryLine(monthShows)}</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
-                    {monthShows.map((show, i) => (
-                      <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
-                    ))}
+                <div key={monthKey} className="relative rounded-2xl overflow-hidden">
+                  {settings?.background_url && (
+                    <>
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage: `url(${settings.background_url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          filter: `blur(${settings.blur || 0}px)`,
+                        }}
+                      />
+                      <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${settings.overlay_darkness ?? 0.5})` }} />
+                    </>
+                  )}
+                  <div className={settings?.background_url ? "relative p-5" : ""}>
+                    <h2 className="text-white font-bold text-lg">{monthLabel}</h2>
+                    <p className="text-[#8CFF3D]/80 text-xs font-medium mb-4">{generateStoryLine(monthShows)}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                      {monthShows.map((show, i) => (
+                        <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
+                      ))}
+                    </div>
                   </div>
                 </div>
               );
