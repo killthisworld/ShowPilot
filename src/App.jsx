@@ -23,6 +23,7 @@ import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
 import Logbook from '@/pages/Logbook';
+import PublicLogbook from '@/pages/PublicLogbook';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -53,6 +54,7 @@ const AuthenticatedApp = () => {
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
+      <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
