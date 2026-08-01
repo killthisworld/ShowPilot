@@ -1210,10 +1210,10 @@ export default function Cockpit() {
                 <Input value={walletForm.name} onChange={(e) => setWalletForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Coachella" className="mt-1 bg-[#111] border-[#222] text-white" />
               </div>
               <div>
-                <Label className="text-white/50 text-xs mb-2 block">Icon</Label>
+                <Label className="text-white/50 text-xs mb-2 block">Photo</Label>
                 {walletForm.icon_image_url ? (
                   <div className="flex items-center gap-3">
-                    <img src={walletForm.icon_image_url} alt="" className="w-14 h-14 rounded-xl object-cover border border-[#2a2a2a]" />
+                    <img src={walletForm.icon_image_url} alt="" className="w-24 h-12 rounded-lg object-cover border border-[#2a2a2a]" />
                     <button onClick={() => setWalletForm((f) => ({ ...f, icon_image_url: "" }))} className="text-xs text-red-400 hover:underline flex items-center gap-1">
                       <X className="w-3 h-3" /> Remove
                     </button>
@@ -1392,9 +1392,9 @@ export default function Cockpit() {
       {cropFile && (
         <ImageCropModal
           file={cropFile}
-          shape={cropTarget === "background" ? "rect" : "circle"}
-          aspectW={cropTarget === "background" ? 16 : 1}
-          aspectH={cropTarget === "background" ? 10 : 1}
+          shape={cropTarget === "background" || cropTarget === "wallet-icon" ? "rect" : "circle"}
+          aspectW={cropTarget === "background" ? 16 : cropTarget === "wallet-icon" ? 2 : 1}
+          aspectH={cropTarget === "background" ? 10 : cropTarget === "wallet-icon" ? 1 : 1}
           onCancel={() => { setCropFile(null); setCropTarget(null); }}
           onCropped={handleCropped}
         />
