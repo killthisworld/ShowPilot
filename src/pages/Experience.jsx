@@ -1390,14 +1390,16 @@ export default function Cockpit() {
       )}
 
       {cropFile && (
-        <ImageCropModal
-          file={cropFile}
-          shape={cropTarget === "background" || cropTarget === "wallet-icon" ? "rect" : "circle"}
-          aspectW={cropTarget === "background" ? 16 : cropTarget === "wallet-icon" ? 2 : 1}
-          aspectH={cropTarget === "background" ? 10 : cropTarget === "wallet-icon" ? 1 : 1}
-          onCancel={() => { setCropFile(null); setCropTarget(null); }}
-          onCropped={handleCropped}
-        />
+        <div className="fixed inset-0 z-[999999]">
+          <ImageCropModal
+            file={cropFile}
+            shape={cropTarget === "background" || cropTarget === "wallet-icon" ? "rect" : "circle"}
+            aspectW={cropTarget === "background" ? 16 : cropTarget === "wallet-icon" ? 2 : 1}
+            aspectH={cropTarget === "background" ? 10 : cropTarget === "wallet-icon" ? 1 : 1}
+            onCancel={() => { setCropFile(null); setCropTarget(null); }}
+            onCropped={handleCropped}
+          />
+        </div>
       )}
 
       <BottomTabs />
