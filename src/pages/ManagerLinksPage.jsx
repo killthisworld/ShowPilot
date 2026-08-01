@@ -13,6 +13,7 @@ export default function ManagerLinksPage() {
   const [copied, setCopied] = useState(false);
   const [generatingFor, setGeneratingFor] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [showCleanupMenu, setShowCleanupMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -209,18 +210,34 @@ export default function ManagerLinksPage() {
             </button>
             <h1 className="text-lg font-bold text-white">Manager Links</h1>
           </div>
-          <div className="flex items-center gap-3">
-            {requests.some((r) => r.status === "submitted") && (
-              <button onClick={() => setConfirmAction({ type: "cleanup" })} className="text-white/40 hover:text-white text-xs font-medium">
-                Clean Up Submitted
+          {requests.length > 0 && (
+            <div className="relative">
+              <button onClick={() => setShowCleanupMenu((v) => !v)} className="text-white/40 hover:text-white text-xs font-medium">
+                Clean Up
               </button>
-            )}
-            {requests.length > 0 && (
-              <button onClick={() => setConfirmAction({ type: "all" })} className="text-red-400/70 hover:text-red-400 text-xs font-medium">
-                Delete All
-              </button>
-            )}
-          </div>
+              {showCleanupMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowCleanupMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 bg-[#161616] border border-[#2a2a2a] rounded-xl overflow-hidden z-50 w-48 shadow-xl">
+                    {requests.some((r) => r.status === "submitted") && (
+                      <button
+                        onClick={() => { setShowCleanupMenu(false); setConfirmAction({ type: "cleanup" }); }}
+                        className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5"
+                      >
+                        Clean Up Submitted
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setShowCleanupMenu(false); setConfirmAction({ type: "all" }); }}
+                      className="w-full text-left px-3 py-2.5 text-xs text-red-400 hover:bg-red-500/10"
+                    >
+                      Delete All
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
