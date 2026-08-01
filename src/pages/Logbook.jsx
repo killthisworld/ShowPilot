@@ -22,6 +22,54 @@ function hashColor(str) {
   return STAMP_COLORS[Math.abs(hash) % STAMP_COLORS.length];
 }
 
+function hashString(str) {
+  let hash = 5381;
+  for (let i = 0; i < (str || "").length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed) {
+  let t = seed + 0x6d2b79f5;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+function getConstellationLayout(monthShows) {
+  const n = monthShows.length;
+  if (n === 0) return { positions: [], rows: 0, cols: 0 };
+  const cols = Math.max(3, Math.ceil(Math.sqrt(n * 1.5)));
+  const rows = Math.ceil(n / cols) + 1;
+  const totalCells = cols * rows;
+  const taken = new Set();
+
+  const positions = monthShows.map((show, idx) => {
+    const seed = hashString(show.id || `${show.band_name}-${show.date}-${idx}`);
+    let cellIndex = seed % totalCells;
+    let attempts = 0;
+    while (taken.has(cellIndex) && attempts < totalCells) {
+      cellIndex = (cellIndex + 7) % totalCells;
+      attempts++;
+    }
+    taken.add(cellIndex);
+
+    const col = cellIndex % cols;
+    const row = Math.floor(cellIndex / cols);
+    const jitterX = (seededRandom(seed) - 0.5) * 0.6;
+    const jitterY = (seededRandom(seed + 1) - 0.5) * 0.6;
+    const rotation = (seededRandom(seed + 2) - 0.5) * 14;
+
+    const xPct = ((col + 0.5 + jitterX) / cols) * 100;
+    const yPct = ((row + 0.5 + jitterY) / rows) * 100;
+
+    return { show, xPct, yPct, rotation };
+  });
+
+  return { positions, rows, cols };
+}
+
 function ShowStamp({ show, onClick, rotation }) {
   const color = hashColor(show.venue || show.band_name || "show");
   const TypeIcon = TYPE_ICONS[show.event_type] || Star;
@@ -29,8 +77,10 @@ function ShowStamp({ show, onClick, rotation }) {
   return (
     <button
       onClick={onClick}
-      className="group relative w-full aspect-square rounded-full flex flex-col items-center justify-center text-center px-2 transition-transform duration-200 hover:scale-105"
+      className="group relative rounded-full flex flex-col items-center justify-center text-center px-2 transition-transform duration-200 hover:scale-110"
       style={{
+        width: 84,
+        height: 84,
         transform: `rotate(${rotation}deg)`,
         background: `radial-gradient(circle at 35% 25%, ${color}33, #111 70%)`,
         border: `2px dashed ${color}88`,
@@ -279,11 +329,36 @@ export default function Logbook() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                      {monthShows.map((show, i) => (
-                        <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
-                      ))}
-                    </div>
+                    {(() => {
+                      const { positions, rows } = getConstellationLayout(monthShows);
+                      const containerHeight = Math.max(320, rows * 110);
+                      return (
+                        <div className="relative" style={{ height: containerHeight }}>
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+                            {positions.slice(1).map((pos, i) => (
+                              <line
+                                key={i}
+                                x1={`${positions[i].xPct}%`}
+                                y1={`${positions[i].yPct}%`}
+                                x2={`${pos.xPct}%`}
+                                y2={`${pos.yPct}%`}
+                                stroke="rgba(255,255,255,0.1)"
+                                strokeWidth="1"
+                              />
+                            ))}
+                          </svg>
+                          {positions.map((pos) => (
+                            <div
+                              key={pos.show.id}
+                              className="absolute z-10"
+                              style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
+                            >
+                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} />
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
