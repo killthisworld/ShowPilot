@@ -78,6 +78,7 @@ export default function Cockpit() {
   const [activeWalletId, setActiveWalletId] = useState(null);
   const [openWalletId, setOpenWalletId] = useState(null);
   const [walletView, setWalletView] = useState("all");
+  const [showStarredMenu, setShowStarredMenu] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [editingWalletId, setEditingWalletId] = useState(null);
   const [confirmDeleteWalletId, setConfirmDeleteWalletId] = useState(null);
@@ -321,7 +322,8 @@ export default function Cockpit() {
     if (error) console.error(error);
   };
 
-  const visibleWallets = walletView === "starred" ? wallets.filter((w) => w.starred) : wallets;
+  const visibleWallets = walletView === "starred_wallets" ? wallets.filter((w) => w.starred) : wallets;
+  const starredPilots = fellowPilots.filter((p) => p.starred);
 
   const stackedWallets = (() => {
     let top = 0;
@@ -815,23 +817,85 @@ export default function Cockpit() {
                   <button onClick={() => setWalletView("all")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${walletView === "all" ? "bg-[#8CFF3D] text-black" : "text-white/40 hover:text-white/60"}`}>
                     All
                   </button>
-                  <button onClick={() => setWalletView("starred")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1 ${walletView === "starred" ? "bg-[#8CFF3D] text-black" : "text-white/40 hover:text-white/60"}`}>
-                    <Star className="w-3 h-3" fill={walletView === "starred" ? "currentColor" : "none"} /> Starred
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowStarredMenu((v) => !v)}
+                      className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1 ${walletView !== "all" ? "bg-[#8CFF3D] text-black" : "text-white/40 hover:text-white/60"}`}
+                    >
+                      <Star className="w-3 h-3" fill={walletView !== "all" ? "currentColor" : "none"} /> Starred
+                    </button>
+                    {showStarredMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowStarredMenu(false)} />
+                        <div className="absolute left-0 top-full mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden z-50 w-44 shadow-xl">
+                          <button
+                            onClick={() => { setWalletView("starred_wallets"); setShowStarredMenu(false); }}
+                            className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5"
+                          >
+                            Starred Wallets
+                          </button>
+                          <button
+                            onClick={() => { setWalletView("starred_pilots"); setShowStarredMenu(false); }}
+                            className="w-full text-left px-3 py-2.5 text-xs text-white/70 hover:bg-white/5"
+                          >
+                            Starred ID Cards
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <button onClick={openCreateWalletModal} className="w-9 h-9 rounded-full bg-[#8CFF3D]/15 text-[#8CFF3D] flex items-center justify-center hover:bg-[#8CFF3D]/25 transition-colors">
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
 
-              {loadingFellows ? (
+              {walletView === "starred_pilots" ? (
+                loadingFellows ? (
+                  <div className="flex justify-center py-20">
+                    <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+                  </div>
+                ) : starredPilots.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-24">
+                    <Star className="w-10 h-10 text-white/15 mb-3" />
+                    <p className="text-white/40 text-sm">No starred ID cards yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {starredPilots.map((p) => (
+                      <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
+                          {p.profile_photo_url ? (
+                            <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-5 h-5 text-white/30" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold text-sm truncate">{p.display_name || "Pilot"}</p>
+                          {p.job_title && <p className="text-white/40 text-xs truncate">{p.job_title}</p>}
+                        </div>
+                        <button onClick={() => toggleStarPilot(p)} className="p-1.5 shrink-0" style={{ color: p.starred ? "#8CFF3D" : "rgba(255,255,255,0.2)" }}>
+                          <Star className="w-4 h-4" fill={p.starred ? "#8CFF3D" : "none"} />
+                        </button>
+                        <button onClick={() => { setViewingCard(p); setViewingCardBack(false); }} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : loadingFellows ? (
                 <div className="flex justify-center py-20">
                   <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
                 </div>
               ) : stackedWallets.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24">
                   <Wallet className="w-10 h-10 text-white/15 mb-3" />
-                  <p className="text-white/40 text-sm mb-4">{walletView === "starred" ? "No starred wallets" : "No wallets yet"}</p>
+                  <p className="text-white/40 text-sm mb-4">{walletView === "starred_wallets" ? "No starred wallets" : "No wallets yet"}</p>
                   {walletView === "all" && (
                     <Button onClick={openCreateWalletModal} className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold rounded-full px-6">
                       <Plus className="w-4 h-4 mr-2" /> New Wallet
