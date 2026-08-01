@@ -103,6 +103,7 @@ export default function Cockpit() {
   const [viewingCardBack, setViewingCardBack] = useState(false);
 
   const frontDrag = useRef({ dragging: false, startX: 0, moved: false, offset: 0 });
+  const justActivatedRef = useRef(0);
   const [frontOffset, setFrontOffset] = useState(0);
 
   const showPill = (msg) => {
@@ -360,6 +361,11 @@ export default function Cockpit() {
   const onFrontPointerUp = (e, w) => {
     if (e?.target?.closest("button")) return;
     frontDrag.current.dragging = false;
+    if (Date.now() - justActivatedRef.current < 350) {
+      frontDrag.current.offset = 0;
+      setFrontOffset(0);
+      return;
+    }
     if (frontDrag.current.offset < -70) {
       setOpenWalletId(w.id);
     } else if (!frontDrag.current.moved) {
@@ -985,7 +991,7 @@ export default function Cockpit() {
                     return (
                       <div
                         key={w.id}
-                        onClick={() => setActiveWalletId(w.id)}
+                        onClick={() => { justActivatedRef.current = Date.now(); setActiveWalletId(w.id); }}
                         className="absolute left-0 right-0 rounded-2xl px-4 pt-2.5 flex items-start cursor-pointer transition-all duration-300 overflow-hidden border-b"
                         style={{
                           top: w.top,
