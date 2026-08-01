@@ -759,18 +759,25 @@ export default function Cockpit() {
                 <ArrowLeft className="w-4 h-4" /> Back to Wallets
               </button>
               {openedWallet && (
-                <div className="flex items-center gap-3 mb-4 rounded-2xl p-4" style={{ background: `linear-gradient(135deg, ${openedWallet.color}, ${openedWallet.color}bb)` }}>
-                  {openedWallet.icon_image_url ? (
-                    <img src={openedWallet.icon_image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-black/10 shrink-0" />
-                  ) : (
-                    (() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="w-6 h-6 text-black shrink-0" />; })()
+                <div
+                  className="relative flex items-center gap-3 mb-4 rounded-2xl p-4 overflow-hidden"
+                  style={{
+                    background: openedWallet.icon_image_url ? "#111" : `linear-gradient(135deg, ${openedWallet.color}, ${openedWallet.color}bb)`,
+                    backgroundImage: openedWallet.icon_image_url ? `url(${openedWallet.icon_image_url})` : undefined,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                >
+                  {openedWallet.icon_image_url && (
+                    <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.65))" }} />
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-black font-bold text-lg truncate">{openedWallet.name}</p>
+                  {!openedWallet.icon_image_url && (() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="relative z-10 w-6 h-6 text-black shrink-0" />; })()}
+                  <div className="relative z-10 min-w-0 flex-1">
+                    <p className={`font-bold text-lg truncate ${openedWallet.icon_image_url ? "text-white" : "text-black"}`}>{openedWallet.name}</p>
                     {(openedWallet.city || openedWallet.state) && (
-                      <p className="text-black/70 text-xs truncate">{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
+                      <p className={`text-xs truncate ${openedWallet.icon_image_url ? "text-white/80" : "text-black/70"}`}>{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
                     )}
-                    <p className="text-black/60 text-xs">{openedWalletPilots.length} ID{openedWalletPilots.length !== 1 ? "s" : ""}</p>
+                    <p className={`text-xs ${openedWallet.icon_image_url ? "text-white/70" : "text-black/60"}`}>{openedWalletPilots.length} ID{openedWalletPilots.length !== 1 ? "s" : ""}</p>
                   </div>
                 </div>
               )}
@@ -909,6 +916,7 @@ export default function Cockpit() {
                     const idCount = fellowPilots.filter((p) => p.wallet_id === w.id).length;
 
                     if (w.isActive) {
+                      const hasPhoto = !!w.icon_image_url;
                       return (
                         <div
                           key={w.id}
@@ -921,26 +929,29 @@ export default function Cockpit() {
                             top: w.top,
                             zIndex: w.z,
                             height: 170,
-                            background: `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
+                            background: hasPhoto ? "#111" : `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
+                            backgroundImage: hasPhoto ? `url(${w.icon_image_url})` : undefined,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
                             transform: `translateX(${frontOffset}px)`,
                             transition: frontDrag.current.dragging ? "none" : "transform 0.25s ease-out, top 0.3s",
                             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2), 0 14px 30px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.35)",
                             touchAction: "none",
                           }}
                         >
-                          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.3), transparent 55%)" }} />
+                          {hasPhoto ? (
+                            <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.7))" }} />
+                          ) : (
+                            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.3), transparent 55%)" }} />
+                          )}
                           <div className="relative z-10 flex items-start justify-between">
-                            {w.icon_image_url ? (
-                              <img src={w.icon_image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-black/10" />
-                            ) : (
-                              <Icon className="w-7 h-7 text-black" />
-                            )}
+                            {hasPhoto ? <div /> : <Icon className="w-7 h-7 text-black" />}
                             <div className="flex items-center gap-1.5">
                               <button
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onPointerUp={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }}
-                                className="p-1.5 text-black/50 hover:text-black"
+                                className={`p-1.5 ${hasPhoto ? "text-white/70 hover:text-white" : "text-black/50 hover:text-black"}`}
                               >
                                 <Pencil className="w-5 h-5" />
                               </button>
@@ -948,16 +959,16 @@ export default function Cockpit() {
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onPointerUp={(e) => e.stopPropagation()}
                                 onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }}
-                                className="p-1.5 text-black/50 hover:text-black"
+                                className={`p-1.5 ${hasPhoto ? "text-white/70 hover:text-white" : "text-black/50 hover:text-black"}`}
                               >
-                                <Star className="w-5 h-5" fill={w.starred ? "#000" : "none"} />
+                                <Star className="w-5 h-5" fill={w.starred ? (hasPhoto ? "#fff" : "#000") : "none"} />
                               </button>
                             </div>
                           </div>
-                          <p className="relative z-10 text-black font-bold text-lg mt-2 truncate">{w.name}</p>
-                          {(w.city || w.state) && <p className="relative z-10 text-black/70 text-xs truncate">{[w.city, w.state].filter(Boolean).join(", ")}</p>}
-                          <p className="relative z-10 text-black/60 text-xs mt-1">{idCount} ID{idCount !== 1 ? "s" : ""}</p>
-                          <div className="absolute bottom-3 right-4 flex items-center gap-1 text-black/40">
+                          <p className={`relative z-10 font-bold text-lg mt-2 truncate ${hasPhoto ? "text-white" : "text-black"}`}>{w.name}</p>
+                          {(w.city || w.state) && <p className={`relative z-10 text-xs truncate ${hasPhoto ? "text-white/80" : "text-black/70"}`}>{[w.city, w.state].filter(Boolean).join(", ")}</p>}
+                          <p className={`relative z-10 text-xs mt-1 ${hasPhoto ? "text-white/70" : "text-black/60"}`}>{idCount} ID{idCount !== 1 ? "s" : ""}</p>
+                          <div className={`absolute bottom-3 right-4 flex items-center gap-1 ${hasPhoto ? "text-white/50" : "text-black/40"}`}>
                             <ChevronLeft className="w-3.5 h-3.5" />
                             <span className="text-[9px] font-medium">swipe to open</span>
                           </div>
@@ -974,13 +985,19 @@ export default function Cockpit() {
                           top: w.top,
                           zIndex: w.z,
                           height: 72,
-                          background: `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
+                          background: w.icon_image_url ? "#111" : `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
+                          backgroundImage: w.icon_image_url ? `url(${w.icon_image_url})` : undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
                           borderTopColor: "rgba(255,255,255,0.3)",
                           boxShadow: "0 6px 16px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.25)",
                         }}
                       >
+                        {w.icon_image_url && (
+                          <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.65))" }} />
+                        )}
                         <div className="absolute inset-x-3 top-2 h-px bg-black/10 pointer-events-none" />
-                        <span className="relative text-black font-semibold text-sm truncate">{w.name}</span>
+                        <span className={`relative font-semibold text-sm truncate ${w.icon_image_url ? "text-white" : "text-black"}`}>{w.name}</span>
                       </div>
                     );
                   })}
