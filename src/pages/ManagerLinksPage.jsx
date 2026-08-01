@@ -99,6 +99,13 @@ export default function ManagerLinksPage() {
         const { error } = await supabase.from("tour_manager_requests").delete().in("id", ids);
         if (error) throw error;
         setRequests([]);
+      } else if (confirmAction.type === "cleanup") {
+        const submittedIds = requests.filter((r) => r.status === "submitted").map((r) => r.id);
+        if (submittedIds.length > 0) {
+          const { error } = await supabase.from("tour_manager_requests").delete().in("id", submittedIds);
+          if (error) throw error;
+          setRequests((prev) => prev.filter((r) => r.status !== "submitted"));
+        }
       }
       setConfirmAction(null);
     } catch (e) {
@@ -141,13 +148,21 @@ export default function ManagerLinksPage() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmAction(null)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <p className="text-white font-semibold text-base mb-1">
-              {confirmAction.type === "all" ? "Delete all manager links?" : confirmAction.type === "opener" ? "Delete this opener link?" : "Delete this manager link?"}
+              {confirmAction.type === "all"
+                ? "Delete all manager links?"
+                : confirmAction.type === "cleanup"
+                ? "Clean up submitted links?"
+                : confirmAction.type === "opener"
+                ? "Delete this opener link?"
+                : "Delete this manager link?"}
             </p>
             <p className="text-white/40 text-sm mb-4">
               {confirmAction.type === "all"
                 ? "This removes every manager link and their opener links. No one will be able to access those URLs anymore."
+                : confirmAction.type === "cleanup"
+                ? "This removes every link already marked Submitted, along with their opener links. Pending links are untouched, and the gigs they created stay exactly as they are."
                 : confirmAction.type === "manager"
-                ? "This also removes any opener links tied to it. No one will be able to access these URLs anymore."
+                ? "This also removes any opener links tied to it. No one will be able to access these URLs anymore. The gig itself stays untouched."
                 : "The other openers keep working — only this one loses access."}
             </p>
             <div className="flex gap-2">
@@ -194,11 +209,18 @@ export default function ManagerLinksPage() {
             </button>
             <h1 className="text-lg font-bold text-white">Manager Links</h1>
           </div>
-          {requests.length > 0 && (
-            <button onClick={() => setConfirmAction({ type: "all" })} className="text-red-400/70 hover:text-red-400 text-xs font-medium">
-              Delete All
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {requests.some((r) => r.status === "submitted") && (
+              <button onClick={() => setConfirmAction({ type: "cleanup" })} className="text-white/40 hover:text-white text-xs font-medium">
+                Clean Up Submitted
+              </button>
+            )}
+            {requests.length > 0 && (
+              <button onClick={() => setConfirmAction({ type: "all" })} className="text-red-400/70 hover:text-red-400 text-xs font-medium">
+                Delete All
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -211,7 +233,7 @@ export default function ManagerLinksPage() {
               <div className="flex items-center justify-between mb-2">
                 <div className="min-w-0">
                   <p className="text-white font-semibold text-sm truncate">{r.band_name || "Pending"}</p>
-                  <p className="text-white/40 text-xs">{new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                  <p className="text-white/40 text-xs">Sent {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${r.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>
