@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronLeft, ChevronRight, X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
+import { ArrowLeft, X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const TYPE_ICONS = {
   "Concert": Music,
@@ -55,9 +56,8 @@ export default function PublicLogbook() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedShow, setSelectedShow] = useState(null);
-  const [selectedYear, setSelectedYear] = useState(null);
   const [showingCover, setShowingCover] = useState(true);
-  const [monthIndex, setMonthIndex] = useState(0);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -85,31 +85,20 @@ export default function PublicLogbook() {
     load();
   }, [token]);
 
-  const availableYears = useMemo(
-    () => [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
-    [shows]
-  );
-
-  useEffect(() => {
-    if (!selectedYear && availableYears.length > 0) setSelectedYear(availableYears[0]);
-  }, [availableYears, selectedYear]);
-
-  useEffect(() => {
-    setMonthIndex(0);
-  }, [selectedYear]);
-
-  const yearShows = useMemo(() => shows.filter((s) => s.date?.startsWith(selectedYear)), [shows, selectedYear]);
-
   const monthGroups = useMemo(() => {
     const groups = {};
-    yearShows.forEach((s) => {
+    shows.forEach((s) => {
       if (!s.date) return;
       const key = s.date.slice(0, 7);
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     });
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [yearShows]);
+  }, [shows]);
+
+  useEffect(() => {
+    if (!selectedMonthKey && monthGroups.length > 0) setSelectedMonthKey(monthGroups[0][0]);
+  }, [monthGroups, selectedMonthKey]);
 
   const uniqueVenues = [...new Set(shows.map((s) => s.venue).filter(Boolean))];
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
@@ -134,7 +123,7 @@ export default function PublicLogbook() {
     );
   }
 
-  const currentMonthEntry = monthGroups[monthIndex];
+  const currentMonthEntry = monthGroups.find(([key]) => key === selectedMonthKey);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
@@ -198,30 +187,16 @@ export default function PublicLogbook() {
               <button onClick={() => setShowingCover(true)} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm">
                 <ArrowLeft className="w-4 h-4" /> Cover
               </button>
-              {availableYears.length > 1 && (
-                <div className="flex gap-1.5 overflow-x-auto">
-                  {availableYears.map((y) => (
-                    <button
-                      key={y}
-                      onClick={() => setSelectedYear(y)}
-                      className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 transition-all ${selectedYear === y ? "bg-[#8CFF3D] text-black" : "bg-white/5 text-white/40 hover:text-white/70"}`}
-                    >
-                      {y}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
           {!currentMonthEntry ? (
             <div className="text-center py-24">
-              <p className="text-white/40 text-sm">No shows in {selectedYear}</p>
+              <p className="text-white/40 text-sm">No shows yet</p>
             </div>
           ) : (
             (() => {
               const [monthKey, monthShows] = currentMonthEntry;
-              const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
               const settings = monthSettingsMap[monthKey];
               const hasBg = !!settings?.background_url;
               return (
@@ -241,22 +216,22 @@ export default function PublicLogbook() {
                     </>
                   )}
                   <div className="relative max-w-2xl mx-auto px-4 py-10">
-                    <div className="flex items-center justify-between mb-6">
-                      <button
-                        onClick={() => setMonthIndex((i) => Math.min(i + 1, monthGroups.length - 1))}
-                        disabled={monthIndex >= monthGroups.length - 1}
-                        className="p-2 rounded-full text-white/50 hover:text-white disabled:opacity-20 disabled:hover:text-white/50"
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <h2 className="font-bold text-xl" style={{ color: settings?.text_color || "#ffffff" }}>{monthLabel}</h2>
-                      <button
-                        onClick={() => setMonthIndex((i) => Math.max(i - 1, 0))}
-                        disabled={monthIndex <= 0}
-                        className="p-2 rounded-full text-white/50 hover:text-white disabled:opacity-20 disabled:hover:text-white/50"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
+                    <div className="flex justify-center mb-6">
+                      <Select value={selectedMonthKey || ""} onValueChange={setSelectedMonthKey}>
+                        <SelectTrigger
+                          className="w-auto px-5 py-2.5 rounded-xl border-2 font-bold text-xl h-auto bg-black/30"
+                          style={{ color: settings?.text_color || "#ffffff", borderColor: (settings?.text_color || "#ffffff") + "40" }}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                          {monthGroups.map(([key]) => (
+                            <SelectItem key={key} value={key}>
+                              {new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {monthShows.map((show, i) => (
