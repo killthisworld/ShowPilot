@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, X, MapPin, Calendar, Sliders, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
+import { ArrowLeft, X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
 
 const TYPE_ICONS = {
   "Concert": Music,
@@ -256,28 +256,7 @@ export default function Logbook() {
                   <span>{new Date(selectedShow.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
                 </div>
               )}
-              {selectedShow.console && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <Sliders className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{selectedShow.console}</span>
-                </div>
-              )}
             </div>
-
-            {(selectedShow.genre_tags?.length > 0) && (
-              <div className="flex flex-wrap gap-1.5 mt-4">
-                {selectedShow.genre_tags.map((tag) => (
-                  <span key={tag} className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 text-white/60">{tag}</span>
-                ))}
-              </div>
-            )}
-
-            {selectedShow.general_notes && (
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-white/30 text-xs uppercase tracking-wide mb-1.5">Notes</p>
-                <p className="text-white/70 text-sm whitespace-pre-wrap">{selectedShow.general_notes}</p>
-              </div>
-            )}
 
             <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between">
               <div>
