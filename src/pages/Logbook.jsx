@@ -214,7 +214,7 @@ export default function Logbook() {
             <p className="text-white/25 text-xs mt-1">Mark a show as Worked to earn your first one</p>
           </div>
         ) : viewMode === "showcase" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
             {shows.map((show, i) => (
               <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
             ))}
@@ -228,9 +228,10 @@ export default function Logbook() {
             {monthGroups.map(([monthKey, monthShows]) => {
               const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
               const settings = monthSettingsMap[monthKey];
+              const hasBg = !!settings?.background_url;
               return (
-                <div key={monthKey} className="relative rounded-2xl overflow-hidden">
-                  {settings?.background_url && (
+                <div key={monthKey} className={hasBg ? "relative w-screen left-1/2 -translate-x-1/2 overflow-hidden" : ""}>
+                  {hasBg && (
                     <>
                       <div
                         className="absolute inset-0"
@@ -244,10 +245,10 @@ export default function Logbook() {
                       <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${settings.overlay_darkness ?? 0.5})` }} />
                     </>
                   )}
-                  <div className={settings?.background_url ? "relative p-5" : ""}>
+                  <div className={hasBg ? "relative max-w-2xl mx-auto px-4 py-16" : ""}>
                     <h2 className="text-white font-bold text-lg">{monthLabel}</h2>
                     <p className="text-[#8CFF3D]/80 text-xs font-medium mb-4">{generateStoryLine(monthShows)}</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
                       {monthShows.map((show, i) => (
                         <ShowStamp key={show.id} show={show} onClick={() => setSelectedShow(show)} rotation={((i * 37) % 7) - 3} />
                       ))}
