@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, X, MapPin, Calendar, Music, Drama, Building, PartyPopper, Sparkles, Mic2, Star } from "lucide-react";
+import { ArrowLeft, X, MapPin, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const TYPE_ICONS = {
-  "Concert": Music,
-  "Comedy Show": Drama,
-  "Theatre Play": Drama,
-  "Corporate Event": Building,
-  "Private Party": PartyPopper,
-  "Festival": Sparkles,
-  "Open Mic": Mic2,
-};
 
 const STAMP_COLORS = ["#8CFF3D", "#60A5FA", "#F59E0B", "#F472B6", "#A78BFA", "#34D399", "#F87171", "#38BDF8"];
 
@@ -76,25 +66,32 @@ function getConstellationLayout(monthShows) {
 
 function ShowStamp({ show, onClick, rotation }) {
   const color = hashColor(show.venue || show.band_name || "show");
-  const TypeIcon = TYPE_ICONS[show.event_type] || Star;
 
   return (
     <button
       onClick={onClick}
-      className="group relative rounded-full flex flex-col items-center justify-center text-center px-2 transition-transform duration-200 hover:scale-110"
-      style={{
-        width: 84,
-        height: 84,
-        transform: `rotate(${rotation}deg)`,
-        background: `radial-gradient(circle at 35% 25%, ${color}33, #111 70%)`,
-        border: `2px dashed ${color}88`,
-        boxShadow: `0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 4px #0d0d0d, inset 0 0 0 5px ${color}55`,
-      }}
+      className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-150"
+      style={{ width: 56, height: 56 }}
     >
-      <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ boxShadow: `0 0 24px 4px ${color}66` }} />
-      <TypeIcon className="w-4 h-4 mb-0.5 relative z-10" style={{ color }} />
-      <p className="relative z-10 text-white font-bold text-[10px] leading-tight line-clamp-2">{show.band_name || "Untitled"}</p>
-      <p className="relative z-10 text-white/50 text-[8px] mt-0.5 line-clamp-1 px-1">{show.venue || "Venue TBD"}</p>
+      <div
+        className="absolute rounded-full transition-opacity duration-300 group-hover:opacity-100"
+        style={{
+          width: 40,
+          height: 40,
+          background: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
+          filter: "blur(5px)",
+          opacity: 0.85,
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 9,
+          height: 9,
+          background: `radial-gradient(circle at 35% 30%, #ffffff, ${color})`,
+          boxShadow: `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
+        }}
+      />
     </button>
   );
 }
