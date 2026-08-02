@@ -1094,6 +1094,14 @@ export default function Cockpit() {
                     <span className="text-sm text-white/40">Upload Cover Photo</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "cover")} />
                   </label>
+                  {coverSettings.background_url && (
+                    <button
+                      onClick={() => setCoverSettings((s) => ({ ...s, background_url: "" }))}
+                      className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
+                    >
+                      Remove Cover Background
+                    </button>
+                  )}
 
                   <div className="mt-3">
                     <Label className="text-white/50 text-xs">Blur ({coverSettings.blur || 0}px)</Label>
@@ -1176,6 +1184,14 @@ export default function Cockpit() {
                         <span className="text-sm text-white/40">Upload Background Photo</span>
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "month")} />
                       </label>
+                      {monthSettings.background_url && (
+                        <button
+                          onClick={() => setMonthSettings((s) => ({ ...s, background_url: "" }))}
+                          className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
+                        >
+                          Remove Month Background
+                        </button>
+                      )}
 
                       <div className="mt-3">
                         <Label className="text-white/50 text-xs">Blur ({monthSettings.blur || 0}px)</Label>
