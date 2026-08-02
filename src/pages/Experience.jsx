@@ -626,7 +626,13 @@ export default function Cockpit() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              onClick={() => {
+                setActiveTab(t.id);
+                if (t.id === "fellow") {
+                  setOpenWalletId(null);
+                  setActiveWalletId(null);
+                }
+              }}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === t.id ? "bg-[#8CFF3D] text-black" : "bg-[#161616] text-white/40"}`}
             >
               {t.label}
