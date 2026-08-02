@@ -64,7 +64,7 @@ function getConstellationLayout(monthShows) {
   return { positions, rows, cols };
 }
 
-function ShowStamp({ show, onClick, rotation }) {
+function ShowStamp({ show, onClick, rotation, isNewest }) {
   const color = hashColor(show.venue || show.band_name || "show");
 
   return (
@@ -74,22 +74,24 @@ function ShowStamp({ show, onClick, rotation }) {
       style={{ width: 56, height: 56 }}
     >
       <div
-        className="absolute rounded-full transition-opacity duration-300 group-hover:opacity-100"
+        className={`absolute rounded-full transition-opacity duration-300 group-hover:opacity-100 ${isNewest ? "animate-pulse" : ""}`}
         style={{
-          width: 40,
-          height: 40,
+          width: isNewest ? 50 : 40,
+          height: isNewest ? 50 : 40,
           background: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
           filter: "blur(5px)",
           opacity: 0.85,
         }}
       />
       <div
-        className="absolute rounded-full"
+        className={`absolute rounded-full ${isNewest ? "animate-pulse" : ""}`}
         style={{
-          width: 9,
-          height: 9,
+          width: isNewest ? 11 : 9,
+          height: isNewest ? 11 : 9,
           background: `radial-gradient(circle at 35% 30%, #ffffff, ${color})`,
-          boxShadow: `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
+          boxShadow: isNewest
+            ? `0 0 12px 4px ${color}dd, 0 0 26px 10px ${color}77`
+            : `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
         }}
       />
     </button>
@@ -347,7 +349,7 @@ export default function PublicLogbook() {
                               className="absolute z-10"
                               style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
                             >
-                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} />
+                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
                             </div>
                           ))}
                         </div>
