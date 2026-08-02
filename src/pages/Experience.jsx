@@ -153,6 +153,17 @@ export default function Cockpit() {
     }
   }, [activeTab]);
 
+  // Browser/phone back navigation doesn't trigger the tab click handler
+  // above, so catch it separately here.
+  useEffect(() => {
+    const handlePopState = () => {
+      setOpenWalletId(null);
+      setActiveWalletId(null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const openCreateWalletModal = () => {
     setEditingWalletId(null);
     setWalletForm({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
