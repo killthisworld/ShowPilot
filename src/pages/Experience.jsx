@@ -793,7 +793,7 @@ export default function Cockpit() {
         {activeTab === "fellow" && (
           openWalletId ? (
             <div className="animate-in slide-in-from-right duration-300">
-              <button onClick={() => setOpenWalletId(null)} className="flex items-center gap-2 text-white/60 hover:text-white text-sm mb-4">
+              <button onClick={() => { setOpenWalletId(null); setActiveWalletId(null); }} className="flex items-center gap-2 text-white/60 hover:text-white text-sm mb-4">
                 <ArrowLeft className="w-4 h-4" /> Back to Wallets
               </button>
               {openedWallet && (
