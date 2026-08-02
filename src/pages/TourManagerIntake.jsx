@@ -405,6 +405,9 @@ export default function TourManagerIntake() {
                   {EVENT_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
+                  {form.event_type && !EVENT_TYPES.includes(form.event_type) && (
+                    <SelectItem key={form.event_type} value={form.event_type}>{form.event_type}</SelectItem>
+                  )}
                   <SelectItem value="__add_new__">Other / Add New</SelectItem>
                 </SelectContent>
               </Select>
