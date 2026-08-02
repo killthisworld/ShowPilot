@@ -93,7 +93,7 @@ function ShowStamp({ show, onClick, rotation, isNewest }) {
           background: `radial-gradient(circle, ${color}88 0%, transparent 70%)`,
           filter: "blur(5px)",
           opacity: 0.85,
-          animation: isNewest ? "starPulseGlow 1.4s ease-in-out infinite" : undefined,
+          animation: isNewest ? "starPulseGlow 3s ease-in-out infinite" : undefined,
         }}
       />
       <div
@@ -105,7 +105,7 @@ function ShowStamp({ show, onClick, rotation, isNewest }) {
           boxShadow: isNewest
             ? `0 0 14px 5px ${color}ee, 0 0 30px 12px ${color}88`
             : `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
-          animation: isNewest ? "starPulseCore 1.4s ease-in-out infinite" : undefined,
+          animation: isNewest ? "starPulseCore 3s ease-in-out infinite" : undefined,
         }}
       />
     </button>
