@@ -148,19 +148,6 @@ export default function TourManagerIntake() {
   const updateMember = (i, f, v) => { const m = [...form.band_members]; m[i] = { ...m[i], [f]: v }; update("band_members", m); };
   const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
 
-  const handleGenreInputKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const trimmed = genreInput.trim();
-      if (trimmed && !form.genre_tags.includes(trimmed)) {
-        update("genre_tags", [...form.genre_tags, trimmed]);
-      }
-      setGenreInput("");
-    } else if (e.key === "Backspace" && !genreInput && form.genre_tags.length > 0) {
-      // Quick way to remove the last tag if the input is empty and backspace is pressed again
-      update("genre_tags", form.genre_tags.slice(0, -1));
-    }
-  };
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
 
   // Openers — a lightweight repeater the manager can fill in if they
@@ -179,19 +166,6 @@ export default function TourManagerIntake() {
     updateOpener(i, "band_members", members);
   };
   const removeOpenerMember = (i, mi) => updateOpener(i, "band_members", form.openers[i].band_members.filter((_, idx) => idx !== mi));
-  const handleOpenerGenreKeyDown = (i, e) => {
-    const val = openerGenreInputs[i] || "";
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const trimmed = val.trim();
-      if (trimmed && !form.openers[i].genre_tags.includes(trimmed)) {
-        updateOpener(i, "genre_tags", [...form.openers[i].genre_tags, trimmed]);
-      }
-      setOpenerGenreInputs((s) => ({ ...s, [i]: "" }));
-    } else if (e.key === "Backspace" && !val && form.openers[i].genre_tags.length > 0) {
-      updateOpener(i, "genre_tags", form.openers[i].genre_tags.slice(0, -1));
-    }
-  };
   const removeOpenerGenreTag = (i, tag) => updateOpener(i, "genre_tags", form.openers[i].genre_tags.filter((t) => t !== tag));
 
   // Anonymous submitters upload to a folder scoped to their invite token
@@ -476,13 +450,29 @@ export default function TourManagerIntake() {
                     </button>
                   </span>
                 ))}
-                <input
-                  value={genreInput}
-                  onChange={(e) => setGenreInput(e.target.value)}
-                  onKeyDown={handleGenreInputKeyDown}
-                  placeholder={form.genre_tags.length === 0 ? "Type a genre, hit Enter..." : "Add another..."}
-                  className="flex-1 min-w-[100px] bg-transparent text-white text-sm outline-none placeholder:text-white/25"
-                />
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const trimmed = genreInput.trim();
+                    if (trimmed && !form.genre_tags.includes(trimmed)) {
+                      update("genre_tags", [...form.genre_tags, trimmed]);
+                    }
+                    setGenreInput("");
+                  }}
+                  className="flex-1 min-w-[100px]"
+                >
+                  <input
+                    value={genreInput}
+                    onChange={(e) => setGenreInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Backspace" && !genreInput && form.genre_tags.length > 0) {
+                        update("genre_tags", form.genre_tags.slice(0, -1));
+                      }
+                    }}
+                    placeholder={form.genre_tags.length === 0 ? "Type a genre, hit Enter..." : "Add another..."}
+                    className="w-full bg-transparent text-white text-sm outline-none placeholder:text-white/25"
+                  />
+                </form>
               </div>
             </div>
             <div>
@@ -632,13 +622,30 @@ export default function TourManagerIntake() {
                         <button type="button" onClick={() => removeOpenerGenreTag(i, tag)} className="hover:text-white"><X className="w-2.5 h-2.5" /></button>
                       </span>
                     ))}
-                    <input
-                      value={openerGenreInputs[i] || ""}
-                      onChange={(e) => setOpenerGenreInputs((s) => ({ ...s, [i]: e.target.value }))}
-                      onKeyDown={(e) => handleOpenerGenreKeyDown(i, e)}
-                      placeholder="Type a genre, hit Enter..."
-                      className="flex-1 min-w-[80px] bg-transparent text-white text-xs outline-none placeholder:text-white/25"
-                    />
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const val = openerGenreInputs[i] || "";
+                        const trimmed = val.trim();
+                        if (trimmed && !form.openers[i].genre_tags.includes(trimmed)) {
+                          updateOpener(i, "genre_tags", [...form.openers[i].genre_tags, trimmed]);
+                        }
+                        setOpenerGenreInputs((s) => ({ ...s, [i]: "" }));
+                      }}
+                      className="flex-1 min-w-[80px]"
+                    >
+                      <input
+                        value={openerGenreInputs[i] || ""}
+                        onChange={(e) => setOpenerGenreInputs((s) => ({ ...s, [i]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Backspace" && !(openerGenreInputs[i] || "") && form.openers[i].genre_tags.length > 0) {
+                            updateOpener(i, "genre_tags", form.openers[i].genre_tags.slice(0, -1));
+                          }
+                        }}
+                        placeholder="Type a genre, hit Enter..."
+                        className="w-full bg-transparent text-white text-xs outline-none placeholder:text-white/25"
+                      />
+                    </form>
                   </div>
                 </div>
                 <div className="space-y-2">
