@@ -1070,14 +1070,14 @@ export default function ShowDetail() {
                     )}
                   </div>
                   <button onClick={() => toggleMemberCollapsed(i)} className="p-1.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${collapsedMembers[i] ? "" : "rotate-180"}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${collapsedMembers[i] === false ? "rotate-180" : ""}`} />
                   </button>
                   <button onClick={() => removeMember(i)} className="p-1.5 ml-1 shrink-0 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                {!collapsedMembers[i] && (
+                {collapsedMembers[i] === false && (
                 <>
                 <div className="grid grid-cols-2 gap-2">
                   <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
