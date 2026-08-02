@@ -144,6 +144,15 @@ export default function Cockpit() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [activeWalletId]);
 
+  // Land fresh on the wallet stack every time this tab is entered, rather
+  // than leaving a previously-opened wallet stuck expanded.
+  useEffect(() => {
+    if (activeTab === "fellow") {
+      setOpenWalletId(null);
+      setActiveWalletId(null);
+    }
+  }, [activeTab]);
+
   const openCreateWalletModal = () => {
     setEditingWalletId(null);
     setWalletForm({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
