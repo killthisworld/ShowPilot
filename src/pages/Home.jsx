@@ -48,14 +48,18 @@ export default function Home() {
       const dismissedKey = `logbook_reminder_dismissed_${monthKey}`;
       if (localStorage.getItem(dismissedKey)) return;
 
-      const { data: doneShows } = await supabase
+      const startOfMonth = `${monthKey}-01`;
+      const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+
+      const { data: doneShows, error: doneShowsError } = await supabase
         .from("shows")
         .select("id")
         .eq("owner_id", user.id)
         .eq("done", true)
-        .gte("date", `${monthKey}-01`)
-        .lt("date", `${monthKey}-32`);
+        .gte("date", startOfMonth)
+        .lt("date", startOfNextMonth);
 
+      if (doneShowsError) { console.error(doneShowsError); return; }
       if (!doneShows || doneShows.length === 0) return;
 
       const { data: settings } = await supabase
