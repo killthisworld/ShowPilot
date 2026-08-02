@@ -33,8 +33,52 @@ export default function Home() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [confirmDeleteShow, setConfirmDeleteShow] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [showLogbookReminder, setShowLogbookReminder] = useState(false);
+  const [reminderMonthLabel, setReminderMonthLabel] = useState("");
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
+
+  useEffect(() => {
+    const checkLogbookReminder = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const dismissedKey = `logbook_reminder_dismissed_${monthKey}`;
+      if (localStorage.getItem(dismissedKey)) return;
+
+      const { data: doneShows } = await supabase
+        .from("shows")
+        .select("id")
+        .eq("owner_id", user.id)
+        .eq("done", true)
+        .gte("date", `${monthKey}-01`)
+        .lt("date", `${monthKey}-32`);
+
+      if (!doneShows || doneShows.length === 0) return;
+
+      const { data: settings } = await supabase
+        .from("logbook_month_settings")
+        .select("background_url")
+        .eq("user_id", user.id)
+        .eq("month_key", monthKey)
+        .maybeSingle();
+
+      if (!settings?.background_url) {
+        setReminderMonthLabel(now.toLocaleDateString("en-US", { month: "long" }));
+        setShowLogbookReminder(true);
+      }
+    };
+    checkLogbookReminder();
+  }, []);
+
+  const dismissLogbookReminder = () => {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    localStorage.setItem(`logbook_reminder_dismissed_${monthKey}`, "1");
+    setShowLogbookReminder(false);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -237,6 +281,24 @@ export default function Home() {
               <Button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-500 text-white hover:bg-red-600">
                 {deleting ? "Deleting..." : "Delete"}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogbookReminder && (
+        <div className="bg-[#8CFF3D]/10 border-b border-[#8CFF3D]/20 px-4 py-2.5">
+          <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+            <p className="text-[#8CFF3D] text-xs font-medium">
+              New month — customize your {reminderMonthLabel} Logbook background
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link to="/experience" className="text-[#8CFF3D] text-xs font-bold underline">
+                Customize
+              </Link>
+              <button onClick={dismissLogbookReminder} className="text-[#8CFF3D]/50 hover:text-[#8CFF3D]">
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
