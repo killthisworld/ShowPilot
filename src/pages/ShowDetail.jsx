@@ -904,30 +904,6 @@ export default function ShowDetail() {
           <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
             <div>
-              <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
-              <div className="space-y-2">
-                {(show.contacts || []).map((c, i) => (
-                  <div key={i} className="bg-[#111] rounded-xl p-3">
-                    <div className="flex justify-between items-start">
-                      <div className="grid grid-cols-2 gap-2 flex-1">
-                        <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                      </div>
-                      <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="ghost" size="sm" onClick={addContact} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Contact
-                </Button>
-              </div>
-            </div>
-
-            <div>
               <Label className="text-white/50 text-xs">Venue</Label>
               <Input value={show.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
             </div>
@@ -948,6 +924,30 @@ export default function ShowDetail() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
+              <div className="space-y-2">
+                {(show.contacts || []).map((c, i) => (
+                  <div key={i} className="bg-[#111] rounded-xl p-3">
+                    <div className="flex justify-between items-start">
+                      <div className="grid grid-cols-2 gap-2 flex-1">
+                        <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                        <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
+                      </div>
+                      <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <Button variant="ghost" size="sm" onClick={addContact} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
+                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Contact
+                </Button>
               </div>
             </div>
 
