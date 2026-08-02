@@ -56,7 +56,10 @@ const formatPhoneNumber = (value) => {
 export default function Cockpit() {
   const { preferences, reload } = usePreferences();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("pilot");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("tab") === "logbook" ? "logbook" : "pilot";
+  });
   const [draft, setDraft] = useState(null);
   const [user, setUser] = useState(null);
   const [saving, setSaving] = useState(false);

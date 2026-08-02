@@ -297,7 +297,7 @@ export default function Home() {
               New month — customize your {reminderMonthLabel} Logbook background
             </p>
             <div className="flex items-center gap-2 shrink-0">
-              <Link to="/experience" className="text-[#8CFF3D] text-xs font-bold underline">
+              <Link to="/experience?tab=logbook" className="text-[#8CFF3D] text-xs font-bold underline">
                 Customize
               </Link>
               <button onClick={dismissLogbookReminder} className="text-[#8CFF3D]/50 hover:text-[#8CFF3D]">
