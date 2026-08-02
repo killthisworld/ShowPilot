@@ -73,25 +73,39 @@ function ShowStamp({ show, onClick, rotation, isNewest }) {
       className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-150"
       style={{ width: 56, height: 56 }}
     >
+      {isNewest && (
+        <style>{`
+          @keyframes starPulseGlow {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.6); opacity: 1; }
+          }
+          @keyframes starPulseCore {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.35); }
+          }
+        `}</style>
+      )}
       <div
-        className={`absolute rounded-full transition-opacity duration-300 group-hover:opacity-100 ${isNewest ? "animate-pulse" : ""}`}
+        className="absolute rounded-full transition-opacity duration-300 group-hover:opacity-100"
         style={{
           width: isNewest ? 50 : 40,
           height: isNewest ? 50 : 40,
-          background: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${color}88 0%, transparent 70%)`,
           filter: "blur(5px)",
           opacity: 0.85,
+          animation: isNewest ? "starPulseGlow 1.4s ease-in-out infinite" : undefined,
         }}
       />
       <div
-        className={`absolute rounded-full ${isNewest ? "animate-pulse" : ""}`}
+        className="absolute rounded-full"
         style={{
           width: isNewest ? 11 : 9,
           height: isNewest ? 11 : 9,
           background: `radial-gradient(circle at 35% 30%, #ffffff, ${color})`,
           boxShadow: isNewest
-            ? `0 0 12px 4px ${color}dd, 0 0 26px 10px ${color}77`
+            ? `0 0 14px 5px ${color}ee, 0 0 30px 12px ${color}88`
             : `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
+          animation: isNewest ? "starPulseCore 1.4s ease-in-out infinite" : undefined,
         }}
       />
     </button>

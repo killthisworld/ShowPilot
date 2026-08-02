@@ -65,7 +65,7 @@ function getConstellationLayout(monthShows) {
   return { positions, rows, cols };
 }
 
-function ShowStamp({ show, onClick, rotation }) {
+function ShowStamp({ show, onClick, rotation, isNewest }) {
   const color = hashColor(show.venue || show.band_name || "show");
 
   return (
@@ -74,23 +74,39 @@ function ShowStamp({ show, onClick, rotation }) {
       className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-150"
       style={{ width: 56, height: 56 }}
     >
+      {isNewest && (
+        <style>{`
+          @keyframes starPulseGlow {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.6); opacity: 1; }
+          }
+          @keyframes starPulseCore {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.35); }
+          }
+        `}</style>
+      )}
       <div
         className="absolute rounded-full transition-opacity duration-300 group-hover:opacity-100"
         style={{
-          width: 40,
-          height: 40,
-          background: `radial-gradient(circle, ${color}66 0%, transparent 70%)`,
+          width: isNewest ? 50 : 40,
+          height: isNewest ? 50 : 40,
+          background: `radial-gradient(circle, ${color}88 0%, transparent 70%)`,
           filter: "blur(5px)",
           opacity: 0.85,
+          animation: isNewest ? "starPulseGlow 1.4s ease-in-out infinite" : undefined,
         }}
       />
       <div
         className="absolute rounded-full"
         style={{
-          width: 9,
-          height: 9,
+          width: isNewest ? 11 : 9,
+          height: isNewest ? 11 : 9,
           background: `radial-gradient(circle at 35% 30%, #ffffff, ${color})`,
-          boxShadow: `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
+          boxShadow: isNewest
+            ? `0 0 14px 5px ${color}ee, 0 0 30px 12px ${color}88`
+            : `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
+          animation: isNewest ? "starPulseCore 1.4s ease-in-out infinite" : undefined,
         }}
       />
     </button>
@@ -364,13 +380,13 @@ export default function Logbook() {
                               />
                             ))}
                           </svg>
-                          {positions.map((pos) => (
+                          {positions.map((pos, i) => (
                             <div
                               key={pos.show.id}
                               className="absolute z-10"
                               style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
                             >
-                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} />
+                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
                             </div>
                           ))}
                         </div>
