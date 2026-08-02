@@ -87,6 +87,7 @@ export default function Cockpit() {
   const [savingWallet, setSavingWallet] = useState(false);
   const [logbookMonths, setLogbookMonths] = useState([]);
   const [selectedLogbookMonth, setSelectedLogbookMonth] = useState("");
+  const [monthSelectOpen, setMonthSelectOpen] = useState(false);
   const [monthSettings, setMonthSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
   const [loadingLogbookTab, setLoadingLogbookTab] = useState(false);
   const [savingMonthSettings, setSavingMonthSettings] = useState(false);
@@ -1132,8 +1133,16 @@ export default function Cockpit() {
                   ) : (
                     <>
                       <Label className="text-white/50 text-xs">Month</Label>
-                      <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth}>
-                        <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                      <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth} open={monthSelectOpen} onOpenChange={setMonthSelectOpen}>
+                        <SelectTrigger
+                          className="mt-1 h-10 bg-[#111] border-[#222] text-white"
+                          onPointerDown={(e) => {
+                            if (monthSelectOpen) {
+                              e.preventDefault();
+                              setMonthSelectOpen(false);
+                            }
+                          }}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
