@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2, Check } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2, Check, Pencil } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -87,6 +87,7 @@ export default function ShowDetail() {
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const [collapsedMembers, setCollapsedMembers] = useState({});
+  const [showEventTypeManager, setShowEventTypeManager] = useState(false);
   const mainCaptureRef = useRef(null);
   const venuePrintRef = useRef(null);
   const bandPrintRef = useRef(null);
@@ -474,6 +475,11 @@ export default function ShowDetail() {
     const newType = window.prompt("Add a new event type:");
     if (!newType || !newType.trim()) return;
     const trimmed = newType.trim();
+    update("event_type", trimmed);
+
+    const shouldSave = window.confirm(`Add "${trimmed}" to your event type list for future gigs?`);
+    if (!shouldSave) return;
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
@@ -485,10 +491,25 @@ export default function ShowDetail() {
         if (error) throw error;
         await reloadPreferences();
       }
-      update("event_type", trimmed);
     } catch (e) {
       console.error(e);
-      showPill("Error adding event type");
+      showPill("Error saving event type to list");
+    }
+  };
+
+  const removeCustomEventType = async (type) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const updated = (preferences?.custom_event_types || []).filter((t) => t !== type);
+      const { error } = await supabase
+        .from("user_preferences")
+        .upsert({ user_id: user.id, custom_event_types: updated }, { onConflict: "user_id" });
+      if (error) throw error;
+      await reloadPreferences();
+    } catch (e) {
+      console.error(e);
+      showPill("Error removing event type");
     }
   };
 
@@ -838,7 +859,12 @@ export default function ShowDetail() {
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
           <div>
-            <Label className="text-white/50 text-xs">Event Type</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-white/50 text-xs">Event Type</Label>
+              <button onClick={() => setShowEventTypeManager(true)} className="text-white/30 hover:text-[#8CFF3D] p-0.5">
+                <Pencil className="w-3 h-3" />
+              </button>
+            </div>
             <Select
               value={show.event_type || ""}
               onValueChange={(v) => {
@@ -856,6 +882,11 @@ export default function ShowDetail() {
                 {(preferences?.custom_event_types || []).map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
                 ))}
+                {show.event_type &&
+                  !["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].includes(show.event_type) &&
+                  !(preferences?.custom_event_types || []).includes(show.event_type) && (
+                    <SelectItem key={show.event_type} value={show.event_type}>{show.event_type}</SelectItem>
+                  )}
                 <SelectItem value="__add_new__">Other / Add New</SelectItem>
               </SelectContent>
             </Select>
@@ -1189,6 +1220,31 @@ export default function ShowDetail() {
                 })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showEventTypeManager && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowEventTypeManager(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-4">Manage Event Types</h3>
+            {(preferences?.custom_event_types || []).length === 0 ? (
+              <p className="text-white/40 text-sm">No custom event types yet</p>
+            ) : (
+              <div className="space-y-2">
+                {(preferences?.custom_event_types || []).map((t) => (
+                  <div key={t} className="flex items-center justify-between bg-[#111] rounded-lg px-3 py-2">
+                    <span className="text-white text-sm">{t}</span>
+                    <button onClick={() => removeCustomEventType(t)} className="text-white/30 hover:text-red-400">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowEventTypeManager(false)} className="w-full mt-4 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-white/5 text-sm">
+              Done
+            </button>
           </div>
         </div>
       )}
