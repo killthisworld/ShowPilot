@@ -110,6 +110,22 @@ export default function Home() {
       const activeShows = (data || []).filter((s) => !s.archived);
       const showIds = activeShows.map((s) => s.id);
 
+      // Once a show's date has passed, automatically mark it Done so it
+      // gets logged in the Logbook without requiring a manual checkmark.
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const toAutoMark = activeShows.filter((s) => s.date && s.date < todayStr && !s.done);
+      if (toAutoMark.length > 0) {
+        const idsToMark = toAutoMark.map((s) => s.id);
+        const { error: autoMarkError } = await supabase.from("shows").update({ done: true }).in("id", idsToMark);
+        if (autoMarkError) {
+          console.error("Error auto-marking shows done:", autoMarkError);
+        } else {
+          activeShows.forEach((s) => {
+            if (idsToMark.includes(s.id)) s.done = true;
+          });
+        }
+      }
+
       let openersByShow = {};
       if (showIds.length > 0) {
         const { data: openerRows, error: openerError } = await supabase
