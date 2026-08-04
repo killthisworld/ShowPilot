@@ -89,7 +89,6 @@ export default function ShowDetail() {
   const [collapsedMembers, setCollapsedMembers] = useState({});
   const [showEventTypeManager, setShowEventTypeManager] = useState(false);
   const [eventTypeSelectOpen, setEventTypeSelectOpen] = useState(false);
-  const [eventTypeSelectOpen, setEventTypeSelectOpen] = useState(false);
   const mainCaptureRef = useRef(null);
   const venuePrintRef = useRef(null);
   const bandPrintRef = useRef(null);
