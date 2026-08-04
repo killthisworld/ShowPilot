@@ -155,7 +155,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
             </Button>
 
             <Button onClick={() => { setOpen(false); navigate("/manager-links"); }} variant="outline" className="w-full border-blue-400/50 text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-400 justify-start">
-              <Mail className="w-4 h-4 mr-2" /> Manager Links
+              <Mail className="w-4 h-4 mr-2" /> Manage Links
             </Button>
 
             <Button onClick={save} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">

@@ -208,7 +208,7 @@ export default function ManagerLinksPage() {
             <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-white/60 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-bold text-white">Manager Links</h1>
+            <h1 className="text-lg font-bold text-white">Manage Links</h1>
           </div>
           {requests.length > 0 && (
             <div className="relative">
