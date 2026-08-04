@@ -39,7 +39,7 @@ const ROLE_COLORS = {
   Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
   Opener: { border: "border-[#8CFF3D]/40", activeBorder: "border-[#8CFF3D]", text: "text-[#8CFF3D]", bg: "bg-[#8CFF3D]/10" },
   "Performer/Group": { border: "border-purple-400/40", activeBorder: "border-purple-400", text: "text-purple-400", bg: "bg-purple-500/10" },
-  "N/A": { border: "border-white/20", activeBorder: "border-white/40", text: "text-white/50", bg: "bg-white/5" },
+  "N/A": { border: "border-white/20", activeBorder: "border-white", text: "text-white", bg: "bg-white/15" },
 };
 const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 
