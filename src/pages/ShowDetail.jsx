@@ -1125,6 +1125,12 @@ export default function ShowDetail() {
                         <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
                     )}
+                    {getInstruments(m).some((inst) => inst.mic_di === "DI") && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400">DI</span>
+                    )}
+                    {getInstruments(m).some((inst) => inst.mic_di === "DI") && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400">DI</span>
+                    )}
                     {getInstruments(m).some((inst) => inst.phantom_power) && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
                     )}
@@ -1151,12 +1157,20 @@ export default function ShowDetail() {
                         placeholder="e.g. Guitar"
                         className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm"
                       />
-                      <button
-                        onClick={() => updateInstrument(i, ii, "mic_di", inst.mic_di === "DI" ? "Mic" : "DI")}
-                        className="h-8 px-2.5 rounded-lg text-xs font-semibold border border-[#333] text-white/50 hover:text-white/80 shrink-0"
-                      >
-                        {inst.mic_di || "Mic"}
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {["Mic", "DI"].map((type) => {
+                          const active = (inst.mic_di || "Mic") === type;
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => updateInstrument(i, ii, "mic_di", type)}
+                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                            >
+                              {type}
+                            </button>
+                          );
+                        })}
+                      </div>
                       <button
                         onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
                         className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
