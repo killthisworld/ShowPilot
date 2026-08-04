@@ -7,6 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Send, CheckCircle, Music, X } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 
+const ROLE_COLORS = {
+  Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
+  Opener: { border: "border-[#8CFF3D]/40", activeBorder: "border-[#8CFF3D]", text: "text-[#8CFF3D]", bg: "bg-[#8CFF3D]/10" },
+  "Performer/Group": { border: "border-purple-400/40", activeBorder: "border-purple-400", text: "text-purple-400", bg: "bg-purple-500/10" },
+  "N/A": { border: "border-white/20", activeBorder: "border-white", text: "text-white", bg: "bg-white/15" },
+};
+const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
+
 export default function OpenerIntake() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
@@ -14,6 +22,7 @@ export default function OpenerIntake() {
   const [context, setContext] = useState(null);
   const [loadingView, setLoadingView] = useState(true);
   const [form, setForm] = useState({
+    role: "Opener",
     band_name: "",
     genre_tags: [],
     band_members: [],
@@ -48,6 +57,31 @@ export default function OpenerIntake() {
   const updateMember = (i, f, v) => { const m = [...form.band_members]; m[i] = { ...m[i], [f]: v }; update("band_members", m); };
   const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
 
+  const getInstruments = (m) => {
+    if (m.instruments) return m.instruments;
+    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
+    return [];
+  };
+  const addInstrument = (i) => {
+    const members = [...form.band_members];
+    const current = getInstruments(members[i]);
+    members[i] = { ...members[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    update("band_members", members);
+  };
+  const updateInstrument = (i, ii, f, v) => {
+    const members = [...form.band_members];
+    const instruments = [...getInstruments(members[i])];
+    instruments[ii] = { ...instruments[ii], [f]: v };
+    members[i] = { ...members[i], instruments };
+    update("band_members", members);
+  };
+  const removeInstrument = (i, ii) => {
+    const members = [...form.band_members];
+    const instruments = getInstruments(members[i]).filter((_, idx) => idx !== ii);
+    members[i] = { ...members[i], instruments };
+    update("band_members", members);
+  };
+
   const handleGenreInputKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -62,7 +96,7 @@ export default function OpenerIntake() {
 
   const handleSubmit = async () => {
     if (!form.band_name) {
-      setError("Band name is required.");
+      setError("Artist / group name is required.");
       return;
     }
     setError(null);
@@ -94,7 +128,7 @@ export default function OpenerIntake() {
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
         <div className="text-center">
           <p className="text-white/50 text-lg mb-2">Invalid link</p>
-          <p className="text-white/30 text-sm">This opener intake link is not valid.</p>
+          <p className="text-white/30 text-sm">This intake link is not valid.</p>
         </div>
       </div>
     );
@@ -123,9 +157,9 @@ export default function OpenerIntake() {
               <Music className="w-4 h-4 text-[#8CFF3D]" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-base leading-tight">Opener Set Info</h1>
+              <h1 className="text-white font-bold text-base leading-tight">Set Info</h1>
               <p className="text-white/40 text-xs">
-                {parent?.band_name ? `Opening for ${parent.band_name}` : "Submitting your set info"}
+                {parent?.band_name ? `Joining ${parent.band_name}` : "Submitting your set info"}
                 {parent?.venue ? ` · ${parent.venue}` : ""}
               </p>
             </div>
@@ -135,12 +169,30 @@ export default function OpenerIntake() {
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <p className="text-white/40 text-xs pb-1">
-          Fill in your band's info below — this will be added to the gig{parent?.date ? ` on ${parent.date}` : ""}{parent?.location ? ` at ${parent.location}` : ""}. No need to re-enter venue or date details.
+          Fill in your act's info below — this will be added to the gig{parent?.date ? ` on ${parent.date}` : ""}{parent?.location ? ` at ${parent.location}` : ""}. No need to re-enter venue or date details.
         </p>
 
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">
           <div>
-            <Label className="text-white/50 text-xs">Band / Artist Name *</Label>
+            <Label className="text-white/50 text-xs mb-2 block">Your Role</Label>
+            <div className="flex gap-1 flex-wrap">
+              {ROLE_OPTIONS.map((r) => {
+                const colors = ROLE_COLORS[r];
+                const active = form.role === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => update("role", r)}
+                    className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${active ? `${colors.text} ${colors.bg} ${colors.border}` : "text-white/30 border-transparent hover:text-white/50"}`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
             <Input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
           <div>
@@ -178,13 +230,49 @@ export default function OpenerIntake() {
             {form.band_members.map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={m.instrument} onChange={(e) => updateMember(i, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                  </div>
+                  <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="flex-1 h-8 bg-transparent border-[#222] text-white text-sm" />
                   <button onClick={() => removeMember(i)} className="p-1.5 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
+                  {getInstruments(m).map((inst, ii) => (
+                    <div key={ii} className="flex items-center gap-1.5">
+                      <Input
+                        value={inst.name}
+                        onChange={(e) => updateInstrument(i, ii, "name", e.target.value)}
+                        placeholder="e.g. Guitar"
+                        className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        {["Mic", "DI"].map((type) => {
+                          const active = (inst.mic_di || "Mic") === type;
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => updateInstrument(i, ii, "mic_di", type)}
+                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                            >
+                              {type}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
+                        className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                      >
+                        +48V
+                      </button>
+                      <button onClick={() => removeInstrument(i, ii)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => addInstrument(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-8 text-xs">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Instrument
+                  </Button>
                 </div>
                 <div className="flex gap-3 pl-0.5">
                   {["IEM", "Monitor"].map((type) => (
