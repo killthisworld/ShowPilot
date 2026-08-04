@@ -394,7 +394,7 @@ export default function ShowDetail() {
     update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
   };
   const toggleNotesOpen = (key) => setOpenNotesKey((prev) => (prev === key ? null : key));
-  const toggleMemberCollapsed = (i) => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }));
+  const toggleMemberCollapsed = (i) => setCollapsedMembers((prev) => ({ ...prev, [i]: prev[i] !== false }));
 
   const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
   const updateMember = (i, f, v) => {
