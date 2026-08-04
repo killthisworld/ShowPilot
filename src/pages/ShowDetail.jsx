@@ -1169,38 +1169,36 @@ export default function ShowDetail() {
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
             </Button>
+
+            <div className="border-t border-[#222] pt-3">
+              <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
+              {(activeBand.stage_plot_files || []).length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {(activeBand.stage_plot_files || []).map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-[#111] rounded-xl p-2">
+                      {f.type?.startsWith("image/") ? (
+                        <img src={f.url} alt={f.name} className="w-12 h-12 object-cover rounded-lg border border-[#222]" />
+                      ) : (
+                        <div className="w-12 h-12 flex items-center justify-center bg-[#1a1a1a] rounded-lg border border-[#222]">
+                          <FileText className="w-5 h-5 text-white/40" />
+                        </div>
+                      )}
+                      <span className="flex-1 text-sm text-white/60 truncate">{f.name}</span>
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8CFF3D] hover:underline">View</a>
+                      <button onClick={() => removeStagePlotFile(i)} className="p-1 text-white/30 hover:text-red-400"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label className="flex items-center gap-3 py-4 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors px-4">
+                <Paperclip className="w-5 h-5 text-white/30" />
+                <span className="text-sm text-white/40">Upload images or files</span>
+                <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg" multiple className="hidden" onChange={handleStagePlotUpload} />
+              </label>
+            </div>
           </div>
         </CollapsibleSection>
         </div>
-
-        <CollapsibleSection title="Stage Plot" icon={ImageIcon}>
-          <div className="pt-3 space-y-3">
-            {(activeBand.stage_plot_files || []).length > 0 && (
-              <div className="space-y-2">
-                {(activeBand.stage_plot_files || []).map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-[#111] rounded-xl p-2">
-                    {f.type?.startsWith("image/") ? (
-                      <img src={f.url} alt={f.name} className="w-12 h-12 object-cover rounded-lg border border-[#222]" />
-                    ) : (
-                      <div className="w-12 h-12 flex items-center justify-center bg-[#1a1a1a] rounded-lg border border-[#222]">
-                        <FileText className="w-5 h-5 text-white/40" />
-                      </div>
-                    )}
-                    <span className="flex-1 text-sm text-white/60 truncate">{f.name}</span>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8CFF3D] hover:underline">View</a>
-                    <button onClick={() => removeStagePlotFile(i)} className="p-1 text-white/30 hover:text-red-400"><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <label className="flex items-center gap-3 py-4 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors px-4">
-              <Paperclip className="w-5 h-5 text-white/30" />
-              <span className="text-sm text-white/40">Upload images or files</span>
-              <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg" multiple className="hidden" onChange={handleStagePlotUpload} />
-            </label>
-          </div>
-        </CollapsibleSection>
-
 
       {showFxModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowFxModal(false)}>
