@@ -34,6 +34,7 @@ export default function TourManagerIntake() {
   const engineerName = params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
 
   const [form, setForm] = useState({
+    event_name: "",
     band_name: "",
     venue: "",
     date: "",
@@ -378,7 +379,11 @@ export default function TourManagerIntake() {
         <CollapsibleSection title="Gig Info" icon={Info} defaultOpen={true}>
           <div className="space-y-3 pt-3">
             <div>
-              <Label className="text-white/50 text-xs">Band / Artist Name *</Label>
+              <Label className="text-white/50 text-xs">Event Name</Label>
+              <Input value={form.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
+            </div>
+            <div>
+              <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
               <Input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
             </div>
             <div>
