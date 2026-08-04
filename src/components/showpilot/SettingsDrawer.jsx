@@ -22,7 +22,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
 
   const lastRatingDate = prefs.last_rating_date ? new Date(prefs.last_rating_date) : null;
   const daysSinceRating = lastRatingDate ? (Date.now() - lastRatingDate.getTime()) / (1000 * 60 * 60 * 24) : 999;
-  const canRate = daysSinceRating >= 30;
+  const canRate = daysSinceRating >= 7;
 
   useEffect(() => {
     if (preferences) setPrefs(preferences);
@@ -190,7 +190,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
                 </>
               ) : (
                 <p className="text-xs text-white/30 py-2">
-                  Thanks for your feedback! You can rate again in {Math.ceil(30 - daysSinceRating)} day{Math.ceil(30 - daysSinceRating) !== 1 ? "s" : ""}.
+                  Thanks for your feedback! You can rate again in {Math.ceil(7 - daysSinceRating)} day{Math.ceil(7 - daysSinceRating) !== 1 ? "s" : ""}.
                 </p>
               )}
             </div>
