@@ -160,8 +160,8 @@ export default function TourManagerIntake() {
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
 
   const handleSubmit = async () => {
-    if (!form.band_name || !form.date) {
-      setError("Artist / group name and date are required.");
+    if (!form.band_name) {
+      setError("Artist / group name is required.");
       return;
     }
     setError(null);
@@ -354,43 +354,8 @@ export default function TourManagerIntake() {
             </div>
           </div>
           <div>
-            <Label className="text-white/50 text-xs">Event Name</Label>
-            <Input value={form.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
-          </div>
-          <div>
             <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
             <Input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Band / Artist" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Date *</Label>
-            <Input type="date" value={form.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white [color-scheme:dark] w-44" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Event Type</Label>
-            <Select
-              value={form.event_type}
-              onValueChange={(v) => {
-                if (v === "__add_new__") {
-                  const newType = window.prompt("Enter a custom event type:");
-                  if (newType && newType.trim()) update("event_type", newType.trim());
-                } else {
-                  update("event_type", v);
-                }
-              }}
-            >
-              <SelectTrigger className="mt-1 h-10 bg-[#0d0d0d] border-[#222] text-white w-48">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                {EVENT_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-                {form.event_type && !EVENT_TYPES.includes(form.event_type) && (
-                  <SelectItem key={form.event_type} value={form.event_type}>{form.event_type}</SelectItem>
-                )}
-                <SelectItem value="__add_new__">Other / Add New</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
