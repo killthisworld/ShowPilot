@@ -1041,43 +1041,6 @@ export default function ShowDetail() {
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
           <div>
-            <Label className="text-white/50 text-xs">Date *</Label>
-            <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <Label className="text-white/50 text-xs">Event Type</Label>
-              <button onClick={() => setShowEventTypeManager(true)} className="text-white/30 hover:text-[#8CFF3D] p-0.5">
-                <Pencil className="w-3 h-3" />
-              </button>
-            </div>
-            <Select
-              value={show.event_type || ""}
-              onValueChange={(v) => {
-                if (v === "__add_new__") addCustomEventType();
-                else update("event_type", v);
-              }}
-            >
-              <SelectTrigger className="mt-1 h-11 bg-[#111] border-[#222] text-white text-base w-52">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-                {(preferences?.custom_event_types || []).map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-                {show.event_type &&
-                  !["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].includes(show.event_type) &&
-                  !(preferences?.custom_event_types || []).includes(show.event_type) && (
-                    <SelectItem key={show.event_type} value={show.event_type}>{show.event_type}</SelectItem>
-                  )}
-              <SelectItem value="__add_new__">Other / Add New</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
             <Input
               type="number"
