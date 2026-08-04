@@ -74,7 +74,7 @@ export default function CalendarPage() {
     setTmLink(null);
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Manager Import Link", url: tmLink });
+        await navigator.share({ title: "Performer Intake Link", url: tmLink });
       } catch (e) {
         // user cancelled the native share sheet — nothing to do
       }
@@ -149,8 +149,8 @@ export default function CalendarPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setTmLink(null)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="px-3 pt-3 pb-2">
-              <h3 className="text-white font-bold text-base">Manager Import Link</h3>
-              <p className="text-white/40 text-xs mt-0.5">Share this with a manager or band member. They'll fill out the gig info and it'll appear on your profile.</p>
+              <h3 className="text-white font-bold text-base">Performer Intake</h3>
+              <p className="text-white/40 text-xs mt-0.5">Share this with a performer. They'll fill out their act's info and it'll appear on your profile.</p>
             </div>
             <button onClick={handleCopyLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
               {tmCopied ? <Check className="w-4 h-4 text-[#8CFF3D]" /> : <Copy className="w-4 h-4 text-[#8CFF3D]" />}
