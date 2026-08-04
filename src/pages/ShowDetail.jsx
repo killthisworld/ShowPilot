@@ -427,30 +427,6 @@ export default function ShowDetail() {
     m[i] = { ...m[i], instruments };
     updateBandField("band_members", m);
   };
-  const getInstruments = (m) => {
-    if (m.instruments) return m.instruments;
-    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
-    return [];
-  };
-  const addInstrument = (i) => {
-    const m = [...(activeBand.band_members || [])];
-    const current = getInstruments(m[i]);
-    m[i] = { ...m[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
-    updateBandField("band_members", m);
-  };
-  const updateInstrument = (i, ii, f, v) => {
-    const m = [...(activeBand.band_members || [])];
-    const instruments = [...getInstruments(m[i])];
-    instruments[ii] = { ...instruments[ii], [f]: v };
-    m[i] = { ...m[i], instruments };
-    updateBandField("band_members", m);
-  };
-  const removeInstrument = (i, ii) => {
-    const m = [...(activeBand.band_members || [])];
-    const instruments = getInstruments(m[i]).filter((_, idx) => idx !== ii);
-    m[i] = { ...m[i], instruments };
-    updateBandField("band_members", m);
-  };
   const removeMember = (i) => {
     const removedName = activeBand.band_members[i]?.name;
     updateBandField("band_members", (activeBand.band_members || []).filter((_, idx) => idx !== i));
