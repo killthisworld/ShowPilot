@@ -186,6 +186,31 @@ export default function TourManagerIntake() {
     setOpenerGenreInputs((s) => { const next = { ...s }; delete next[i]; return next; });
   };
   const addOpenerMember = (i) => updateOpener(i, "band_members", [...form.openers[i].band_members, { name: "", instrument: "", bus_type: "" }]);
+
+  const getOpenerInstruments = (m) => {
+    if (m.instruments) return m.instruments;
+    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
+    return [];
+  };
+  const addOpenerInstrument = (i, mi) => {
+    const members = [...form.openers[i].band_members];
+    const current = getOpenerInstruments(members[mi]);
+    members[mi] = { ...members[mi], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    updateOpener(i, "band_members", members);
+  };
+  const updateOpenerInstrument = (i, mi, ii, f, v) => {
+    const members = [...form.openers[i].band_members];
+    const instruments = [...getOpenerInstruments(members[mi])];
+    instruments[ii] = { ...instruments[ii], [f]: v };
+    members[mi] = { ...members[mi], instruments };
+    updateOpener(i, "band_members", members);
+  };
+  const removeOpenerInstrument = (i, mi, ii) => {
+    const members = [...form.openers[i].band_members];
+    const instruments = getOpenerInstruments(members[mi]).filter((_, idx) => idx !== ii);
+    members[mi] = { ...members[mi], instruments };
+    updateOpener(i, "band_members", members);
+  };
   const updateOpenerMember = (i, mi, f, v) => {
     const members = [...form.openers[i].band_members];
     members[mi] = { ...members[mi], [f]: v };
@@ -722,13 +747,48 @@ export default function TourManagerIntake() {
                   {o.band_members.map((m, mi) => (
                     <div key={mi} className="bg-[#1a1a1a] rounded-lg p-2 space-y-2">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 grid grid-cols-2 gap-2">
-                          <Input value={m.name} onChange={(e) => updateOpenerMember(i, mi, "name", e.target.value)} placeholder="Name" className="h-7 bg-transparent border-[#222] text-white text-xs" />
-                          <Input value={m.instrument} onChange={(e) => updateOpenerMember(i, mi, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-7 bg-transparent border-[#222] text-white text-xs" />
-                        </div>
+                        <Input value={m.name} onChange={(e) => updateOpenerMember(i, mi, "name", e.target.value)} placeholder="Name" className="flex-1 h-7 bg-transparent border-[#222] text-white text-xs" />
                         <button onClick={() => removeOpenerMember(i, mi)} className="p-1 text-white/30 hover:text-red-400">
                           <Trash2 className="w-3 h-3" />
                         </button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {getOpenerInstruments(m).map((inst, ii) => (
+                          <div key={ii} className="flex items-center gap-1">
+                            <Input
+                              value={inst.name}
+                              onChange={(e) => updateOpenerInstrument(i, mi, ii, "name", e.target.value)}
+                              placeholder="e.g. Guitar"
+                              className="flex-1 h-7 bg-transparent border-[#222] text-white text-xs"
+                            />
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              {["Mic", "DI"].map((type) => {
+                                const active = (inst.mic_di || "Mic") === type;
+                                return (
+                                  <button
+                                    key={type}
+                                    onClick={() => updateOpenerInstrument(i, mi, ii, "mic_di", type)}
+                                    className={`h-7 px-2 rounded-full text-[10px] font-medium border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                                  >
+                                    {type}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <button
+                              onClick={() => updateOpenerInstrument(i, mi, ii, "phantom_power", !inst.phantom_power)}
+                              className={`h-7 px-2 rounded-full text-[10px] font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                            >
+                              +48V
+                            </button>
+                            <button onClick={() => removeOpenerInstrument(i, mi, ii)} className="p-1 text-white/30 hover:text-red-400 shrink-0">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        <Button variant="ghost" size="sm" onClick={() => addOpenerInstrument(i, mi)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-6 text-[10px]">
+                          <Plus className="w-3 h-3 mr-1" /> Add Instrument
+                        </Button>
                       </div>
                       <div className="flex gap-2">
                         {["IEM", "Monitor"].map((type) => (
