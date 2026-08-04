@@ -20,6 +20,14 @@ const US_STATES = [
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
+const ROLE_COLORS = {
+  Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
+  Opener: { border: "border-[#8CFF3D]/40", activeBorder: "border-[#8CFF3D]", text: "text-[#8CFF3D]", bg: "bg-[#8CFF3D]/10" },
+  "Performer/Group": { border: "border-purple-400/40", activeBorder: "border-purple-400", text: "text-purple-400", bg: "bg-purple-500/10" },
+  "N/A": { border: "border-white/20", activeBorder: "border-white", text: "text-white", bg: "bg-white/15" },
+};
+const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
+
 const formatPhoneNumber = (value) => {
   const digits = value.replace(/\D/g, "").slice(0, 10);
   if (digits.length <= 3) return digits;
@@ -34,6 +42,7 @@ export default function TourManagerIntake() {
   const engineerName = params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
 
   const [form, setForm] = useState({
+    role: "Headliner",
     event_name: "",
     band_name: "",
     venue: "",
@@ -50,11 +59,9 @@ export default function TourManagerIntake() {
     stage_plot_url: "",
     stage_plot_files: [],
     band_members: [],
-    openers: [],
     general_notes: "",
   });
   const [genreInput, setGenreInput] = useState("");
-  const [openerGenreInputs, setOpenerGenreInputs] = useState({});
   const [uploadingStagePlot, setUploadingStagePlot] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
@@ -175,49 +182,6 @@ export default function TourManagerIntake() {
   const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
 
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
-
-  // Openers — a lightweight repeater the manager can fill in if they
-  // know the info; each opener supports its own genre tag input, its
-  // own band member list, and set length, same shape as the headliner.
-  const addOpener = () => update("openers", [...form.openers, { band_name: "", genre_tags: [], band_members: [], set_length_minutes: "" }]);
-  const updateOpener = (i, f, v) => { const o = [...form.openers]; o[i] = { ...o[i], [f]: v }; update("openers", o); };
-  const removeOpener = (i) => {
-    update("openers", form.openers.filter((_, idx) => idx !== i));
-    setOpenerGenreInputs((s) => { const next = { ...s }; delete next[i]; return next; });
-  };
-  const addOpenerMember = (i) => updateOpener(i, "band_members", [...form.openers[i].band_members, { name: "", instrument: "", bus_type: "" }]);
-
-  const getOpenerInstruments = (m) => {
-    if (m.instruments) return m.instruments;
-    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
-    return [];
-  };
-  const addOpenerInstrument = (i, mi) => {
-    const members = [...form.openers[i].band_members];
-    const current = getOpenerInstruments(members[mi]);
-    members[mi] = { ...members[mi], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
-    updateOpener(i, "band_members", members);
-  };
-  const updateOpenerInstrument = (i, mi, ii, f, v) => {
-    const members = [...form.openers[i].band_members];
-    const instruments = [...getOpenerInstruments(members[mi])];
-    instruments[ii] = { ...instruments[ii], [f]: v };
-    members[mi] = { ...members[mi], instruments };
-    updateOpener(i, "band_members", members);
-  };
-  const removeOpenerInstrument = (i, mi, ii) => {
-    const members = [...form.openers[i].band_members];
-    const instruments = getOpenerInstruments(members[mi]).filter((_, idx) => idx !== ii);
-    members[mi] = { ...members[mi], instruments };
-    updateOpener(i, "band_members", members);
-  };
-  const updateOpenerMember = (i, mi, f, v) => {
-    const members = [...form.openers[i].band_members];
-    members[mi] = { ...members[mi], [f]: v };
-    updateOpener(i, "band_members", members);
-  };
-  const removeOpenerMember = (i, mi) => updateOpener(i, "band_members", form.openers[i].band_members.filter((_, idx) => idx !== mi));
-  const removeOpenerGenreTag = (i, tag) => updateOpener(i, "genre_tags", form.openers[i].genre_tags.filter((t) => t !== tag));
 
   // Anonymous submitters upload to a folder scoped to their invite token
   // (rather than a user ID, since they don't have an account). Requires a
@@ -428,6 +392,24 @@ export default function TourManagerIntake() {
         {/* Gig Info */}
         <CollapsibleSection title="Gig Info" icon={Info} defaultOpen={true}>
           <div className="space-y-3 pt-3">
+            <div>
+              <Label className="text-white/50 text-xs mb-2 block">Your Role</Label>
+              <div className="flex gap-1 flex-wrap">
+                {ROLE_OPTIONS.map((r) => {
+                  const colors = ROLE_COLORS[r];
+                  const active = (form.role || "Headliner") === r;
+                  return (
+                    <button
+                      key={r}
+                      onClick={() => update("role", r)}
+                      className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${active ? `${colors.text} ${colors.bg} ${colors.border}` : "text-white/30 border-transparent hover:text-white/50"}`}
+                    >
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div>
               <Label className="text-white/50 text-xs">Event Name</Label>
               <Input value={form.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
@@ -680,137 +662,6 @@ export default function TourManagerIntake() {
             ))}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
-            </Button>
-          </div>
-        </CollapsibleSection>
-
-        {/* Openers — optional, if the manager knows the info */}
-        <CollapsibleSection title="Openers" icon={Users} badge={form.openers.length}>
-          <div className="space-y-4 pt-3">
-            <p className="text-white/30 text-xs -mt-1">If you know who's opening, add them here. Otherwise the engineer can send a separate link directly to each opener.</p>
-            {form.openers.map((o, i) => (
-              <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3 border border-[#222]">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/40 text-xs font-semibold uppercase tracking-wide">Opener {i + 1}</span>
-                  <button onClick={() => removeOpener(i)} className="p-1 text-white/30 hover:text-red-400">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <Input value={o.band_name} onChange={(e) => updateOpener(i, "band_name", e.target.value)} placeholder="Band / Artist Name" className="h-9 bg-[#1a1a1a] border-[#222] text-white text-sm" />
-                <div>
-                  <Label className="text-white/40 text-xs">Set Length (minutes)</Label>
-                  <Input
-                    type="number"
-                    value={o.set_length_minutes}
-                    onChange={(e) => updateOpener(i, "set_length_minutes", e.target.value)}
-                    className="mt-1 h-9 bg-[#1a1a1a] border-[#222] text-white text-sm w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    placeholder="e.g. 30"
-                  />
-                </div>
-                <div>
-                  <Label className="text-white/40 text-xs">Genre / Style</Label>
-                  <div className="mt-1 flex flex-wrap gap-1.5 p-2 bg-[#1a1a1a] border border-[#222] rounded-lg min-h-[38px]">
-                    {o.genre_tags.map((tag) => (
-                      <span key={tag} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#8CFF3D]/15 text-[#8CFF3D]">
-                        {tag}
-                        <button type="button" onClick={() => removeOpenerGenreTag(i, tag)} className="hover:text-white"><X className="w-2.5 h-2.5" /></button>
-                      </span>
-                    ))}
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const val = openerGenreInputs[i] || "";
-                        const trimmed = val.trim();
-                        if (trimmed && !form.openers[i].genre_tags.includes(trimmed)) {
-                          updateOpener(i, "genre_tags", [...form.openers[i].genre_tags, trimmed]);
-                        }
-                        setOpenerGenreInputs((s) => ({ ...s, [i]: "" }));
-                      }}
-                      className="flex-1 min-w-[80px]"
-                    >
-                      <input
-                        value={openerGenreInputs[i] || ""}
-                        onChange={(e) => setOpenerGenreInputs((s) => ({ ...s, [i]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Backspace" && !(openerGenreInputs[i] || "") && form.openers[i].genre_tags.length > 0) {
-                            updateOpener(i, "genre_tags", form.openers[i].genre_tags.slice(0, -1));
-                          }
-                        }}
-                        placeholder="Type a genre, hit Enter..."
-                        className="w-full bg-transparent text-white text-xs outline-none placeholder:text-white/25"
-                      />
-                    </form>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-white/40 text-xs">Band Members</Label>
-                  {o.band_members.map((m, mi) => (
-                    <div key={mi} className="bg-[#1a1a1a] rounded-lg p-2 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Input value={m.name} onChange={(e) => updateOpenerMember(i, mi, "name", e.target.value)} placeholder="Name" className="flex-1 h-7 bg-transparent border-[#222] text-white text-xs" />
-                        <button onClick={() => removeOpenerMember(i, mi)} className="p-1 text-white/30 hover:text-red-400">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <div className="space-y-1.5">
-                        {getOpenerInstruments(m).map((inst, ii) => (
-                          <div key={ii} className="flex items-center gap-1">
-                            <Input
-                              value={inst.name}
-                              onChange={(e) => updateOpenerInstrument(i, mi, ii, "name", e.target.value)}
-                              placeholder="e.g. Guitar"
-                              className="flex-1 h-7 bg-transparent border-[#222] text-white text-xs"
-                            />
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              {["Mic", "DI"].map((type) => {
-                                const active = (inst.mic_di || "Mic") === type;
-                                return (
-                                  <button
-                                    key={type}
-                                    onClick={() => updateOpenerInstrument(i, mi, ii, "mic_di", type)}
-                                    className={`h-7 px-2 rounded-full text-[10px] font-medium border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                                  >
-                                    {type}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <button
-                              onClick={() => updateOpenerInstrument(i, mi, ii, "phantom_power", !inst.phantom_power)}
-                              className={`h-7 px-2 rounded-full text-[10px] font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                            >
-                              +48V
-                            </button>
-                            <button onClick={() => removeOpenerInstrument(i, mi, ii)} className="p-1 text-white/30 hover:text-red-400 shrink-0">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                        <Button variant="ghost" size="sm" onClick={() => addOpenerInstrument(i, mi)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-6 text-[10px]">
-                          <Plus className="w-3 h-3 mr-1" /> Add Instrument
-                        </Button>
-                      </div>
-                      <div className="flex gap-2">
-                        {["IEM", "Monitor"].map((type) => (
-                          <button
-                            key={type}
-                            onClick={() => updateOpenerMember(i, mi, "bus_type", m.bus_type === type ? "" : type)}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all ${m.bus_type === type ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                          >
-                            {type}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <Button variant="ghost" size="sm" onClick={() => addOpenerMember(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-7 text-xs">
-                    <Plus className="w-3 h-3 mr-1" /> Add Member
-                  </Button>
-                </div>
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Opener
             </Button>
           </div>
         </CollapsibleSection>
