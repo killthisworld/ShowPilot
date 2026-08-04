@@ -322,7 +322,7 @@ export default function TourManagerIntake() {
         <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
           {/* Read-only submitted data */}
           <div className="bg-[#111] rounded-2xl p-4 space-y-2">
-            <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Manager Submitted</p>
+            <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Previously Submitted</p>
             <p className="text-white font-semibold">{tmRequest.band_name}</p>
             <p className="text-white/50 text-sm">{tmRequest.date}{tmRequest.venue ? ` · ${tmRequest.venue}` : ""}{tmRequest.location ? ` · ${tmRequest.location}` : ""}</p>
             {tmRequest.band_members?.length > 0 && (
@@ -413,7 +413,7 @@ export default function TourManagerIntake() {
               <Music className="w-4 h-4 text-[#8CFF3D]" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-base leading-tight">Manager Import Link</h1>
+              <h1 className="text-white font-bold text-base leading-tight">Performer Intake</h1>
               <p className="text-white/40 text-xs">Submitting for {engineerName}</p>
             </div>
           </div>
