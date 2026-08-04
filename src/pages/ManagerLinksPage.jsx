@@ -288,7 +288,7 @@ export default function ManagerLinksPage() {
                 className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] mt-1"
               >
                 <Plus className="w-3.5 h-3.5 mr-1.5" />
-                {generatingFor === r.id ? "Generating..." : "Generate Opener Link"}
+                {generatingFor === r.id ? "Generating..." : "Generate Additional Link"}
               </Button>
             </div>
           ))
