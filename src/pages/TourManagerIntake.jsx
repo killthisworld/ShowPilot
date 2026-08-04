@@ -146,6 +146,31 @@ export default function TourManagerIntake() {
   const removeContact = (i) => update("contacts", form.contacts.filter((_, idx) => idx !== i));
 
   const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", bus_type: "" }]);
+
+  const getInstruments = (m) => {
+    if (m.instruments) return m.instruments;
+    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
+    return [];
+  };
+  const addInstrument = (i) => {
+    const members = [...form.band_members];
+    const current = getInstruments(members[i]);
+    members[i] = { ...members[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    update("band_members", members);
+  };
+  const updateInstrument = (i, ii, f, v) => {
+    const members = [...form.band_members];
+    const instruments = [...getInstruments(members[i])];
+    instruments[ii] = { ...instruments[ii], [f]: v };
+    members[i] = { ...members[i], instruments };
+    update("band_members", members);
+  };
+  const removeInstrument = (i, ii) => {
+    const members = [...form.band_members];
+    const instruments = getInstruments(members[i]).filter((_, idx) => idx !== ii);
+    members[i] = { ...members[i], instruments };
+    update("band_members", members);
+  };
   const updateMember = (i, f, v) => { const m = [...form.band_members]; m[i] = { ...m[i], [f]: v }; update("band_members", m); };
   const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
 
@@ -571,13 +596,49 @@ export default function TourManagerIntake() {
             {form.band_members.map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 grid grid-cols-2 gap-2">
-                    <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                    <Input value={m.instrument} onChange={(e) => updateMember(i, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                  </div>
+                  <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="flex-1 h-8 bg-transparent border-[#222] text-white text-sm" />
                   <button onClick={() => removeMember(i)} className="p-1.5 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
+                  {getInstruments(m).map((inst, ii) => (
+                    <div key={ii} className="flex items-center gap-1.5">
+                      <Input
+                        value={inst.name}
+                        onChange={(e) => updateInstrument(i, ii, "name", e.target.value)}
+                        placeholder="e.g. Guitar"
+                        className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        {["Mic", "DI"].map((type) => {
+                          const active = (inst.mic_di || "Mic") === type;
+                          return (
+                            <button
+                              key={type}
+                              onClick={() => updateInstrument(i, ii, "mic_di", type)}
+                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                            >
+                              {type}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
+                        className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                      >
+                        +48V
+                      </button>
+                      <button onClick={() => removeInstrument(i, ii)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => addInstrument(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-8 text-xs">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Instrument
+                  </Button>
                 </div>
                 <div className="flex gap-3 pl-0.5">
                   {["IEM", "Monitor"].map((type) => (
