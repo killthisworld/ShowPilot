@@ -35,8 +35,16 @@ const VENUE_CHECKLIST_ITEMS = [
   { key: "onstage_monitors", label: "On-Stage Monitors" },
 ];
 
-const emptyBand = (isHeadliner, sortOrder) => ({
-  is_headliner: isHeadliner,
+const ROLE_COLORS = {
+  Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
+  Opener: { border: "border-[#8CFF3D]/40", activeBorder: "border-[#8CFF3D]", text: "text-[#8CFF3D]", bg: "bg-[#8CFF3D]/10" },
+  "Performer/Group": { border: "border-purple-400/40", activeBorder: "border-purple-400", text: "text-purple-400", bg: "bg-purple-500/10" },
+  "N/A": { border: "border-white/20", activeBorder: "border-white/40", text: "text-white/50", bg: "bg-white/5" },
+};
+const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
+
+const emptyBand = (role, sortOrder) => ({
+  role,
   sort_order: sortOrder,
   band_name: "",
   genre_tag: "",
@@ -67,7 +75,7 @@ export default function ShowDetail() {
   };
 
   const [show, setShow] = useState(emptyShow);
-  const [bands, setBands] = useState([emptyBand(true, 0)]);
+  const [bands, setBands] = useState([emptyBand("N/A", 0)]);
   const [activeBandIndex, setActiveBandIndex] = useState(0);
   const [orderDraft, setOrderDraft] = useState(null);
 
@@ -99,7 +107,7 @@ export default function ShowDetail() {
     if (!isNew) {
       Promise.all([
         supabase.from("shows").select("*").eq("id", id).single(),
-        supabase.from("show_bands").select("*").eq("show_id", id).order("is_headliner", { ascending: false }).order("sort_order", { ascending: true }),
+        supabase.from("show_bands").select("*").eq("show_id", id).order("sort_order", { ascending: true }),
       ])
         .then(([showRes, bandsRes]) => {
           if (showRes.error || !showRes.data) {
@@ -112,7 +120,7 @@ export default function ShowDetail() {
             setBands(bandsRes.data);
           } else {
             setBands([{
-              is_headliner: true,
+              role: "N/A",
               sort_order: 0,
               band_name: showRes.data.band_name || "",
               genre_tag: showRes.data.genre_tag || "",
@@ -188,7 +196,7 @@ export default function ShowDetail() {
 
   const addOpener = () => {
     setBands((prev) => {
-      const next = [...prev, emptyBand(false, prev.length)];
+      const next = [...prev, emptyBand("N/A", prev.length)];
       setActiveBandIndex(next.length - 1);
       return next;
     });
@@ -196,8 +204,8 @@ export default function ShowDetail() {
 
   const removeOpener = async (idx) => {
     const band = bands[idx];
-    if (band.is_headliner) return;
-    if (!confirm(`Remove ${band.band_name || "this opener"}?`)) return;
+    if (bands.length <= 1) return;
+    if (!confirm(`Remove ${band.band_name || "this act"}?`)) return;
 
     if (band.id) {
       const { error } = await supabase.from("show_bands").delete().eq("id", band.id);
@@ -213,35 +221,38 @@ export default function ShowDetail() {
 
   const setOpenerPosition = async (idx, newPositionRaw) => {
     const band = bands[idx];
-    if (band.is_headliner) return;
-
-    const openerBands = bands.filter((b) => !b.is_headliner);
-    const currentPos = openerBands.findIndex((b) => b === band);
+    const currentPos = bands.findIndex((b) => b === band);
 
     let newPosition = parseInt(newPositionRaw, 10);
     if (isNaN(newPosition)) return;
-    newPosition = Math.max(1, Math.min(openerBands.length, newPosition));
+    newPosition = Math.max(1, Math.min(bands.length, newPosition));
     const newPos0 = newPosition - 1;
     if (newPos0 === currentPos) return;
 
-    const reordered = [...openerBands];
+    const reordered = [...bands];
     const [moved] = reordered.splice(currentPos, 1);
     reordered.splice(newPos0, 0, moved);
-    const updatedOpeners = reordered.map((b, i) => ({ ...b, sort_order: i + 1 }));
+    const updatedBands = reordered.map((b, i) => ({ ...b, sort_order: i }));
 
-    const headliner = bands.find((b) => b.is_headliner);
-    const newBands = [headliner, ...updatedOpeners];
-    setBands(newBands);
-    setActiveBandIndex(newBands.findIndex((b) => b === band));
+    setBands(updatedBands);
+    setActiveBandIndex(updatedBands.findIndex((b) => b === band));
 
-    for (const b of updatedOpeners) {
+    for (const b of updatedBands) {
       if (b.id) {
         await supabase.from("show_bands").update({ sort_order: b.sort_order }).eq("id", b.id);
       }
     }
   };
 
-  const headlinerIndex = bands.findIndex((b) => b.is_headliner);
+  const updateBandRole = (idx, role) => {
+    setBands((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], role };
+      return next;
+    });
+  };
+
+  const headlinerIndex = bands.findIndex((b) => b.role === "Headliner");
 
   const handleSave = async () => {
     const headliner = bands[headlinerIndex] || bands[0];
@@ -632,8 +643,6 @@ export default function ShowDetail() {
     Monitor: busPresets.find(p => p.bus_type === "Monitor")?.color || "#F97316",
   };
 
-  let openerCount = 0;
-
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-8">
       {savedToast && (
@@ -802,73 +811,68 @@ export default function ShowDetail() {
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Opener
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
           </Button>
         </div>
 
         {bands.length > 1 && (
           <div className="flex flex-wrap items-center gap-1.5 -mt-1">
             {bands.map((b, i) => {
-              if (b.is_headliner) return null;
-              const label = b.band_name || `Opener ${++openerCount}`;
+              const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
+              const isActive = activeBandIndex === i;
+              const label = b.band_name || b.role || "Act";
               return (
                 <button
                   key={b.id || `new-${i}`}
                   onClick={() => setActiveBandIndex(i)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${activeBandIndex === i ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${isActive ? `${colors.activeBorder} ${colors.text} ${colors.bg}` : "border-[#222] text-white/40 hover:text-white/60"}`}
                 >
                   {label}
                 </button>
               );
             })}
-            {(() => {
-              const headlinerIdx = bands.findIndex((b) => b.is_headliner);
-              if (headlinerIdx === -1) return null;
-              const h = bands[headlinerIdx];
-              const isActive = activeBandIndex === headlinerIdx;
-              return (
-                <button
-                  onClick={() => setActiveBandIndex(headlinerIdx)}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold border-2 transition-all flex items-center gap-2 ${isActive ? "border-blue-400 text-blue-400 bg-blue-500/15" : "border-blue-400/40 text-blue-400/80 bg-blue-500/5"}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" style={{ boxShadow: "0 0 6px 2px rgba(96,165,250,0.8)" }} />
-                  {h.band_name || "Headliner"}
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" style={{ boxShadow: "0 0 6px 2px rgba(96,165,250,0.8)" }} />
-                </button>
-              );
-            })()}
           </div>
         )}
 
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            {activeBand.is_headliner ? (
-              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full">Headliner</span>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#8CFF3D] bg-[#8CFF3D]/10 px-2 py-1 rounded-full">Opener</span>
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={bands.filter((b) => !b.is_headliner).length}
-                    value={orderDraft !== null ? orderDraft : bands.filter((b) => !b.is_headliner).findIndex((b) => b === activeBand) + 1}
-                    onChange={(e) => setOrderDraft(e.target.value)}
-                    onBlur={() => {
-                      if (orderDraft !== null) {
-                        setOpenerPosition(activeBandIndex, orderDraft);
-                        setOrderDraft(null);
-                      }
-                    }}
-                    onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                    className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                </div>
-                <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
+              {ROLE_OPTIONS.map((r) => {
+                const colors = ROLE_COLORS[r];
+                const active = (activeBand.role || "N/A") === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => updateBandRole(activeBandIndex, r)}
+                    className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${active ? `${colors.text} ${colors.bg} ${colors.border}` : "text-white/30 border-transparent hover:text-white/50"}`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
+              <Input
+                type="number"
+                min={1}
+                max={bands.length}
+                value={orderDraft !== null ? orderDraft : bands.findIndex((b) => b === activeBand) + 1}
+                onChange={(e) => setOrderDraft(e.target.value)}
+                onBlur={() => {
+                  if (orderDraft !== null) {
+                    setOpenerPosition(activeBandIndex, orderDraft);
+                    setOrderDraft(null);
+                  }
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            {bands.length > 1 && (
+              <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
           <div>
@@ -1215,12 +1219,13 @@ export default function ShowDetail() {
               {bands.length > 1 && (
                 <div className="flex flex-wrap gap-1.5 pb-1 border-b border-[#222]">
                   {bands.map((b, i) => {
-                    const bandLabel = b.is_headliner ? (b.band_name || "Headliner") : (b.band_name || `Opener`);
+                    const bandLabel = b.band_name || b.role || "Act";
+                    const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
                     return (
                       <button
                         key={b.id || `fxband-${i}`}
                         onClick={() => { setActiveBandIndex(i); setSelectedArtistFx("__general__"); }}
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${activeBandIndex === i ? (b.is_headliner ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10") : "border-[#222] text-white/40 hover:text-white/60"}`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${activeBandIndex === i ? `${colors.activeBorder} ${colors.text} ${colors.bg}` : "border-[#222] text-white/40 hover:text-white/60"}`}
                       >
                         {bandLabel}
                       </button>
