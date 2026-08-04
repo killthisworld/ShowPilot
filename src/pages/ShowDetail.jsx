@@ -1115,24 +1115,18 @@ export default function ShowDetail() {
                     <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
                     <span className="text-white/30 text-sm">→</span>
                     <span className="text-white/60 text-sm">
-                      {getInstruments(m).filter((inst) => inst.name).length > 0
-                        ? getInstruments(m).filter((inst) => inst.name).map((inst) => inst.name).join(", ")
-                        : <span className="text-white/25 italic">Role</span>}
+                      {(() => {
+                        const names = getInstruments(m).filter((inst) => inst.name).map((inst) => inst.name);
+                        if (names.length === 0) return <span className="text-white/25 italic">Role</span>;
+                        if (names.length === 1) return names[0];
+                        return "Multi Track";
+                      })()}
                     </span>
                     {m.bus_type && (
                       <>
                         <span className="text-white/30 text-sm">→</span>
                         <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
-                    )}
-                    {getInstruments(m).some((inst) => inst.mic_di === "DI") && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400">DI</span>
-                    )}
-                    {getInstruments(m).some((inst) => inst.mic_di === "DI") && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400">DI</span>
-                    )}
-                    {getInstruments(m).some((inst) => inst.phantom_power) && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
                     )}
                   </div>
                   <button onClick={() => toggleMemberCollapsed(i)} className="p-2.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
@@ -1164,7 +1158,7 @@ export default function ShowDetail() {
                             <button
                               key={type}
                               onClick={() => updateInstrument(i, ii, "mic_di", type)}
-                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
                             >
                               {type}
                             </button>
