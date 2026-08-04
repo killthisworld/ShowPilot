@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Camera, Building, Mic2, Check, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -847,9 +847,6 @@ export default function ShowDetail() {
                 </button>
               </div>
             )}
-            <button onClick={() => exportPDF(mainCaptureRef, "Gig-Info.pdf")} className="relative w-7 h-7 ml-auto flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
-              <Camera className="w-5 h-5" />
-            </button>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Band Name *</Label>
@@ -942,9 +939,6 @@ export default function ShowDetail() {
         </div>
 
         <div ref={venuePrintRef} className="relative">
-          <button onClick={() => exportPDF(venuePrintRef, "Venue-Info.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
-            <Camera className="w-4 h-4" />
-          </button>
           <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
             <div>
@@ -1088,9 +1082,6 @@ export default function ShowDetail() {
         </CollapsibleSection>
 
         <div ref={bandPrintRef} className="relative">
-          <button onClick={() => exportPDF(bandPrintRef, "Band-Mix-Bus.pdf")} className="absolute top-3.5 right-11 z-10 w-6 h-6 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" title="Save as PDF">
-            <Camera className="w-4 h-4" />
-          </button>
           <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
             {(activeBand.band_members || []).map((m, i) => (
@@ -1113,8 +1104,8 @@ export default function ShowDetail() {
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
                     )}
                   </div>
-                  <button onClick={() => toggleMemberCollapsed(i)} className="p-1.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${collapsedMembers[i] === false ? "rotate-180" : ""}`} />
+                  <button onClick={() => toggleMemberCollapsed(i)} className="p-2.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
+                    <ChevronDown className={`w-6 h-6 transition-transform ${collapsedMembers[i] === false ? "rotate-180" : ""}`} />
                   </button>
                   <button onClick={() => removeMember(i)} className="p-1.5 ml-1 shrink-0 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
