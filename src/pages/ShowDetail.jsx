@@ -403,6 +403,54 @@ export default function ShowDetail() {
     m[i] = { ...m[i], [f]: v };
     updateBandField("band_members", m);
   };
+  const getInstruments = (m) => {
+    if (m.instruments) return m.instruments;
+    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
+    return [];
+  };
+  const addInstrument = (i) => {
+    const m = [...(activeBand.band_members || [])];
+    const current = getInstruments(m[i]);
+    m[i] = { ...m[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    updateBandField("band_members", m);
+  };
+  const updateInstrument = (i, ii, f, v) => {
+    const m = [...(activeBand.band_members || [])];
+    const instruments = [...getInstruments(m[i])];
+    instruments[ii] = { ...instruments[ii], [f]: v };
+    m[i] = { ...m[i], instruments };
+    updateBandField("band_members", m);
+  };
+  const removeInstrument = (i, ii) => {
+    const m = [...(activeBand.band_members || [])];
+    const instruments = getInstruments(m[i]).filter((_, idx) => idx !== ii);
+    m[i] = { ...m[i], instruments };
+    updateBandField("band_members", m);
+  };
+  const getInstruments = (m) => {
+    if (m.instruments) return m.instruments;
+    if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
+    return [];
+  };
+  const addInstrument = (i) => {
+    const m = [...(activeBand.band_members || [])];
+    const current = getInstruments(m[i]);
+    m[i] = { ...m[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    updateBandField("band_members", m);
+  };
+  const updateInstrument = (i, ii, f, v) => {
+    const m = [...(activeBand.band_members || [])];
+    const instruments = [...getInstruments(m[i])];
+    instruments[ii] = { ...instruments[ii], [f]: v };
+    m[i] = { ...m[i], instruments };
+    updateBandField("band_members", m);
+  };
+  const removeInstrument = (i, ii) => {
+    const m = [...(activeBand.band_members || [])];
+    const instruments = getInstruments(m[i]).filter((_, idx) => idx !== ii);
+    m[i] = { ...m[i], instruments };
+    updateBandField("band_members", m);
+  };
   const removeMember = (i) => {
     const removedName = activeBand.band_members[i]?.name;
     updateBandField("band_members", (activeBand.band_members || []).filter((_, idx) => idx !== i));
@@ -1082,7 +1130,7 @@ export default function ShowDetail() {
         </CollapsibleSection>
 
         <div ref={bandPrintRef} className="relative">
-          <CollapsibleSection title="Band & Mix Bus" icon={Music} badge={activeBand.band_members?.length || 0}>
+          <CollapsibleSection title="Performer" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
             {(activeBand.band_members || []).map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
@@ -1090,17 +1138,18 @@ export default function ShowDetail() {
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                     <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
                     <span className="text-white/30 text-sm">→</span>
-                    <span className="text-white/60 text-sm">{m.instrument || <span className="text-white/25 italic">Role</span>}</span>
-                    {!!m.channels_needed && (
-                      <span className="text-white/40 text-xs">· {m.channels_needed} ch(s)</span>
-                    )}
+                    <span className="text-white/60 text-sm">
+                      {getInstruments(m).filter((inst) => inst.name).length > 0
+                        ? getInstruments(m).filter((inst) => inst.name).map((inst) => inst.name).join(", ")
+                        : <span className="text-white/25 italic">Role</span>}
+                    </span>
                     {m.bus_type && (
                       <>
                         <span className="text-white/30 text-sm">→</span>
                         <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                       </>
                     )}
-                    {m.phantom_power && (
+                    {getInstruments(m).some((inst) => inst.phantom_power) && (
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400">+48V</span>
                     )}
                   </div>
@@ -1114,9 +1163,38 @@ export default function ShowDetail() {
 
                 {collapsedMembers[i] === false && (
                 <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
-                  <Input value={m.instrument} onChange={(e) => updateMember(i, "instrument", e.target.value)} placeholder="Instrument/Role" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
+                <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
+
+                <div className="space-y-2">
+                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
+                  {getInstruments(m).map((inst, ii) => (
+                    <div key={ii} className="flex items-center gap-1.5">
+                      <Input
+                        value={inst.name}
+                        onChange={(e) => updateInstrument(i, ii, "name", e.target.value)}
+                        placeholder="e.g. Guitar"
+                        className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm"
+                      />
+                      <button
+                        onClick={() => updateInstrument(i, ii, "mic_di", inst.mic_di === "DI" ? "Mic" : "DI")}
+                        className="h-8 px-2.5 rounded-lg text-xs font-semibold border border-[#333] text-white/50 hover:text-white/80 shrink-0"
+                      >
+                        {inst.mic_di || "Mic"}
+                      </button>
+                      <button
+                        onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
+                        className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                      >
+                        +48V
+                      </button>
+                      <button onClick={() => removeInstrument(i, ii)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => addInstrument(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-8 text-xs">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Instrument
+                  </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1140,26 +1218,6 @@ export default function ShowDetail() {
                       </React.Fragment>
                     );
                   })}
-                </div>
-
-                <div className="border-t border-[#222] pt-2 flex items-end gap-3">
-                  <div>
-                    <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-1">Number of Channels Needed</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={m.channels_needed || ""}
-                      onChange={(e) => updateMember(i, "channels_needed", e.target.value ? parseInt(e.target.value) : "")}
-                      placeholder="e.g. 7"
-                      className="w-24 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm text-center"
-                    />
-                  </div>
-                  <button
-                    onClick={() => updateMember(i, "phantom_power", !m.phantom_power)}
-                    className={`h-8 px-3 rounded-lg text-xs font-bold border transition-all ${m.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                  >
-                    +48V
-                  </button>
                 </div>
                 </>
                 )}
