@@ -88,7 +88,6 @@ export default function ShowDetail() {
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const [collapsedMembers, setCollapsedMembers] = useState({});
   const [showEventTypeManager, setShowEventTypeManager] = useState(false);
-  const [eventTypeSelectOpen, setEventTypeSelectOpen] = useState(false);
   const mainCaptureRef = useRef(null);
   const venuePrintRef = useRef(null);
   const bandPrintRef = useRef(null);
@@ -887,27 +886,16 @@ export default function ShowDetail() {
                 <Pencil className="w-3 h-3" />
               </button>
             </div>
-            <div
-              onPointerDownCapture={(e) => {
-                if (eventTypeSelectOpen) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setEventTypeSelectOpen(false);
-                }
+            <Select
+              value={show.event_type || ""}
+              onValueChange={(v) => {
+                if (v === "__add_new__") addCustomEventType();
+                else update("event_type", v);
               }}
             >
-              <Select
-                value={show.event_type || ""}
-                onValueChange={(v) => {
-                  if (v === "__add_new__") addCustomEventType();
-                  else update("event_type", v);
-                }}
-                open={eventTypeSelectOpen}
-                onOpenChange={setEventTypeSelectOpen}
-              >
-                <SelectTrigger className="mt-1 h-11 bg-[#111] border-[#222] text-white text-base w-52">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
+              <SelectTrigger className="mt-1 h-11 bg-[#111] border-[#222] text-white text-base w-52">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                 {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -920,10 +908,9 @@ export default function ShowDetail() {
                   !(preferences?.custom_event_types || []).includes(show.event_type) && (
                     <SelectItem key={show.event_type} value={show.event_type}>{show.event_type}</SelectItem>
                   )}
-                <SelectItem value="__add_new__">Other / Add New</SelectItem>
+              <SelectItem value="__add_new__">Other / Add New</SelectItem>
               </SelectContent>
-              </Select>
-            </div>
+            </Select>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
