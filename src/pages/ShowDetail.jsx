@@ -270,7 +270,7 @@ export default function ShowDetail() {
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
-        venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope, done: show.done,
+        venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope, done: show.done, event_name: show.event_name,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
         stage_plot_url: headliner.stage_plot_url, stage_plot_files: headliner.stage_plot_files,
@@ -835,53 +835,9 @@ export default function ShowDetail() {
         )}
 
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex gap-1 flex-wrap">
-              {ROLE_OPTIONS.map((r) => {
-                const colors = ROLE_COLORS[r];
-                const active = (activeBand.role || "N/A") === r;
-                return (
-                  <button
-                    key={r}
-                    onClick={() => updateBandRole(activeBandIndex, r)}
-                    className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${active ? `${colors.text} ${colors.bg} ${colors.border}` : "text-white/30 border-transparent hover:text-white/50"}`}
-                  >
-                    {r}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
-              <Input
-                type="number"
-                min={1}
-                max={bands.length}
-                value={orderDraft !== null ? orderDraft : bands.findIndex((b) => b === activeBand) + 1}
-                onChange={(e) => setOrderDraft(e.target.value)}
-                onBlur={() => {
-                  if (orderDraft !== null) {
-                    setOpenerPosition(activeBandIndex, orderDraft);
-                    setOrderDraft(null);
-                  }
-                }}
-                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
-                className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-            {bands.length > 1 && (
-              <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
           <div>
-            <Label className="text-white/50 text-xs">Band Name *</Label>
-            <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Date *</Label>
-            <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
+            <Label className="text-white/50 text-xs">Event Name</Label>
+            <Input value={show.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
           </div>
           <div>
             <div className="flex items-center justify-between">
@@ -917,39 +873,8 @@ export default function ShowDetail() {
             </Select>
           </div>
           <div>
-            <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={activeBand.set_length_minutes ?? ""}
-              onChange={(e) => updateBandField("set_length_minutes", e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="e.g. 90"
-              className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-white/50 text-xs">Genre / Tag</Label>
-              <button onClick={openGenreSettings} className="text-white/30 hover:text-[#8CFF3D] p-1 -m-1">
-                <Settings className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {genreTags.map((tag) => {
-                const selectedTags = activeBand.genre_tags || (activeBand.genre_tag ? [activeBand.genre_tag] : []);
-                const isSelected = selectedTags.includes(tag.name);
-                return (
-                  <button
-                    key={tag.name}
-                    onClick={() => toggleGenreTag(tag)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected ? "border-white/40 scale-105" : "border-transparent opacity-70 hover:opacity-100"}`}
-                    style={{ backgroundColor: tag.color + "22", color: tag.color }}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-            </div>
+            <Label className="text-white/50 text-xs">Date *</Label>
+            <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
         </div>
 
@@ -1071,6 +996,122 @@ export default function ShowDetail() {
         <div ref={bandPrintRef} className="relative">
           <CollapsibleSection title="Performer" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
+              {ROLE_OPTIONS.map((r) => {
+                const colors = ROLE_COLORS[r];
+                const active = (activeBand.role || "N/A") === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => updateBandRole(activeBandIndex, r)}
+                    className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full border transition-all ${active ? `${colors.text} ${colors.bg} ${colors.border}` : "text-white/30 border-transparent hover:text-white/50"}`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Label className="text-white/40 text-[10px] whitespace-nowrap">Order #</Label>
+              <Input
+                type="number"
+                min={1}
+                max={bands.length}
+                value={orderDraft !== null ? orderDraft : bands.findIndex((b) => b === activeBand) + 1}
+                onChange={(e) => setOrderDraft(e.target.value)}
+                onBlur={() => {
+                  if (orderDraft !== null) {
+                    setOpenerPosition(activeBandIndex, orderDraft);
+                    setOrderDraft(null);
+                  }
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            {bands.length > 1 && (
+              <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
+            <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Date *</Label>
+            <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-white/50 text-xs">Event Type</Label>
+              <button onClick={() => setShowEventTypeManager(true)} className="text-white/30 hover:text-[#8CFF3D] p-0.5">
+                <Pencil className="w-3 h-3" />
+              </button>
+            </div>
+            <Select
+              value={show.event_type || ""}
+              onValueChange={(v) => {
+                if (v === "__add_new__") addCustomEventType();
+                else update("event_type", v);
+              }}
+            >
+              <SelectTrigger className="mt-1 h-11 bg-[#111] border-[#222] text-white text-base w-52">
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+                {(preferences?.custom_event_types || []).map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+                {show.event_type &&
+                  !["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].includes(show.event_type) &&
+                  !(preferences?.custom_event_types || []).includes(show.event_type) && (
+                    <SelectItem key={show.event_type} value={show.event_type}>{show.event_type}</SelectItem>
+                  )}
+              <SelectItem value="__add_new__">Other / Add New</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={activeBand.set_length_minutes ?? ""}
+              onChange={(e) => updateBandField("set_length_minutes", e.target.value ? parseInt(e.target.value) : null)}
+              placeholder="e.g. 90"
+              className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label className="text-white/50 text-xs">Genre / Tag</Label>
+              <button onClick={openGenreSettings} className="text-white/30 hover:text-[#8CFF3D] p-1 -m-1">
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {genreTags.map((tag) => {
+                const selectedTags = activeBand.genre_tags || (activeBand.genre_tag ? [activeBand.genre_tag] : []);
+                const isSelected = selectedTags.includes(tag.name);
+                return (
+                  <button
+                    key={tag.name}
+                    onClick={() => toggleGenreTag(tag)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected ? "border-white/40 scale-105" : "border-transparent opacity-70 hover:opacity-100"}`}
+                    style={{ backgroundColor: tag.color + "22", color: tag.color }}
+                  >
+                    {tag.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
             {(activeBand.band_members || []).map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
                 <div className="flex items-center justify-between">
