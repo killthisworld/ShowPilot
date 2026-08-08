@@ -146,7 +146,7 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       {/* Manager Import Link share menu */}
       {tmLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setTmLink(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setTmLink(null)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="px-3 pt-3 pb-2">
               <h3 className="text-white font-bold text-base">Performer Intake</h3>
@@ -298,16 +298,6 @@ export default function CalendarPage() {
           {generatingLink ? "Generating..." : "Create import link"}
         </Button>
       </div>
-
-      {/* Single global add button — creates a show prefilled with the selected
-          day, if any, otherwise blank. Positioned above the Experience tab. */}
-      <button
-        onClick={() => newShowOnDate(selectedDate)}
-        className="fixed bottom-20 right-5 z-40 w-14 h-14 rounded-full bg-[#8CFF3D] text-black shadow-lg flex items-center justify-center hover:bg-[#7ae62e] transition-colors"
-        title="Add a show"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
 
       <BottomTabs />
     </div>
