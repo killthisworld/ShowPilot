@@ -66,6 +66,13 @@ export default function ShowDetail() {
   const { preferences, reload: reloadPreferences } = usePreferences();
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
+  const hadDraftRef = useRef(null);
+  if (hadDraftRef.current === null) {
+    // Computed synchronously on first render, before usePersistedState's
+    // own effect (or anything else) has a chance to write to localStorage
+    // and create a false-positive "draft exists" reading.
+    try { hadDraftRef.current = !!localStorage.getItem(`${draftKey}_show`); } catch { hadDraftRef.current = false; }
+  }
 
   const backTo = location.state?.from === "calendar" ? "/calendar" : "/";
 
@@ -108,8 +115,7 @@ export default function ShowDetail() {
 
   useEffect(() => {
     if (!isNew) {
-      let hadDraft = false;
-      try { hadDraft = !!localStorage.getItem(`${draftKey}_show`); } catch {}
+      const hadDraft = hadDraftRef.current;
 
       Promise.all([
         supabase.from("shows").select("*").eq("id", id).single(),
