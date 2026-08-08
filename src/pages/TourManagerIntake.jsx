@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +32,7 @@ export default function TourManagerIntake() {
   const engineerUserId = params.get("engineer");
   const engineerName = params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
 
-  const [form, setForm] = useState({
+  const [form, setForm] = usePersistedState(`tm_intake_draft_${token}`, {
     role: "Headliner",
     event_name: "",
     band_name: "",
@@ -177,6 +178,7 @@ export default function TourManagerIntake() {
       });
       if (rpcError) throw rpcError;
 
+      clearPersistedState(`tm_intake_draft_${token}`);
       setSubmitted(true);
     } catch (e) {
       console.error(e);

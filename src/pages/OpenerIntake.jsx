@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ export default function OpenerIntake() {
 
   const [context, setContext] = useState(null);
   const [loadingView, setLoadingView] = useState(true);
-  const [form, setForm] = useState({
+  const [form, setForm] = usePersistedState(`opener_intake_draft_${token}`, {
     role: "Opener",
     band_name: "",
     genre_tags: [],
@@ -107,6 +108,7 @@ export default function OpenerIntake() {
         p_form: form,
       });
       if (rpcError) throw rpcError;
+      clearPersistedState(`opener_intake_draft_${token}`);
       setSubmitted(true);
     } catch (e) {
       console.error(e);
