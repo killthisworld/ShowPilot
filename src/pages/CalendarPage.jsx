@@ -146,7 +146,7 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       {/* Manager Import Link share menu */}
       {tmLink && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setTmLink(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setTmLink(null)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="px-3 pt-3 pb-2">
               <h3 className="text-white font-bold text-base">Performer Intake</h3>
