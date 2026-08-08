@@ -79,11 +79,6 @@ export default function ShowDetail() {
   const [show, setShow] = usePersistedState(`${draftKey}_show`, emptyShow);
   const [bands, setBands] = usePersistedState(`${draftKey}_bands`, [emptyBand("N/A", 0)]);
   const [restoredDraft, setRestoredDraft] = useState(false);
-  const discardDraft = () => {
-    clearPersistedState(`${draftKey}_show`);
-    clearPersistedState(`${draftKey}_bands`);
-    window.location.reload();
-  };
   const [activeBandIndex, setActiveBandIndex] = useState(0);
   const [orderDraft, setOrderDraft] = useState(null);
 
@@ -674,19 +669,6 @@ export default function ShowDetail() {
       <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-sm font-semibold px-4 py-2 rounded-full shadow-lg transition-all duration-1000 ${tmCopied ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
         Tour Manager link copied!
       </div>
-
-      {restoredDraft && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5">
-          <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
-            <p className="text-amber-400 text-xs font-medium">
-              Unsaved changes from a previous session were restored. Tap Save to keep them.
-            </p>
-            <button onClick={discardDraft} className="text-amber-400/70 hover:text-amber-400 text-xs font-bold underline shrink-0">
-              Discard
-            </button>
-          </div>
-        </div>
-      )}
 
       {showGenreSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowGenreSettings(false)}>
