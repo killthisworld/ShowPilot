@@ -833,29 +833,7 @@ export default function ShowDetail() {
               })()}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
-            <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
-          </Button>
         </div>
-
-        {bands.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5 -mt-1">
-            {bands.map((b, i) => {
-              const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
-              const isActive = activeBandIndex === i;
-              const label = b.band_name || b.role || "Act";
-              return (
-                <button
-                  key={b.id || `new-${i}`}
-                  onClick={() => setActiveBandIndex(i)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${isActive ? `${colors.activeBorder} ${colors.text} ${colors.bg}` : "border-[#222] text-white/40 hover:text-white/60"}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
 
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
           <div>
@@ -1019,6 +997,29 @@ export default function ShowDetail() {
         <div ref={bandPrintRef} className="relative">
           <CollapsibleSection title="Performer" icon={Music} badge={activeBand.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
+            </Button>
+          </div>
+          {bands.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {bands.map((b, i) => {
+                const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
+                const isActive = activeBandIndex === i;
+                const label = b.band_name || b.role || "Act";
+                return (
+                  <button
+                    key={b.id || `new-${i}`}
+                    onClick={() => setActiveBandIndex(i)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${isActive ? `${colors.activeBorder} ${colors.text} ${colors.bg}` : "border-[#222] text-white/40 hover:text-white/60"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex gap-1 flex-wrap">
               {ROLE_OPTIONS.map((r) => {
