@@ -347,6 +347,25 @@ export default function ShowDetail() {
     setSaving(false);
   };
 
+  const handleShareGig = async () => {
+    if (!show.share_token) return;
+    const url = `${window.location.origin}/gig/shared?token=${show.share_token}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: show.event_name || show.band_name || "Gig details", url });
+      } catch (e) {
+        // user cancelled the native share sheet — nothing to do
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        showPill("Link copied!");
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm("Delete this show?")) return;
     const { error } = await supabase.from("shows").delete().eq("id", id);
@@ -761,6 +780,11 @@ export default function ShowDetail() {
             <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
+            {!isNew && (
+              <button onClick={handleShareGig} className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Share gig">
+                <Share2 className="w-4 h-4" />
+              </button>
+            )}
             {!isNew && (
               <button onClick={handleDelete} className="p-2 rounded-lg transition-colors text-red-400/60 hover:text-red-400">
                 <Trash2 className="w-4 h-4" />
