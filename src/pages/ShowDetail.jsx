@@ -275,9 +275,8 @@ export default function ShowDetail() {
 
   const handleSave = async () => {
     const headliner = bands[headlinerIndex] || bands[0];
-    const hasNamedAct = bands.some((b) => b.band_name?.trim());
-    if (!hasNamedAct || !show.date) {
-      showPill("At least one act name and a date are required");
+    if (!show.date) {
+      showPill("A date is required");
       return;
     }
     setSaving(true);
