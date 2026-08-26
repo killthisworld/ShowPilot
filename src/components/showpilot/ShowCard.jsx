@@ -87,7 +87,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h3 className="text-white font-semibold text-base truncate">
-                  {show.band_name}
+                  {show.band_name || show.event_name || "Untitled Gig"}
                 </h3>
                 {show.starred && <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="currentColor" />}
               </div>

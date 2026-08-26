@@ -188,7 +188,7 @@ export default function CalendarPage() {
                       <div className="w-1 h-8 rounded-full" style={{ backgroundColor: color }} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-white font-medium text-sm truncate">{s.band_name}</p>
+                          <p className="text-white font-medium text-sm truncate">{s.band_name || s.event_name || "Untitled Gig"}</p>
                           {s.starred && <Star className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />}
                         </div>
                         {s.venue && <p className="text-white/40 text-xs truncate">{s.venue}</p>}
@@ -272,7 +272,7 @@ export default function CalendarPage() {
                         <div key={s.id} className="w-full mt-1 px-1.5 pb-0.5">
                           <div className="rounded-md px-1.5 py-1 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
                             <p className="text-[11px] font-medium leading-tight truncate" style={{ color }}>
-                              {s.band_name}
+                              {s.band_name || s.event_name || "Untitled Gig"}
                             </p>
                             {s.venue && <p className="text-[10px] text-white/30 truncate leading-tight">{s.venue}</p>}
                           </div>
