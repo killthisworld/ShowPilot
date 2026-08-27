@@ -21,7 +21,9 @@ export default function Login() {
     setLoading(true);
     try {
       await signIn(email, password);
-      navigate("/");
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get("redirect");
+      navigate(redirectTo || "/");
     } catch (err) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
     }

@@ -26,7 +26,10 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await signUp(email, password);
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get("redirect");
+      const fullRedirect = redirectTo ? `${window.location.origin}${redirectTo}` : undefined;
+      await signUp(email, password, fullRedirect);
       setSubmitted(true);
     } catch (err) {
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
