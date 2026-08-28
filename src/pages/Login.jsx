@@ -18,6 +18,7 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    alert("handleSubmit called, search=" + window.location.search);
     setLoading(true);
     try {
       await signIn(email, password);
