@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, X, MapPin, Calendar } from "lucide-react";
+import { ArrowLeft, X, MapPin, Calendar, Link2, Users, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STAMP_COLORS = ["#8CFF3D", "#60A5FA", "#F59E0B", "#F472B6", "#A78BFA", "#34D399", "#F87171", "#38BDF8"];
@@ -121,6 +121,9 @@ export default function Logbook() {
   const [bio, setBio] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedShow, setSelectedShow] = useState(null);
+  const [showCollaborators, setShowCollaborators] = useState(false);
+  const [collaborators, setCollaborators] = useState(null);
+  const [loadingCollaborators, setLoadingCollaborators] = useState(false);
   const [togglingPublic, setTogglingPublic] = useState(false);
   const [showingCover, setShowingCover] = useState(true);
   const [selectedYear, setSelectedYear] = useState(null);
@@ -211,6 +214,19 @@ export default function Logbook() {
   const uniqueVenues = [...new Set(shows.map((s) => s.venue).filter(Boolean))];
   const uniqueBands = [...new Set(shows.map((s) => s.band_name).filter(Boolean))];
   const uniqueCities = [...new Set(shows.map((s) => s.city).filter(Boolean))];
+
+  const loadCollaborators = async (token) => {
+    setShowCollaborators(true);
+    setLoadingCollaborators(true);
+    try {
+      const { data, error } = await supabase.rpc("get_gig_collaborators", { p_token: token });
+      if (error) throw error;
+      setCollaborators(data);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingCollaborators(false);
+  };
 
   const toggleMonthPublic = async (monthShows) => {
     setTogglingPublic(true);
@@ -403,7 +419,7 @@ export default function Logbook() {
                               className="absolute z-10"
                               style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
                             >
-                              <ShowStamp show={pos.show} onClick={() => pos.show.is_linked ? navigate(`/gig/shared?token=${pos.show.share_token}`) : setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
+                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
                             </div>
                           ))}
                         </div>
@@ -422,10 +438,17 @@ export default function Logbook() {
           <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h2 className="text-white font-bold text-xl">{selectedShow.band_name || "Untitled"}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-white font-bold text-xl">{selectedShow.band_name || selectedShow.event_name || "Untitled"}</h2>
+                  {selectedShow.is_linked && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-full shrink-0">
+                      <Link2 className="w-3 h-3" /> Linked
+                    </span>
+                  )}
+                </div>
                 {selectedShow.event_type && <p className="text-white/40 text-xs mt-0.5">{selectedShow.event_type}</p>}
               </div>
-              <button onClick={() => setSelectedShow(null)} className="text-white/40 hover:text-white">
+              <button onClick={() => setSelectedShow(null)} className="text-white/40 hover:text-white shrink-0 ml-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -444,6 +467,55 @@ export default function Logbook() {
                 </div>
               )}
             </div>
+
+            {selectedShow.is_linked && (
+              <button
+                onClick={() => loadCollaborators(selectedShow.share_token)}
+                className="mt-4 w-full flex items-center justify-center gap-2 text-pink-400 text-sm font-medium bg-pink-500/10 hover:bg-pink-500/20 border border-pink-400/20 rounded-xl py-2.5 transition-colors"
+              >
+                <Users className="w-4 h-4" /> Shared With
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showCollaborators && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setShowCollaborators(false)}>
+          <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <Users className="w-4 h-4 text-pink-400" /> Shared With
+              </h2>
+              <button onClick={() => setShowCollaborators(false)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingCollaborators ? (
+              <div className="flex justify-center py-8">
+                <div className="w-5 h-5 border-2 border-pink-400/30 border-t-pink-400 rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {collaborators && [collaborators.owner, ...(collaborators.linked || [])].filter(Boolean).map((person, i) => (
+                  <div key={i} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{person.display_name || "Unnamed"}</p>
+                      <p className="text-white/30 text-[10px] uppercase tracking-wide">{person.role}</p>
+                    </div>
+                    {person.card_share_token && (
+                      <button
+                        onClick={() => { window.location.href = `/pilot/${person.card_share_token}`; }}
+                        className="flex items-center gap-1 text-[#8CFF3D] text-xs font-medium shrink-0 ml-2 hover:underline"
+                      >
+                        Wallet <ExternalLink className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
