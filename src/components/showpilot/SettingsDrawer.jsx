@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Menu, User, LogOut, Star, Archive, Mail } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive, Mail, Link2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
@@ -149,6 +149,10 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
               <Label className="text-white/50 text-xs">Email</Label>
               <Input value={user?.email || ""} readOnly className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white/50" />
             </div>
+
+            <Button onClick={() => { setOpen(false); navigate("/linked"); }} variant="outline" className="w-full border-pink-400/50 text-pink-400/80 hover:bg-pink-500/10 hover:text-pink-400 justify-start">
+              <Link2 className="w-4 h-4 mr-2" /> Linked
+            </Button>
 
             <Button onClick={() => { setOpen(false); navigate("/archived"); }} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
               <Archive className="w-4 h-4 mr-2" /> Archived Shows
