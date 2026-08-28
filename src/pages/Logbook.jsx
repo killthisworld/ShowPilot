@@ -240,15 +240,29 @@ export default function Logbook() {
     }
   };
 
-  const toggleMonthPublic = async (monthShows) => {
+  const toggleMonthPublic = async (monthKey, monthShows) => {
     setTogglingPublic(true);
-    const allPublic = monthShows.every((s) => s.logbook_public);
-    const newVal = !allPublic;
+    const currentlyPublic = !!monthSettingsMap[monthKey]?.is_public;
+    const newVal = !currentlyPublic;
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: settingsError } = await supabase.from("logbook_month_settings").upsert(
+        { user_id: user.id, month_key: monthKey, is_public: newVal },
+        { onConflict: "user_id,month_key" }
+      );
+      if (settingsError) throw settingsError;
+
       const ids = monthShows.map((s) => s.id);
-      const { error } = await supabase.from("shows").update({ logbook_public: newVal }).in("id", ids);
-      if (error) throw error;
-      setShows((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, logbook_public: newVal } : s)));
+      if (ids.length > 0) {
+        const { error } = await supabase.from("shows").update({ logbook_public: newVal }).in("id", ids);
+        if (error) throw error;
+        setShows((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, logbook_public: newVal } : s)));
+      }
+
+      setMonthSettingsMap((prev) => ({
+        ...prev,
+        [monthKey]: { ...(prev[monthKey] || {}), user_id: user.id, month_key: monthKey, is_public: newVal },
+      }));
     } catch (e) {
       console.error(e);
     }
@@ -395,12 +409,12 @@ export default function Logbook() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-xs font-medium" style={{ color: settings?.text_color || "#ffffff", opacity: 0.7 }}>Public</span>
                         <button
-                          onClick={() => toggleMonthPublic(monthShows)}
+                          onClick={() => toggleMonthPublic(selectedMonthKey, monthShows)}
                           disabled={togglingPublic}
                           title="Visible on public Logbook"
-                          className={`relative w-11 h-6 rounded-full transition-colors ${monthShows.every((s) => s.logbook_public) ? "bg-[#8CFF3D]" : "bg-white/10"}`}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${monthSettingsMap[selectedMonthKey]?.is_public ? "bg-[#8CFF3D]" : "bg-white/10"}`}
                         >
-                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${monthShows.every((s) => s.logbook_public) ? "translate-x-5" : "translate-x-0"}`} />
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${monthSettingsMap[selectedMonthKey]?.is_public ? "translate-x-5" : "translate-x-0"}`} />
                         </button>
                       </div>
                     </div>
