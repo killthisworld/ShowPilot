@@ -18,7 +18,6 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    alert("handleSubmit called, search=" + window.location.search);
     setLoading(true);
     try {
       await signIn(email, password);
@@ -28,7 +27,6 @@ export default function Login() {
         try { redirectTo = sessionStorage.getItem("post_auth_redirect"); } catch {}
       }
       try { sessionStorage.removeItem("post_auth_redirect"); } catch {}
-      alert("DEBUG redirectTo = " + redirectTo);
       navigate(redirectTo || "/");
     } catch (err) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
@@ -38,7 +36,9 @@ export default function Login() {
 
   const handleGoogle = async () => {
     try {
-      await signInWithGoogle();
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get("redirect");
+      await signInWithGoogle(redirectTo);
     } catch (err) {
       toast({ title: "Google sign-in failed", description: err.message, variant: "destructive" });
     }
