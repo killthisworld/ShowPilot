@@ -27,6 +27,7 @@ export default function Login() {
         try { redirectTo = sessionStorage.getItem("post_auth_redirect"); } catch {}
       }
       try { sessionStorage.removeItem("post_auth_redirect"); } catch {}
+      alert("DEBUG redirectTo = " + redirectTo);
       navigate(redirectTo || "/");
     } catch (err) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
