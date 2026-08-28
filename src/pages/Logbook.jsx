@@ -66,7 +66,7 @@ function getConstellationLayout(monthShows) {
 }
 
 function ShowStamp({ show, onClick, rotation, isNewest }) {
-  const color = hashColor(show.venue || show.band_name || "show");
+  const color = show.is_linked ? "#F472B6" : hashColor(show.venue || show.band_name || "show");
 
   return (
     <button
@@ -138,7 +138,24 @@ export default function Logbook() {
       ]);
 
       if (showsRes.error) console.error(showsRes.error);
-      else setShows(showsRes.data || []);
+      let ownShows = showsRes.error ? [] : (showsRes.data || []);
+
+      const { data: links } = await supabase
+        .from("linked_gigs")
+        .select("share_token")
+        .eq("user_id", user.id);
+
+      if (links && links.length > 0) {
+        const linkedDetails = await Promise.all(
+          links.map(async (link) => {
+            const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+            return data ? { ...data, is_linked: true, share_token: link.share_token, done: true } : null;
+          })
+        );
+        ownShows = [...ownShows, ...linkedDetails.filter(Boolean)];
+      }
+
+      setShows(ownShows);
 
       if (settingsRes.error) console.error(settingsRes.error);
       else {
@@ -386,7 +403,7 @@ export default function Logbook() {
                               className="absolute z-10"
                               style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
                             >
-                              <ShowStamp show={pos.show} onClick={() => setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
+                              <ShowStamp show={pos.show} onClick={() => pos.show.is_linked ? navigate(`/gig/shared?token=${pos.show.share_token}`) : setSelectedShow(pos.show)} rotation={pos.rotation} isNewest={i === positions.length - 1} />
                             </div>
                           ))}
                         </div>
