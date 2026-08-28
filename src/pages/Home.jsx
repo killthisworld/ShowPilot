@@ -506,11 +506,8 @@ export default function Home() {
                 : <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
               }
             </Link>
-            <p className="text-white/40 text-sm mb-1">
-              {activeTab === "starred" ? "No starred shows" : shows.length === 0 ? "No shows yet" : `No ${activeTab.replace("_", " ")} shows`}
-            </p>
             <p className="text-white/25 text-xs">
-              {activeTab === "starred" ? "Star a show to find it quickly here" : "Add Gig"}
+              {activeTab === "starred" ? "Star a show to find it quickly here" : "Add Event"}
             </p>
           </div>
         ) : (
