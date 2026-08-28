@@ -54,6 +54,7 @@ export default function LinkedGigs() {
       </div>
 
       <div className="px-4 pt-4 max-w-lg mx-auto">
+        <p className="text-white/40 text-xs mb-4">Gigs that others have given you access to.</p>
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-6 h-6 border-2 border-pink-400/30 border-t-pink-400 rounded-full animate-spin" />

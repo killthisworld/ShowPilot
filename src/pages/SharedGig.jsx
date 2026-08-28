@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 
 const ROLE_COLORS = {
@@ -16,6 +17,7 @@ const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 export default function SharedGig() {
+  const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const currentPath = `/gig/shared?token=${token}`;
@@ -112,9 +114,14 @@ export default function SharedGig() {
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
-            <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate(-1)} className="p-1 text-white/60 hover:text-white shrink-0">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
+              <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>
+            </div>
           </div>
           {canEdit && (
             <button
@@ -291,7 +298,7 @@ export default function SharedGig() {
           </div>
         </div>
 
-        <p className="text-white/20 text-xs text-center pt-2">Powered by ShowPilot</p>
+        <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
       </div>
 
       {canEdit && <BottomTabs />}

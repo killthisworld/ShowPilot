@@ -268,7 +268,7 @@ export default function PublicLogbook() {
                 Enter Logbook
               </button>
             )}
-            <p className="text-white/20 text-xs mt-8">Powered by ShowPilot</p>
+            <p className="text-white/20 text-xs mt-8">Powered by Klean Studios</p>
           </div>
         </div>
       ) : (
