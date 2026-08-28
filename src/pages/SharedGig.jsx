@@ -126,20 +126,24 @@ export default function SharedGig() {
           <div className="bg-[#111] border border-[#222] rounded-2xl p-4 flex items-center justify-between gap-3">
             <p className="text-white/50 text-xs">Sign in to edit this gig</p>
             <div className="flex items-center gap-2 shrink-0">
-              
-                href={`/login?redirect=${encodeURIComponent(currentPath)}`}
-                onClick={() => { try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {} }}
+              <button
+                onClick={() => {
+                  try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
+                  window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
+                }}
                 className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#1a1a1a] border border-[#2a2a2a] px-3 py-1.5 rounded-lg hover:bg-[#222]"
               >
                 <LogIn className="w-3.5 h-3.5" /> Sign In
-              </a>
-              
-                href={`/register?redirect=${encodeURIComponent(currentPath)}`}
-                onClick={() => { try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {} }}
+              </button>
+              <button
+                onClick={() => {
+                  try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
+                  window.location.href = "/register?redirect=" + encodeURIComponent(currentPath);
+                }}
                 className="flex items-center gap-1.5 text-xs font-semibold text-black bg-[#8CFF3D] px-3 py-1.5 rounded-lg hover:bg-[#7ae62e]"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Create Account
-              </a>
+              </button>
             </div>
           </div>
         )}
