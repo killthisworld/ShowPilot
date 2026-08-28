@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save } from "lucide-react";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 
 const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -69,6 +70,13 @@ export default function SharedGig() {
     try {
       const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: gig });
       if (error) throw error;
+
+      if (user && gig.id) {
+        await supabase
+          .from("linked_gigs")
+          .upsert({ user_id: user.id, show_id: gig.id, share_token: token }, { onConflict: "user_id,show_id" });
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -115,7 +123,7 @@ export default function SharedGig() {
               className="shrink-0 flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
-              {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
+              {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Linked"}
             </button>
           )}
         </div>
@@ -285,6 +293,8 @@ export default function SharedGig() {
 
         <p className="text-white/20 text-xs text-center pt-2">Powered by ShowPilot</p>
       </div>
+
+      {canEdit && <BottomTabs />}
     </div>
   );
 }
