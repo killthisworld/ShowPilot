@@ -22,7 +22,11 @@ export default function Login() {
     try {
       await signIn(email, password);
       const params = new URLSearchParams(window.location.search);
-      const redirectTo = params.get("redirect");
+      let redirectTo = params.get("redirect");
+      if (!redirectTo) {
+        try { redirectTo = sessionStorage.getItem("post_auth_redirect"); } catch {}
+      }
+      try { sessionStorage.removeItem("post_auth_redirect"); } catch {}
       navigate(redirectTo || "/");
     } catch (err) {
       toast({ title: "Login failed", description: err.message, variant: "destructive" });
