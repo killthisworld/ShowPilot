@@ -128,11 +128,13 @@ export default function Logbook() {
   const [showingCover, setShowingCover] = useState(true);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+      setCurrentUserId(user.id);
 
       const [showsRes, settingsRes, prefsRes] = await Promise.all([
         supabase.from("shows").select("*").eq("owner_id", user.id).eq("done", true).order("date", { ascending: false }),
@@ -226,6 +228,16 @@ export default function Logbook() {
       console.error(e);
     }
     setLoadingCollaborators(false);
+  };
+
+  const removeCollaborator = async (token, userId) => {
+    try {
+      const { error } = await supabase.rpc("remove_gig_collaborator", { p_token: token, p_user_id: userId });
+      if (error) throw error;
+      setCollaborators((prev) => prev ? { ...prev, linked: (prev.linked || []).filter((p) => p.user_id !== userId) } : prev);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const toggleMonthPublic = async (monthShows) => {
@@ -498,22 +510,38 @@ export default function Logbook() {
               </div>
             ) : (
               <div className="space-y-2">
-                {collaborators && [collaborators.owner, ...(collaborators.linked || [])].filter(Boolean).map((person, i) => (
-                  <div key={i} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{person.display_name || "Unnamed"}</p>
-                      <p className="text-white/30 text-[10px] uppercase tracking-wide">{person.role}</p>
+                {collaborators && (() => {
+                  const isOwner = currentUserId && collaborators.owner?.user_id === currentUserId;
+                  const dedupedLinked = (collaborators.linked || []).filter((p) => p.user_id !== collaborators.owner?.user_id);
+                  const people = [collaborators.owner, ...dedupedLinked].filter(Boolean);
+                  return people.map((person, i) => (
+                    <div key={i} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{person.display_name || "Unnamed"}</p>
+                        <p className="text-white/30 text-[10px] uppercase tracking-wide">{person.role}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {person.card_share_token && (
+                          <button
+                            onClick={() => { window.location.href = `/pilot/${person.card_share_token}`; }}
+                            className="flex items-center gap-1 text-[#8CFF3D] text-xs font-medium hover:underline"
+                          >
+                            Wallet <ExternalLink className="w-3 h-3" />
+                          </button>
+                        )}
+                        {isOwner && person.role === "Linked" && (
+                          <button
+                            onClick={() => removeCollaborator(selectedShow.share_token, person.user_id)}
+                            className="text-white/30 hover:text-red-400"
+                            title="Remove access"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {person.card_share_token && (
-                      <button
-                        onClick={() => { window.location.href = `/pilot/${person.card_share_token}`; }}
-                        className="flex items-center gap-1 text-[#8CFF3D] text-xs font-medium shrink-0 ml-2 hover:underline"
-                      >
-                        Wallet <ExternalLink className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             )}
           </div>
