@@ -1,8 +1,88 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, Link2, MapPin, Calendar } from "lucide-react";
+import { ArrowLeft, Link2, MapPin, Calendar, Archive, X } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
+
+const ACTION_WIDTH = 144;
+
+function SwipeableGigCard({ gig, onOpen, onArchive, onRemove }) {
+  const [offset, setOffset] = useState(0);
+  const startXRef = useRef(null);
+  const draggingRef = useRef(false);
+
+  const handleTouchStart = (e) => {
+    startXRef.current = e.touches[0].clientX;
+    draggingRef.current = false;
+  };
+
+  const handleTouchMove = (e) => {
+    if (startXRef.current === null) return;
+    const delta = e.touches[0].clientX - startXRef.current;
+    if (Math.abs(delta) > 5) draggingRef.current = true;
+    const base = offset === -ACTION_WIDTH ? -ACTION_WIDTH : 0;
+    const next = Math.min(0, Math.max(-ACTION_WIDTH, base + delta));
+    setOffset(next);
+  };
+
+  const handleTouchEnd = () => {
+    startXRef.current = null;
+    setOffset((prev) => (prev < -ACTION_WIDTH / 2 ? -ACTION_WIDTH : 0));
+  };
+
+  const handleClick = () => {
+    if (draggingRef.current) return;
+    if (offset !== 0) { setOffset(0); return; }
+    onOpen();
+  };
+
+  const title = gig.event_name || gig.band_name || "Untitled Gig";
+  const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl">
+      <div className="absolute inset-y-0 right-0 flex" style={{ width: ACTION_WIDTH }}>
+        <button
+          onClick={() => { setOffset(0); onArchive(); }}
+          className="flex-1 flex flex-col items-center justify-center gap-1 bg-white/10 text-white/70 hover:text-white text-[11px] font-medium"
+        >
+          <Archive className="w-4 h-4" />
+          Archive
+        </button>
+        <button
+          onClick={() => { setOffset(0); onRemove(); }}
+          className="flex-1 flex flex-col items-center justify-center gap-1 bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-medium"
+        >
+          <X className="w-4 h-4" />
+          Remove
+        </button>
+      </div>
+
+      <button
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleClick}
+        style={{ transform: `translateX(${offset}px)`, transition: startXRef.current ? "none" : "transform 0.2s ease" }}
+        className="relative w-full text-left bg-[#161616] border border-pink-400/20 rounded-2xl p-4 hover:border-pink-400/40"
+      >
+        <p className="text-white font-semibold text-sm truncate">{title}</p>
+        {location && (
+          <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span className="truncate">{location}</span>
+          </div>
+        )}
+        {gig.date && (
+          <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5">
+            <Calendar className="w-3 h-3 shrink-0" />
+            <span>{new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function LinkedGigs() {
   const navigate = useNavigate();
@@ -18,6 +98,7 @@ export default function LinkedGigs() {
         .from("linked_gigs")
         .select("share_token, linked_at")
         .eq("user_id", user.id)
+        .eq("archived", false)
         .order("linked_at", { ascending: false });
 
       if (error || !links) {
@@ -38,6 +119,38 @@ export default function LinkedGigs() {
     };
     load();
   }, []);
+
+  const archiveGig = async (shareToken) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("linked_gigs")
+        .update({ archived: true })
+        .eq("user_id", user.id)
+        .eq("share_token", shareToken);
+      if (error) throw error;
+      setGigs((prev) => prev.filter((g) => g.share_token !== shareToken));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const removeGig = async (shareToken) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("linked_gigs")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("share_token", shareToken);
+      if (error) throw error;
+      setGigs((prev) => prev.filter((g) => g.share_token !== shareToken));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
@@ -67,31 +180,15 @@ export default function LinkedGigs() {
           </div>
         ) : (
           <div className="space-y-2">
-            {gigs.map((g) => {
-              const title = g.event_name || g.band_name || "Untitled Gig";
-              const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-              return (
-                <button
-                  key={g.share_token}
-                  onClick={() => navigate(`/gig/shared?token=${g.share_token}`)}
-                  className="w-full text-left bg-[#161616] border border-pink-400/20 rounded-2xl p-4 hover:border-pink-400/40 transition-colors"
-                >
-                  <p className="text-white font-semibold text-sm truncate">{title}</p>
-                  {location && (
-                    <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
-                      <MapPin className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{location}</span>
-                    </div>
-                  )}
-                  {g.date && (
-                    <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5">
-                      <Calendar className="w-3 h-3 shrink-0" />
-                      <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+            {gigs.map((g) => (
+              <SwipeableGigCard
+                key={g.share_token}
+                gig={g}
+                onOpen={() => navigate(`/gig/shared?token=${g.share_token}`)}
+                onArchive={() => archiveGig(g.share_token)}
+                onRemove={() => removeGig(g.share_token)}
+              />
+            ))}
           </div>
         )}
       </div>
