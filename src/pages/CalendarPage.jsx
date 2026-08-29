@@ -8,6 +8,7 @@ import StatusBadge from "@/components/showpilot/StatusBadge";
 import moment from "moment";
 
 function getShowAccentColor(show) {
+  if (show.is_linked) return "#F472B6"; // pink for linked gigs
   if (show.starred) return "#FBBF24"; // amber for starred
   if (show.status === "complete") return "#8CFF3D"; // green for worked
   if (show.status === "in_progress") return "#60A5FA"; // blue for frequent/in-progress
@@ -97,11 +98,26 @@ export default function CalendarPage() {
         .eq("owner_id", user.id)
         .order("date", { ascending: false });
 
-      if (error) {
-        console.error("Error loading shows:", error);
-      } else if (isMounted) {
-        setShows(data || []);
+      let ownShows = error ? [] : (data || []);
+      if (error) console.error("Error loading shows:", error);
+
+      const { data: links } = await supabase
+        .from("linked_gigs")
+        .select("share_token")
+        .eq("user_id", user.id)
+        .eq("archived", false);
+
+      if (links && links.length > 0) {
+        const linkedDetails = await Promise.all(
+          links.map(async (link) => {
+            const { data: g } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+            return g ? { ...g, is_linked: true, share_token: link.share_token } : null;
+          })
+        );
+        ownShows = [...ownShows, ...linkedDetails.filter(Boolean)];
       }
+
+      if (isMounted) setShows(ownShows);
       if (isMounted) setLoading(false);
     }
 
@@ -132,8 +148,12 @@ export default function CalendarPage() {
     return days;
   }, [currentMonth]);
 
-  const openShow = (showId) => {
-    navigate(`/show/${showId}`, { state: { from: "calendar" } });
+  const openShow = (show) => {
+    if (show.is_linked) {
+      navigate(`/gig/shared?token=${show.share_token}`);
+    } else {
+      navigate(`/show/${show.id}`, { state: { from: "calendar" } });
+    }
   };
 
   // Lets the calendar create a new show pre-filled with a specific date,
@@ -183,7 +203,7 @@ export default function CalendarPage() {
               {(showsByDate[dayModalKey] || []).map((s) => {
                 const color = getShowAccentColor(s);
                 return (
-                  <button key={s.id} onClick={() => openShow(s.id)} className="w-full text-left">
+                  <button key={s.id} onClick={() => openShow(s)} className="w-full text-left">
                     <div className="bg-[#111] rounded-xl border border-[#222] p-3 flex items-center gap-3 hover:bg-[#1a1a1a] transition-colors">
                       <div className="w-1 h-8 rounded-full" style={{ backgroundColor: color }} />
                       <div className="flex-1 min-w-0">
@@ -223,6 +243,7 @@ export default function CalendarPage() {
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Frequent</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#8CFF3D]" />Worked</span>
           <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Starred</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#F472B6" }} />Linked</span>
         </div>
       </div>
 
