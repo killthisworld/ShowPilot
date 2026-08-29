@@ -283,9 +283,14 @@ export default function PublicLogbook() {
         <>
           <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-b border-white/5">
             <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-2xl mx-auto">
-              <button onClick={() => setShowingCover(true)} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm">
-                <ArrowLeft className="w-4 h-4" /> Cover
-              </button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => navigate(-1)} className="p-1.5 -ml-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5">
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowingCover(true)} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm">
+                  Cover
+                </button>
+              </div>
             </div>
           </div>
 
