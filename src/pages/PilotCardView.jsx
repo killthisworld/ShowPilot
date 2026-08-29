@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import { Button } from "@/components/ui/button";
@@ -132,6 +132,13 @@ export default function PilotCardView() {
         backgroundPosition: "center",
       }}
     >
+      <button
+        onClick={() => navigate(-1)}
+        className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </button>
+
       {/* Wallet picker modal */}
       {showWalletPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletPicker(false)}>

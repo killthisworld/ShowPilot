@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -113,6 +114,7 @@ function ShowStamp({ show, onClick, rotation, isNewest }) {
 }
 
 export default function PublicLogbook() {
+  const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
 
@@ -220,6 +222,12 @@ export default function PublicLogbook() {
     <div className="min-h-screen bg-[#0a0a0a]">
       {showingCover ? (
         <div className="relative min-h-screen flex flex-col items-center justify-center text-center px-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="absolute top-5 left-5 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           {coverSettings.background_url && (
             <>
               <div
