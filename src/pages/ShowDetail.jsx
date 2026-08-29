@@ -67,11 +67,21 @@ export default function ShowDetail() {
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
   const hadDraftRef = useRef(null);
+  const draftSavedAtRef = useRef(null);
   if (hadDraftRef.current === null) {
     // Computed synchronously on first render, before usePersistedState's
     // own effect (or anything else) has a chance to write to localStorage
-    // and create a false-positive "draft exists" reading.
-    try { hadDraftRef.current = !!localStorage.getItem(`${draftKey}_show`); } catch { hadDraftRef.current = false; }
+    // and create a false-positive "draft exists" reading. draftSavedAtRef
+    // captures the OLD save time too, before any effect touches it, so we
+    // can later tell whether the database has changed more recently than
+    // this draft (e.g. saved from another device) and treat it as stale.
+    try {
+      hadDraftRef.current = !!localStorage.getItem(`${draftKey}_show`);
+      draftSavedAtRef.current = parseInt(localStorage.getItem(`${draftKey}_saved_at`) || "0", 10);
+    } catch {
+      hadDraftRef.current = false;
+      draftSavedAtRef.current = 0;
+    }
   }
 
   const backTo = location.state?.from === "calendar" ? "/calendar" : "/";
@@ -92,6 +102,11 @@ export default function ShowDetail() {
   useEffect(() => {
     setOrderDraft(null);
   }, [activeBandIndex]);
+
+  useEffect(() => {
+    if (isNew) return;
+    try { localStorage.setItem(`${draftKey}_saved_at`, Date.now().toString()); } catch {}
+  }, [show, bands, isNew, draftKey]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -126,13 +141,19 @@ export default function ShowDetail() {
             navigate("/");
             return;
           }
-          if (hadDraft) {
-            // Unsaved local edits exist for this exact gig — keep them
-            // instead of overwriting with the freshly-fetched DB copy, and
-            // let the user know so they're not confused if it looks stale.
+          const dbUpdatedAt = showRes.data.updated_at ? new Date(showRes.data.updated_at).getTime() : 0;
+          const draftIsStale = hadDraft && dbUpdatedAt > draftSavedAtRef.current;
+
+          if (hadDraft && !draftIsStale) {
+            // Unsaved local edits exist for this exact gig, and nothing
+            // newer has been saved to the database since — keep the local
+            // draft instead of overwriting it with the DB copy.
             setRestoredDraft(true);
             return;
           }
+          // Either there was no draft, or the database has been updated
+          // more recently than the draft (e.g. saved from another device) —
+          // load fresh data below instead of the stale local draft.
           const [parsedCity, parsedState] = (showRes.data.location || "").split(",").map((s) => s.trim());
           setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "" });
           if (bandsRes.data && bandsRes.data.length > 0) {
@@ -333,6 +354,7 @@ export default function ShowDetail() {
 
       clearPersistedState(`${draftKey}_show`);
       clearPersistedState(`${draftKey}_bands`);
+      try { localStorage.removeItem(`${draftKey}_saved_at`); } catch {}
 
       if (isNew) {
         showPill("Show created ✓");
