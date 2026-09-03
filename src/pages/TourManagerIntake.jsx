@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Send, CheckCircle, Music, Users, Wifi, Save, X } from "lucide-react";
+import { Plus, Trash2, Send, CheckCircle, Music, Users, Wifi, Save, X, Paperclip } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
@@ -42,6 +42,8 @@ export default function TourManagerIntake() {
     set_length_minutes: "",
     band_members: [],
     general_notes: "",
+    stage_plot_url: "",
+    stage_plot_files: [],
   });
   const [genreInput, setGenreInput] = useState("");
 
@@ -127,6 +129,39 @@ export default function TourManagerIntake() {
       console.error(e);
     }
     setEngineerSaving(false);
+  };
+
+  const uploadFileToBucket = async (file, bucket) => {
+    const filePath = `intake_${token}/${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from(bucket).upload(filePath, file);
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    return urlData.publicUrl;
+  };
+
+  const handleStagePlotUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      try {
+        const file_url = await uploadFileToBucket(file, "stage-plots");
+        const isImage = file.type.startsWith("image/");
+        setForm((prev) => ({
+          ...prev,
+          stage_plot_url: isImage && !prev.stage_plot_url ? file_url : prev.stage_plot_url,
+          stage_plot_files: [...(prev.stage_plot_files || []), { url: file_url, name: file.name, type: file.type }],
+        }));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    e.target.value = "";
+  };
+
+  const removeStagePlotFile = (i) => {
+    setForm((prev) => ({
+      ...prev,
+      stage_plot_files: (prev.stage_plot_files || []).filter((_, idx) => idx !== i),
+    }));
   };
 
   const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", bus_type: "" }]);
@@ -474,6 +509,27 @@ export default function TourManagerIntake() {
         </CollapsibleSection>
 
         <div className="bg-[#111] rounded-2xl p-4">
+          <Label className="text-white/50 text-xs mb-2 block">Stage Plot</Label>
+          <div className="mb-4">
+            <label className="flex items-center justify-center gap-2 border border-dashed border-[#333] rounded-xl py-3 text-white/50 text-sm cursor-pointer hover:border-[#8CFF3D]/40 hover:text-white/70 transition-colors">
+              <Paperclip className="w-4 h-4" />
+              Upload stage plot (image or PDF)
+              <input type="file" accept="image/*,.pdf" multiple onChange={handleStagePlotUpload} className="hidden" />
+            </label>
+            {(form.stage_plot_files || []).length > 0 && (
+              <div className="space-y-1.5 mt-2">
+                {form.stage_plot_files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2">
+                    <span className="text-white/70 text-xs truncate">{f.name}</span>
+                    <button type="button" onClick={() => removeStagePlotFile(i)} className="text-white/30 hover:text-red-400 shrink-0 ml-2">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Label className="text-white/50 text-xs mb-2 block">Additional Notes</Label>
           <Textarea value={form.general_notes} onChange={(e) => update("general_notes", e.target.value)} className="bg-[#0d0d0d] border-[#222] text-white min-h-[80px]" placeholder="Anything else the engineer should know..." />
         </div>
