@@ -164,7 +164,7 @@ export default function TourManagerIntake() {
     }));
   };
 
-  const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", bus_type: "" }]);
+  const addMember = () => update("band_members", [...form.band_members, { name: "", instrument: "", bus_type: "", notes: "" }]);
 
   const getInstruments = (m) => {
     if (m.instruments) return m.instruments;
@@ -191,7 +191,13 @@ export default function TourManagerIntake() {
     update("band_members", members);
   };
   const updateMember = (i, f, v) => { const m = [...form.band_members]; m[i] = { ...m[i], [f]: v }; update("band_members", m); };
-  const removeMember = (i) => update("band_members", form.band_members.filter((_, idx) => idx !== i));
+  const removeMember = (i) => {
+    update("band_members", form.band_members.filter((_, idx) => idx !== i));
+    setNotesTarget("__general__");
+  };
+  const [notesTarget, setNotesTarget] = useState("__general__");
+  const getActiveNotes = () => notesTarget === "__general__" ? form.general_notes : (form.band_members[notesTarget]?.notes || "");
+  const setActiveNotes = (val) => notesTarget === "__general__" ? update("general_notes", val) : updateMember(notesTarget, "notes", val);
 
   const removeGenreTag = (tag) => update("genre_tags", form.genre_tags.filter((t) => t !== tag));
 
@@ -531,7 +537,26 @@ export default function TourManagerIntake() {
           </div>
 
           <Label className="text-white/50 text-xs mb-2 block">Additional Notes</Label>
-          <Textarea value={form.general_notes} onChange={(e) => update("general_notes", e.target.value)} className="bg-[#0d0d0d] border-[#222] text-white min-h-[80px]" placeholder="Anything else the engineer should know..." />
+          <Textarea value={getActiveNotes()} onChange={(e) => setActiveNotes(e.target.value)} className="bg-[#0d0d0d] border-[#222] text-white min-h-[80px]" placeholder="Anything else the engineer should know..." />
+          <div className="flex gap-1.5 flex-wrap mt-2">
+            <button
+              type="button"
+              onClick={() => setNotesTarget("__general__")}
+              className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all ${notesTarget === "__general__" ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
+            >
+              General
+            </button>
+            {form.band_members.map((m, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setNotesTarget(i)}
+                className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all ${notesTarget === i ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
+              >
+                {m.name || `Member ${i + 1}`}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && <p className="text-red-400 text-sm px-1">{error}</p>}
