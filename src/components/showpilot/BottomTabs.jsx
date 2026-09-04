@@ -12,7 +12,7 @@ export default function BottomTabs() {
   const { pathname } = useLocation();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d]/95 backdrop-blur-lg border-t border-[#1e1e1e]">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d]/95 backdrop-blur-lg border-t border-[#1e1e1e] pb-3">
       <div className="flex items-center justify-around max-w-lg mx-auto h-16 px-4">
         {TABS.map((tab) => {
           const active = tab.path === "/" ? pathname === "/" : pathname.startsWith(tab.path);
