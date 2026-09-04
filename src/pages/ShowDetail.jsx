@@ -1040,7 +1040,7 @@ export default function ShowDetail() {
         </div>
 
         <div ref={bandPrintRef} className="relative">
-          <CollapsibleSection title="Performer" icon={Music} badge={activeBand.band_members?.length || 0}>
+          <CollapsibleSection title="Performer" icon={Music} badge={bands.length}>
           <div className="space-y-3 pt-3">
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
