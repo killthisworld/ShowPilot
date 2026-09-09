@@ -7,7 +7,18 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
+const ROLE_OPTIONS = [
+  { value: "engineer", label: "Audio Engineer", enabled: true },
+  { value: "band", label: "Band / Act Manager", enabled: true },
+  { value: "venue", label: "Venue", enabled: false },
+  { value: "promoter", label: "Promoter", enabled: false },
+  { value: "booking_agent", label: "Booking Agent", enabled: false },
+  { value: "manager", label: "Manager", enabled: false },
+  { value: "lighting", label: "Lighting Tech", enabled: false },
+];
+
 export default function Register() {
+  const [accountType, setAccountType] = useState("engineer");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,7 +40,7 @@ export default function Register() {
       const params = new URLSearchParams(window.location.search);
       const redirectTo = params.get("redirect");
       const fullRedirect = redirectTo ? `${window.location.origin}${redirectTo}` : undefined;
-      await signUp(email, password, fullRedirect);
+      await signUp(email, password, fullRedirect, accountType);
       setSubmitted(true);
     } catch (err) {
       toast({ title: "Sign up failed", description: err.message, variant: "destructive" });
@@ -68,6 +79,30 @@ export default function Register() {
           Show<span className="text-[#8CFF3D]">Pilot</span>
         </h1>
         <p className="text-white/40 text-center text-sm mb-8">Create your account</p>
+
+        <div className="mb-6">
+          <Label className="text-white/50 text-xs mb-2 block">I am a...</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {ROLE_OPTIONS.map((role) => (
+              <button
+                key={role.value}
+                type="button"
+                disabled={!role.enabled}
+                onClick={() => role.enabled && setAccountType(role.value)}
+                className={`text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${
+                  !role.enabled
+                    ? "border-[#222] text-white/20 cursor-not-allowed"
+                    : accountType === role.value
+                    ? "border-[#8CFF3D] bg-[#8CFF3D]/10 text-[#8CFF3D] font-medium"
+                    : "border-[#2a2a2a] text-white/60 hover:border-[#3a3a3a] hover:text-white/80"
+                }`}
+              >
+                {role.label}
+                {!role.enabled && <span className="block text-[10px] text-white/15 mt-0.5">Coming soon</span>}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
