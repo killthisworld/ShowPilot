@@ -141,7 +141,18 @@ export default function ShowDetail() {
             navigate("/");
             return;
           }
-          const dbUpdatedAt = showRes.data.updated_at ? new Date(showRes.data.updated_at).getTime() : 0;
+          // Check both the gig's own updated_at AND the most recent
+          // show_bands.updated_at - a new/edited act (e.g. an opener
+          // submitting their intake form) only touches show_bands, not the
+          // shows row itself, so relying on the gig's timestamp alone would
+          // miss that kind of change and could show a stale cached draft
+          // that's missing a newly-added act.
+          const showUpdatedAt = showRes.data.updated_at ? new Date(showRes.data.updated_at).getTime() : 0;
+          const bandsUpdatedAt = (bandsRes.data || []).reduce((max, b) => {
+            const t = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+            return t > max ? t : max;
+          }, 0);
+          const dbUpdatedAt = Math.max(showUpdatedAt, bandsUpdatedAt);
           const draftIsStale = hadDraft && dbUpdatedAt > draftSavedAtRef.current;
 
           if (hadDraft && !draftIsStale) {
