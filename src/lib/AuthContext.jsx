@@ -38,9 +38,11 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
-  const signUp = async (email, password, redirectTo) => {
-    const options = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
-    const { data, error } = await supabase.auth.signUp({ email, password, options });
+  const signUp = async (email, password, redirectTo, accountType) => {
+    const options = {};
+    if (redirectTo) options.emailRedirectTo = redirectTo;
+    if (accountType) options.data = { account_type: accountType };
+    const { data, error } = await supabase.auth.signUp({ email, password, options: Object.keys(options).length ? options : undefined });
     if (error) throw error;
     return data;
   };

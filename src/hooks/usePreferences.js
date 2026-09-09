@@ -47,6 +47,7 @@ export function usePreferences() {
               mix_bus_presets: DEFAULT_MIX_BUS_PRESETS,
               display_name: "",
               username: null,
+              account_type: user.user_metadata?.account_type || "engineer",
             },
             { onConflict: "user_id" }
           )
