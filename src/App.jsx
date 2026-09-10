@@ -12,6 +12,7 @@ import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Home from '@/pages/Home';
+import HomeRouter from '@/pages/HomeRouter';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
 import Experience from '@/pages/Experience';
@@ -62,7 +63,7 @@ const AuthenticatedApp = () => {
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<HomeRouter />} />
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />
