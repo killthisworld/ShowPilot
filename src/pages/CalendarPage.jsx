@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import moment from "moment";
+import { clearNewShowDraft } from "@/hooks/usePersistedState";
 
 function getShowAccentColor(show) {
   if (show.is_linked) return "#F472B6"; // pink for linked gigs
@@ -159,6 +160,7 @@ export default function CalendarPage() {
   // Lets the calendar create a new show pre-filled with a specific date,
   // so multiple shows can be added to the same day directly from here.
   const newShowOnDate = (dateKey) => {
+    clearNewShowDraft();
     navigate("/show/new", { state: { from: "calendar", prefillDate: dateKey } });
   };
 

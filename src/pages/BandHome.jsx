@@ -5,6 +5,7 @@ import { Link2, MapPin, Calendar, CalendarDays, Plus } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
+import { clearNewShowDraft } from "@/hooks/usePersistedState";
 
 export default function BandHome() {
   const navigate = useNavigate();
@@ -55,7 +56,10 @@ export default function BandHome() {
     else navigate(`/gig/shared?token=${g.share_token}`);
   };
 
-  const handleCreateEvent = () => navigate("/show/new");
+  const handleCreateEvent = () => {
+    clearNewShowDraft();
+    navigate("/show/new");
+  };
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();

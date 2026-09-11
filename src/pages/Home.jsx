@@ -9,6 +9,7 @@ import ShowCard from "@/components/showpilot/ShowCard";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
+import { clearNewShowDraft } from "@/hooks/usePersistedState";
 
 // Status tabs config
 const STATUS_TABS = [
@@ -331,7 +332,7 @@ export default function Home() {
           <h1 className="text-lg font-bold text-white tracking-tight">
             Show<span className="text-[#8CFF3D]">Pilot</span>
           </h1>
-          <Link to="/show/new">
+          <Link to="/show/new" onClick={clearNewShowDraft}>
             <Button size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 w-8 p-0 rounded-xl">
               <Plus className="w-4 h-4" />
             </Button>
@@ -500,7 +501,7 @@ export default function Home() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
-            <Link to="/show/new" className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group">
+            <Link to="/show/new" onClick={clearNewShowDraft} className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group">
               {activeTab === "starred"
                 ? <Star className="w-7 h-7 text-white/20 group-hover:text-amber-400 transition-colors" />
                 : <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
