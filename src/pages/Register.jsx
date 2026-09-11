@@ -20,7 +20,7 @@ const ROLE_GROUPS = [
     roles: [
       { value: "booking_agent", label: "Booking Agent" },
       { value: "manager", label: "Manager" },
-      { value: "band", label: "Band / Act Manager" },
+      { value: "band", label: "Band" },
     ],
   },
   {
