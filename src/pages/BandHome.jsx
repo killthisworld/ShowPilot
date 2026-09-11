@@ -1,16 +1,22 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { Link2, MapPin, Calendar, CalendarDays } from "lucide-react";
+import { Link2, MapPin, Calendar, CalendarDays, Plus } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
+  const { toast } = useToast();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleRequestEngineer = () => {
+    toast({ title: "Coming soon", description: "Requesting an engineer directly will be available soon." });
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -80,7 +86,9 @@ export default function BandHome() {
           <h1 className="text-white font-bold text-lg">
             Show<span className="text-[#8CFF3D]">Pilot</span>
           </h1>
-          <div className="w-10" />
+          <button onClick={handleRequestEngineer} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
+            <Plus className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -127,11 +135,13 @@ export default function BandHome() {
           </div>
         ) : gigs.length === 0 ? (
           <div className="text-center py-16 bg-[#111] rounded-2xl border border-[#222]">
-            <Link2 className="w-8 h-8 text-white/20 mx-auto mb-3" />
+            <button
+              onClick={handleRequestEngineer}
+              className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group"
+            >
+              <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
+            </button>
             <p className="text-white/40 text-sm">No shows yet</p>
-            <p className="text-white/25 text-xs mt-1 px-6">
-              Ask your engineer to send you a share link, then save it here from that page.
-            </p>
           </div>
         ) : (
           <div className="space-y-2">
