@@ -64,6 +64,7 @@ export default function ShowDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
+  const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
   const hadDraftRef = useRef(null);
@@ -833,61 +834,63 @@ export default function ShowDetail() {
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
-            <Select value={show.status} onValueChange={(v) => update("status", v)}>
-              <SelectTrigger className="w-auto h-8 bg-transparent border-0 p-0">
-                <StatusBadge status={show.status} />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                <SelectItem value="not_started">New</SelectItem>
-                <SelectItem value="in_progress">Frequent</SelectItem>
-                <SelectItem value="complete">Worked</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-1">
-              {(() => {
-                const statusColor = show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#bbb";
-                const btnStyle = (active) => active
-                  ? { borderColor: statusColor + "80", color: statusColor, backgroundColor: statusColor + "1a" }
-                  : {};
-                return (
-                  <>
-                    <button
-                      onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
-                      style={btnStyle(show.frequency_scope === "venue")}
-                      title="Venue"
-                    >
-                      <Building className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
-                      style={btnStyle(show.frequency_scope === "artist")}
-                      title="Artist / Band"
-                    >
-                      <Mic2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
-                      className="h-8 px-2 flex items-center justify-center gap-1 rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
-                      style={btnStyle(show.frequency_scope === "both")}
-                      title="Both"
-                    >
-                      <Building className="w-3.5 h-3.5" />
-                      <Mic2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => update("done", !show.done)}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all"
-                      style={show.done ? { borderColor: "#8CFF3D80", color: "#8CFF3D", backgroundColor: "#8CFF3D1a" } : { borderColor: "#333", color: "rgba(255,255,255,0.3)" }}
-                      title="Mark gig as done"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                  </>
-                );
-              })()}
-            </div>
+            {isTechProductionAccount && (
+              <>
+                <Select value={show.status} onValueChange={(v) => update("status", v)}>
+                  <SelectTrigger className="w-auto h-8 bg-transparent border-0 p-0">
+                    <StatusBadge status={show.status} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                    <SelectItem value="not_started">New</SelectItem>
+                    <SelectItem value="in_progress">Frequent</SelectItem>
+                    <SelectItem value="complete">Worked</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  const statusColor = show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#bbb";
+                  const btnStyle = (active) => active
+                    ? { borderColor: statusColor + "80", color: statusColor, backgroundColor: statusColor + "1a" }
+                    : {};
+                  return (
+                    <>
+                      <button
+                        onClick={() => update("frequency_scope", show.frequency_scope === "venue" ? null : "venue")}
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                        style={btnStyle(show.frequency_scope === "venue")}
+                        title="Venue"
+                      >
+                        <Building className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                        style={btnStyle(show.frequency_scope === "artist")}
+                        title="Artist / Band"
+                      >
+                        <Mic2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => update("frequency_scope", show.frequency_scope === "both" ? null : "both")}
+                        className="h-8 px-2 flex items-center justify-center gap-1 rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
+                        style={btnStyle(show.frequency_scope === "both")}
+                        title="Both"
+                      >
+                        <Building className="w-3.5 h-3.5" />
+                        <Mic2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  );
+                })()}
+              </>
+            )}
+            <button
+              onClick={() => update("done", !show.done)}
+              className="h-8 w-8 flex items-center justify-center rounded-lg border transition-all"
+              style={show.done ? { borderColor: "#8CFF3D80", color: "#8CFF3D", backgroundColor: "#8CFF3D1a" } : { borderColor: "#333", color: "rgba(255,255,255,0.3)" }}
+              title="Mark gig as done"
+            >
+              <Check className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -1051,7 +1054,10 @@ export default function ShowDetail() {
         </div>
 
         <div ref={bandPrintRef} className="relative">
-          <CollapsibleSection title="Performer" icon={Music} badge={bands.length}>
+          <CollapsibleSection title="Performer" icon={Music} badge={(() => {
+            const namedCount = bands.filter((b) => b.band_name && b.band_name.trim() !== "").length;
+            return namedCount > 0 ? namedCount : undefined;
+          })()}>
           <div className="space-y-3 pt-3">
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
