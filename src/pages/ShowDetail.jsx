@@ -108,6 +108,22 @@ export default function ShowDetail() {
     if (isNew) return;
     try { localStorage.setItem(`${draftKey}_saved_at`, Date.now().toString()); } catch {}
   }, [show, bands, isNew, draftKey]);
+
+  // If someone starts a brand-new event and navigates away without ever
+  // successfully saving it, clear that draft on unmount so the next time
+  // anyone taps "+" they get a genuinely blank form - not whatever was
+  // abandoned last time. A successful save already clears this same draft
+  // explicitly before this would ever run, so this only fires for the
+  // "walked away without saving" case.
+  useEffect(() => {
+    return () => {
+      if (isNew) {
+        clearPersistedState(`${draftKey}_show`);
+        clearPersistedState(`${draftKey}_bands`);
+        try { localStorage.removeItem(`${draftKey}_saved_at`); } catch {}
+      }
+    };
+  }, [isNew, draftKey]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
