@@ -556,6 +556,27 @@ export default function Logbook() {
                     </div>
                   ));
                 })()}
+                {collaborators?.pending_invites?.length > 0 && (
+                  <>
+                    <p className="text-white/25 text-[10px] uppercase tracking-wide pt-2 pb-0.5">Pending Invites</p>
+                    {collaborators.pending_invites.map((inv) => {
+                      const roleLabels = {
+                        venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent",
+                        manager: "Manager", band: "Band", engineer: "Audio Engineer", lighting: "Lighting Tech",
+                      };
+                      return (
+                        <div key={inv.invite_id} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5 opacity-60">
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium truncate">
+                              {roleLabels[inv.invited_role] || inv.invited_role}{inv.label ? ` — ${inv.label}` : ""}
+                            </p>
+                            <p className="text-amber-400/60 text-[10px] uppercase tracking-wide">Pending</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             )}
           </div>

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Share2, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Mail, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
+import InviteSheet from "@/components/showpilot/InviteSheet";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -831,9 +832,14 @@ export default function ShowDetail() {
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
             {!isNew && (
-              <button onClick={handleShareGig} className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Share gig">
-                <Share2 className="w-4 h-4" />
-              </button>
+              <InviteSheet
+                showId={id}
+                trigger={
+                  <button className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Invite">
+                    <Mail className="w-4 h-4" />
+                  </button>
+                }
+              />
             )}
             {!isNew && (
               <button onClick={handleDelete} className="p-2 rounded-lg transition-colors text-red-400/60 hover:text-red-400">

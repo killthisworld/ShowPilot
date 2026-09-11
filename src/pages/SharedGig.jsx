@@ -19,8 +19,14 @@ const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event"
 export default function SharedGig() {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
-  const currentPath = `/gig/shared?token=${token}`;
+  const urlToken = params.get("token");
+  const inviteToken = params.get("invite");
+  // Invite links (?invite=...) resolve to the underlying show's normal
+  // share_token before anything else happens, so every bit of existing
+  // display/edit/save logic below can keep working exactly as it already
+  // does, unchanged, regardless of which kind of link brought someone here.
+  const [resolvedToken, setResolvedToken] = useState(inviteToken ? null : urlToken);
+  const currentPath = window.location.pathname + window.location.search;
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -41,11 +47,31 @@ export default function SharedGig() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Resolve an invite token to its underlying share_token first.
+  useEffect(() => {
+    if (!inviteToken) return;
+    const resolveInvite = async () => {
+      try {
+        const { data, error } = await supabase.rpc("get_gig_invite", { p_token: inviteToken });
+        if (error || !data || !data.share_token) { setNotFound(true); setLoading(false); return; }
+        setResolvedToken(data.share_token);
+      } catch (e) {
+        console.error(e);
+        setNotFound(true);
+        setLoading(false);
+      }
+    };
+    resolveInvite();
+  }, [inviteToken]);
+
   useEffect(() => {
     const load = async () => {
-      if (!token) { setNotFound(true); setLoading(false); return; }
+      if (!resolvedToken) {
+        if (!inviteToken && !urlToken) { setNotFound(true); setLoading(false); }
+        return;
+      }
       try {
-        const { data, error } = await supabase.rpc("get_shared_gig", { p_token: token });
+        const { data, error } = await supabase.rpc("get_shared_gig", { p_token: resolvedToken });
         if (error) throw error;
         if (!data) setNotFound(true);
         else setGig({ ...data, bands: (data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
@@ -56,7 +82,7 @@ export default function SharedGig() {
       setLoading(false);
     };
     load();
-  }, [token]);
+  }, [resolvedToken]);
 
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
   const updateBand = (i, field, val) => {
@@ -70,13 +96,17 @@ export default function SharedGig() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: gig });
+      const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
       if (error) throw error;
 
       if (user && gig.id) {
         await supabase
           .from("linked_gigs")
-          .upsert({ user_id: user.id, show_id: gig.id, share_token: token }, { onConflict: "user_id,show_id" });
+          .upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
+
+        if (inviteToken) {
+          await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
+        }
       }
 
       setSaved(true);
