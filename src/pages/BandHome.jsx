@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Link2, MapPin, Calendar, CalendarDays } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
+import { usePreferences } from "@/hooks/usePreferences";
 
 export default function BandHome() {
   const navigate = useNavigate();
+  const { preferences, reload } = usePreferences();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,10 +75,12 @@ export default function BandHome() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center px-4 py-4 max-w-lg mx-auto">
+        <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
+          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-white font-bold text-lg">
             Show<span className="text-[#8CFF3D]">Pilot</span>
           </h1>
+          <div className="w-10" />
         </div>
       </div>
 

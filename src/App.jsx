@@ -15,7 +15,6 @@ import Home from '@/pages/Home';
 import HomeRouter from '@/pages/HomeRouter';
 import BandCalendar from '@/pages/BandCalendar';
 import BandCockpit from '@/pages/BandCockpit';
-import BandSettings from '@/pages/BandSettings';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
 import Experience from '@/pages/Experience';
@@ -69,7 +68,6 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<HomeRouter />} />
         <Route path="/band/calendar" element={<BandCalendar />} />
         <Route path="/band/cockpit" element={<BandCockpit />} />
-        <Route path="/band/settings" element={<BandSettings />} />
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />
