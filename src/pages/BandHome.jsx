@@ -5,49 +5,57 @@ import { Link2, MapPin, Calendar, CalendarDays, Plus } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useToast } from "@/components/ui/use-toast";
 
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
-  const { toast } = useToast();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const handleRequestEngineer = () => {
-    toast({ title: "Coming soon", description: "Requesting an engineer directly will be available soon." });
-  };
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data: links, error } = await supabase
+      // Events this account created and owns directly.
+      const { data: owned } = await supabase
+        .from("shows")
+        .select("*")
+        .eq("owner_id", user.id)
+        .order("date", { ascending: true });
+
+      // Events someone else created and shared with this account.
+      const { data: links } = await supabase
         .from("linked_gigs")
         .select("share_token, linked_at")
         .eq("user_id", user.id)
         .eq("archived", false)
         .order("linked_at", { ascending: false });
 
-      if (error || !links) {
-        console.error(error);
-        setLoading(false);
-        return;
+      let linkedGigs = [];
+      if (links) {
+        const details = await Promise.all(
+          links.map(async (link) => {
+            const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+            return data ? { ...data, share_token: link.share_token, is_owned: false } : null;
+          })
+        );
+        linkedGigs = details.filter(Boolean);
       }
 
-      const details = await Promise.all(
-        links.map(async (link) => {
-          const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
-          return data ? { ...data, share_token: link.share_token } : null;
-        })
-      );
-
-      setGigs(details.filter(Boolean));
+      const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true }));
+      setGigs([...ownedGigs, ...linkedGigs]);
       setLoading(false);
     };
     load();
   }, []);
+
+  const openGig = (g) => {
+    if (g.is_owned) navigate(`/show/${g.id}`);
+    else navigate(`/gig/shared?token=${g.share_token}`);
+  };
+
+  const handleCreateEvent = () => navigate("/show/new");
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -86,7 +94,7 @@ export default function BandHome() {
           <h1 className="text-white font-bold text-lg">
             Show<span className="text-[#8CFF3D]">Pilot</span>
           </h1>
-          <button onClick={handleRequestEngineer} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
+          <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
             <Plus className="w-5 h-5" />
           </button>
         </div>
@@ -106,14 +114,15 @@ export default function BandHome() {
               {thisWeekGigs.map((g) => {
                 const d = new Date(g.date + "T00:00:00");
                 const title = g.event_name || g.band_name || "Untitled Gig";
+                const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                 return (
                   <button
-                    key={g.share_token}
-                    onClick={() => navigate(`/gig/shared?token=${g.share_token}`)}
+                    key={g.is_owned ? g.id : g.share_token}
+                    onClick={() => openGig(g)}
                     className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0 text-left"
-                    style={{ backgroundColor: "#F472B61a", borderLeft: "2px solid #F472B6" }}
+                    style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
                   >
-                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color: "#F472B6" }}>{title}</span>
+                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color }}>{title}</span>
                     <span className="text-[9px] text-white/40">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                   </button>
                 );
@@ -136,7 +145,7 @@ export default function BandHome() {
         ) : gigs.length === 0 ? (
           <div className="text-center py-16 bg-[#111] rounded-2xl border border-[#222]">
             <button
-              onClick={handleRequestEngineer}
+              onClick={handleCreateEvent}
               className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group"
             >
               <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
@@ -148,13 +157,19 @@ export default function BandHome() {
             {gigs.map((g) => {
               const title = g.event_name || g.band_name || "Untitled Gig";
               const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+              const accent = g.is_owned ? "#8CFF3D" : "#F472B6";
               return (
                 <button
-                  key={g.share_token}
-                  onClick={() => navigate(`/gig/shared?token=${g.share_token}`)}
-                  className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl p-4 hover:border-[#8CFF3D]/40 transition-colors"
+                  key={g.is_owned ? g.id : g.share_token}
+                  onClick={() => openGig(g)}
+                  className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl p-4 hover:border-white/20 transition-colors"
                 >
-                  <p className="text-white font-semibold text-sm truncate">{title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
+                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                      {g.is_owned ? "Yours" : "Linked"}
+                    </span>
+                  </div>
                   {location && (
                     <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
                       <MapPin className="w-3 h-3 shrink-0" />
