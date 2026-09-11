@@ -7,14 +7,29 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
-const ROLE_OPTIONS = [
-  { value: "engineer", label: "Audio Engineer", enabled: true },
-  { value: "band", label: "Band / Act Manager", enabled: true },
-  { value: "venue", label: "Venue", enabled: false },
-  { value: "promoter", label: "Promoter", enabled: false },
-  { value: "booking_agent", label: "Booking Agent", enabled: false },
-  { value: "manager", label: "Manager", enabled: false },
-  { value: "lighting", label: "Lighting Tech", enabled: false },
+const ROLE_GROUPS = [
+  {
+    label: "Event Hosts",
+    roles: [
+      { value: "venue", label: "Venue" },
+      { value: "promoter", label: "Promoter" },
+    ],
+  },
+  {
+    label: "Artist Side",
+    roles: [
+      { value: "booking_agent", label: "Booking Agent" },
+      { value: "manager", label: "Manager" },
+      { value: "band", label: "Band / Act Manager" },
+    ],
+  },
+  {
+    label: "Technical Production",
+    roles: [
+      { value: "engineer", label: "Audio Engineer" },
+      { value: "lighting", label: "Lighting Tech" },
+    ],
+  },
 ];
 
 export default function Register() {
@@ -80,28 +95,29 @@ export default function Register() {
         </h1>
         <p className="text-white/40 text-center text-sm mb-8">Create your account</p>
 
-        <div className="mb-6">
-          <Label className="text-white/50 text-xs mb-2 block">I am a...</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {ROLE_OPTIONS.map((role) => (
-              <button
-                key={role.value}
-                type="button"
-                disabled={!role.enabled}
-                onClick={() => role.enabled && setAccountType(role.value)}
-                className={`text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${
-                  !role.enabled
-                    ? "border-[#222] text-white/20 cursor-not-allowed"
-                    : accountType === role.value
-                    ? "border-[#8CFF3D] bg-[#8CFF3D]/10 text-[#8CFF3D] font-medium"
-                    : "border-[#2a2a2a] text-white/60 hover:border-[#3a3a3a] hover:text-white/80"
-                }`}
-              >
-                {role.label}
-                {!role.enabled && <span className="block text-[10px] text-white/15 mt-0.5">Coming soon</span>}
-              </button>
-            ))}
-          </div>
+        <div className="mb-6 space-y-4">
+          <Label className="text-white/50 text-xs block">I am a...</Label>
+          {ROLE_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-white/30 text-[10px] uppercase tracking-widest font-semibold mb-1.5">{group.label}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {group.roles.map((role) => (
+                  <button
+                    key={role.value}
+                    type="button"
+                    onClick={() => setAccountType(role.value)}
+                    className={`text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${
+                      accountType === role.value
+                        ? "border-[#8CFF3D] bg-[#8CFF3D]/10 text-[#8CFF3D] font-medium"
+                        : "border-[#2a2a2a] text-white/60 hover:border-[#3a3a3a] hover:text-white/80"
+                    }`}
+                  >
+                    {role.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -3,10 +3,13 @@ import { usePreferences } from "@/hooks/usePreferences";
 import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
 
-// Routes to the right home screen based on account type. Defaults to the
-// existing Engineer Home for every case except an explicit "band" type -
-// including while loading, if preferences fail to load, or for any legacy/
-// unset account - so existing engineer users see zero behavior change.
+// Routes to the right home screen based on account type. Every non-engineer
+// profile type shares the same base "linked shows" home experience for now
+// (built out for Band first) - specialized per-profile features come later.
+// Defaults to the existing Engineer Home for every case except an explicit
+// non-engineer type - including while loading, if preferences fail to load,
+// or for any legacy/unset account - so existing engineer users see zero
+// behavior change.
 export default function HomeRouter() {
   const { preferences, loading } = usePreferences();
 
@@ -18,7 +21,7 @@ export default function HomeRouter() {
     );
   }
 
-  if (preferences?.account_type === "band") {
+  if (preferences?.account_type && preferences.account_type !== "engineer") {
     return <BandHome />;
   }
 
