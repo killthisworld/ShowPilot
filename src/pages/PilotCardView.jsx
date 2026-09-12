@@ -262,7 +262,7 @@ export default function PilotCardView() {
                 className="text-xs flex items-center gap-1.5 opacity-90 hover:opacity-100 hover:underline w-fit"
                 style={{ color: textColor }}
               >
-                <ExternalLink className="w-3 h-3 shrink-0" /> {card.custom_link_label || card.custom_link_url}
+                <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
               </a>
             )}
           </div>
