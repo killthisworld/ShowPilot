@@ -6,19 +6,23 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
 
+const TABS = [
+  { id: "recent", label: "Recent" },
+  { id: "linked", label: "Linked" },
+  { id: "starred", icon: true },
+];
+
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [starredOnly, setStarredOnly] = useState(false);
-  const [userId, setUserId] = useState(null);
+  const [activeTab, setActiveTab] = useState("recent");
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
-      setUserId(user.id);
 
       const { data: owned } = await supabase
         .from("shows")
@@ -33,6 +37,16 @@ export default function BandHome() {
         .eq("archived", false)
         .order("linked_at", { ascending: false });
 
+      // Which of this account's own events have been shared with anyone
+      // else - these belong in "Linked" too, since sharing is a two-way
+      // relationship, not just something that happens to other people's
+      // events.
+      const { data: sentInvites } = await supabase
+        .from("gig_invites")
+        .select("show_id")
+        .eq("created_by", user.id);
+      const sharedShowIds = new Set((sentInvites || []).map((i) => i.show_id));
+
       let linkedGigs = [];
       if (links) {
         const details = await Promise.all(
@@ -44,7 +58,7 @@ export default function BandHome() {
         linkedGigs = details.filter(Boolean);
       }
 
-      const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true }));
+      const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));
       setGigs([...ownedGigs, ...linkedGigs]);
       setLoading(false);
     };
@@ -56,30 +70,16 @@ export default function BandHome() {
     else navigate(`/gig/shared?token=${g.share_token}`);
   };
 
-  const gigKey = (g) => (g.is_owned ? `owned:${g.id}` : `linked:${g.share_token}`);
-
-  const toggleStar = async (e, g) => {
-    e.stopPropagation();
-    const newVal = !g.starred;
-    const key = gigKey(g);
-    setGigs((prev) => prev.map((x) => gigKey(x) === key ? { ...x, starred: newVal } : x));
-    try {
-      if (g.is_owned) {
-        await supabase.from("shows").update({ starred: newVal }).eq("id", g.id);
-      } else if (userId) {
-        await supabase.from("linked_gigs").update({ starred: newVal }).eq("user_id", userId).eq("show_id", g.id);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleCreateEvent = () => navigate("/show/new");
 
-  const visibleGigs = useMemo(
-    () => (starredOnly ? gigs.filter((g) => g.starred) : gigs),
-    [gigs, starredOnly]
-  );
+  const visibleGigs = useMemo(() => {
+    if (activeTab === "starred") return gigs.filter((g) => g.starred);
+    if (activeTab === "linked") return gigs.filter((g) => !g.is_owned || g.is_shared_by_me);
+    // "recent" - everything happening in the current calendar month
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return gigs.filter((g) => g.date && g.date.slice(0, 7) === monthKey);
+  }, [gigs, activeTab]);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -159,17 +159,25 @@ export default function BandHome() {
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
-          <button
-            onClick={() => setStarredOnly((v) => !v)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
-              starredOnly
-                ? "border-amber-400/50 bg-amber-400/10 text-amber-400"
-                : "border-[#2a2a2a] text-white/40 hover:border-[#3a3a3a] hover:text-white/60"
-            }`}
-          >
-            <Star className="w-3.5 h-3.5" fill={starredOnly ? "currentColor" : "none"} />
-            Starred
-          </button>
+          <div className="flex gap-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? "border-[#8CFF3D]/50 bg-[#8CFF3D]/10 text-[#8CFF3D]"
+                    : "border-[#2a2a2a] text-white/40 hover:border-[#3a3a3a] hover:text-white/60"
+                }`}
+              >
+                {tab.icon ? (
+                  <Star className="w-3.5 h-3.5" fill={activeTab === tab.id ? "currentColor" : "none"} />
+                ) : (
+                  tab.label
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
@@ -178,10 +186,15 @@ export default function BandHome() {
           </div>
         ) : visibleGigs.length === 0 ? (
           <div className="text-center py-16 bg-[#111] rounded-2xl border border-[#222]">
-            {starredOnly ? (
+            {activeTab === "starred" ? (
               <>
                 <Star className="w-8 h-8 text-white/20 mx-auto mb-3" />
                 <p className="text-white/40 text-sm">No starred shows yet</p>
+              </>
+            ) : activeTab === "linked" ? (
+              <>
+                <Link2 className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                <p className="text-white/40 text-sm">No linked shows yet</p>
               </>
             ) : (
               <>
@@ -191,7 +204,7 @@ export default function BandHome() {
                 >
                   <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
                 </button>
-                <p className="text-white/40 text-sm">No shows yet</p>
+                <p className="text-white/40 text-sm">No shows this month</p>
               </>
             )}
           </div>
@@ -208,12 +221,7 @@ export default function BandHome() {
                   className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl p-4 hover:border-white/20 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => toggleStar(e, g)}
-                      className={`shrink-0 ${g.starred ? "text-amber-400" : "text-white/20 hover:text-white/40"}`}
-                    >
-                      <Star className="w-4 h-4" fill={g.starred ? "currentColor" : "none"} />
-                    </button>
+                    {g.starred && <Star className="w-4 h-4 text-amber-400 shrink-0" fill="currentColor" />}
                     <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
                     <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
                       {!g.is_owned && <Link2 className="w-2.5 h-2.5" />}
