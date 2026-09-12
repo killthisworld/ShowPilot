@@ -7,9 +7,9 @@ import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const TABS = [
-  { id: "recent", label: "Recent" },
-  { id: "linked", label: "Linked" },
-  { id: "starred", icon: true },
+  { id: "recent", label: "Recent", color: "#8CFF3D" },
+  { id: "linked", label: "Linked", color: "#F472B6" },
+  { id: "starred", icon: true, color: "#FBBF24" },
 ];
 
 export default function BandHome() {
@@ -160,23 +160,27 @@ export default function BandHome() {
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
           <div className="flex gap-1">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? "border-[#8CFF3D]/50 bg-[#8CFF3D]/10 text-[#8CFF3D]"
-                    : "border-[#2a2a2a] text-white/40 hover:border-[#3a3a3a] hover:text-white/60"
-                }`}
-              >
-                {tab.icon ? (
-                  <Star className="w-3.5 h-3.5" fill={activeTab === tab.id ? "currentColor" : "none"} />
-                ) : (
-                  tab.label
-                )}
-              </button>
-            ))}
+            {TABS.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-medium"
+                  style={
+                    active
+                      ? { borderColor: tab.color + "80", backgroundColor: tab.color + "1a", color: tab.color }
+                      : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.4)" }
+                  }
+                >
+                  {tab.icon ? (
+                    <Star className="w-3.5 h-3.5" fill={active ? "currentColor" : "none"} />
+                  ) : (
+                    tab.label
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
