@@ -465,7 +465,7 @@ export default function Logbook() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-white font-bold text-xl">{selectedShow.band_name || selectedShow.event_name || "Untitled"}</h2>
+                  <h2 className="text-white font-bold text-xl">{selectedShow.event_name || selectedShow.band_name || "Untitled"}</h2>
                   {selectedShow.is_linked && (
                     <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-full shrink-0">
                       <Link2 className="w-3 h-3" /> Linked
