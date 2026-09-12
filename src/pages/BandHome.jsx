@@ -138,7 +138,6 @@ export default function BandHome() {
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <Link2 className="w-4 h-4 text-[#8CFF3D]" />
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
         </div>
 
@@ -170,7 +169,8 @@ export default function BandHome() {
                 >
                   <div className="flex items-center gap-2">
                     <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
-                    <span className="text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                    <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                      {!g.is_owned && <Link2 className="w-2.5 h-2.5" />}
                       {g.is_owned ? "Yours" : "Linked"}
                     </span>
                   </div>
