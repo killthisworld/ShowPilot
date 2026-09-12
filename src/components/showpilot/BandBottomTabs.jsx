@@ -5,7 +5,7 @@ import { Home, CalendarDays, PlaneTakeoff } from "lucide-react";
 const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/band/calendar", label: "Calendar", icon: CalendarDays },
-  { path: "/band/cockpit", label: "Cockpit", icon: PlaneTakeoff },
+  { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
 export default function BandBottomTabs() {

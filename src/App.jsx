@@ -14,7 +14,6 @@ import ResetPassword from '@/pages/ResetPassword';
 import Home from '@/pages/Home';
 import HomeRouter from '@/pages/HomeRouter';
 import BandCalendar from '@/pages/BandCalendar';
-import BandCockpit from '@/pages/BandCockpit';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
 import Experience from '@/pages/Experience';
@@ -67,7 +66,6 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route path="/" element={<HomeRouter />} />
         <Route path="/band/calendar" element={<BandCalendar />} />
-        <Route path="/band/cockpit" element={<BandCockpit />} />
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />

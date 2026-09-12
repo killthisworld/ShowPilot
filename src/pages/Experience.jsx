@@ -55,6 +55,9 @@ const formatPhoneNumber = (value) => {
 
 export default function Cockpit() {
   const { preferences, reload } = usePreferences();
+  // "My Pilot" is the engineer/lighting framing; other profile types get a
+  // more natural label for the same underlying digital-card feature.
+  const pilotTabLabel = preferences?.account_type === "band" ? "My Band" : "My Pilot";
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -234,11 +237,22 @@ export default function Cockpit() {
       setLoadingLogbookTab(true);
       Promise.all([
         supabase.from("shows").select("date").eq("owner_id", user.id).eq("done", true),
+        // Linked gigs (shows someone else owns, shared with this account) also
+        // belong in the logbook - important for account types whose logbook is
+        // mostly or entirely gigs they were linked to rather than shows they
+        // own outright.
+        supabase.from("linked_gigs").select("shows(date, done)").eq("user_id", user.id).eq("archived", false),
         supabase.from("user_preferences").select("logbook_bio").eq("user_id", user.id).maybeSingle(),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id).eq("month_key", "__cover__").maybeSingle(),
-      ]).then(([showsRes, bioRes, coverRes]) => {
+      ]).then(([showsRes, linkedRes, bioRes, coverRes]) => {
         if (showsRes.error) console.error(showsRes.error);
-        const months = [...new Set((showsRes.data || []).map((s) => s.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
+        if (linkedRes.error) console.error(linkedRes.error);
+        const ownedDates = (showsRes.data || []).map((s) => s.date);
+        const linkedDates = (linkedRes.data || [])
+          .map((l) => l.shows)
+          .filter((s) => s && s.done)
+          .map((s) => s.date);
+        const months = [...new Set([...ownedDates, ...linkedDates].map((d) => d?.slice(0, 7)).filter(Boolean))].sort().reverse();
         setLogbookMonths(months);
         setSelectedLogbookMonth((prev) => prev || months[0] || "");
         setLogbookBio(bioRes.data?.logbook_bio || "");
@@ -650,7 +664,7 @@ export default function Cockpit() {
               }}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === t.id ? "bg-[#8CFF3D] text-black" : "bg-[#161616] text-white/40"}`}
             >
-              {t.label}
+              {t.id === "pilot" ? pilotTabLabel : t.label}
             </button>
           ))}
         </div>
