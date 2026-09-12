@@ -699,7 +699,7 @@ export default function Cockpit() {
                 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                {draft.card_bg_image_url && (
+                {draft.card_bg_image_url ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); update("card_bg_image_url", ""); }}
                     className="absolute top-3 right-3 z-20 w-6 h-6 rounded-full bg-black/50 text-white/80 hover:text-white hover:bg-black/70 flex items-center justify-center text-xs"
@@ -707,6 +707,12 @@ export default function Cockpit() {
                   >
                     ✕
                   </button>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-12 h-12 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center">
+                      <Plus className="w-6 h-6 text-white/50" />
+                    </div>
+                  </div>
                 )}
                 <div className="relative z-10 flex items-center gap-3 mb-3">
                   <div
@@ -793,6 +799,18 @@ export default function Cockpit() {
                   <Label className="text-white/50 text-xs">Contact Phone</Label>
                   <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", formatPhoneNumber(e.target.value))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
+                {preferences?.account_type === "band" && (
+                  <>
+                    <div>
+                      <Label className="text-white/50 text-xs">Link Label</Label>
+                      <Input value={draft.custom_link_label || ""} onChange={(e) => update("custom_link_label", e.target.value)} placeholder="e.g. Spotify, Website, Instagram" className="mt-1 bg-[#111] border-[#222] text-white" />
+                    </div>
+                    <div>
+                      <Label className="text-white/50 text-xs">Link URL</Label>
+                      <Input value={draft.custom_link_url || ""} onChange={(e) => update("custom_link_url", e.target.value)} placeholder="https://..." className="mt-1 bg-[#111] border-[#222] text-white" />
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
                 </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft, ExternalLink } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import { Button } from "@/components/ui/button";
@@ -252,6 +252,18 @@ export default function PilotCardView() {
               <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
                 <Phone className="w-3 h-3 shrink-0" /> {card.contact_phone}
               </p>
+            )}
+            {card.custom_link_url && (
+              <a
+                href={card.custom_link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs flex items-center gap-1.5 opacity-90 hover:opacity-100 hover:underline w-fit"
+                style={{ color: textColor }}
+              >
+                <ExternalLink className="w-3 h-3 shrink-0" /> {card.custom_link_label || card.custom_link_url}
+              </a>
             )}
           </div>
         </div>
