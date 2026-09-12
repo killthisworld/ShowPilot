@@ -86,7 +86,9 @@ export default function ShowDetail() {
     }
   }
 
-  const backTo = location.state?.from === "calendar" ? "/calendar" : "/";
+  const backTo = location.state?.from === "calendar"
+    ? (isTechProductionAccount ? "/calendar" : "/band/calendar")
+    : "/";
 
   const emptyShow = {
     venue: "", date: location.state?.prefillDate || "", city: "", state: "", event_time: "",
@@ -831,16 +833,14 @@ export default function ShowDetail() {
             <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
               <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
-            {!isNew && (
-              <InviteSheet
-                showId={id}
-                trigger={
-                  <button className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Invite">
-                    <Mail className="w-4 h-4" />
-                  </button>
-                }
-              />
-            )}
+            <InviteSheet
+              showId={isNew ? null : id}
+              trigger={
+                <button className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Invite">
+                  <Mail className="w-4 h-4" />
+                </button>
+              }
+            />
             {!isNew && (
               <button onClick={handleDelete} className="p-2 rounded-lg transition-colors text-red-400/60 hover:text-red-400">
                 <Trash2 className="w-4 h-4" />

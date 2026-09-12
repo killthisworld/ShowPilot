@@ -9,6 +9,12 @@ import { clearNewShowDraft } from "@/hooks/usePersistedState";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
+const GOLD = "#FBBF24";
+
+function getGigColor(g) {
+  if (g.starred) return GOLD;
+  return g.is_owned ? GREEN : PINK;
+}
 
 export default function BandCalendar() {
   const navigate = useNavigate();
@@ -30,7 +36,7 @@ export default function BandCalendar() {
 
       const { data: links } = await supabase
         .from("linked_gigs")
-        .select("share_token")
+        .select("share_token, starred")
         .eq("user_id", user.id)
         .eq("archived", false);
 
@@ -39,7 +45,7 @@ export default function BandCalendar() {
         const details = await Promise.all(
           links.map(async (link) => {
             const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
-            return data ? { ...data, share_token: link.share_token, is_owned: false } : null;
+            return data ? { ...data, share_token: link.share_token, is_owned: false, starred: link.starred } : null;
           })
         );
         linkedGigs = details.filter(Boolean);
@@ -94,6 +100,16 @@ export default function BandCalendar() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
+        <div className="flex items-center gap-3 px-4 pb-2.5 max-w-lg mx-auto">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: GOLD }} />
+            <span className="text-[11px] text-white/40">Starred</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PINK }} />
+            <span className="text-[11px] text-white/40">Linked</span>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -135,7 +151,7 @@ export default function BandCalendar() {
                     </span>
                   </div>
                   {dayGigs.slice(0, 1).map((g) => {
-                    const color = g.is_owned ? GREEN : PINK;
+                    const color = getGigColor(g);
                     return (
                       <div key={g.is_owned ? g.id : g.share_token} className="w-full mt-1 px-1.5 pb-1">
                         <div className="rounded-md px-1.5 py-1 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
@@ -169,7 +185,7 @@ export default function BandCalendar() {
               {(gigsByDate[dayModalKey] || []).map((g) => {
                 const title = g.event_name || g.band_name || "Untitled Gig";
                 const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-                const color = g.is_owned ? GREEN : PINK;
+                const color = getGigColor(g);
                 return (
                   <button key={g.is_owned ? g.id : g.share_token} onClick={() => openGig(g)} className="w-full text-left">
                     <div className="bg-[#111] rounded-xl border border-[#222] p-3 flex items-center gap-3 hover:bg-[#1a1a1a] transition-colors">

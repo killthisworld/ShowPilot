@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Check, Copy, ArrowLeft } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
+import { useToast } from "@/components/ui/use-toast";
 
 const ROLE_OPTIONS = [
   { value: "venue", label: "Venue" },
@@ -16,6 +17,7 @@ const ROLE_OPTIONS = [
 ];
 
 export default function InviteSheet({ showId, trigger }) {
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [labels, setLabels] = useState({});
@@ -72,7 +74,17 @@ export default function InviteSheet({ showId, trigger }) {
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(v) => {
+        if (v && !showId) {
+          toast({ title: "Nothing to share", description: "Fill in and save the event before inviting anyone." });
+          return;
+        }
+        setOpen(v);
+        if (!v) reset();
+      }}
+    >
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent side="bottom" className="bg-[#111] border-[#222] rounded-t-2xl max-h-[85vh] overflow-y-auto">
         <div className="p-5 max-w-lg mx-auto">
