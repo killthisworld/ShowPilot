@@ -823,6 +823,9 @@ export default function Cockpit() {
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
                 </div>
+                <div className="flex items-center gap-2">
+                  <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
+                </div>
                 <div className="pt-2 border-t border-[#222]">
                   <Label className="text-white/50 text-xs block mb-2">Page Background (behind your shared card)</Label>
                   <div className="flex items-center gap-2 mb-2">
@@ -857,9 +860,6 @@ export default function Cockpit() {
                       if (file) uploadPageBackground(file);
                     }}
                   />
-                </div>
-                <div className="flex items-center gap-2">
-                  <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
                 </div>
               </div>
             )}
