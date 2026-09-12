@@ -77,6 +77,7 @@ export default function Cockpit() {
   const photoInputRef = useRef(null);
   const settingsPhotoInputRef = useRef(null);
   const bgInputRef = useRef(null);
+  const pageBgInputRef = useRef(null);
   const walletIconInputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
   const [cropTarget, setCropTarget] = useState(null);
@@ -503,6 +504,20 @@ export default function Cockpit() {
     }
   };
 
+  const uploadPageBackground = async (file) => {
+    if (!user) return;
+    try {
+      const filePath = `${user.id}/${Date.now()}_page_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("card-backgrounds").upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("card-backgrounds").getPublicUrl(filePath);
+      update("page_bg_image_url", urlData.publicUrl);
+    } catch (e) {
+      console.error(e);
+      showPill("Error uploading page background");
+    }
+  };
+
   const handleFileSelected = (e, target) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -807,6 +822,41 @@ export default function Cockpit() {
                 )}
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
+                </div>
+                <div className="pt-2 border-t border-[#222]">
+                  <Label className="text-white/50 text-xs block mb-2">Page Background (behind your shared card)</Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ColorPicker value={draft.page_bg_color || "#0d0d0d"} onChange={(c) => update("page_bg_color", c)} label="Color" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => pageBgInputRef.current?.click()}
+                      className="text-xs font-semibold text-[#8CFF3D] hover:bg-[#8CFF3D]/10 px-3 py-1.5 rounded-lg border border-[#8CFF3D]/30"
+                    >
+                      {draft.page_bg_image_url ? "Change Image" : "Upload Image"}
+                    </button>
+                    {draft.page_bg_image_url && (
+                      <button
+                        type="button"
+                        onClick={() => update("page_bg_image_url", "")}
+                        className="text-xs text-white/40 hover:text-red-400"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={pageBgInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) uploadPageBackground(file);
+                    }}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />

@@ -126,8 +126,8 @@ export default function PilotCardView() {
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
       style={{
-        backgroundColor: "#0d0d0d",
-        backgroundImage: "url(/pilot-card-bg.png)",
+        backgroundColor: card.page_bg_color || "#0d0d0d",
+        backgroundImage: card.page_bg_image_url ? `url(${card.page_bg_image_url})` : "url(/pilot-card-bg.png)",
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
