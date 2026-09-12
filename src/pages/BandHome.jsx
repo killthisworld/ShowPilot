@@ -56,10 +56,13 @@ export default function BandHome() {
     else navigate(`/gig/shared?token=${g.share_token}`);
   };
 
+  const gigKey = (g) => (g.is_owned ? `owned:${g.id}` : `linked:${g.share_token}`);
+
   const toggleStar = async (e, g) => {
     e.stopPropagation();
     const newVal = !g.starred;
-    setGigs((prev) => prev.map((x) => x === g ? { ...x, starred: newVal } : x));
+    const key = gigKey(g);
+    setGigs((prev) => prev.map((x) => gigKey(x) === key ? { ...x, starred: newVal } : x));
     try {
       if (g.is_owned) {
         await supabase.from("shows").update({ starred: newVal }).eq("id", g.id);
@@ -158,10 +161,14 @@ export default function BandHome() {
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
           <button
             onClick={() => setStarredOnly((v) => !v)}
-            className={`p-1.5 rounded-lg transition-colors ${starredOnly ? "text-amber-400" : "text-white/30 hover:text-white/50"}`}
-            title={starredOnly ? "Showing starred only" : "Show starred only"}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${
+              starredOnly
+                ? "border-amber-400/50 bg-amber-400/10 text-amber-400"
+                : "border-[#2a2a2a] text-white/40 hover:border-[#3a3a3a] hover:text-white/60"
+            }`}
           >
-            <Star className="w-4 h-4" fill={starredOnly ? "currentColor" : "none"} />
+            <Star className="w-3.5 h-3.5" fill={starredOnly ? "currentColor" : "none"} />
+            Starred
           </button>
         </div>
 

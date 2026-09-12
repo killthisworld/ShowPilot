@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 
 const ROLE_COLORS = {
@@ -16,21 +17,58 @@ const ROLE_COLORS = {
 const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
+// A card wrapper for each role-owned section. Shows a lock indicator when
+// the section is claimed by a role the current viewer doesn't hold.
+function SectionCard({ title, icon: Icon, locked, children }) {
+  return (
+    <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-[#8CFF3D]" />
+          <p className="text-white font-semibold text-sm">{title}</p>
+        </div>
+        {locked && (
+          <span className="flex items-center gap-1 text-[10px] text-white/30">
+            <Lock className="w-3 h-3" /> Locked to another profile
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, editable, placeholder, type = "text" }) {
+  return (
+    <div>
+      <Label className="text-white/50 text-xs">{label}</Label>
+      {editable ? (
+        <Input
+          type={type}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="mt-1 bg-[#111] border-[#222] text-white"
+        />
+      ) : (
+        <p className="mt-1 text-white/70 text-sm min-h-[20px]">{value || <span className="text-white/25">Not filled in yet</span>}</p>
+      )}
+    </div>
+  );
+}
+
 export default function SharedGig() {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const urlToken = params.get("token");
   const inviteToken = params.get("invite");
-  // Invite links (?invite=...) resolve to the underlying show's normal
-  // share_token before anything else happens, so every bit of existing
-  // display/edit/save logic below can keep working exactly as it already
-  // does, unchanged, regardless of which kind of link brought someone here.
   const [resolvedToken, setResolvedToken] = useState(inviteToken ? null : urlToken);
   const currentPath = window.location.pathname + window.location.search;
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [gig, setGig] = useState(null);
+  const [permissions, setPermissions] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,7 +85,6 @@ export default function SharedGig() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Resolve an invite token to its underlying share_token first.
   useEffect(() => {
     if (!inviteToken) return;
     const resolveInvite = async () => {
@@ -71,10 +108,15 @@ export default function SharedGig() {
         return;
       }
       try {
-        const { data, error } = await supabase.rpc("get_shared_gig", { p_token: resolvedToken });
-        if (error) throw error;
-        if (!data) setNotFound(true);
-        else setGig({ ...data, bands: (data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
+        const [gigRes, permsRes] = await Promise.all([
+          supabase.rpc("get_shared_gig", { p_token: resolvedToken }),
+          supabase.rpc("get_gig_section_permissions", { p_token: resolvedToken }),
+        ]);
+        if (gigRes.error) throw gigRes.error;
+        if (!gigRes.data) { setNotFound(true); setLoading(false); return; }
+        setGig({ ...gigRes.data, bands: (gigRes.data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
+        if (permsRes.error) console.error(permsRes.error);
+        setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [] });
       } catch (e) {
         console.error(e);
         setNotFound(true);
@@ -85,6 +127,8 @@ export default function SharedGig() {
   }, [resolvedToken]);
 
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
+  const updateSection = (section, field, val) =>
+    setGig((g) => ({ ...g, [section]: { ...(g[section] || {}), [field]: val } }));
   const updateBand = (i, field, val) => {
     const bands = [...gig.bands];
     bands[i] = { ...bands[i], [field]: val };
@@ -93,11 +137,43 @@ export default function SharedGig() {
   const addBand = () => update("bands", [...(gig.bands || []), { role: "N/A", band_name: "", genre_tags: [], set_length_minutes: "", sort_order: gig.bands.length }]);
   const removeBand = (i) => update("bands", gig.bands.filter((_, idx) => idx !== i));
 
+  const canEdit = !!user;
+  const canEditSection = (section) => {
+    if (!canEdit) return false;
+    if (permissions?.is_owner) return true;
+    if (permissions?.my_roles?.includes(section)) return true;
+    return !permissions?.claimed_roles?.includes(section);
+  };
+  const isLocked = (section) => canEdit && !permissions?.is_owner && !canEditSection(section);
+
   const handleSave = async () => {
     setSaving(true);
     try {
       const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
       if (error) throw error;
+
+      const sectionSaves = [];
+      if (canEditSection("venue")) {
+        sectionSaves.push(supabase.rpc("update_gig_section", {
+          p_token: resolvedToken, p_section: "venue",
+          p_updates: {
+            venue: gig.venue, city: gig.city, state: gig.state,
+            wifi_network: gig.wifi_network, wifi_password: gig.wifi_password,
+            console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
+          },
+        }));
+      }
+      if (canEditSection("manager")) {
+        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "manager", p_updates: gig.manager_info || {} }));
+      }
+      if (canEditSection("promoter")) {
+        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "promoter", p_updates: gig.promoter_info || {} }));
+      }
+      if (canEditSection("booking_agent")) {
+        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "booking_agent", p_updates: gig.booking_agent_info || {} }));
+      }
+      const results = await Promise.all(sectionSaves);
+      results.forEach((r) => { if (r.error) console.error(r.error); });
 
       if (user && gig.id) {
         await supabase
@@ -136,9 +212,11 @@ export default function SharedGig() {
     );
   }
 
-  const canEdit = !!user;
   const title = gig.event_name || gig.band_name || "Untitled Gig";
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+  const managerInfo = gig.manager_info || {};
+  const promoterInfo = gig.promoter_info || {};
+  const bookingInfo = gig.booking_agent_info || {};
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
@@ -217,29 +295,9 @@ export default function SharedGig() {
                 <Label className="text-white/50 text-xs">Date *</Label>
                 <Input type="date" value={gig.date || ""} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
               </div>
-              <div>
-                <Label className="text-white/50 text-xs">Venue</Label>
-                <Input value={gig.venue || ""} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-white/50 text-xs">City</Label>
-                  <Input value={gig.city || ""} onChange={(e) => update("city", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
-                </div>
-                <div>
-                  <Label className="text-white/50 text-xs">State</Label>
-                  <Input value={gig.state || ""} onChange={(e) => update("state", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="State" />
-                </div>
-              </div>
             </>
           ) : (
             <>
-              {location && (
-                <div className="flex items-center gap-2 text-white/70 text-sm">
-                  <MapPin className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{location}</span>
-                </div>
-              )}
               {gig.date && (
                 <div className="flex items-center gap-2 text-white/70 text-sm">
                   <Calendar className="w-4 h-4 text-white/30 shrink-0" />
@@ -250,6 +308,69 @@ export default function SharedGig() {
             </>
           )}
         </div>
+
+        <SectionCard title="Venue Info" icon={MapPin} locked={isLocked("venue")}>
+          <Field label="Venue" value={gig.venue} onChange={(v) => update("venue", v)} editable={canEditSection("venue")} placeholder="Venue name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
+            <Field label="State" value={gig.state} onChange={(v) => update("state", v)} editable={canEditSection("venue")} placeholder="State" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="WiFi Network" value={gig.wifi_network} onChange={(v) => update("wifi_network", v)} editable={canEditSection("venue")} placeholder="Network name" />
+            <Field label="WiFi Password" value={gig.wifi_password} onChange={(v) => update("wifi_password", v)} editable={canEditSection("venue")} placeholder="Password" />
+          </div>
+          <Field label="Console" value={gig.console} onChange={(v) => update("console", v)} editable={canEditSection("venue")} placeholder="e.g. Yamaha CL5" />
+          <div>
+            <Label className="text-white/50 text-xs">Power Notes</Label>
+            {canEditSection("venue") ? (
+              <Textarea value={gig.power_notes || ""} onChange={(e) => update("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Power availability, circuits, etc." />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{gig.power_notes || <span className="text-white/25">Not filled in yet</span>}</p>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Manager" icon={User} locked={isLocked("manager")}>
+          <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={canEditSection("manager")} placeholder="Phone" />
+            <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={canEditSection("manager")} placeholder="Email" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Advancing Notes</Label>
+            {canEditSection("manager") ? (
+              <Textarea value={managerInfo.advancing_notes || ""} onChange={(e) => updateSection("manager_info", "advancing_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Load-in, soundcheck confirmed, etc." />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{managerInfo.advancing_notes || <span className="text-white/25">Not filled in yet</span>}</p>
+            )}
+          </div>
+          <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
+        </SectionCard>
+
+        <SectionCard title="Promoter" icon={Ticket} locked={isLocked("promoter")}>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={canEditSection("promoter")} placeholder="e.g. 7:00 PM" />
+            <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={canEditSection("promoter")} placeholder="e.g. 250" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Ticket Price" value={promoterInfo.ticket_price} onChange={(v) => updateSection("promoter_info", "ticket_price", v)} editable={canEditSection("promoter")} placeholder="$20" />
+            <Field label="Ticket Link" value={promoterInfo.ticket_link} onChange={(v) => updateSection("promoter_info", "ticket_link", v)} editable={canEditSection("promoter")} placeholder="URL" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Settlement Notes</Label>
+            {canEditSection("promoter") ? (
+              <Textarea value={promoterInfo.settlement_notes || ""} onChange={(e) => updateSection("promoter_info", "settlement_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Payment terms" />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{promoterInfo.settlement_notes || <span className="text-white/25">Not filled in yet</span>}</p>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Booking Agent" icon={FileSignature} locked={isLocked("booking_agent")}>
+          <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
+          <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
+          <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
+        </SectionCard>
 
         <div className="bg-[#111] rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
