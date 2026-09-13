@@ -146,7 +146,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
 
             <button
               onClick={() => { setOpen(false); navigate("/band-profile"); }}
-              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#8CFF3D]/30 transition-colors"
+              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#8CFF3D]/30 active:bg-blue-500/10 active:border-blue-400/50 transition-colors"
             >
               <Music className="w-4 h-4 text-[#8CFF3D]/70 shrink-0" />
               <div className="text-left">
