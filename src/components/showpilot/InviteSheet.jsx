@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, Check, Copy, ArrowLeft } from "lucide-react";
+import { Mail, Check, Copy, ArrowLeft, Share2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -64,6 +64,14 @@ export default function InviteSheet({ showId, trigger }) {
       setTimeout(() => setCopiedToken(null), 1500);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleShare = async (url, roleLabel) => {
+    try {
+      await navigator.share({ title: `${roleLabel} Invite`, url });
+    } catch (e) {
+      // user cancelled - nothing to do
     }
   };
 
@@ -162,6 +170,14 @@ export default function InviteSheet({ showId, trigger }) {
                       >
                         {copiedToken === inv.invite_token ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
+                      {typeof navigator !== "undefined" && navigator.share && (
+                        <button
+                          onClick={() => handleShare(inv.url, inv.roleLabel)}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

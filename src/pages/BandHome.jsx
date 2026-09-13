@@ -75,10 +75,8 @@ export default function BandHome() {
   const visibleGigs = useMemo(() => {
     if (activeTab === "starred") return gigs.filter((g) => g.starred);
     if (activeTab === "linked") return gigs.filter((g) => !g.is_owned || g.is_shared_by_me);
-    // "recent" - everything happening in the current calendar month
-    const now = new Date();
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return gigs.filter((g) => g.date && g.date.slice(0, 7) === monthKey);
+    // "recent" - everything, not just the current calendar month
+    return gigs;
   }, [gigs, activeTab]);
 
   const thisWeekGigs = useMemo(() => {
