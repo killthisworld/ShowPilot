@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
+import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import Soundwave from "@/components/showpilot/Soundwave";
@@ -1544,7 +1545,7 @@ export default function Cockpit() {
         </div>
       )}
 
-      <BottomTabs />
+      {["engineer", "lighting"].includes(preferences?.account_type || "engineer") ? <BottomTabs /> : <BandBottomTabs />}
     </div>
   );
 }
