@@ -148,6 +148,8 @@ export default function ShowDetail() {
 
   const activeBand = bands[activeBandIndex] || bands[0];
 
+  const [submitterCard, setSubmitterCard] = useState(null);
+
   useEffect(() => {
     if (!isNew) {
       const hadDraft = hadDraftRef.current;
@@ -208,6 +210,17 @@ export default function ShowDetail() {
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  useEffect(() => {
+    const submitterId = bands[activeBandIndex]?.submitter_card_user_id;
+    if (!submitterId) { setSubmitterCard(null); return; }
+    supabase
+      .from("user_preferences")
+      .select("display_name, card_share_token")
+      .eq("user_id", submitterId)
+      .maybeSingle()
+      .then(({ data }) => setSubmitterCard(data));
+  }, [bands, activeBandIndex]);
 
   const update = (field, val) => setShow((s) => ({ ...s, [field]: val }));
 
@@ -1148,6 +1161,21 @@ export default function ShowDetail() {
             <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
+          {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email) && (
+            <div className="bg-[#111] border border-[#222] rounded-xl p-3">
+              <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
+              <p className="text-white/70 text-sm">{activeBand.submitter_name || "Unnamed"}</p>
+              <p className="text-white/40 text-xs">{[activeBand.submitter_phone, activeBand.submitter_email].filter(Boolean).join(" · ")}</p>
+              {submitterCard?.card_share_token && (
+                <a href={`/pilot/${submitterCard.card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
+                  View {submitterCard.display_name || "their"} ShowPilot card
+                </a>
+              )}
+            </div>
+          )}
+          {activeBand.requested_order && (
+            <p className="text-white/30 text-xs -mt-1">Requested lineup position: #{activeBand.requested_order}</p>
+          )}
           <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
             <Input
