@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Send, CheckCircle, Music, X, Paperclip } from "lucide-react";
+import { Plus, Trash2, Send, CheckCircle, Music, X, Paperclip, User, ExternalLink } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 
 const ROLE_COLORS = {
@@ -31,7 +31,15 @@ export default function OpenerIntake() {
     general_notes: "",
     stage_plot_url: "",
     stage_plot_files: [],
+    submitter_name: "",
+    submitter_phone: "",
+    submitter_email: "",
+    submitter_card_user_id: "",
+    requested_order: "",
   });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [engineerCard, setEngineerCard] = useState(null);
+  const [shareMyCard, setShareMyCard] = useState(false);
   const [genreInput, setGenreInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -43,7 +51,7 @@ export default function OpenerIntake() {
       try {
         const { data } = await supabase
           .from("opener_requests")
-          .select("*, tour_manager_requests(band_name, venue, date, location)")
+          .select("*, tour_manager_requests(band_name, venue, date, location, engineer_user_id)")
           .eq("invite_token", token)
           .maybeSingle();
         if (data) setContext(data);
@@ -53,7 +61,27 @@ export default function OpenerIntake() {
       setLoadingView(false);
     };
     init();
+    supabase.auth.getUser().then(({ data }) => setCurrentUser(data?.user || null));
   }, [token]);
+
+  useEffect(() => {
+    const engineerUserId = context?.tour_manager_requests?.engineer_user_id;
+    if (!engineerUserId) return;
+    supabase
+      .from("user_preferences")
+      .select("display_name, job_title, profile_photo_url, card_bg_color, card_bg_image_url, card_text_color, card_share_token")
+      .eq("user_id", engineerUserId)
+      .maybeSingle()
+      .then(({ data }) => setEngineerCard(data));
+  }, [context]);
+
+  useEffect(() => {
+    if (currentUser && shareMyCard) {
+      setForm((f) => ({ ...f, submitter_card_user_id: currentUser.id }));
+    } else if (!shareMyCard) {
+      setForm((f) => ({ ...f, submitter_card_user_id: "" }));
+    }
+  }, [shareMyCard, currentUser]);
 
   const update = (field, val) => setForm((s) => ({ ...s, [field]: val }));
   const uploadFileToBucket = async (file, bucket) => {
@@ -215,6 +243,33 @@ export default function OpenerIntake() {
           Fill in your act's info below — this will be added to the gig{parent?.date ? ` on ${parent.date}` : ""}{parent?.location ? ` at ${parent.location}` : ""}. No need to re-enter venue or date details.
         </p>
 
+        {engineerCard && (
+          <a
+            href={engineerCard.card_share_token ? `/pilot/${engineerCard.card_share_token}` : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 bg-[#111] border border-[#222] rounded-2xl p-3 hover:border-[#8CFF3D]/40 transition-colors"
+          >
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center overflow-hidden shrink-0 border-2"
+              style={{ borderColor: engineerCard.card_text_color || "#8CFF3D", backgroundColor: engineerCard.card_bg_color || "#161616" }}
+            >
+              {engineerCard.profile_photo_url ? (
+                <img src={engineerCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-5 h-5" style={{ color: engineerCard.card_text_color || "#8CFF3D" }} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white text-sm font-medium truncate">{engineerCard.display_name || "Audio Engineer"}</p>
+              {engineerCard.job_title && <p className="text-white/40 text-xs truncate">{engineerCard.job_title}</p>}
+            </div>
+            <span className="flex items-center gap-1 text-[#8CFF3D] text-xs font-medium shrink-0">
+              View Card <ExternalLink className="w-3 h-3" />
+            </span>
+          </a>
+        )}
+
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">
           <div>
             <Label className="text-white/50 text-xs mb-2 block">Your Role</Label>
@@ -233,6 +288,16 @@ export default function OpenerIntake() {
                 );
               })}
             </div>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Lineup Position (if you know it)</Label>
+            <Input
+              type="number"
+              value={form.requested_order}
+              onChange={(e) => update("requested_order", e.target.value)}
+              className="mt-1 bg-[#0d0d0d] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              placeholder="e.g. 2"
+            />
           </div>
           <div>
             <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
@@ -379,6 +444,27 @@ export default function OpenerIntake() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="bg-[#111] rounded-2xl p-4 space-y-3">
+          <p className="text-white/50 text-xs">Your Contact Info <span className="text-white/30">(optional, just in case)</span></p>
+          <Input value={form.submitter_name} onChange={(e) => update("submitter_name", e.target.value)} placeholder="Your name" className="bg-[#0d0d0d] border-[#222] text-white" />
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={form.submitter_phone} onChange={(e) => update("submitter_phone", e.target.value)} placeholder="Phone" className="bg-[#0d0d0d] border-[#222] text-white" />
+            <Input value={form.submitter_email} onChange={(e) => update("submitter_email", e.target.value)} placeholder="Email" className="bg-[#0d0d0d] border-[#222] text-white" />
+          </div>
+          {currentUser && (
+            <button
+              type="button"
+              onClick={() => setShareMyCard((v) => !v)}
+              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium transition-colors ${
+                shareMyCard ? "border-[#8CFF3D]/50 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/50"
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              {shareMyCard ? "Sharing your ShowPilot card with this engineer" : "Also share your ShowPilot card"}
+            </button>
+          )}
         </div>
 
         {error && <p className="text-red-400 text-sm px-1">{error}</p>}
