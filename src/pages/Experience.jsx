@@ -58,7 +58,8 @@ export default function Cockpit() {
   const { preferences, reload } = usePreferences();
   // "My Pilot" is the engineer/lighting framing; other profile types get a
   // more natural label for the same underlying digital-card feature.
-  const pilotTabLabel = preferences?.account_type === "band" ? "My Band" : "My Pilot";
+  const PILOT_TAB_LABELS = { band: "My Band", venue: "My Venue", promoter: "My Promoter", booking_agent: "My Booking", manager: "My Manager" };
+  const pilotTabLabel = PILOT_TAB_LABELS[preferences?.account_type] || "My Pilot";
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -815,7 +816,7 @@ export default function Cockpit() {
                   <Label className="text-white/50 text-xs">Contact Phone</Label>
                   <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", formatPhoneNumber(e.target.value))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
-                {preferences?.account_type === "band" && (
+                {["band", "venue", "promoter", "booking_agent", "manager"].includes(preferences?.account_type) && (
                   <div>
                     <Label className="text-white/50 text-xs">Link URL</Label>
                     <Input value={draft.custom_link_url || ""} onChange={(e) => update("custom_link_url", e.target.value)} placeholder="https://... (website, Spotify, Instagram, etc)" className="mt-1 bg-[#111] border-[#222] text-white" />
