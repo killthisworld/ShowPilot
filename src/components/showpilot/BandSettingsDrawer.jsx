@@ -145,13 +145,13 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
             </Button>
 
             <button
-              disabled
-              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 opacity-60 cursor-not-allowed"
+              onClick={() => { setOpen(false); navigate("/band-profile"); }}
+              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#8CFF3D]/30 transition-colors"
             >
-              <Music className="w-4 h-4 text-white/30 shrink-0" />
+              <Music className="w-4 h-4 text-[#8CFF3D]/70 shrink-0" />
               <div className="text-left">
-                <p className="text-white/50 text-xs font-medium">Band Profile</p>
-                <p className="text-white/25 text-[10px]">Reusable tech rider & stage plot — coming soon</p>
+                <p className="text-white text-xs font-medium">Band Profile</p>
+                <p className="text-white/40 text-[10px]">Save your info once, load it into any intake form</p>
               </div>
             </button>
 

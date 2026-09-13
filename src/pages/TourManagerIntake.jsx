@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Send, CheckCircle, Music, Users, Wifi, Save, X, Paperclip, User, ExternalLink } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+import { useToast } from "@/components/ui/use-toast";
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
@@ -53,6 +54,44 @@ export default function TourManagerIntake() {
   const [engineerCard, setEngineerCard] = useState(null);
   const [shareMyCard, setShareMyCard] = useState(false);
   const [genreInput, setGenreInput] = useState("");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const { toast } = useToast();
+
+  const handleLoadTemplate = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const path = window.location.pathname + window.location.search;
+      try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
+      window.location.href = "/login?redirect=" + encodeURIComponent(path);
+      return;
+    }
+    setLoadingTemplate(true);
+    try {
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("band_template")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const t = data?.band_template;
+      if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
+        toast({ title: "No saved band profile yet", description: "Set one up in Settings > Band Profile." });
+      } else {
+        setForm((prev) => ({
+          ...prev,
+          band_name: t.band_name || "",
+          genre_tags: t.genre_tags || [],
+          band_members: t.band_members || [],
+          stage_plot_url: t.stage_plot_url || "",
+          stage_plot_files: t.stage_plot_files || [],
+          general_notes: t.general_notes || "",
+        }));
+        toast({ title: "Loaded your band profile" });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingTemplate(false);
+  };
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -445,6 +484,18 @@ export default function TourManagerIntake() {
               View Card <ExternalLink className="w-3 h-3" />
             </span>
           </a>
+        )}
+
+        {!isEngineer && (
+          <button
+            type="button"
+            onClick={handleLoadTemplate}
+            disabled={loadingTemplate}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] text-xs font-medium transition-colors"
+          >
+            <Music className="w-3.5 h-3.5" />
+            {loadingTemplate ? "Loading..." : "Load my band profile"}
+          </button>
         )}
 
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">

@@ -24,6 +24,7 @@ import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
+import BandProfile from '@/pages/BandProfile';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
@@ -71,6 +72,7 @@ const AuthenticatedApp = () => {
         <Route path="/experience" element={<Experience />} />
         <Route path="/archived" element={<ArchivedShows />} />
         <Route path="/manager-links" element={<ManagerLinksPage />} />
+        <Route path="/band-profile" element={<BandProfile />} />
         <Route path="/logbook" element={<Logbook />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
