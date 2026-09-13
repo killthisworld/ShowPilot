@@ -67,14 +67,7 @@ function getMemberNote(fxNotes, name) {
 }
 
 function BandDetails({ band, editable, onUpdate }) {
-  const [expandedNotes, setExpandedNotes] = useState(new Set());
-  const toggleNote = (key) => {
-    setExpandedNotes((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
+  const [noteModal, setNoteModal] = useState(null); // { label, value, onChange }
 
   const members = band.band_members || [];
   const fxNotes = band.artist_fx_notes || [];
@@ -144,6 +137,28 @@ function BandDetails({ band, editable, onUpdate }) {
 
   const stagePlotImages = [...(band.stage_plot_url ? [{ url: band.stage_plot_url, type: "image/" }] : []), ...stagePlotFiles];
 
+  const noteModalOverlay = noteModal && (
+    <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={() => setNoteModal(null)}>
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 p-4 border-b border-[#222] shrink-0">
+          <button onClick={() => setNoteModal(null)} className="text-white/50 hover:text-white p-1.5 -ml-1.5 rounded-lg hover:bg-white/5">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <p className="text-white font-semibold text-sm">{noteModal.label}</p>
+        </div>
+        <div className="p-4 overflow-y-auto">
+          <Textarea
+            value={noteModal.value}
+            onChange={noteModal.onChange ? (e) => noteModal.onChange(e.target.value) : undefined}
+            readOnly={!noteModal.onChange}
+            autoFocus={!!noteModal.onChange}
+            className="bg-[#111] border-[#222] text-white text-sm min-h-[220px]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   if (!editable) {
     return (
       <div className="px-3 pb-3 pt-1 space-y-3 border-t border-[#222] mt-1">
@@ -181,8 +196,8 @@ function BandDetails({ band, editable, onUpdate }) {
                     )}
                     {note && (
                       <p
-                        onClick={() => toggleNote(`ro-${mi}`)}
-                        className={`text-white/30 text-xs mt-0.5 cursor-pointer ${expandedNotes.has(`ro-${mi}`) ? "whitespace-pre-wrap" : "truncate"}`}
+                        onClick={() => setNoteModal({ label: `${m.name || "Member"} — Notes`, value: note })}
+                        className="text-white/30 text-xs mt-0.5 truncate cursor-pointer hover:text-white/50"
                       >
                         {note}
                       </p>
@@ -214,9 +229,15 @@ function BandDetails({ band, editable, onUpdate }) {
         {band.general_notes && (
           <div>
             <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
-            <p className="text-white/70 text-sm whitespace-pre-wrap">{band.general_notes}</p>
+            <p
+              onClick={() => setNoteModal({ label: "General Notes", value: band.general_notes })}
+              className="text-white/70 text-sm truncate cursor-pointer hover:text-white"
+            >
+              {band.general_notes}
+            </p>
           </div>
         )}
+        {noteModalOverlay}
       </div>
     );
   }
@@ -228,54 +249,55 @@ function BandDetails({ band, editable, onUpdate }) {
           <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
             <Users className="w-3 h-3" /> Band Members
           </p>
-          <button onClick={addMember} className="text-[#8CFF3D] text-xs hover:underline">+ Add Member</button>
+          <button onClick={addMember} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg">+ Add Member</button>
         </div>
         <div className="space-y-2">
           {members.map((m, i) => (
             <div key={i} className="bg-[#111] rounded-lg p-2 space-y-1.5">
               <div className="flex items-center gap-2">
-                <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-7 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
+                <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-9 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
                 <select
-                  value={m.bus_type || ""}
+                  value={m.bus_type || "IEM"}
                   onChange={(e) => updateMemberBusType(i, e.target.value)}
-                  className="h-7 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1 shrink-0"
+                  className="h-9 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1.5 shrink-0"
                 >
-                  <option value="">Mix Bus</option>
                   <option value="IEM">IEM</option>
                   <option value="Monitor">Monitor</option>
                 </select>
-                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400 shrink-0 p-2 -m-1"><Trash2 className="w-5 h-5" /></button>
               </div>
               {(m.instruments || []).map((inst, ii) => (
                 <div key={ii} className="flex items-center gap-1.5 pl-2">
-                  <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-6 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
+                  <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
                   <select
                     value={inst.mic_di || "Mic"}
                     onChange={(e) => updateInstrument(i, ii, "mic_di", e.target.value)}
-                    className="h-6 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1"
+                    className="h-8 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1.5"
                   >
                     <option value="Mic">Mic</option>
                     <option value="DI">DI</option>
                   </select>
                   <button
                     onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${inst.phantom_power ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "text-white/30 border border-[#333]"}`}
+                    className={`text-xs font-medium px-3 py-2 rounded shrink-0 ${inst.phantom_power ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "text-white/30 border border-[#333]"}`}
                   >
                     +48V
                   </button>
-                  <button onClick={() => removeInstrument(i, ii)} className="text-white/20 hover:text-red-400 shrink-0"><Trash2 className="w-3 h-3" /></button>
+                  <button onClick={() => removeInstrument(i, ii)} className="text-white/20 hover:text-red-400 shrink-0 p-2 -m-1"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
-              <button onClick={() => addInstrument(i)} className="text-[#8CFF3D] text-[11px] hover:underline pl-2">+ Instrument</button>
-              <div className="pl-2 pt-1">
-                <Textarea
-                  value={getMemberNote(fxNotes, m.name)}
-                  onChange={(e) => updateMemberNote(m.name, e.target.value)}
-                  onFocus={() => toggleNote(`ed-${i}`)}
-                  placeholder="Notes for this member (FX, monitor mix, etc.)"
-                  className={`bg-[#1a1a1a] border-[#222] text-white text-xs transition-all ${expandedNotes.has(`ed-${i}`) ? "min-h-[100px]" : "min-h-[32px]"}`}
-                />
-              </div>
+              <button onClick={() => addInstrument(i)} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg ml-1">+ Instrument</button>
+              <button
+                onClick={() => setNoteModal({
+                  label: `${m.name || "Member"} — Notes`,
+                  value: getMemberNote(fxNotes, m.name),
+                  onChange: (v) => updateMemberNote(m.name, v),
+                })}
+                className="w-full text-left text-white/40 text-xs bg-[#1a1a1a] border border-[#222] rounded-lg px-3 py-2.5 hover:border-[#8CFF3D]/40 hover:text-white/60 truncate ml-2"
+                style={{ width: "calc(100% - 0.5rem)" }}
+              >
+                {getMemberNote(fxNotes, m.name) || "Add notes for this member (FX, monitor mix, etc.)"}
+              </button>
             </div>
           ))}
         </div>
@@ -286,7 +308,7 @@ function BandDetails({ band, editable, onUpdate }) {
           <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
             <ImageIcon className="w-3 h-3" /> Stage Plot
           </p>
-          <label className="text-[#8CFF3D] text-xs hover:underline cursor-pointer">
+          <label className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg cursor-pointer">
             + Upload
             <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleUpload} />
           </label>
@@ -301,21 +323,23 @@ function BandDetails({ band, editable, onUpdate }) {
                   <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center text-white/40 text-[10px] p-1 text-center">{f.name}</div>
                 )}
               </a>
-              <button onClick={() => removeFile(i)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white/80 hover:text-white flex items-center justify-center text-[10px]">✕</button>
+              <button onClick={() => removeFile(i)} className="absolute -top-1.5 -right-1.5 w-7 h-7 rounded-full bg-black/70 text-white/80 hover:text-white flex items-center justify-center text-sm">✕</button>
             </div>
           ))}
         </div>
       </div>
 
-      <div>
-        <Label className="text-white/40 text-[11px] uppercase tracking-wide font-semibold">General Notes</Label>
-        <Textarea
-          value={band.general_notes || ""}
-          onChange={(e) => onUpdate("general_notes", e.target.value)}
-          onFocus={() => toggleNote("general")}
-          className={`mt-1 bg-[#111] border-[#222] text-white text-sm transition-all ${expandedNotes.has("general") ? "min-h-[120px]" : "min-h-[40px]"}`}
-        />
-      </div>
+      <button
+        onClick={() => setNoteModal({ label: "General Notes", value: band.general_notes || "", onChange: (v) => onUpdate("general_notes", v) })}
+        className="w-full text-left"
+      >
+        <Label className="text-white/40 text-[11px] uppercase tracking-wide font-semibold cursor-pointer">General Notes</Label>
+        <p className="mt-1 bg-[#111] border border-[#222] rounded-lg px-3 py-2.5 text-white/50 text-sm truncate hover:border-[#8CFF3D]/40 hover:text-white/70">
+          {band.general_notes || "Add general notes"}
+        </p>
+      </button>
+
+      {noteModalOverlay}
     </div>
   );
 }
