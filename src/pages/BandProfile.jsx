@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, Plus, Trash2, Paperclip, X, Music } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Paperclip, X, Music, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ export default function BandProfile() {
   const [saving, setSaving] = useState(false);
   const [genreInput, setGenreInput] = useState("");
   const [notesTarget, setNotesTarget] = useState("__general__");
+  const [collapsedMembers, setCollapsedMembers] = useState({});
   const [template, setTemplate] = useState({
     band_name: "",
     genre_tags: [],
@@ -198,14 +199,24 @@ export default function BandProfile() {
 
         <CollapsibleSection title="Band Members" icon={Music} badge={template.band_members.length} defaultOpen={true}>
           <div className="space-y-3 pt-3">
-            {template.band_members.map((m, i) => (
+            {template.band_members.map((m, i) => {
+              const collapsed = collapsedMembers[i];
+              const instrumentSummary = getInstruments(m).map((inst) => inst.name).filter(Boolean).join(", ");
+              return (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }))} className="p-1 -ml-1 text-white/30 hover:text-white/60 shrink-0">
+                    <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                  </button>
                   <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="flex-1 h-8 bg-transparent border-[#222] text-white text-sm" />
                   <button onClick={() => removeMember(i)} className="p-1.5 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
+                {collapsed ? (
+                  instrumentSummary && <p className="text-white/30 text-xs pl-7 truncate">{instrumentSummary}</p>
+                ) : (
+                  <>
                 <div className="space-y-2">
                   <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
                   {getInstruments(m).map((inst, ii) => (
@@ -256,8 +267,11 @@ export default function BandProfile() {
                     </button>
                   ))}
                 </div>
+                  </>
+                )}
               </div>
-            ))}
+              );
+            })}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
             </Button>

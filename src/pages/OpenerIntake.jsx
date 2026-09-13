@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Send, CheckCircle, Music, X, Paperclip, User, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Send, CheckCircle, Music, X, Paperclip, User, ExternalLink, ChevronDown } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+import { useToast } from "@/components/ui/use-toast";
 
 const ROLE_COLORS = {
   Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
@@ -41,6 +42,46 @@ export default function OpenerIntake() {
   const [engineerCard, setEngineerCard] = useState(null);
   const [shareMyCard, setShareMyCard] = useState(false);
   const [genreInput, setGenreInput] = useState("");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [collapsedMembers, setCollapsedMembers] = useState({});
+  const { toast } = useToast();
+
+  const handleLoadTemplate = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const path = window.location.pathname + window.location.search;
+      try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
+      window.location.href = "/login?redirect=" + encodeURIComponent(path);
+      return;
+    }
+    setLoadingTemplate(true);
+    try {
+      const { data } = await supabase
+        .from("user_preferences")
+        .select("band_template")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const t = data?.band_template;
+      if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
+        toast({ title: "No saved band profile yet", description: "Set one up in Settings > Band Profile." });
+      } else {
+        setForm((prev) => ({
+          ...prev,
+          band_name: t.band_name || "",
+          genre_tags: t.genre_tags || [],
+          band_members: t.band_members || [],
+          stage_plot_url: t.stage_plot_url || "",
+          stage_plot_files: t.stage_plot_files || [],
+          general_notes: t.general_notes || "",
+        }));
+        toast({ title: "Loaded your band profile" });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingTemplate(false);
+  };
+
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
@@ -51,7 +92,7 @@ export default function OpenerIntake() {
       try {
         const { data } = await supabase
           .from("opener_requests")
-          .select("*, tour_manager_requests(band_name, venue, date, location, engineer_user_id)")
+          .select("*, tour_manager_requests(band_name, event_name, venue, date, location, engineer_user_id)")
           .eq("invite_token", token)
           .maybeSingle();
         if (data) setContext(data);
@@ -243,6 +284,17 @@ export default function OpenerIntake() {
           Fill in your act's info below — this will be added to the gig{parent?.date ? ` on ${parent.date}` : ""}{parent?.location ? ` at ${parent.location}` : ""}. No need to re-enter venue or date details.
         </p>
 
+        {(parent?.event_name || parent?.date) && (
+          <div className="bg-[#8CFF3D]/10 border border-[#8CFF3D]/30 rounded-2xl px-4 py-3">
+            {parent?.event_name && <p className="text-white text-sm font-semibold">{parent.event_name}</p>}
+            {parent?.date && (
+              <p className="text-[#8CFF3D] text-xs mt-0.5">
+                {new Date(parent.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+              </p>
+            )}
+          </div>
+        )}
+
         {engineerCard && (
           <a
             href={engineerCard.card_share_token ? `/pilot/${engineerCard.card_share_token}` : undefined}
@@ -269,6 +321,16 @@ export default function OpenerIntake() {
             </span>
           </a>
         )}
+
+        <button
+          type="button"
+          onClick={handleLoadTemplate}
+          disabled={loadingTemplate}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] text-xs font-medium transition-colors"
+        >
+          <Music className="w-3.5 h-3.5" />
+          {loadingTemplate ? "Loading..." : "Load my band profile"}
+        </button>
 
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">
           <div>
@@ -335,14 +397,24 @@ export default function OpenerIntake() {
 
         <CollapsibleSection title="Band Members" icon={Music} badge={form.band_members.length} defaultOpen={true}>
           <div className="space-y-3 pt-3">
-            {form.band_members.map((m, i) => (
+            {form.band_members.map((m, i) => {
+              const collapsed = collapsedMembers[i];
+              const instrumentSummary = getInstruments(m).map((inst) => inst.name).filter(Boolean).join(", ");
+              return (
               <div key={i} className="bg-[#111] rounded-xl p-3 space-y-2">
                 <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }))} className="p-1 -ml-1 text-white/30 hover:text-white/60 shrink-0">
+                    <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                  </button>
                   <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="flex-1 h-8 bg-transparent border-[#222] text-white text-sm" />
                   <button onClick={() => removeMember(i)} className="p-1.5 text-white/30 hover:text-red-400">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
+                {collapsed ? (
+                  instrumentSummary && <p className="text-white/30 text-xs pl-7 truncate">{instrumentSummary}</p>
+                ) : (
+                  <>
                 <div className="space-y-2">
                   <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
                   {getInstruments(m).map((inst, ii) => (
@@ -393,8 +465,11 @@ export default function OpenerIntake() {
                     </button>
                   ))}
                 </div>
+                  </>
+                )}
               </div>
-            ))}
+              );
+            })}
             <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
             </Button>

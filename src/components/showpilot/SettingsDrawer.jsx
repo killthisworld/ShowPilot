@@ -70,6 +70,13 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
 
       const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
       setPrefs({ ...prefs, profile_photo_url: urlData.publicUrl });
+      const { data: updated, error: saveError } = await supabase
+        .from("user_preferences")
+        .upsert({ user_id: user.id, profile_photo_url: urlData.publicUrl }, { onConflict: "user_id" })
+        .select()
+        .single();
+      if (saveError) throw saveError;
+      onPreferencesUpdate?.(updated);
     } catch (e) {
       console.error(e);
       toast({ title: "Error uploading photo", variant: "destructive" });
