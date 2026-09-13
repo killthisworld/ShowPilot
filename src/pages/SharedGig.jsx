@@ -24,7 +24,7 @@ const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event"
 // progress (the Home page progress bar uses the same palette) so position
 // and color together become a language the user only has to learn once.
 const SECTION_COLORS = {
-  venue: "#8CFF3D",
+  venue: "#F97316",
   promoter: "#60A5FA",
   booking_agent: "#C026D3",
   manager: "#EF4444",
@@ -787,22 +787,6 @@ export default function SharedGig() {
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
         </GigSection>
 
-        <GigSection title="Audio / Lighting" icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
-          <Field label="Contact Name" value={(gig.engineer_info || {}).contact_name} onChange={(v) => updateSection("engineer_info", "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={(gig.engineer_info || {}).contact_phone} onChange={(v) => updateSection("engineer_info", "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
-            <Field label="Email" value={(gig.engineer_info || {}).contact_email} onChange={(v) => updateSection("engineer_info", "contact_email", v)} editable={canEditEngineerSection()} placeholder="Email" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Notes</Label>
-            {canEditEngineerSection() ? (
-              <Textarea value={(gig.engineer_info || {}).notes || ""} onChange={(e) => updateSection("engineer_info", "notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Gear needs, patch notes, etc." />
-            ) : (
-              <p className="mt-1 text-white/70 text-sm">{(gig.engineer_info || {}).notes || <span className="text-white/25">Not filled in yet</span>}</p>
-            )}
-          </div>
-        </GigSection>
-
         <GigSection title="Manager / Band" icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
           <div className="grid grid-cols-2 gap-3">
@@ -919,6 +903,22 @@ export default function SharedGig() {
               );
             })}
             </div>
+          </div>
+        </GigSection>
+
+        <GigSection title="Audio / Lighting" icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
+          <Field label="Contact Name" value={(gig.engineer_info || {}).contact_name} onChange={(v) => updateSection("engineer_info", "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={(gig.engineer_info || {}).contact_phone} onChange={(v) => updateSection("engineer_info", "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
+            <Field label="Email" value={(gig.engineer_info || {}).contact_email} onChange={(v) => updateSection("engineer_info", "contact_email", v)} editable={canEditEngineerSection()} placeholder="Email" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Notes</Label>
+            {canEditEngineerSection() ? (
+              <Textarea value={(gig.engineer_info || {}).notes || ""} onChange={(e) => updateSection("engineer_info", "notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Gear needs, patch notes, etc." />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{(gig.engineer_info || {}).notes || <span className="text-white/25">Not filled in yet</span>}</p>
+            )}
           </div>
         </GigSection>
 
