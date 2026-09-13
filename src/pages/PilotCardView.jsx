@@ -133,7 +133,7 @@ export default function PilotCardView() {
       }}
     >
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => { if (window.history.length > 1) navigate(-1); else navigate("/"); }}
         className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />
