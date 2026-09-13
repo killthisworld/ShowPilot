@@ -57,81 +57,226 @@ function Field({ label, value, onChange, editable, placeholder, type = "text" })
   );
 }
 
-// Read-only technical details for one act - band members and their
-// instrument/mic needs, stage plot, and any FX or general notes. This is
-// the info an audio engineer (or anyone else with access to the gig)
-// actually needs to see, distinct from the basic booking info above.
-function BandDetails({ band }) {
+// Technical details for one act - band members with per-instrument mic/DI
+// and phantom power needs, stage plot files, and per-member FX notes plus
+// general notes. Read-only for anyone without access; fully editable for
+// anyone who does, matching what the event owner can already do on their
+// own version of this show.
+function getMemberNote(fxNotes, name) {
+  return (fxNotes || []).find((n) => n.artist_name === name)?.notes || "";
+}
+
+function BandDetails({ band, editable, onUpdate }) {
   const members = band.band_members || [];
-  const stagePlotImages = [
-    ...(band.stage_plot_url ? [band.stage_plot_url] : []),
-    ...(band.stage_plot_files || []),
-  ];
+  const fxNotes = band.artist_fx_notes || [];
+  const stagePlotFiles = band.stage_plot_files || [];
+
+  const updateMembers = (next) => onUpdate("band_members", next);
+
+  const addMember = () => updateMembers([...members, { name: "", instruments: [] }]);
+  const updateMemberName = (i, name) => {
+    const next = [...members];
+    next[i] = { ...next[i], name };
+    updateMembers(next);
+  };
+  const removeMember = (i) => updateMembers(members.filter((_, idx) => idx !== i));
+
+  const addInstrument = (i) => {
+    const next = [...members];
+    next[i] = { ...next[i], instruments: [...(next[i].instruments || []), { name: "", mic_di: "Mic", phantom_power: false }] };
+    updateMembers(next);
+  };
+  const updateInstrument = (i, ii, field, val) => {
+    const next = [...members];
+    const instruments = [...(next[i].instruments || [])];
+    instruments[ii] = { ...instruments[ii], [field]: val };
+    next[i] = { ...next[i], instruments };
+    updateMembers(next);
+  };
+  const removeInstrument = (i, ii) => {
+    const next = [...members];
+    next[i] = { ...next[i], instruments: (next[i].instruments || []).filter((_, idx) => idx !== ii) };
+    updateMembers(next);
+  };
+
+  const updateMemberNote = (name, notes) => {
+    const existing = [...fxNotes];
+    const idx = existing.findIndex((n) => n.artist_name === name);
+    if (idx >= 0) existing[idx] = { ...existing[idx], notes };
+    else existing.push({ artist_name: name, notes });
+    onUpdate("artist_fx_notes", existing);
+  };
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const filePath = `${user.id}/${Date.now()}_${file.name}`;
+        const { error } = await supabase.storage.from("stage-plots").upload(filePath, file);
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from("stage-plots").getPublicUrl(filePath);
+        const isImage = file.type.startsWith("image/");
+        onUpdate("stage_plot_files", [...(band.stage_plot_files || []), { url: urlData.publicUrl, name: file.name, type: file.type }]);
+        if (isImage && !band.stage_plot_url) onUpdate("stage_plot_url", urlData.publicUrl);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    e.target.value = "";
+  };
+
+  const removeFile = (i) => onUpdate("stage_plot_files", stagePlotFiles.filter((_, idx) => idx !== i));
+
+  const stagePlotImages = [...(band.stage_plot_url ? [{ url: band.stage_plot_url, type: "image/" }] : []), ...stagePlotFiles];
+
+  if (!editable) {
+    return (
+      <div className="px-3 pb-3 pt-1 space-y-3 border-t border-[#222] mt-1">
+        {members.length > 0 && (
+          <div>
+            <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+              <Users className="w-3 h-3" /> Band Members
+            </p>
+            <div className="space-y-1.5">
+              {members.map((m, mi) => {
+                const note = getMemberNote(fxNotes, m.name);
+                return (
+                  <div key={mi} className="text-sm">
+                    <span className="text-white font-medium">{m.name || "Unnamed"}</span>
+                    {m.instruments && m.instruments.length > 0 && (
+                      <span className="text-white/50">
+                        {" — "}
+                        {m.instruments.map((inst, ii) => (
+                          <span key={ii}>
+                            {ii > 0 && ", "}
+                            {inst.name}
+                            {(inst.mic_di || inst.phantom_power) && (
+                              <span className="text-white/30">
+                                {" ("}
+                                {[inst.mic_di, inst.phantom_power ? "+48V" : null].filter(Boolean).join(", ")}
+                                {")"}
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                    {note && <p className="text-white/30 text-xs mt-0.5">{note}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {stagePlotImages.length > 0 && (
+          <div>
+            <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+              <ImageIcon className="w-3 h-3" /> Stage Plot
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {stagePlotImages.map((f, ui) => (
+                <a key={ui} href={f.url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 rounded-lg overflow-hidden border border-[#333] hover:border-[#8CFF3D]/50">
+                  {(!f.type || f.type.startsWith("image/")) ? (
+                    <img src={f.url} alt="Stage plot" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center text-white/40 text-[10px] p-1 text-center">{f.name}</div>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+        {band.general_notes && (
+          <div>
+            <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
+            <p className="text-white/70 text-sm whitespace-pre-wrap">{band.general_notes}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="px-3 pb-3 pt-1 space-y-3 border-t border-[#222] mt-1">
-      {members.length > 0 && (
-        <div>
-          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
             <Users className="w-3 h-3" /> Band Members
           </p>
-          <div className="space-y-1.5">
-            {members.map((m, mi) => (
-              <div key={mi} className="text-sm">
-                <span className="text-white font-medium">{m.name || "Unnamed"}</span>
-                {m.instruments && m.instruments.length > 0 && (
-                  <span className="text-white/50">
-                    {" — "}
-                    {m.instruments.map((inst, ii) => (
-                      <span key={ii}>
-                        {ii > 0 && ", "}
-                        {inst.name}
-                        {(inst.mic_di || inst.plus48v) && (
-                          <span className="text-white/30">
-                            {" ("}
-                            {[inst.mic_di, inst.plus48v ? "+48V" : null].filter(Boolean).join(", ")}
-                            {")"}
-                          </span>
-                        )}
-                      </span>
-                    ))}
-                  </span>
-                )}
-                {m.notes && <p className="text-white/30 text-xs mt-0.5">{m.notes}</p>}
-              </div>
-            ))}
-          </div>
+          <button onClick={addMember} className="text-[#8CFF3D] text-xs hover:underline">+ Add Member</button>
         </div>
-      )}
+        <div className="space-y-2">
+          {members.map((m, i) => (
+            <div key={i} className="bg-[#111] rounded-lg p-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-7 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
+                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+              {(m.instruments || []).map((inst, ii) => (
+                <div key={ii} className="flex items-center gap-1.5 pl-2">
+                  <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-6 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
+                  <select
+                    value={inst.mic_di || "Mic"}
+                    onChange={(e) => updateInstrument(i, ii, "mic_di", e.target.value)}
+                    className="h-6 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1"
+                  >
+                    <option value="Mic">Mic</option>
+                    <option value="DI">DI</option>
+                  </select>
+                  <button
+                    onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
+                    className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${inst.phantom_power ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "text-white/30 border border-[#333]"}`}
+                  >
+                    +48V
+                  </button>
+                  <button onClick={() => removeInstrument(i, ii)} className="text-white/20 hover:text-red-400 shrink-0"><Trash2 className="w-3 h-3" /></button>
+                </div>
+              ))}
+              <button onClick={() => addInstrument(i)} className="text-[#8CFF3D] text-[11px] hover:underline pl-2">+ Instrument</button>
+              <div className="pl-2 pt-1">
+                <Textarea
+                  value={getMemberNote(fxNotes, m.name)}
+                  onChange={(e) => updateMemberNote(m.name, e.target.value)}
+                  placeholder="Notes for this member (FX, monitor mix, etc.)"
+                  className="bg-[#1a1a1a] border-[#222] text-white text-xs min-h-[40px]"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {stagePlotImages.length > 0 && (
-        <div>
-          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
             <ImageIcon className="w-3 h-3" /> Stage Plot
           </p>
-          <div className="flex gap-2 flex-wrap">
-            {stagePlotImages.map((url, ui) => (
-              <a key={ui} href={url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 rounded-lg overflow-hidden border border-[#333] hover:border-[#8CFF3D]/50">
-                <img src={url} alt="Stage plot" className="w-full h-full object-cover" />
+          <label className="text-[#8CFF3D] text-xs hover:underline cursor-pointer">
+            + Upload
+            <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleUpload} />
+          </label>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {stagePlotFiles.map((f, i) => (
+            <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden border border-[#333]">
+              <a href={f.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                {f.type?.startsWith("image/") ? (
+                  <img src={f.url} alt={f.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center text-white/40 text-[10px] p-1 text-center">{f.name}</div>
+                )}
               </a>
-            ))}
-          </div>
+              <button onClick={() => removeFile(i)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white/80 hover:text-white flex items-center justify-center text-[10px]">✕</button>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
 
-      {band.artist_fx_notes && (
-        <div>
-          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">FX Notes</p>
-          <p className="text-white/70 text-sm whitespace-pre-wrap">{band.artist_fx_notes}</p>
-        </div>
-      )}
-
-      {band.general_notes && (
-        <div>
-          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
-          <p className="text-white/70 text-sm whitespace-pre-wrap">{band.general_notes}</p>
-        </div>
-      )}
+      <div>
+        <Label className="text-white/40 text-[11px] uppercase tracking-wide font-semibold">General Notes</Label>
+        <Textarea value={band.general_notes || ""} onChange={(e) => onUpdate("general_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[50px]" />
+      </div>
     </div>
   );
 }
@@ -506,7 +651,7 @@ export default function SharedGig() {
                         </span>
                       </div>
                     </div>
-                    {expanded && <BandDetails band={b} />}
+                    {expanded && <BandDetails band={b} editable={false} onUpdate={() => {}} />}
                   </div>
                 );
               }
@@ -551,7 +696,7 @@ export default function SharedGig() {
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedBands.has(i) ? "rotate-180" : ""}`} />
                         {expandedBands.has(i) ? "Hide" : "Show"} tech details
                       </button>
-                      {expandedBands.has(i) && <BandDetails band={b} />}
+                      {expandedBands.has(i) && <BandDetails band={b} editable={true} onUpdate={(field, val) => updateBand(i, field, val)} />}
                     </>
                   )}
                 </div>
