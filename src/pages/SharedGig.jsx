@@ -226,6 +226,18 @@ function BandDetails({ band, editable, onUpdate }) {
             </div>
           </div>
         )}
+        {(band.submitter_name || band.submitter_phone || band.submitter_email) && (
+          <div>
+            <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
+            <p className="text-white/70 text-sm">{band.submitter_name || "Unnamed"}</p>
+            <p className="text-white/40 text-xs">{[band.submitter_phone, band.submitter_email].filter(Boolean).join(" · ")}</p>
+            {band.submitter_card_share_token && (
+              <a href={`/pilot/${band.submitter_card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
+                View {band.submitter_card_display_name || "their"} ShowPilot card
+              </a>
+            )}
+          </div>
+        )}
         {band.general_notes && (
           <div>
             <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
@@ -328,6 +340,19 @@ function BandDetails({ band, editable, onUpdate }) {
           ))}
         </div>
       </div>
+
+      {(band.submitter_name || band.submitter_phone || band.submitter_email) && (
+        <div className="bg-[#111] border border-[#222] rounded-lg p-2.5">
+          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
+          <p className="text-white/70 text-sm">{band.submitter_name || "Unnamed"}</p>
+          <p className="text-white/40 text-xs">{[band.submitter_phone, band.submitter_email].filter(Boolean).join(" · ")}</p>
+          {band.submitter_card_share_token && (
+            <a href={`/pilot/${band.submitter_card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
+              View {band.submitter_card_display_name || "their"} ShowPilot card
+            </a>
+          )}
+        </div>
+      )}
 
       <button
         onClick={() => setNoteModal({ label: "General Notes", value: band.general_notes || "", onChange: (v) => onUpdate("general_notes", v) })}
@@ -690,7 +715,7 @@ export default function SharedGig() {
               const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
               if (!canEdit) {
                 if (!b.band_name) return null;
-                const hasDetails = (b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes;
+                const hasDetails = (b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes || b.submitter_name || b.submitter_phone || b.submitter_email;
                 const expanded = expandedBands.has(i);
                 return (
                   <div key={i} className="bg-[#1a1a1a] rounded-xl overflow-hidden">
@@ -708,6 +733,7 @@ export default function SharedGig() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
@@ -722,6 +748,7 @@ export default function SharedGig() {
                 <div key={i} className="bg-[#1a1a1a] rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Input value={b.band_name || ""} onChange={(e) => updateBand(i, "band_name", e.target.value)} placeholder="Artist / Group Name" className="flex-1 h-8 bg-[#111] border-[#222] text-white text-sm" />
+                    {b.requested_order && <span className="text-white/30 text-[10px] shrink-0" title="Requested lineup position">#{b.requested_order}</span>}
                     <button onClick={() => removeBand(i)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
