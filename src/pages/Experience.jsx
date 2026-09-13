@@ -112,6 +112,23 @@ export default function Cockpit() {
   const [viewingCard, setViewingCard] = useState(null);
   const [viewingCardBack, setViewingCardBack] = useState(false);
 
+  const openViewingCard = (p) => {
+    setViewingCard(p);
+    setViewingCardBack(false);
+    if (p.pilot_user_id) {
+      supabase
+        .from("user_preferences")
+        .select("custom_link_url")
+        .eq("user_id", p.pilot_user_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setViewingCard((prev) => (prev && prev.id === p.id ? { ...prev, custom_link_url: data.custom_link_url } : prev));
+          }
+        });
+    }
+  };
+
   const frontDrag = useRef({ dragging: false, startX: 0, moved: false, offset: 0 });
   const justActivatedRef = useRef(0);
   const [frontOffset, setFrontOffset] = useState(0);
@@ -817,12 +834,10 @@ export default function Cockpit() {
                   <Label className="text-white/50 text-xs">Contact Phone</Label>
                   <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", formatPhoneNumber(e.target.value))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
-                {["band", "venue", "promoter", "booking_agent", "manager"].includes(preferences?.account_type) && (
-                  <div>
-                    <Label className="text-white/50 text-xs">Link URL</Label>
-                    <Input value={draft.custom_link_url || ""} onChange={(e) => update("custom_link_url", e.target.value)} placeholder="https://... (website, Spotify, Instagram, etc)" className="mt-1 bg-[#111] border-[#222] text-white" />
-                  </div>
-                )}
+                <div>
+                  <Label className="text-white/50 text-xs">Link URL</Label>
+                  <Input value={draft.custom_link_url || ""} onChange={(e) => update("custom_link_url", e.target.value)} placeholder="https://... (website, Spotify, Instagram, etc)" className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
                 <div className="flex items-center gap-2">
                   <ColorPicker value={draft.card_bg_color || "#111111"} onChange={(c) => update("card_bg_color", c)} label="Background" />
                 </div>
@@ -927,7 +942,7 @@ export default function Cockpit() {
                       <button onClick={() => toggleStarPilot(p)} className="p-1.5 shrink-0" style={{ color: p.starred ? "#8CFF3D" : "rgba(255,255,255,0.2)" }}>
                         <Star className="w-4 h-4" fill={p.starred ? "#8CFF3D" : "none"} />
                       </button>
-                      <button onClick={() => { setViewingCard(p); setViewingCardBack(false); }} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
+                      <button onClick={() => openViewingCard(p)} className="p-1.5 text-white/20 hover:text-[#8CFF3D] shrink-0">
                         <Eye className="w-4 h-4" />
                       </button>
                       <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/20 hover:text-red-400 shrink-0">
