@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
+import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -17,23 +20,68 @@ const ROLE_COLORS = {
 const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
-// A card wrapper for each role-owned section. Shows a lock indicator when
-// the section is claimed by a role the current viewer doesn't hold.
-function SectionCard({ title, icon: Icon, locked, children }) {
+// One color per section, consistent everywhere this app shows section
+// progress (the Home page progress bar uses the same palette) so position
+// and color together become a language the user only has to learn once.
+const SECTION_COLORS = {
+  venue: "#8CFF3D",
+  promoter: "#60A5FA",
+  booking_agent: "#C026D3",
+  manager: "#EF4444",
+  engineer: "#8CFF3D",
+};
+const ENGINEER_ROLE_OPTIONS = [
+  { value: "engineer", label: "Audio Engineer" },
+  { value: "lighting", label: "Lighting Tech" },
+];
+
+// A card wrapper for each role-owned section. Collapsed by default so a
+// long list of sections stays scannable; outlined in the role's color so
+// position + color together teach the viewer what's what across every
+// event. Shows a lock indicator when the section is claimed by a role the
+// current viewer doesn't hold, an inline Invite affordance for the owner,
+// and a per-section Update button for whoever can actually edit it - so
+// nobody has to save the whole page just to log their own update.
+function GigSection({ title, icon: Icon, color, locked, editable, isOwner, onInvite, onSave, saving, saved, children }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="w-4 h-4 text-[#8CFF3D]" />
-          <p className="text-white font-semibold text-sm">{title}</p>
+    <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: color }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 p-3.5"
+        style={{ backgroundColor: color + "14" }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon className="w-4 h-4 shrink-0" style={{ color }} />
+          <p className="font-semibold text-sm truncate" style={{ color }}>{title}</p>
+          {locked && <Lock className="w-3 h-3 text-white/30 shrink-0" />}
         </div>
-        {locked && (
-          <span className="flex items-center gap-1 text-[10px] text-white/30">
-            <Lock className="w-3 h-3" /> Locked to another profile
-          </span>
-        )}
-      </div>
-      {children}
+        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {isOwner && onInvite && (
+            <button
+              type="button"
+              onClick={onInvite}
+              className="text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
+            >
+              Invite
+            </button>
+          )}
+          {editable && onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving}
+              className="text-[10px] font-semibold px-2 py-1 rounded-full transition-colors disabled:opacity-50"
+              style={{ color, backgroundColor: color + "22" }}
+            >
+              {saved ? "Updated ✓" : saving ? "Saving..." : "Update"}
+            </button>
+          )}
+          <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+      {open && <div className="p-4 space-y-3 bg-[#161616]">{children}</div>}
     </div>
   );
 }
@@ -385,6 +433,14 @@ export default function SharedGig() {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const { preferences } = usePreferences();
+  const [sectionSaving, setSectionSaving] = useState({});
+  const [sectionSaved, setSectionSaved] = useState({});
+  const [inviteFor, setInviteFor] = useState(null); // { section, label } while the invite popover is open
+  const [inviteRoleChoice, setInviteRoleChoice] = useState(null); // for the engineer section's dual role choice
+  const [inviteUrl, setInviteUrl] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -459,6 +515,7 @@ export default function SharedGig() {
   const removeBand = (i) => update("bands", gig.bands.filter((_, idx) => idx !== i));
 
   const canEdit = !!user;
+  const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
   const canEditSection = (section) => {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
@@ -467,45 +524,99 @@ export default function SharedGig() {
   };
   const isLocked = (section) => canEdit && !permissions?.is_owner && !canEditSection(section);
 
+  // The Engineer/Lighting section covers two distinct invite roles that
+  // write to the same data, so its permission check considers either role
+  // held, and the section counts as "claimed" if either has been accepted.
+  const canEditEngineerSection = () => {
+    if (!canEdit) return false;
+    if (permissions?.is_owner) return true;
+    if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
+    return !permissions?.claimed_roles?.includes("engineer") && !permissions?.claimed_roles?.includes("lighting");
+  };
+  const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
+  const myEngineerRole = () => (permissions?.my_roles?.includes("lighting") && !permissions?.my_roles?.includes("engineer") ? "lighting" : "engineer");
+
+  // Marks the gig as linked to this account and accepts any invite that
+  // brought them here - called after any section save so a person only
+  // ever touching their own section still ends up properly linked.
+  const markLinkedAndAccepted = async () => {
+    if (!user || !gig?.id) return;
+    await supabase
+      .from("linked_gigs")
+      .upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
+    if (inviteToken) {
+      await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
+    }
+  };
+
+  const saveSection = async (sectionKey, data) => {
+    setSectionSaving((s) => ({ ...s, [sectionKey]: true }));
+    try {
+      const { error } = await supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: sectionKey, p_updates: data });
+      if (error) throw error;
+      await markLinkedAndAccepted();
+      setSectionSaved((s) => ({ ...s, [sectionKey]: true }));
+      setTimeout(() => setSectionSaved((s) => ({ ...s, [sectionKey]: false })), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+    setSectionSaving((s) => ({ ...s, [sectionKey]: false }));
+  };
+
+  const saveVenueSection = () => saveSection("venue", {
+    venue: gig.venue, city: gig.city, state: gig.state,
+    wifi_network: gig.wifi_network, wifi_password: gig.wifi_password,
+    console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
+  });
+  const saveManagerSection = () => saveSection("manager", gig.manager_info || {});
+  const savePromoterSection = () => saveSection("promoter", gig.promoter_info || {});
+  const saveBookingSection = () => saveSection("booking_agent", gig.booking_agent_info || {});
+  const saveEngineerSection = () => saveSection(myEngineerRole(), gig.engineer_info || {});
+
+  const openInvite = (section, label) => {
+    setInviteFor({ section, label });
+    setInviteRoleChoice(null);
+    setInviteUrl(null);
+    setInviteCopied(false);
+  };
+
+  const generateInvite = async (role) => {
+    if (!gig?.id || !user) return;
+    setGeneratingInvite(true);
+    try {
+      const { data, error } = await supabase
+        .from("gig_invites")
+        .insert({ show_id: gig.id, invited_role: role, created_by: user.id })
+        .select()
+        .single();
+      if (error) throw error;
+      setInviteUrl(`${window.location.origin}/gig/shared?invite=${data.invite_token}`);
+    } catch (e) {
+      console.error(e);
+    }
+    setGeneratingInvite(false);
+  };
+
+  const copyInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1500);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Handles the top-level event details (name, date, venue basics) plus
+  // marking the gig linked - the 5 role sections below now save
+  // independently via their own Update buttons.
   const handleSave = async () => {
     setSaving(true);
     try {
       const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
       if (error) throw error;
-
-      const sectionSaves = [];
-      if (canEditSection("venue")) {
-        sectionSaves.push(supabase.rpc("update_gig_section", {
-          p_token: resolvedToken, p_section: "venue",
-          p_updates: {
-            venue: gig.venue, city: gig.city, state: gig.state,
-            wifi_network: gig.wifi_network, wifi_password: gig.wifi_password,
-            console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
-          },
-        }));
-      }
-      if (canEditSection("manager")) {
-        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "manager", p_updates: gig.manager_info || {} }));
-      }
-      if (canEditSection("promoter")) {
-        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "promoter", p_updates: gig.promoter_info || {} }));
-      }
-      if (canEditSection("booking_agent")) {
-        sectionSaves.push(supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "booking_agent", p_updates: gig.booking_agent_info || {} }));
-      }
-      const results = await Promise.all(sectionSaves);
-      results.forEach((r) => { if (r.error) console.error(r.error); });
-
-      if (user && gig.id) {
-        await supabase
-          .from("linked_gigs")
-          .upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
-
-        if (inviteToken) {
-          await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
-        }
-      }
-
+      await markLinkedAndAccepted();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
@@ -630,7 +741,7 @@ export default function SharedGig() {
           )}
         </div>
 
-        <SectionCard title="Venue Info" icon={MapPin} locked={isLocked("venue")}>
+        <GigSection title="Venue" icon={MapPin} color={SECTION_COLORS.venue} locked={isLocked("venue")} editable={canEditSection("venue")} isOwner={permissions?.is_owner} onInvite={() => openInvite("venue", "Venue")} onSave={saveVenueSection} saving={sectionSaving.venue} saved={sectionSaved.venue}>
           <Field label="Venue" value={gig.venue} onChange={(v) => update("venue", v)} editable={canEditSection("venue")} placeholder="Venue name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
@@ -649,26 +760,9 @@ export default function SharedGig() {
               <p className="mt-1 text-white/70 text-sm">{gig.power_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
-        </SectionCard>
+        </GigSection>
 
-        <SectionCard title="Manager" icon={User} locked={isLocked("manager")}>
-          <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={canEditSection("manager")} placeholder="Phone" />
-            <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={canEditSection("manager")} placeholder="Email" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Advancing Notes</Label>
-            {canEditSection("manager") ? (
-              <Textarea value={managerInfo.advancing_notes || ""} onChange={(e) => updateSection("manager_info", "advancing_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Load-in, soundcheck confirmed, etc." />
-            ) : (
-              <p className="mt-1 text-white/70 text-sm">{managerInfo.advancing_notes || <span className="text-white/25">Not filled in yet</span>}</p>
-            )}
-          </div>
-          <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
-        </SectionCard>
-
-        <SectionCard title="Promoter" icon={Ticket} locked={isLocked("promoter")}>
+        <GigSection title="Promoter" icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={canEditSection("promoter")} placeholder="e.g. 7:00 PM" />
             <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={canEditSection("promoter")} placeholder="e.g. 250" />
@@ -685,32 +779,64 @@ export default function SharedGig() {
               <p className="mt-1 text-white/70 text-sm">{promoterInfo.settlement_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
-        </SectionCard>
+        </GigSection>
 
-        <SectionCard title="Booking Agent" icon={FileSignature} locked={isLocked("booking_agent")}>
+        <GigSection title="Booking Agent" icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
           <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
           <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
-        </SectionCard>
+        </GigSection>
 
-        <div className="bg-[#111] rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Music className="w-4 h-4 text-[#8CFF3D]" />
-              <p className="text-white font-semibold text-sm">Lineup</p>
-            </div>
-            {canEdit && (
-              <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
-                <Plus className="w-3.5 h-3.5" /> Add Act
-              </button>
+        <GigSection title="Audio / Lighting" icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
+          <Field label="Contact Name" value={(gig.engineer_info || {}).contact_name} onChange={(v) => updateSection("engineer_info", "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={(gig.engineer_info || {}).contact_phone} onChange={(v) => updateSection("engineer_info", "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
+            <Field label="Email" value={(gig.engineer_info || {}).contact_email} onChange={(v) => updateSection("engineer_info", "contact_email", v)} editable={canEditEngineerSection()} placeholder="Email" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Notes</Label>
+            {canEditEngineerSection() ? (
+              <Textarea value={(gig.engineer_info || {}).notes || ""} onChange={(e) => updateSection("engineer_info", "notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Gear needs, patch notes, etc." />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{(gig.engineer_info || {}).notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
+        </GigSection>
 
-          {(!gig.bands || gig.bands.length === 0) && !canEdit && (
-            <p className="text-white/30 text-sm">No lineup info yet.</p>
-          )}
+        <GigSection title="Manager / Band" icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
+          <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={canEditSection("manager")} placeholder="Phone" />
+            <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={canEditSection("manager")} placeholder="Email" />
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Advancing Notes</Label>
+            {canEditSection("manager") ? (
+              <Textarea value={managerInfo.advancing_notes || ""} onChange={(e) => updateSection("manager_info", "advancing_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Load-in, soundcheck confirmed, etc." />
+            ) : (
+              <p className="mt-1 text-white/70 text-sm">{managerInfo.advancing_notes || <span className="text-white/25">Not filled in yet</span>}</p>
+            )}
+          </div>
+          <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
 
-          <div className="space-y-2">
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex items-center justify-between mb-3 pt-2">
+              <div className="flex items-center gap-2">
+                <Music className="w-4 h-4 text-white/40" />
+                <p className="text-white font-semibold text-sm">Lineup</p>
+              </div>
+              {canEdit && (
+                <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
+                  <Plus className="w-3.5 h-3.5" /> Add Act
+                </button>
+              )}
+            </div>
+
+            {(!gig.bands || gig.bands.length === 0) && !canEdit && (
+              <p className="text-white/30 text-sm">No lineup info yet.</p>
+            )}
+
+            <div className="space-y-2">
             {(gig.bands || []).map((b, i) => {
               const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
               if (!canEdit) {
@@ -792,13 +918,68 @@ export default function SharedGig() {
                 </div>
               );
             })}
+            </div>
           </div>
-        </div>
+        </GigSection>
 
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
       </div>
 
-      {canEdit && <BottomTabs />}
+      {inviteFor && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setInviteFor(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Invite to {inviteFor.label}</h3>
+              <button onClick={() => setInviteFor(null)} className="text-white/40 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {inviteFor.section === "engineer_lighting" && !inviteRoleChoice ? (
+              <>
+                <p className="text-white/40 text-xs mb-4">Which role is this invite for?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ENGINEER_ROLE_OPTIONS.map((r) => (
+                    <button
+                      key={r.value}
+                      onClick={() => { setInviteRoleChoice(r.value); generateInvite(r.value); }}
+                      className="px-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/70 text-sm hover:border-[#8CFF3D]/40 hover:text-white transition-colors"
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-white/40 text-xs mb-4">Share this link so they can fill in and update their section.</p>
+                {!inviteUrl ? (
+                  <Button
+                    onClick={() => generateInvite(inviteRoleChoice || inviteFor.section)}
+                    disabled={generatingInvite}
+                    className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]"
+                  >
+                    {generatingInvite ? "Generating..." : "Generate Invite Link"}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 text-xs text-white/40 truncate bg-[#111] rounded-lg px-2 py-2">
+                      {inviteUrl}
+                    </div>
+                    <button
+                      onClick={copyInviteUrl}
+                      className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20"
+                    >
+                      {inviteCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {canEdit && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
     </div>
   );
 }
