@@ -200,7 +200,7 @@ export default function BandHome() {
                   <div className="p-4 flex gap-3">
                     <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0 w-4">
                       {g.starred && <Star className="w-4 h-4 text-amber-400" fill="currentColor" />}
-                      {(!g.is_owned || g.is_shared_by_me) && <Link2 className="w-3.5 h-3.5 text-[#F472B6]" />}
+                      {(!g.is_owned || g.is_shared_by_me) && <Link2 className="w-4 h-4 text-[#F472B6]" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
