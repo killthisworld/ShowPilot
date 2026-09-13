@@ -4,6 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { MapPin, Calendar, CalendarDays, Plus, Link2, Star } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
+import GigProgressBar from "@/components/showpilot/GigProgressBar";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const TABS = [
@@ -18,6 +19,7 @@ export default function BandHome() {
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("recent");
+  const [progressByShowId, setProgressByShowId] = useState({});
 
   useEffect(() => {
     const load = async () => {
@@ -64,6 +66,20 @@ export default function BandHome() {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    if (gigs.length === 0) return;
+    const ids = gigs.map((g) => g.id).filter(Boolean);
+    if (ids.length === 0) return;
+    supabase
+      .rpc("get_gigs_progress", { p_show_ids: ids })
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return; }
+        const map = {};
+        (data || []).forEach((row) => { map[row.show_id] = row.progress; });
+        setProgressByShowId(map);
+      });
+  }, [gigs]);
 
   const openGig = (g) => {
     if (g.is_owned) navigate(`/show/${g.id}`);
@@ -220,28 +236,31 @@ export default function BandHome() {
                 <div
                   key={g.is_owned ? g.id : g.share_token}
                   onClick={() => openGig(g)}
-                  className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl p-4 hover:border-white/20 transition-colors cursor-pointer"
+                  className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl overflow-hidden hover:border-white/20 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-2">
-                    {g.starred && <Star className="w-4 h-4 text-amber-400 shrink-0" fill="currentColor" />}
-                    <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
-                    <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
-                      {!g.is_owned && <Link2 className="w-2.5 h-2.5" />}
-                      {g.is_owned ? "Yours" : "Linked"}
-                    </span>
+                  <GigProgressBar progress={progressByShowId[g.id]} />
+                  <div className="p-4">
+                    <div className="flex items-center gap-2">
+                      {g.starred && <Star className="w-4 h-4 text-amber-400 shrink-0" fill="currentColor" />}
+                      <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
+                      <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                        {!g.is_owned && <Link2 className="w-2.5 h-2.5" />}
+                        {g.is_owned ? "Yours" : "Linked"}
+                      </span>
+                    </div>
+                    {location && (
+                      <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1 pl-6">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{location}</span>
+                      </div>
+                    )}
+                    {g.date && (
+                      <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5 pl-6">
+                        <Calendar className="w-3 h-3 shrink-0" />
+                        <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                      </div>
+                    )}
                   </div>
-                  {location && (
-                    <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1 pl-6">
-                      <MapPin className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{location}</span>
-                    </div>
-                  )}
-                  {g.date && (
-                    <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5 pl-6">
-                      <Calendar className="w-3 h-3 shrink-0" />
-                      <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                    </div>
-                  )}
                 </div>
               );
             })}
