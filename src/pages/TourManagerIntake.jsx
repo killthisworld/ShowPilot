@@ -85,6 +85,30 @@ export default function TourManagerIntake() {
     init();
   }, [token]);
 
+  // These must stay above every early `return` below (loading/submitted/
+  // engineer-view states) - React requires every hook to run in the same
+  // order on every render, and a hook placed after a conditional return
+  // gets skipped on some renders but not others, which crashes the whole
+  // page with a blank/black screen.
+  useEffect(() => {
+    if (!engineerUserId) return;
+    supabase
+      .from("user_preferences")
+      .select("display_name, job_title, profile_photo_url, card_bg_color, card_bg_image_url, card_text_color, card_share_token")
+      .eq("user_id", engineerUserId)
+      .maybeSingle()
+      .then(({ data }) => setEngineerCard(data));
+  }, [engineerUserId]);
+
+  useEffect(() => {
+    const currentlyIsEngineer = currentUser && currentUser.id === engineerUserId;
+    if (currentUser && !currentlyIsEngineer && shareMyCard) {
+      setForm((f) => ({ ...f, submitter_card_user_id: currentUser.id }));
+    } else if (!shareMyCard) {
+      setForm((f) => ({ ...f, submitter_card_user_id: "" }));
+    }
+  }, [shareMyCard, currentUser, engineerUserId]);
+
   const update = (field, val) => setForm((s) => ({ ...s, [field]: val }));
   const updateEngineer = (field, val) => setEngineerForm((s) => ({ ...s, [field]: val }));
 
@@ -257,23 +281,6 @@ export default function TourManagerIntake() {
   // Engineer view: logged-in user is the engineer and submission exists
   const isEngineer = currentUser && currentUser.id === engineerUserId;
 
-  useEffect(() => {
-    if (!engineerUserId) return;
-    supabase
-      .from("user_preferences")
-      .select("display_name, job_title, profile_photo_url, card_bg_color, card_bg_image_url, card_text_color, card_share_token")
-      .eq("user_id", engineerUserId)
-      .maybeSingle()
-      .then(({ data }) => setEngineerCard(data));
-  }, [engineerUserId]);
-
-  useEffect(() => {
-    if (currentUser && !isEngineer && shareMyCard) {
-      setForm((f) => ({ ...f, submitter_card_user_id: currentUser.id }));
-    } else if (!shareMyCard) {
-      setForm((f) => ({ ...f, submitter_card_user_id: "" }));
-    }
-  }, [shareMyCard, currentUser, isEngineer]);
   if (isEngineer && tmRequest && tmRequest.status === "submitted") {
     return (
       <div className="min-h-screen bg-[#0d0d0d] pb-16">
