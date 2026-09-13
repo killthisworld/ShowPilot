@@ -409,6 +409,17 @@ export default function TourManagerIntake() {
           Fill in your act's info below and hit Submit — this will create the gig directly on {engineerName}'s ShowPilot profile.
         </p>
 
+        {(tmRequest?.event_name || tmRequest?.date) && (
+          <div className="bg-[#8CFF3D]/10 border border-[#8CFF3D]/30 rounded-2xl px-4 py-3">
+            {tmRequest?.event_name && <p className="text-white text-sm font-semibold">{tmRequest.event_name}</p>}
+            {tmRequest?.date && (
+              <p className="text-[#8CFF3D] text-xs mt-0.5">
+                {new Date(tmRequest.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+              </p>
+            )}
+          </div>
+        )}
+
         {engineerCard && (
           <a
             href={engineerCard.card_share_token ? `/pilot/${engineerCard.card_share_token}` : undefined}

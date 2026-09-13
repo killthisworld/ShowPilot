@@ -249,8 +249,12 @@ export default function ManagerLinksPage() {
             <div key={r.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="min-w-0">
-                  <p className="text-white font-semibold text-sm truncate">{r.band_name || "Pending"}</p>
-                  <p className="text-white/40 text-xs">Sent {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                  <p className="text-white font-semibold text-sm truncate">{r.event_name || r.band_name || "Pending"}</p>
+                  <p className="text-white/40 text-xs">
+                    {r.date
+                      ? new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : `Sent ${new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${r.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>
