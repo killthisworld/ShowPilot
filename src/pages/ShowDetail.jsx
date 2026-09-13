@@ -592,6 +592,11 @@ export default function ShowDetail() {
     setGenreDraft(preferences?.genre_tags ? [...preferences.genre_tags] : []);
     setShowGenreSettings(true);
   };
+  const openGenreSettingsWithNewTag = (tagName) => {
+    const existing = preferences?.genre_tags ? [...preferences.genre_tags] : [];
+    setGenreDraft([...existing, { name: tagName, color: "#8CFF3D" }]);
+    setShowGenreSettings(true);
+  };
   const addGenreDraftTag = () => setGenreDraft((d) => [...d, { name: "", color: "#8CFF3D" }]);
   const updateGenreDraftTag = (i, field, val) => setGenreDraft((d) => { const next = [...d]; next[i] = { ...next[i], [field]: val }; return next; });
   const removeGenreDraftTag = (i) => setGenreDraft((d) => d.filter((_, idx) => idx !== i));
@@ -1161,7 +1166,7 @@ export default function ShowDetail() {
             <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
-          {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email) && (
+          {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email || activeBand.submitter_card_user_id) && (
             <div className="bg-[#111] border border-[#222] rounded-xl p-3">
               <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
               <p className="text-white/70 text-sm">{activeBand.submitter_name || "Unnamed"}</p>
@@ -1209,6 +1214,16 @@ export default function ShowDetail() {
                   </button>
                 );
               })}
+              {(activeBand.genre_tags || []).filter((name) => !genreTags.some((t) => t.name === name)).map((name) => (
+                <button
+                  key={name}
+                  onClick={() => openGenreSettingsWithNewTag(name)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-white/25 text-white/50 hover:text-white/80 hover:border-white/40 transition-all"
+                  title="Submitted by a performer - tap to add to your genre list and pick a color"
+                >
+                  {name}
+                </button>
+              ))}
             </div>
           </div>
             {(activeBand.band_members || []).map((m, i) => (
