@@ -43,7 +43,12 @@ export default function PilotCardView() {
   }, [token]);
 
   const openWalletPicker = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      const path = window.location.pathname + window.location.search;
+      try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
+      navigate("/login?redirect=" + encodeURIComponent(path));
+      return;
+    }
     const { data, error } = await supabase
       .from("wallets")
       .select("*")
@@ -72,6 +77,7 @@ export default function PilotCardView() {
         card_text_color: card.card_text_color,
         soundwave_template: card.soundwave_template,
         card_share_token: token,
+        custom_link_url: card.custom_link_url,
       });
       if (error) throw error;
       setSaved(true);
@@ -292,7 +298,7 @@ export default function PilotCardView() {
           )
         ) : (
           <p className="text-center text-white/40 text-sm">
-            <Link to="/login" className="text-[#8CFF3D] hover:underline">Log in</Link> to save this pilot to your Fellow Pilots
+            <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="text-[#8CFF3D] hover:underline">Log in</Link> to save this pilot to your Fellow Pilots
           </p>
         )}
       </div>
