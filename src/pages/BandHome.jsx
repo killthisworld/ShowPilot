@@ -205,7 +205,7 @@ export default function BandHome() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
-                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                        <span className="text-xs font-medium px-2 py-1 rounded-md shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
                           Owner: {ownerLabel}
                         </span>
                       </div>
