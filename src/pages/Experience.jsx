@@ -63,7 +63,8 @@ export default function Cockpit() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("tab") === "logbook" ? "logbook" : "pilot";
+    const tab = params.get("tab");
+    return tab === "logbook" || tab === "fellow" ? tab : "pilot";
   });
   const [draft, setDraft] = useState(null);
   const [user, setUser] = useState(null);
