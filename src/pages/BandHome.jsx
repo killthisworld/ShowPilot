@@ -7,18 +7,11 @@ import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import GigProgressBar from "@/components/showpilot/GigProgressBar";
 import { usePreferences } from "@/hooks/usePreferences";
 
-const TABS = [
-  { id: "recent", label: "Recent", color: "#8CFF3D" },
-  { id: "linked", label: "Linked", color: "#F472B6" },
-  { id: "starred", icon: true, color: "#FBBF24" },
-];
-
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("recent");
   const [progressByShowId, setProgressByShowId] = useState({});
 
   useEffect(() => {
@@ -88,12 +81,13 @@ export default function BandHome() {
 
   const handleCreateEvent = () => navigate("/show/new");
 
-  const visibleGigs = useMemo(() => {
-    if (activeTab === "starred") return gigs.filter((g) => g.starred);
-    if (activeTab === "linked") return gigs.filter((g) => !g.is_owned || g.is_shared_by_me);
-    // "recent" - everything, not just the current calendar month
-    return gigs;
-  }, [gigs, activeTab]);
+  const sortedGigs = useMemo(() => {
+    return [...gigs].sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date) - new Date(b.date);
+    });
+  }, [gigs]);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -173,65 +167,28 @@ export default function BandHome() {
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
-          <div className="flex gap-1">
-            {TABS.map((tab) => {
-              const active = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-medium"
-                  style={
-                    active
-                      ? { borderColor: tab.color + "80", backgroundColor: tab.color + "1a", color: tab.color }
-                      : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.4)" }
-                  }
-                >
-                  {tab.icon ? (
-                    <Star className="w-3.5 h-3.5" fill={active ? "currentColor" : "none"} />
-                  ) : (
-                    tab.label
-                  )}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
           </div>
-        ) : visibleGigs.length === 0 ? (
+        ) : sortedGigs.length === 0 ? (
           <div className="text-center py-16 bg-[#111] rounded-2xl border border-[#222]">
-            {activeTab === "starred" ? (
-              <>
-                <Star className="w-8 h-8 text-white/20 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">No starred shows yet</p>
-              </>
-            ) : activeTab === "linked" ? (
-              <>
-                <Link2 className="w-8 h-8 text-white/20 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">No linked shows yet</p>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleCreateEvent}
-                  className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group"
-                >
-                  <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
-                </button>
-                <p className="text-white/40 text-sm">No shows this month</p>
-              </>
-            )}
+            <button
+              onClick={handleCreateEvent}
+              className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mx-auto mb-4 transition-all group"
+            >
+              <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
+            </button>
+            <p className="text-white/40 text-sm">No shows yet</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {visibleGigs.map((g) => {
+            {sortedGigs.map((g) => {
               const title = g.event_name || g.band_name || "Untitled Gig";
               const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-              const accent = g.is_owned ? "#8CFF3D" : "#F472B6";
+              const ownerLabel = g.is_owned ? "You" : (g.owner_display_name || "Unknown");
               return (
                 <div
                   key={g.is_owned ? g.id : g.share_token}
@@ -239,27 +196,27 @@ export default function BandHome() {
                   className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl overflow-hidden hover:border-white/20 transition-colors cursor-pointer"
                 >
                   <GigProgressBar progress={progressByShowId[g.id]} />
-                  <div className="p-4">
-                    <div className="flex items-center gap-2">
-                      {g.starred && <Star className="w-4 h-4 text-amber-400 shrink-0" fill="currentColor" />}
-                      <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
-                      <span className="flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
-                        {!g.is_owned && <Link2 className="w-2.5 h-2.5" />}
-                        {g.is_owned ? "Yours" : "Linked"}
-                      </span>
+                  <div className="p-4 flex gap-3">
+                    <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0 w-4">
+                      {g.starred && <Star className="w-4 h-4 text-amber-400" fill="currentColor" />}
+                      {!g.is_owned && <Link2 className="w-3.5 h-3.5 text-[#F472B6]" />}
                     </div>
-                    {location && (
-                      <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1 pl-6">
-                        <MapPin className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{location}</span>
-                      </div>
-                    )}
-                    {g.date && (
-                      <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5 pl-6">
-                        <Calendar className="w-3 h-3 shrink-0" />
-                        <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                      </div>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{title}</p>
+                      <p className="text-white/40 text-xs mt-0.5">Owner: {ownerLabel}</p>
+                      {location && (
+                        <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{location}</span>
+                        </div>
+                      )}
+                      {g.date && (
+                        <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5">
+                          <Calendar className="w-3 h-3 shrink-0" />
+                          <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
