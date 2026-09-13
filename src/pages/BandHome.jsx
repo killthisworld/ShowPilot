@@ -189,6 +189,7 @@ export default function BandHome() {
               const title = g.event_name || g.band_name || "Untitled Gig";
               const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
               const ownerLabel = g.is_owned ? "You" : (g.owner_display_name || "Unknown");
+              const accent = g.is_owned ? "#8CFF3D" : "#F472B6";
               return (
                 <div
                   key={g.is_owned ? g.id : g.share_token}
@@ -202,8 +203,12 @@ export default function BandHome() {
                       {!g.is_owned && <Link2 className="w-3.5 h-3.5 text-[#F472B6]" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm truncate">{title}</p>
-                      <p className="text-white/40 text-xs mt-0.5">Owner: {ownerLabel}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
+                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
+                          Owner: {ownerLabel}
+                        </span>
+                      </div>
                       {location && (
                         <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
                           <MapPin className="w-3 h-3 shrink-0" />
