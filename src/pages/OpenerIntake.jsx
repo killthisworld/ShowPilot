@@ -447,22 +447,30 @@ export default function OpenerIntake() {
         </div>
 
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">
-          <p className="text-white/50 text-xs">Your Contact Info <span className="text-white/30">(optional, just in case)</span></p>
+          <p className="text-white/50 text-xs">Your Contact Info <span className="text-white/30">(optional)</span></p>
           <Input value={form.submitter_name} onChange={(e) => update("submitter_name", e.target.value)} placeholder="Your name" className="bg-[#0d0d0d] border-[#222] text-white" />
           <div className="grid grid-cols-2 gap-2">
             <Input value={form.submitter_phone} onChange={(e) => update("submitter_phone", e.target.value)} placeholder="Phone" className="bg-[#0d0d0d] border-[#222] text-white" />
             <Input value={form.submitter_email} onChange={(e) => update("submitter_email", e.target.value)} placeholder="Email" className="bg-[#0d0d0d] border-[#222] text-white" />
           </div>
-          {currentUser && (
+          {(
             <button
               type="button"
-              onClick={() => setShareMyCard((v) => !v)}
+              onClick={() => {
+                if (!currentUser) {
+                  const path = window.location.pathname + window.location.search;
+                  try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
+                  window.location.href = "/login?redirect=" + encodeURIComponent(path);
+                  return;
+                }
+                setShareMyCard((v) => !v);
+              }}
               className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium transition-colors ${
                 shareMyCard ? "border-[#8CFF3D]/50 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/50"
               }`}
             >
               <User className="w-3.5 h-3.5" />
-              {shareMyCard ? "Sharing your ShowPilot card with this engineer" : "Also share your ShowPilot card"}
+              {shareMyCard ? "Digital card connected ✓" : "Connect digital card?"}
             </button>
           )}
         </div>
