@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye, ExternalLink } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -458,6 +458,7 @@ export default function Cockpit() {
           card_text_color: card.card_text_color,
           soundwave_template: card.soundwave_template,
           card_share_token: token,
+          custom_link_url: card.custom_link_url,
         })
         .select()
         .single();
@@ -1519,6 +1520,18 @@ export default function Cockpit() {
                     <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
                       <Phone className="w-3 h-3 shrink-0" /> {viewingCard.contact_phone}
                     </p>
+                  )}
+                  {viewingCard.custom_link_url && (
+                    <a
+                      href={viewingCard.custom_link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs flex items-center gap-1.5 opacity-90 hover:underline"
+                      style={{ color: viewingCard.card_text_color || "#FFFFFF" }}
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
+                    </a>
                   )}
                 </div>
               </div>
