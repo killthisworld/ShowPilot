@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 
 const ROLE_COLORS = {
@@ -52,6 +52,85 @@ function Field({ label, value, onChange, editable, placeholder, type = "text" })
         />
       ) : (
         <p className="mt-1 text-white/70 text-sm min-h-[20px]">{value || <span className="text-white/25">Not filled in yet</span>}</p>
+      )}
+    </div>
+  );
+}
+
+// Read-only technical details for one act - band members and their
+// instrument/mic needs, stage plot, and any FX or general notes. This is
+// the info an audio engineer (or anyone else with access to the gig)
+// actually needs to see, distinct from the basic booking info above.
+function BandDetails({ band }) {
+  const members = band.band_members || [];
+  const stagePlotImages = [
+    ...(band.stage_plot_url ? [band.stage_plot_url] : []),
+    ...(band.stage_plot_files || []),
+  ];
+
+  return (
+    <div className="px-3 pb-3 pt-1 space-y-3 border-t border-[#222] mt-1">
+      {members.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+            <Users className="w-3 h-3" /> Band Members
+          </p>
+          <div className="space-y-1.5">
+            {members.map((m, mi) => (
+              <div key={mi} className="text-sm">
+                <span className="text-white font-medium">{m.name || "Unnamed"}</span>
+                {m.instruments && m.instruments.length > 0 && (
+                  <span className="text-white/50">
+                    {" — "}
+                    {m.instruments.map((inst, ii) => (
+                      <span key={ii}>
+                        {ii > 0 && ", "}
+                        {inst.name}
+                        {(inst.mic_di || inst.plus48v) && (
+                          <span className="text-white/30">
+                            {" ("}
+                            {[inst.mic_di, inst.plus48v ? "+48V" : null].filter(Boolean).join(", ")}
+                            {")"}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {m.notes && <p className="text-white/30 text-xs mt-0.5">{m.notes}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stagePlotImages.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+            <ImageIcon className="w-3 h-3" /> Stage Plot
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {stagePlotImages.map((url, ui) => (
+              <a key={ui} href={url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 rounded-lg overflow-hidden border border-[#333] hover:border-[#8CFF3D]/50">
+                <img src={url} alt="Stage plot" className="w-full h-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {band.artist_fx_notes && (
+        <div>
+          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">FX Notes</p>
+          <p className="text-white/70 text-sm whitespace-pre-wrap">{band.artist_fx_notes}</p>
+        </div>
+      )}
+
+      {band.general_notes && (
+        <div>
+          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
+          <p className="text-white/70 text-sm whitespace-pre-wrap">{band.general_notes}</p>
+        </div>
       )}
     </div>
   );
@@ -129,6 +208,15 @@ export default function SharedGig() {
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
   const updateSection = (section, field, val) =>
     setGig((g) => ({ ...g, [section]: { ...(g[section] || {}), [field]: val } }));
+  const [expandedBands, setExpandedBands] = useState(new Set());
+  const toggleExpanded = (i) => {
+    setExpandedBands((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  };
+
   const updateBand = (i, field, val) => {
     const bands = [...gig.bands];
     bands[i] = { ...bands[i], [field]: val };
@@ -394,20 +482,31 @@ export default function SharedGig() {
               const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
               if (!canEdit) {
                 if (!b.band_name) return null;
+                const hasDetails = (b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes;
+                const expanded = expandedBands.has(i);
                 return (
-                  <div key={i} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{b.band_name}</p>
-                      {b.genre_tags && b.genre_tags.length > 0 && (
-                        <p className="text-white/30 text-xs truncate">{b.genre_tags.join(", ")}</p>
-                      )}
+                  <div key={i} className="bg-[#1a1a1a] rounded-xl overflow-hidden">
+                    <div
+                      onClick={() => hasDetails && toggleExpanded(i)}
+                      className={`flex items-center justify-between px-3 py-2.5 ${hasDetails ? "cursor-pointer" : ""}`}
+                    >
+                      <div className="min-w-0 flex items-center gap-1.5">
+                        {hasDetails && <ChevronDown className={`w-3.5 h-3.5 text-white/30 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />}
+                        <div className="min-w-0">
+                          <p className="text-white text-sm font-medium truncate">{b.band_name}</p>
+                          {b.genre_tags && b.genre_tags.length > 0 && (
+                            <p className="text-white/30 text-xs truncate">{b.genre_tags.join(", ")}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
+                        <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
+                          {b.role}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
-                      <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
-                        {b.role}
-                      </span>
-                    </div>
+                    {expanded && <BandDetails band={b} />}
                   </div>
                 );
               }
@@ -443,6 +542,18 @@ export default function SharedGig() {
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                   </div>
+                  {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
+                    <>
+                      <button
+                        onClick={() => toggleExpanded(i)}
+                        className="flex items-center gap-1 text-[#8CFF3D] text-xs font-medium hover:underline"
+                      >
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedBands.has(i) ? "rotate-180" : ""}`} />
+                        {expandedBands.has(i) ? "Hide" : "Show"} tech details
+                      </button>
+                      {expandedBands.has(i) && <BandDetails band={b} />}
+                    </>
+                  )}
                 </div>
               );
             })}
