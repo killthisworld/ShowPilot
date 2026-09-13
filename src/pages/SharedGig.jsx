@@ -67,11 +67,25 @@ function getMemberNote(fxNotes, name) {
 }
 
 function BandDetails({ band, editable, onUpdate }) {
+  const [expandedNotes, setExpandedNotes] = useState(new Set());
+  const toggleNote = (key) => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
   const members = band.band_members || [];
   const fxNotes = band.artist_fx_notes || [];
   const stagePlotFiles = band.stage_plot_files || [];
 
   const updateMembers = (next) => onUpdate("band_members", next);
+  const updateMemberBusType = (i, busType) => {
+    const next = [...members];
+    next[i] = { ...next[i], bus_type: busType };
+    updateMembers(next);
+  };
 
   const addMember = () => updateMembers([...members, { name: "", instruments: [] }]);
   const updateMemberName = (i, name) => {
@@ -144,6 +158,9 @@ function BandDetails({ band, editable, onUpdate }) {
                 return (
                   <div key={mi} className="text-sm">
                     <span className="text-white font-medium">{m.name || "Unnamed"}</span>
+                    {m.bus_type && (
+                      <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">{m.bus_type}</span>
+                    )}
                     {m.instruments && m.instruments.length > 0 && (
                       <span className="text-white/50">
                         {" — "}
@@ -162,7 +179,14 @@ function BandDetails({ band, editable, onUpdate }) {
                         ))}
                       </span>
                     )}
-                    {note && <p className="text-white/30 text-xs mt-0.5">{note}</p>}
+                    {note && (
+                      <p
+                        onClick={() => toggleNote(`ro-${mi}`)}
+                        className={`text-white/30 text-xs mt-0.5 cursor-pointer ${expandedNotes.has(`ro-${mi}`) ? "whitespace-pre-wrap" : "truncate"}`}
+                      >
+                        {note}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -211,7 +235,16 @@ function BandDetails({ band, editable, onUpdate }) {
             <div key={i} className="bg-[#111] rounded-lg p-2 space-y-1.5">
               <div className="flex items-center gap-2">
                 <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-7 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
-                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                <select
+                  value={m.bus_type || ""}
+                  onChange={(e) => updateMemberBusType(i, e.target.value)}
+                  className="h-7 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1 shrink-0"
+                >
+                  <option value="">Mix Bus</option>
+                  <option value="IEM">IEM</option>
+                  <option value="Monitor">Monitor</option>
+                </select>
+                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               {(m.instruments || []).map((inst, ii) => (
                 <div key={ii} className="flex items-center gap-1.5 pl-2">
@@ -238,8 +271,9 @@ function BandDetails({ band, editable, onUpdate }) {
                 <Textarea
                   value={getMemberNote(fxNotes, m.name)}
                   onChange={(e) => updateMemberNote(m.name, e.target.value)}
+                  onFocus={() => toggleNote(`ed-${i}`)}
                   placeholder="Notes for this member (FX, monitor mix, etc.)"
-                  className="bg-[#1a1a1a] border-[#222] text-white text-xs min-h-[40px]"
+                  className={`bg-[#1a1a1a] border-[#222] text-white text-xs transition-all ${expandedNotes.has(`ed-${i}`) ? "min-h-[100px]" : "min-h-[32px]"}`}
                 />
               </div>
             </div>
@@ -275,7 +309,12 @@ function BandDetails({ band, editable, onUpdate }) {
 
       <div>
         <Label className="text-white/40 text-[11px] uppercase tracking-wide font-semibold">General Notes</Label>
-        <Textarea value={band.general_notes || ""} onChange={(e) => onUpdate("general_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[50px]" />
+        <Textarea
+          value={band.general_notes || ""}
+          onChange={(e) => onUpdate("general_notes", e.target.value)}
+          onFocus={() => toggleNote("general")}
+          className={`mt-1 bg-[#111] border-[#222] text-white text-sm transition-all ${expandedNotes.has("general") ? "min-h-[120px]" : "min-h-[40px]"}`}
+        />
       </div>
     </div>
   );
