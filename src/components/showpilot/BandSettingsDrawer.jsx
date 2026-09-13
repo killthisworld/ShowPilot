@@ -146,11 +146,11 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
 
             <button
               onClick={() => { setOpen(false); navigate("/band-profile"); }}
-              className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#8CFF3D]/30 active:bg-blue-500/10 active:border-blue-400/50 transition-colors"
+              className="w-full border border-blue-400/50 rounded-xl p-3 flex items-center gap-3 hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors"
             >
-              <Music className="w-4 h-4 text-[#8CFF3D]/70 shrink-0" />
+              <Music className="w-4 h-4 text-blue-400/80 shrink-0" />
               <div className="text-left">
-                <p className="text-white text-xs font-medium">Band Profile</p>
+                <p className="text-blue-400/90 text-xs font-medium">Band Profile</p>
                 <p className="text-white/40 text-[10px]">Save your info once, load it into any intake form</p>
               </div>
             </button>
