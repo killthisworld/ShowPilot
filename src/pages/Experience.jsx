@@ -781,6 +781,18 @@ export default function Cockpit() {
                       <Phone className="w-3 h-3 shrink-0" /> {draft.contact_phone}
                     </p>
                   )}
+                  {draft.custom_link_url && (
+                    <a
+                      href={draft.custom_link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs flex items-center gap-1.5 opacity-90 hover:underline"
+                      style={{ color: textColor }}
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
+                    </a>
+                  )}
                 </div>
               </div>
             )}
