@@ -9,6 +9,7 @@ import ShowCard from "@/components/showpilot/ShowCard";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 
 // Status tabs config
@@ -39,6 +40,7 @@ export default function Home() {
   const [reminderMonthLabel, setReminderMonthLabel] = useState("");
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
+  const accountStyle = getAccountTypeStyle(preferences?.account_type);
 
   useEffect(() => {
     const checkLogbookReminder = async () => {
@@ -353,7 +355,7 @@ export default function Home() {
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
           <SettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-lg font-bold text-white tracking-tight">
-            Show<span className="text-[#8CFF3D]">Pilot</span>
+            Show<span style={{ color: accountStyle.color }}>Pilot</span>
           </h1>
           <Link to="/show/new" onClick={clearNewShowDraft}>
             <Button size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 w-8 p-0 rounded-xl">

@@ -9,6 +9,7 @@ import { Menu, User, LogOut, Star, Link2, Music, Archive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
 export default function BandSettingsDrawer({ preferences, onPreferencesUpdate }) {
   const [open, setOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
   const navigate = useNavigate();
   const { signOut } = useAuth();
 
+  const accountStyle = getAccountTypeStyle(prefs.account_type);
   const lastRatingDate = prefs.last_rating_date ? new Date(prefs.last_rating_date) : null;
   const daysSinceRating = lastRatingDate ? (Date.now() - lastRatingDate.getTime()) / (1000 * 60 * 60 * 24) : 999;
   const canRate = daysSinceRating >= 7;
@@ -137,6 +139,12 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
                 Upload Photo
                 <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </label>
+            </div>
+            <div className="flex items-center gap-1.5 -mt-1">
+              <accountStyle.icon className="w-3.5 h-3.5" style={{ color: accountStyle.color }} />
+              <span className="text-xs font-medium" style={{ color: accountStyle.color }}>
+                Account Type: {accountStyle.label}
+              </span>
             </div>
             <div>
               <Label className="text-white/50 text-xs">Display Name</Label>

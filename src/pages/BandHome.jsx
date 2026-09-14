@@ -7,10 +7,12 @@ import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import BandGigCard from "@/components/showpilot/BandGigCard";
 import { Button } from "@/components/ui/button";
 import { usePreferences } from "@/hooks/usePreferences";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
+  const accountStyle = getAccountTypeStyle(preferences?.account_type);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [progressByShowId, setProgressByShowId] = useState({});
@@ -156,7 +158,7 @@ export default function BandHome() {
         <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
           <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-white font-bold text-lg">
-            Show<span className="text-[#8CFF3D]">Pilot</span>
+            Show<span style={{ color: accountStyle.color }}>Pilot</span>
           </h1>
           <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
             <Plus className="w-5 h-5" />
