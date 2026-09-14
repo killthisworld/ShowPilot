@@ -5,6 +5,7 @@ import StatusBadge from "./StatusBadge";
 import moment from "moment";
 
 function getAccentColor(show) {
+  if (show.is_owned === false) return "#F472B6";      // pink — Linked
   if (show.starred) return "#F59E0B";          // amber — Starred
   if (show.status === "complete") return "#8CFF3D";  // green — Worked
   if (show.status === "in_progress") return "#60A5FA"; // blue — Frequent
@@ -100,14 +101,22 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <StatusBadge status={show.status} />
-              {show.frequency_scope === "venue" && <Building className="w-3.5 h-3.5" style={{ color: accentColor }} title="Venue" />}
-              {show.frequency_scope === "artist" && <Mic2 className="w-3.5 h-3.5" style={{ color: accentColor }} title="Artist / Band" />}
-              {show.frequency_scope === "both" && (
-                <span className="flex items-center gap-0.5" style={{ color: accentColor }} title="Venue & Artist">
-                  <Building className="w-3 h-3" />
-                  <Mic2 className="w-3 h-3" />
+              {show.is_owned === false ? (
+                <span className="text-[10px] font-medium px-2 py-1 rounded-md shrink-0" style={{ color: "#F472B6", backgroundColor: "#F472B61a" }}>
+                  Owner: {show.owner_display_name || "Unknown"}
                 </span>
+              ) : (
+                <>
+                  <StatusBadge status={show.status} />
+                  {show.frequency_scope === "venue" && <Building className="w-3.5 h-3.5" style={{ color: accentColor }} title="Venue" />}
+                  {show.frequency_scope === "artist" && <Mic2 className="w-3.5 h-3.5" style={{ color: accentColor }} title="Artist / Band" />}
+                  {show.frequency_scope === "both" && (
+                    <span className="flex items-center gap-0.5" style={{ color: accentColor }} title="Venue & Artist">
+                      <Building className="w-3 h-3" />
+                      <Mic2 className="w-3 h-3" />
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
