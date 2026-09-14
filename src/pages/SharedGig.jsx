@@ -589,6 +589,11 @@ export default function SharedGig() {
   // ever touching their own section still ends up properly linked.
   const markLinkedAndAccepted = async () => {
     if (!user || !gig?.id) return;
+    // The owner never needs to be linked to their own show - doing so
+    // creates a self-referential linked_gigs row that then makes the
+    // event appear twice on their own Home page (once as owned, once as
+    // linked).
+    if (permissions?.is_owner) return;
     await supabase
       .from("linked_gigs")
       .upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
