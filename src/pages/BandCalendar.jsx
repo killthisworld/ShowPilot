@@ -84,7 +84,7 @@ export default function BandCalendar() {
 
   const newShowOnDate = (dateKey) => {
     clearNewShowDraft();
-    navigate("/show/new", { state: { from: "calendar", prefillDate: dateKey } });
+    navigate("/event/new", { state: { from: "calendar", prefillDate: dateKey } });
   };
 
   return (

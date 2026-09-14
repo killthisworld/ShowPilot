@@ -78,7 +78,7 @@ export default function BandHome() {
     navigate(`/gig/shared?token=${g.share_token}`);
   };
 
-  const handleCreateEvent = () => navigate("/show/new");
+  const handleCreateEvent = () => navigate("/event/new");
 
   const sortedGigs = useMemo(() => {
     return [...gigs].sort((a, b) => {
