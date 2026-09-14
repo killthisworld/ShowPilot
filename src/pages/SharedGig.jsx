@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2 } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -662,6 +662,15 @@ export default function SharedGig() {
     }
   };
 
+  const shareInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.share({ title: `${inviteFor?.label || "Gig"} Invite`, url: inviteUrl });
+    } catch (e) {
+      // user cancelled - nothing to do
+    }
+  };
+
   // Handles the top-level event details (name, date, venue basics) plus
   // marking the gig linked - the 5 role sections below now save
   // independently via their own Update buttons.
@@ -1058,6 +1067,14 @@ export default function SharedGig() {
                     >
                       {inviteCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
+                    {typeof navigator !== "undefined" && navigator.share && (
+                      <button
+                        onClick={shareInviteUrl}
+                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 )}
               </>
