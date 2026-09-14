@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { usePreferences } from "@/hooks/usePreferences";
 
 // Section colors mirror SharedGig's SECTION_COLORS so a Venue template
 // here visually connects to the Venue section it gets loaded into, and
@@ -24,6 +25,7 @@ const emptyData = (category) =>
 export default function MyTemplates() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { preferences } = usePreferences();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState([]); // { key, id, category, name, data, open, saving, saved }
@@ -78,10 +80,6 @@ export default function MyTemplates() {
 
   // --- Artist template member helpers (mirrors BandProfile's pattern) ---
   const getInstruments = (m) => m.instruments || [];
-  const memberSummary = (m) => {
-    const instrumentNames = getInstruments(m).map((inst) => inst.name).filter(Boolean).join(", ");
-    return [m.name, instrumentNames, m.bus_type].filter(Boolean).join(" → ");
-  };
   const addMember = (key) => setData(key, "band_members", [...(templates.find((t) => t.key === key).data.band_members || []), { name: "", instruments: [], bus_type: "", notes: "" }]);
   const updateMember = (key, i, field, val) => {
     const t = templates.find((tt) => tt.key === key);
@@ -236,6 +234,12 @@ export default function MyTemplates() {
     );
   }
 
+  const busPresets = preferences?.mix_bus_presets || [];
+  const iemMonitorColors = {
+    IEM: busPresets.find((p) => p.bus_type === "IEM")?.color || "#EAB308",
+    Monitor: busPresets.find((p) => p.bus_type === "Monitor")?.color || "#F97316",
+  };
+
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
@@ -380,7 +384,7 @@ export default function MyTemplates() {
                                 {(t.data.band_members || []).map((m, i) => {
                                   const memberKey = `${t.key}:${i}`;
                                   const collapsed = collapsedMembers[memberKey];
-                                  const summary = memberSummary(m);
+                                  const instrumentNames = getInstruments(m).map((inst) => inst.name).filter(Boolean).join(", ");
                                   return (
                                   <div key={i} className="bg-[#111] rounded-xl p-3 space-y-2">
                                     <div className="flex items-center gap-2">
@@ -393,7 +397,15 @@ export default function MyTemplates() {
                                       </button>
                                     </div>
                                     {collapsed ? (
-                                      summary && <p className="text-white/30 text-xs pl-7 truncate">{summary}</p>
+                                      (m.name || instrumentNames || m.bus_type) && (
+                                        <p className="text-xs pl-7 truncate">
+                                          <span className="text-[#8CFF3D] font-semibold">{m.name || "Unnamed"}</span>
+                                          {instrumentNames && <span className="text-white/30"> → </span>}
+                                          {instrumentNames && <span className="text-[#8CFF3D]/80">{instrumentNames}</span>}
+                                          {m.bus_type && <span className="text-white/30"> → </span>}
+                                          {m.bus_type && <span className="font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>}
+                                        </p>
+                                      )
                                     ) : (
                                       <>
                                     <div className="space-y-1.5">
@@ -436,15 +448,20 @@ export default function MyTemplates() {
                                       </Button>
                                     </div>
                                     <div className="flex gap-3 pl-0.5">
-                                      {["IEM", "Monitor"].map((type) => (
-                                        <button
-                                          key={type}
-                                          onClick={() => updateMember(t.key, i, "bus_type", m.bus_type === type ? "" : type)}
-                                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${m.bus_type === type ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                                        >
-                                          {type}
-                                        </button>
-                                      ))}
+                                      {["IEM", "Monitor"].map((type) => {
+                                        const color = iemMonitorColors[type];
+                                        const active = m.bus_type === type;
+                                        return (
+                                          <button
+                                            key={type}
+                                            onClick={() => updateMember(t.key, i, "bus_type", m.bus_type === type ? "" : type)}
+                                            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${active ? "border-white/30" : "border-[#333] text-white/40 hover:text-white/60"}`}
+                                            style={active ? { backgroundColor: color + "1A", color } : undefined}
+                                          >
+                                            {type}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                       </>
                                     )}
