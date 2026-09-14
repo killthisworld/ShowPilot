@@ -35,6 +35,7 @@ export default function Home() {
   const [stateFilter, setStateFilter] = useState("all");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [confirmDeleteShow, setConfirmDeleteShow] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [showLogbookReminder, setShowLogbookReminder] = useState(false);
   const [reminderMonthLabel, setReminderMonthLabel] = useState("");
@@ -97,6 +98,7 @@ export default function Home() {
         if (isMounted) setLoading(false);
         return;
       }
+      if (isMounted) setCurrentUserId(user.id);
 
       const { data, error } = await supabase
         .from("shows")
@@ -177,10 +179,18 @@ export default function Home() {
     return () => { isMounted = false; };
   }, []);
 
+  const showKey = (s) => (s.is_owned === false ? s.share_token : s.id);
+
   const handleArchive = async (show) => {
-    setShows((prev) => prev.filter((s) => s.id !== show.id));
-    const { error } = await supabase.from("shows").update({ archived: true }).eq("id", show.id);
-    if (error) console.error(error);
+    setShows((prev) => prev.filter((s) => showKey(s) !== showKey(show)));
+    if (show.is_owned === false) {
+      if (!currentUserId) return;
+      const { error } = await supabase.from("linked_gigs").update({ archived: true }).eq("user_id", currentUserId).eq("share_token", show.share_token);
+      if (error) console.error(error);
+    } else {
+      const { error } = await supabase.from("shows").update({ archived: true }).eq("id", show.id);
+      if (error) console.error(error);
+    }
   };
 
   const requestDelete = (show) => setConfirmDeleteShow(show);
@@ -188,11 +198,18 @@ export default function Home() {
   const confirmDelete = async () => {
     if (!confirmDeleteShow) return;
     setDeleting(true);
-    const { error } = await supabase.from("shows").delete().eq("id", confirmDeleteShow.id);
+    let error = null;
+    if (confirmDeleteShow.is_owned === false) {
+      if (currentUserId) {
+        ({ error } = await supabase.from("linked_gigs").delete().eq("user_id", currentUserId).eq("share_token", confirmDeleteShow.share_token));
+      }
+    } else {
+      ({ error } = await supabase.from("shows").delete().eq("id", confirmDeleteShow.id));
+    }
     if (error) {
       console.error(error);
     } else {
-      setShows((prev) => prev.filter((s) => s.id !== confirmDeleteShow.id));
+      setShows((prev) => prev.filter((s) => showKey(s) !== showKey(confirmDeleteShow)));
     }
     setDeleting(false);
     setConfirmDeleteShow(null);
