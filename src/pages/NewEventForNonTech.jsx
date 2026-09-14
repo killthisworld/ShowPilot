@@ -65,6 +65,7 @@ export default function NewEventForNonTech() {
         .insert({
           owner_id: user.id,
           event_name: eventName.trim(),
+          band_name: "",
           event_type: eventType || null,
           date,
           included_sections: includedSections,
