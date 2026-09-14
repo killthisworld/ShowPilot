@@ -115,8 +115,9 @@ function getMemberNote(fxNotes, name) {
   return (fxNotes || []).find((n) => n.artist_name === name)?.notes || "";
 }
 
-function BandDetails({ band, editable, onUpdate }) {
+function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
   const [noteModal, setNoteModal] = useState(null); // { label, value, onChange }
+  const [collapsedMembers, setCollapsedMembers] = useState({}); // memberIndex -> bool
 
   const members = band.band_members || [];
   const fxNotes = band.artist_fx_notes || [];
@@ -223,7 +224,7 @@ function BandDetails({ band, editable, onUpdate }) {
                   <div key={mi} className="text-sm">
                     <span className="text-white font-medium">{m.name || "Unnamed"}</span>
                     {m.bus_type && (
-                      <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-white/10 text-white/50">{m.bus_type}</span>
+                      <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ backgroundColor: iemMonitorColors[m.bus_type] + "22", color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
                     )}
                     {m.instruments && m.instruments.length > 0 && (
                       <span className="text-white/50">
@@ -313,20 +314,38 @@ function BandDetails({ band, editable, onUpdate }) {
           <button onClick={addMember} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg">+ Add Member</button>
         </div>
         <div className="space-y-2">
-          {members.map((m, i) => (
+          {members.map((m, i) => {
+            const collapsed = collapsedMembers[i];
+            const instrumentNames = (m.instruments || []).map((inst) => inst.name).filter(Boolean).join(", ");
+            const busType = m.bus_type || "IEM";
+            return (
             <div key={i} className="bg-[#111] rounded-lg p-2 space-y-1.5">
               <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }))} className="p-1.5 -ml-1 text-white/30 hover:text-white/60 shrink-0">
+                  <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+                </button>
                 <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-9 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
                 <select
                   value={m.bus_type || "IEM"}
                   onChange={(e) => updateMemberBusType(i, e.target.value)}
-                  className="h-9 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1.5 shrink-0"
+                  className="h-9 bg-[#1a1a1a] border text-xs rounded px-1.5 shrink-0"
+                  style={{ borderColor: iemMonitorColors[busType] + "60", color: iemMonitorColors[busType] }}
                 >
                   <option value="IEM">IEM</option>
                   <option value="Monitor">Monitor</option>
                 </select>
                 <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400 shrink-0 p-2 -m-1"><Trash2 className="w-5 h-5" /></button>
               </div>
+              {collapsed ? (
+                <p className="text-xs pl-8 truncate">
+                  <span className="text-[#8CFF3D] font-semibold">{m.name || "Unnamed"}</span>
+                  {instrumentNames && <span className="text-white/30"> → </span>}
+                  {instrumentNames && <span className="text-[#8CFF3D]/80">{instrumentNames}</span>}
+                  <span className="text-white/30"> → </span>
+                  <span className="font-bold" style={{ color: iemMonitorColors[busType] }}>{busType}</span>
+                </p>
+              ) : (
+                <>
               {(m.instruments || []).map((inst, ii) => (
                 <div key={ii} className="flex items-center gap-1.5 pl-2">
                   <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
@@ -359,8 +378,11 @@ function BandDetails({ band, editable, onUpdate }) {
               >
                 {getMemberNote(fxNotes, m.name) || "Add notes for this member (FX, monitor mix, etc.)"}
               </button>
+                </>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -591,6 +613,11 @@ export default function SharedGig() {
 
   const canEdit = !!user;
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  const busPresets = preferences?.mix_bus_presets || [];
+  const iemMonitorColors = {
+    IEM: busPresets.find((p) => p.bus_type === "IEM")?.color || "#EAB308",
+    Monitor: busPresets.find((p) => p.bus_type === "Monitor")?.color || "#F97316",
+  };
   const canEditSection = (section) => {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
@@ -982,7 +1009,7 @@ export default function SharedGig() {
                         </span>
                       </div>
                     </div>
-                    {expanded && <BandDetails band={b} editable={false} onUpdate={() => {}} />}
+                    {expanded && <BandDetails band={b} editable={false} onUpdate={() => {}} iemMonitorColors={iemMonitorColors} />}
                   </div>
                 );
               }
@@ -1028,7 +1055,7 @@ export default function SharedGig() {
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedBands.has(i) ? "rotate-180" : ""}`} />
                         {expandedBands.has(i) ? "Hide" : "Show"} tech details
                       </button>
-                      {expandedBands.has(i) && <BandDetails band={b} editable={true} onUpdate={(field, val) => updateBand(i, field, val)} />}
+                      {expandedBands.has(i) && <BandDetails band={b} editable={true} onUpdate={(field, val) => updateBand(i, field, val)} iemMonitorColors={iemMonitorColors} />}
                     </>
                   )}
                 </div>
