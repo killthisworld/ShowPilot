@@ -17,6 +17,7 @@ const STATUS_TABS = [
   { id: "in_progress", label: "Frequent", shortLabel: "Frequent", activeBg: "bg-blue-500/15", activeText: "text-blue-400", dot: "bg-blue-400" },
   { id: "complete", label: "Worked", shortLabel: "Worked", activeBg: "bg-[#8CFF3D]/15", activeText: "text-[#8CFF3D]", dot: "bg-[#8CFF3D]" },
   { id: "starred", label: "Starred", shortLabel: "★", activeBg: "bg-amber-500/15", activeText: "text-amber-400", dot: null },
+  { id: "linked", label: "Linked", shortLabel: "Linked", activeBg: "bg-pink-500/15", activeText: "text-pink-400", dot: "bg-pink-400" },
 ];
 
 export default function Home() {
@@ -145,8 +146,27 @@ export default function Home() {
         }
       }
 
+      let linkedGigs = [];
+      const { data: links } = await supabase
+        .from("linked_gigs")
+        .select("share_token, linked_at, starred")
+        .eq("user_id", user.id)
+        .eq("archived", false);
+      if (links && links.length > 0) {
+        const details = await Promise.all(
+          links.map(async (link) => {
+            const { data: gigData } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+            return gigData ? { ...gigData, share_token: link.share_token, is_owned: false, starred: link.starred, opener_names: [] } : null;
+          })
+        );
+        linkedGigs = details.filter(Boolean);
+      }
+
       if (isMounted) {
-        setShows(activeShows.map((s) => ({ ...s, opener_names: openersByShow[s.id] || [] })));
+        setShows([
+          ...activeShows.map((s) => ({ ...s, is_owned: true, opener_names: openersByShow[s.id] || [] })),
+          ...linkedGigs,
+        ]);
         setLoading(false);
       }
     }
@@ -253,7 +273,10 @@ export default function Home() {
         // Tab filter
         if (activeTab === "starred") {
           if (!s.starred) return false;
+        } else if (activeTab === "linked") {
+          if (s.is_owned) return false;
         } else {
+          if (!s.is_owned) return false;
           if (s.starred) return false;
           if (s.status !== activeTab) return false;
         }
