@@ -75,8 +75,7 @@ export default function BandHome() {
   }, [gigs]);
 
   const openGig = (g) => {
-    if (g.is_owned) navigate(`/show/${g.id}`);
-    else navigate(`/gig/shared?token=${g.share_token}`);
+    navigate(`/gig/shared?token=${g.share_token}`);
   };
 
   const handleCreateEvent = () => navigate("/show/new");
@@ -194,7 +193,7 @@ export default function BandHome() {
                 <div
                   key={g.is_owned ? g.id : g.share_token}
                   onClick={() => openGig(g)}
-                  className="w-full text-left bg-[#161616] border border-[#222] rounded-2xl overflow-hidden hover:border-white/20 transition-colors cursor-pointer"
+                  className={`w-full text-left bg-[#161616] rounded-2xl overflow-hidden transition-colors cursor-pointer border ${g.is_owned ? "border-[#222] hover:border-white/20" : "border-[#F472B6]/50 hover:border-[#F472B6]"}`}
                 >
                   <GigProgressBar progress={progressByShowId[g.id]} />
                   <div className="p-4 flex gap-3">

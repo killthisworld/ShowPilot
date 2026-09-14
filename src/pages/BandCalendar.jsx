@@ -79,8 +79,7 @@ export default function BandCalendar() {
   }, [currentMonth]);
 
   const openGig = (g) => {
-    if (g.is_owned) navigate(`/show/${g.id}`);
-    else navigate(`/gig/shared?token=${g.share_token}`);
+    navigate(`/gig/shared?token=${g.share_token}`);
   };
 
   const newShowOnDate = (dateKey) => {
