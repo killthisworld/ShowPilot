@@ -4,7 +4,8 @@ import { supabase } from "@/api/supabaseClient";
 import { MapPin, Calendar, CalendarDays, Plus, Link2, Star } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
-import GigProgressBar from "@/components/showpilot/GigProgressBar";
+import BandGigCard from "@/components/showpilot/BandGigCard";
+import { Button } from "@/components/ui/button";
 import { usePreferences } from "@/hooks/usePreferences";
 
 export default function BandHome() {
@@ -13,11 +14,15 @@ export default function BandHome() {
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [progressByShowId, setProgressByShowId] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [confirmDeleteGig, setConfirmDeleteGig] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
+      setCurrentUserId(user.id);
 
       const { data: owned } = await supabase
         .from("shows")
@@ -79,6 +84,34 @@ export default function BandHome() {
   };
 
   const handleCreateEvent = () => navigate("/event/new");
+
+  const gigKey = (g) => (g.is_owned ? g.id : g.share_token);
+
+  const handleArchive = async (gig) => {
+    if (gig.is_owned) {
+      await supabase.from("shows").update({ archived: true }).eq("id", gig.id);
+    } else if (currentUserId) {
+      await supabase.from("linked_gigs").update({ archived: true }).eq("user_id", currentUserId).eq("share_token", gig.share_token);
+    }
+    setGigs((prev) => prev.filter((g) => gigKey(g) !== gigKey(gig)));
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteGig) return;
+    setDeleting(true);
+    try {
+      if (confirmDeleteGig.is_owned) {
+        await supabase.from("shows").delete().eq("id", confirmDeleteGig.id);
+      } else if (currentUserId) {
+        await supabase.from("linked_gigs").delete().eq("user_id", currentUserId).eq("share_token", confirmDeleteGig.share_token);
+      }
+      setGigs((prev) => prev.filter((g) => gigKey(g) !== gigKey(confirmDeleteGig)));
+      setConfirmDeleteGig(null);
+    } catch (e) {
+      console.error(e);
+    }
+    setDeleting(false);
+  };
 
   const sortedGigs = useMemo(() => {
     return [...gigs].sort((a, b) => {
@@ -184,50 +217,42 @@ export default function BandHome() {
           </div>
         ) : (
           <div className="space-y-2">
-            {sortedGigs.map((g) => {
-              const title = g.event_name || g.band_name || "Untitled Gig";
-              const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-              const ownerLabel = g.is_owned ? "You" : (g.owner_display_name || "Unknown");
-              const accent = g.is_owned ? "#8CFF3D" : "#F472B6";
-              return (
-                <div
-                  key={g.is_owned ? g.id : g.share_token}
-                  onClick={() => openGig(g)}
-                  className={`w-full text-left bg-[#161616] rounded-2xl overflow-hidden transition-colors cursor-pointer border ${g.is_owned ? "border-[#222] hover:border-white/20" : "border-[#F472B6]/50 hover:border-[#F472B6]"}`}
-                >
-                  <GigProgressBar progress={progressByShowId[g.id]} />
-                  <div className="p-4 flex gap-3">
-                    <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0 w-4">
-                      {g.starred && <Star className="w-4 h-4 text-amber-400" fill="currentColor" />}
-                      {(!g.is_owned || g.is_shared_by_me) && <Link2 className="w-4 h-4 text-[#F472B6]" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white font-semibold text-sm truncate flex-1">{title}</p>
-                        <span className="text-xs font-medium px-2 py-1 rounded-md shrink-0" style={{ color: accent, backgroundColor: accent + "1a" }}>
-                          Owner: {ownerLabel}
-                        </span>
-                      </div>
-                      {location && (
-                        <div className="flex items-center gap-1.5 text-white/50 text-xs mt-1">
-                          <MapPin className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{location}</span>
-                        </div>
-                      )}
-                      {g.date && (
-                        <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5">
-                          <Calendar className="w-3 h-3 shrink-0" />
-                          <span>{new Date(g.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {sortedGigs.map((g) => (
+              <BandGigCard
+                key={g.is_owned ? g.id : g.share_token}
+                gig={g}
+                progress={progressByShowId[g.id]}
+                onOpen={openGig}
+                onArchive={handleArchive}
+                onDeleteRequest={setConfirmDeleteGig}
+              />
+            ))}
           </div>
         )}
       </div>
+
+      {confirmDeleteGig && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteGig(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white font-semibold text-base mb-1">
+              {confirmDeleteGig.is_owned ? "Delete this event?" : "Remove this link?"}
+            </p>
+            <p className="text-white/40 text-sm mb-4">
+              {confirmDeleteGig.is_owned
+                ? `${confirmDeleteGig.event_name || confirmDeleteGig.band_name || "This event"} will be permanently deleted. This can't be undone.`
+                : "This just removes it from your list - the event itself isn't affected."}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteGig(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+                Cancel
+              </Button>
+              <Button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-500 text-white hover:bg-red-600">
+                {deleting ? "..." : confirmDeleteGig.is_owned ? "Delete" : "Remove"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <BandBottomTabs />
     </div>
