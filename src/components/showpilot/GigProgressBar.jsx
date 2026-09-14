@@ -11,11 +11,25 @@ const SEGMENTS = [
   { key: "manager_band", color: "#EF4444", label: "Manager/Band" },
 ];
 
+// Home's progress bar key differs slightly from the included_sections key
+// for the combined section ("manager_band" here vs "manager" there).
+const INCLUDED_SECTION_KEY = {
+  venue: "venue",
+  promoter: "promoter",
+  booking_agent: "booking_agent",
+  manager_band: "manager",
+};
+
 export default function GigProgressBar({ progress }) {
   if (!progress) return null;
+  const includedSections = progress.included_sections;
+  const visibleSegments = SEGMENTS.filter(
+    (seg) => !includedSections || includedSections.includes(INCLUDED_SECTION_KEY[seg.key])
+  );
+  if (visibleSegments.length === 0) return null;
   return (
     <div className="flex w-full gap-1.5 p-2">
-      {SEGMENTS.map((seg) => {
+      {visibleSegments.map((seg) => {
         const data = progress[seg.key];
         const invited = !!data?.invited;
         const percent = Math.max(0, Math.min(1, data?.percent || 0));
