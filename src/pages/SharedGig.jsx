@@ -24,7 +24,7 @@ const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event"
 // progress (the Home page progress bar uses the same palette) so position
 // and color together become a language the user only has to learn once.
 const SECTION_COLORS = {
-  venue: "#F97316",
+  venue: "#FB923C",
   promoter: "#60A5FA",
   booking_agent: "#C026D3",
   manager: "#EF4444",

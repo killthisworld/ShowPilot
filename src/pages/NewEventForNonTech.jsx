@@ -10,7 +10,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 const SECTION_OPTIONS = [
-  { key: "venue", label: "Venue", color: "#F97316" },
+  { key: "venue", label: "Venue", color: "#FB923C" },
   { key: "promoter", label: "Promoter", color: "#60A5FA" },
   { key: "booking_agent", label: "Booking Agent", color: "#C026D3" },
   { key: "manager", label: "Manager / Band", color: "#EF4444" },

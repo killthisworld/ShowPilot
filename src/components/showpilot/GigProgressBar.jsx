@@ -5,7 +5,7 @@ import React from "react";
 // Promoter" once and use it everywhere. Manager and Band/Performer info
 // share one segment since either can fill in the same underlying data.
 const SEGMENTS = [
-  { key: "venue", color: "#F97316", label: "Venue" },
+  { key: "venue", color: "#FB923C", label: "Venue" },
   { key: "promoter", color: "#60A5FA", label: "Promoter" },
   { key: "booking_agent", color: "#C026D3", label: "Booking" },
   { key: "manager_band", color: "#EF4444", label: "Manager/Band" },
