@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Menu, User, LogOut, Star, Archive, Mail, Link2 } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive, Mail, Link2, FolderOpen } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
@@ -176,6 +176,17 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
             <Button onClick={() => { setOpen(false); navigate("/manager-links"); }} variant="outline" className="w-full border-blue-400/50 text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-400 justify-start">
               <Mail className="w-4 h-4 mr-2" /> Manage Links
             </Button>
+
+            <button
+              onClick={() => { setOpen(false); navigate("/my-templates"); }}
+              className="w-full border border-orange-400/50 rounded-xl p-3 flex items-center gap-3 hover:bg-orange-500/10 active:bg-orange-500/20 transition-colors"
+            >
+              <FolderOpen className="w-4 h-4 text-orange-400/80 shrink-0" />
+              <div className="text-left">
+                <p className="text-orange-400/90 text-xs font-medium">My Templates</p>
+                <p className="text-white/40 text-[10px]">Save venue and artist info to reuse on repeat shows</p>
+              </div>
+            </button>
 
             <Button onClick={save} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
               {saving ? "Saving..." : "Save Settings"}

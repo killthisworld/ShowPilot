@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2 } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const ROLE_COLORS = {
@@ -561,6 +562,33 @@ export default function SharedGig() {
   const addBand = () => update("bands", [...(gig.bands || []), { role: "N/A", band_name: "", genre_tags: [], set_length_minutes: "", sort_order: gig.bands.length }]);
   const removeBand = (i) => update("bands", gig.bands.filter((_, idx) => idx !== i));
 
+  // Loads a saved venue/artist template (from My Templates) into this
+  // shared gig - a venue template fills the Venue section, an artist
+  // template gets added as a new act in the lineup, pre-filled so the
+  // engineer doesn't retype a room or act they already know.
+  const loadVenueTemplate = (name, data) => {
+    update("venue", name);
+    update("city", data.city || "");
+    update("state", data.state || "");
+    update("wifi_network", data.wifi_network || "");
+    update("wifi_password", data.wifi_password || "");
+    update("console", data.console || "");
+    update("power_notes", data.power_notes || "");
+  };
+  const loadArtistTemplateAsNewBand = (name, data) => {
+    update("bands", [...(gig.bands || []), {
+      role: "N/A",
+      band_name: name,
+      genre_tags: data.genre_tags || [],
+      band_members: data.band_members || [],
+      stage_plot_url: data.stage_plot_url || "",
+      stage_plot_files: data.stage_plot_files || [],
+      general_notes: data.general_notes || "",
+      set_length_minutes: "",
+      sort_order: (gig.bands || []).length,
+    }]);
+  };
+
   const canEdit = !!user;
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
   const canEditSection = (section) => {
@@ -829,6 +857,11 @@ export default function SharedGig() {
 
         {isSectionIncluded("venue") && (
         <GigSection title={`Venue${(permissions?.my_roles?.includes("venue") || isMyOwnerSection("venue")) ? " (You)" : ""}`} icon={MapPin} color={SECTION_COLORS.venue} locked={isLocked("venue")} editable={canEditSection("venue")} isOwner={permissions?.is_owner} onInvite={() => openInvite("venue", "Venue")} onSave={saveVenueSection} saving={sectionSaving.venue} saved={sectionSaved.venue}>
+          {isTechProductionAccount && canEditSection("venue") && (
+            <div className="flex justify-end -mb-1">
+              <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} />
+            </div>
+          )}
           <Field label="Venue" value={gig.venue} onChange={(v) => update("venue", v)} editable={canEditSection("venue")} placeholder="Venue name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
@@ -903,11 +936,16 @@ export default function SharedGig() {
                 <Music className="w-4 h-4 text-white/40" />
                 <p className="text-white font-semibold text-sm">Lineup</p>
               </div>
-              {canEdit && (
-                <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
-                  <Plus className="w-3.5 h-3.5" /> Add Act
-                </button>
-              )}
+              <div className="flex items-center gap-1.5">
+                {isTechProductionAccount && canEdit && (
+                  <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplateAsNewBand} />
+                )}
+                {canEdit && (
+                  <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
+                    <Plus className="w-3.5 h-3.5" /> Add Act
+                  </button>
+                )}
+              </div>
             </div>
 
             {(!gig.bands || gig.bands.length === 0) && !canEdit && (

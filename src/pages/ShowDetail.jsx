@@ -14,6 +14,7 @@ import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
+import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const US_STATES = [
@@ -228,6 +229,41 @@ export default function ShowDetail() {
     setBands((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: val };
+      return next;
+    });
+  };
+
+  // Loads a saved venue/artist template (from My Templates) into this
+  // show. A venue template fills the Venue Info section; an artist
+  // template fills whichever act is currently selected in the Performer
+  // section - both save the engineer re-typing info for a room or act
+  // they've worked with before, whether or not that venue/artist has a
+  // ShowPilot account of their own.
+  const loadVenueTemplate = (name, data) => {
+    setShow((s) => ({
+      ...s,
+      venue: name,
+      city: data.city || "",
+      state: data.state || "",
+      wifi_network: data.wifi_network || "",
+      wifi_password: data.wifi_password || "",
+      console: data.console || "",
+      power_notes: data.power_notes || "",
+    }));
+  };
+  const loadArtistTemplate = (name, data) => {
+    setBands((prev) => {
+      const next = [...prev];
+      next[activeBandIndex] = {
+        ...next[activeBandIndex],
+        band_name: name,
+        genre_tags: data.genre_tags || [],
+        genre_tag: (data.genre_tags || [])[0] || "",
+        band_members: data.band_members || [],
+        stage_plot_url: data.stage_plot_url || "",
+        stage_plot_files: data.stage_plot_files || [],
+        general_notes: data.general_notes || "",
+      };
       return next;
     });
   };
@@ -982,7 +1018,10 @@ export default function ShowDetail() {
           <CollapsibleSection title="Venue Info" icon={Info}>
           <div className="space-y-4 pt-3">
             <div>
-              <Label className="text-white/50 text-xs">Venue</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-white/50 text-xs">Venue</Label>
+                {isTechProductionAccount && <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} />}
+              </div>
               <Input value={show.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -1163,7 +1202,10 @@ export default function ShowDetail() {
             )}
           </div>
           <div>
-            <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
+              {isTechProductionAccount && <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} />}
+            </div>
             <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
           </div>
           {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email || activeBand.submitter_card_user_id) && (

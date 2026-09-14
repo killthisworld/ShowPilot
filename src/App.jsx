@@ -25,6 +25,7 @@ import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
 import BandProfile from '@/pages/BandProfile';
+import MyTemplates from '@/pages/MyTemplates';
 import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
@@ -74,6 +75,7 @@ const AuthenticatedApp = () => {
         <Route path="/archived" element={<ArchivedShows />} />
         <Route path="/manager-links" element={<ManagerLinksPage />} />
         <Route path="/band-profile" element={<BandProfile />} />
+        <Route path="/my-templates" element={<MyTemplates />} />
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />
       </Route>
