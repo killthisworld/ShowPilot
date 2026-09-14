@@ -192,7 +192,7 @@ export default function BandCalendar() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           {!g.is_owned && <Link2 className="w-3 h-3 shrink-0" style={{ color }} />}
-                          <p className="text-white font-medium text-sm truncate">{title}</p>
+                          <p className="text-white font-medium text-sm truncate flex-1">{title}</p>
                         </div>
                         {location && (
                           <div className="flex items-center gap-1 text-white/40 text-xs truncate">
@@ -200,6 +200,9 @@ export default function BandCalendar() {
                           </div>
                         )}
                       </div>
+                      <span className="text-[10px] font-medium px-1.5 py-1 rounded-md shrink-0" style={{ color, backgroundColor: color + "1a" }}>
+                        {g.is_owned ? "You" : (g.owner_display_name || "Unknown")}
+                      </span>
                     </div>
                   </button>
                 );
