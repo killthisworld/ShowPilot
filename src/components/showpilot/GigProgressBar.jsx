@@ -19,12 +19,12 @@ export default function GigProgressBar({ progress }) {
         const data = progress[seg.key];
         const invited = !!data?.invited;
         const percent = Math.max(0, Math.min(1, data?.percent || 0));
-        const color = invited ? seg.color : "#3a3a3a";
+        const labelColor = invited ? seg.color : "rgba(255,255,255,0.3)";
         return (
           <div
             key={seg.key}
             className="flex-1 relative h-8 rounded-md border-2 overflow-hidden flex items-center justify-center"
-            style={{ borderColor: color }}
+            style={{ borderColor: seg.color }}
             title={invited ? `${seg.label}: ${Math.round(percent * 100)}%` : `${seg.label}: not invited`}
           >
             {invited && (
@@ -35,7 +35,7 @@ export default function GigProgressBar({ progress }) {
             )}
             <span
               className="relative z-10 text-[9px] font-bold uppercase tracking-wide px-1 truncate"
-              style={{ color }}
+              style={{ color: labelColor }}
             >
               {seg.label}
             </span>

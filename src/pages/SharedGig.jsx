@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -441,6 +441,24 @@ export default function SharedGig() {
   const [inviteUrl, setInviteUrl] = useState(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [engineerCards, setEngineerCards] = useState({});
+  const [isLinkedAlready, setIsLinkedAlready] = useState(false);
+
+  useEffect(() => {
+    const audioId = (gig?.engineer_info || {}).audio?.card_user_id;
+    const lightingId = (gig?.engineer_info || {}).lighting?.card_user_id;
+    const ids = [audioId, lightingId].filter(Boolean);
+    if (ids.length === 0) return;
+    supabase
+      .from("user_preferences")
+      .select("user_id, display_name, card_share_token")
+      .in("user_id", ids)
+      .then(({ data }) => {
+        const map = {};
+        (data || []).forEach((row) => { map[row.user_id] = row; });
+        setEngineerCards(map);
+      });
+  }, [gig?.engineer_info]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -485,6 +503,17 @@ export default function SharedGig() {
         setGig({ ...gigRes.data, bands: (gigRes.data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
         if (permsRes.error) console.error(permsRes.error);
         setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [] });
+
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser && gigRes.data.id) {
+          const { data: linkRow } = await supabase
+            .from("linked_gigs")
+            .select("id")
+            .eq("user_id", authUser.id)
+            .eq("show_id", gigRes.data.id)
+            .maybeSingle();
+          setIsLinkedAlready(!!linkRow);
+        }
       } catch (e) {
         console.error(e);
         setNotFound(true);
@@ -497,6 +526,24 @@ export default function SharedGig() {
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
   const updateSection = (section, field, val) =>
     setGig((g) => ({ ...g, [section]: { ...(g[section] || {}), [field]: val } }));
+  const updateEngineerRole = (role, field, val) =>
+    setGig((g) => ({
+      ...g,
+      engineer_info: {
+        ...(g.engineer_info || {}),
+        [role]: { ...((g.engineer_info || {})[role] || {}), [field]: val },
+      },
+    }));
+  const toggleConnectCard = (role) => {
+    if (!user) {
+      const path = window.location.pathname + window.location.search;
+      try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
+      navigate("/login?redirect=" + encodeURIComponent(path));
+      return;
+    }
+    const current = (gig.engineer_info || {})[role] || {};
+    updateEngineerRole(role, "card_user_id", current.card_user_id === user.id ? null : user.id);
+  };
   const [expandedBands, setExpandedBands] = useState(new Set());
   const toggleExpanded = (i) => {
     setExpandedBands((prev) => {
@@ -547,6 +594,7 @@ export default function SharedGig() {
     if (inviteToken) {
       await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
     }
+    setIsLinkedAlready(true);
   };
 
   const saveSection = async (sectionKey, data) => {
@@ -670,7 +718,7 @@ export default function SharedGig() {
               className="shrink-0 flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
-              {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Linked"}
+              {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready) ? "Save" : "Save to Linked"}
             </button>
           )}
         </div>
@@ -789,6 +837,7 @@ export default function SharedGig() {
 
         <GigSection title="Manager / Band" icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
+          <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={canEditSection("manager")} placeholder="e.g. Manager, Band Member" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={canEditSection("manager")} placeholder="Phone" />
             <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={canEditSection("manager")} placeholder="Email" />
@@ -907,19 +956,41 @@ export default function SharedGig() {
         </GigSection>
 
         <GigSection title="Audio / Lighting" icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
-          <Field label="Contact Name" value={(gig.engineer_info || {}).contact_name} onChange={(v) => updateSection("engineer_info", "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={(gig.engineer_info || {}).contact_phone} onChange={(v) => updateSection("engineer_info", "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
-            <Field label="Email" value={(gig.engineer_info || {}).contact_email} onChange={(v) => updateSection("engineer_info", "contact_email", v)} editable={canEditEngineerSection()} placeholder="Email" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Notes</Label>
-            {canEditEngineerSection() ? (
-              <Textarea value={(gig.engineer_info || {}).notes || ""} onChange={(e) => updateSection("engineer_info", "notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Gear needs, patch notes, etc." />
-            ) : (
-              <p className="mt-1 text-white/70 text-sm">{(gig.engineer_info || {}).notes || <span className="text-white/25">Not filled in yet</span>}</p>
-            )}
-          </div>
+          {["audio", "lighting"].map((role, i) => {
+            const info = (gig.engineer_info || {})[role] || {};
+            const cardInfo = info.card_user_id ? engineerCards[info.card_user_id] : null;
+            const isMe = user && info.card_user_id === user.id;
+            return (
+              <div key={role} className={i > 0 ? "pt-3 mt-3 border-t border-white/10" : ""}>
+                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">{role === "audio" ? "Audio Engineer" : "Lighting Tech"}</p>
+                <Field label="Contact Name" value={info.contact_name} onChange={(v) => updateEngineerRole(role, "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <Field label="Phone" value={info.contact_phone} onChange={(v) => updateEngineerRole(role, "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
+                  <Field label="Email" value={info.contact_email} onChange={(v) => updateEngineerRole(role, "contact_email", v)} editable={canEditEngineerSection()} placeholder="Email" />
+                </div>
+                {canEditEngineerSection() && (
+                  <button
+                    type="button"
+                    onClick={() => toggleConnectCard(role)}
+                    className={`mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-colors ${isMe ? "border-[#8CFF3D]/50 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/50"}`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    {isMe ? "Digital card connected ✓" : "Connect digital card?"}
+                  </button>
+                )}
+                {cardInfo?.card_share_token && (
+                  <a
+                    href={`/pilot/${cardInfo.card_share_token}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex items-center gap-1.5 text-[#8CFF3D] text-xs hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" /> View {cardInfo.display_name || "their"} ShowPilot card
+                  </a>
+                )}
+              </div>
+            );
+          })}
         </GigSection>
 
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
