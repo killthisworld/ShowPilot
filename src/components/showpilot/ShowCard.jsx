@@ -44,7 +44,8 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
   const handleCardClick = () => {
     if (moved.current) return; // this was a swipe, not a tap
     if (offset !== 0) { setOffset(0); return; } // tap while open just closes the actions
-    navigate(`/show/${show.id}`);
+    if (show.is_owned === false) navigate(`/gig/shared?token=${show.share_token}`);
+    else navigate(`/show/${show.id}`);
   };
 
   return (
@@ -74,7 +75,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
         onClick={handleCardClick}
-        className="relative bg-[#161616] border border-[#222] overflow-hidden hover:border-[#333] hover:bg-[#1a1a1a] cursor-pointer select-none"
+        className={`relative bg-[#161616] overflow-hidden cursor-pointer select-none border ${show.is_owned === false ? "border-[#F472B6]/50 hover:border-[#F472B6]" : "border-[#222] hover:border-[#333]"} hover:bg-[#1a1a1a]`}
         style={{
           transform: `translateX(${offset}px)`,
           transition: dragging.current ? "none" : "transform 0.2s ease-out",
