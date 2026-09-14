@@ -582,6 +582,9 @@ export default function SharedGig() {
   };
   const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
   const isSectionIncluded = (key) => !gig?.included_sections || gig.included_sections.includes(key);
+  const ACCOUNT_TYPE_TO_SECTION = { band: "manager", venue: "venue", promoter: "promoter", booking_agent: "booking_agent", manager: "manager" };
+  const isMyOwnerSection = (key) => permissions?.is_owner && ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] === key;
+  const isMyOwnerEngineerSection = () => permissions?.is_owner && ["engineer", "lighting"].includes(preferences?.account_type);
   const myEngineerRole = () => (permissions?.my_roles?.includes("lighting") && !permissions?.my_roles?.includes("engineer") ? "lighting" : "engineer");
 
   // Marks the gig as linked to this account and accepts any invite that
@@ -825,7 +828,7 @@ export default function SharedGig() {
         </div>
 
         {isSectionIncluded("venue") && (
-        <GigSection title={`Venue${permissions?.my_roles?.includes("venue") ? " (You)" : ""}`} icon={MapPin} color={SECTION_COLORS.venue} locked={isLocked("venue")} editable={canEditSection("venue")} isOwner={permissions?.is_owner} onInvite={() => openInvite("venue", "Venue")} onSave={saveVenueSection} saving={sectionSaving.venue} saved={sectionSaved.venue}>
+        <GigSection title={`Venue${(permissions?.my_roles?.includes("venue") || isMyOwnerSection("venue")) ? " (You)" : ""}`} icon={MapPin} color={SECTION_COLORS.venue} locked={isLocked("venue")} editable={canEditSection("venue")} isOwner={permissions?.is_owner} onInvite={() => openInvite("venue", "Venue")} onSave={saveVenueSection} saving={sectionSaving.venue} saved={sectionSaved.venue}>
           <Field label="Venue" value={gig.venue} onChange={(v) => update("venue", v)} editable={canEditSection("venue")} placeholder="Venue name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
@@ -848,7 +851,7 @@ export default function SharedGig() {
         )}
 
         {isSectionIncluded("promoter") && (
-        <GigSection title={`Promoter${permissions?.my_roles?.includes("promoter") ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
+        <GigSection title={`Promoter${(permissions?.my_roles?.includes("promoter") || isMyOwnerSection("promoter")) ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={canEditSection("promoter")} placeholder="e.g. 7:00 PM" />
             <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={canEditSection("promoter")} placeholder="e.g. 250" />
@@ -869,7 +872,7 @@ export default function SharedGig() {
         )}
 
         {isSectionIncluded("booking_agent") && (
-        <GigSection title={`Booking Agent${permissions?.my_roles?.includes("booking_agent") ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
+        <GigSection title={`Booking Agent${(permissions?.my_roles?.includes("booking_agent") || isMyOwnerSection("booking_agent")) ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
           <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
           <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
@@ -877,7 +880,7 @@ export default function SharedGig() {
         )}
 
         {isSectionIncluded("manager") && (
-        <GigSection title={`Manager / Band${permissions?.my_roles?.includes("manager") ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
+        <GigSection title={`Manager / Band${(permissions?.my_roles?.includes("manager") || isMyOwnerSection("manager")) ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
           <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={canEditSection("manager")} placeholder="e.g. Manager, Band Member" />
           <div className="grid grid-cols-2 gap-3">
@@ -999,7 +1002,7 @@ export default function SharedGig() {
         )}
 
         {isSectionIncluded("engineer") && (
-        <GigSection title={`Audio / Lighting${(permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) ? " (You)" : ""}`} icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
+        <GigSection title={`Audio / Lighting${(permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting") || isMyOwnerEngineerSection()) ? " (You)" : ""}`} icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
           {["audio", "lighting"].map((role, i) => {
             const info = (gig.engineer_info || {})[role] || {};
             const cardInfo = info.card_user_id ? engineerCards[info.card_user_id] : null;
