@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Link2, Music } from "lucide-react";
+import { Menu, User, LogOut, Star, Link2, Music, Archive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -149,6 +149,10 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
 
             <Button onClick={() => { setOpen(false); navigate("/linked"); }} variant="outline" className="w-full border-pink-400/50 text-pink-400/80 hover:bg-pink-500/10 hover:text-pink-400 justify-start">
               <Link2 className="w-4 h-4 mr-2" /> Linked
+            </Button>
+
+            <Button onClick={() => { setOpen(false); navigate("/archived"); }} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
+              <Archive className="w-4 h-4 mr-2" /> Archived Shows
             </Button>
 
             <button

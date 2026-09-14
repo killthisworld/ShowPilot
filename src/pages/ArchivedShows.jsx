@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Search, ArchiveRestore, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { usePreferences } from "@/hooks/usePreferences";
 
 export default function ArchivedShows() {
   const navigate = useNavigate();
+  const { preferences } = usePreferences();
+  const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -17,33 +20,71 @@ export default function ArchivedShows() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { if (isMounted) setLoading(false); return; }
-      const { data, error } = await supabase
+
+      const { data: owned, error } = await supabase
         .from("shows")
         .select("*")
         .eq("owner_id", user.id)
         .eq("archived", true)
         .order("date", { ascending: false });
       if (error) console.error(error);
-      else if (isMounted) setShows(data || []);
-      if (isMounted) setLoading(false);
+
+      const { data: links } = await supabase
+        .from("linked_gigs")
+        .select("share_token, starred")
+        .eq("user_id", user.id)
+        .eq("archived", true);
+
+      let linkedGigs = [];
+      if (links && links.length > 0) {
+        const details = await Promise.all(
+          links.map(async (link) => {
+            const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+            return data ? { ...data, share_token: link.share_token, is_owned: false, starred: link.starred } : null;
+          })
+        );
+        linkedGigs = details.filter(Boolean);
+      }
+
+      const ownedShows = (owned || []).map((s) => ({ ...s, is_owned: true }));
+      if (isMounted) {
+        setShows([...ownedShows, ...linkedGigs]);
+        setLoading(false);
+      }
     }
     load();
     return () => { isMounted = false; };
   }, []);
 
+  // Owned shows for tech profiles go to the engineer-built ShowDetail page,
+  // same as always. Everything else - non-tech owned events, and any
+  // linked gig regardless of account type - goes through the shared/
+  // sectioned gig page, since every show already has a share_token.
+  const openShow = (s) => {
+    if (s.is_owned && isTechProductionAccount) navigate(`/show/${s.id}`);
+    else navigate(`/gig/shared?token=${s.share_token}`);
+  };
+
   const handleUnarchive = async (show) => {
-    setShows((prev) => prev.filter((s) => s.id !== show.id));
-    const { error } = await supabase.from("shows").update({ archived: false }).eq("id", show.id);
-    if (error) console.error(error);
+    setShows((prev) => prev.filter((s) => (show.is_owned ? s.id !== show.id : s.share_token !== show.share_token)));
+    if (show.is_owned) {
+      const { error } = await supabase.from("shows").update({ archived: false }).eq("id", show.id);
+      if (error) console.error(error);
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase.from("linked_gigs").update({ archived: false }).eq("user_id", user.id).eq("share_token", show.share_token);
+      if (error) console.error(error);
+    }
   };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return shows;
     return shows.filter((s) =>
-      s.band_name?.toLowerCase().includes(q) ||
+      (s.event_name || s.band_name || "").toLowerCase().includes(q) ||
       s.venue?.toLowerCase().includes(q) ||
-      s.location?.toLowerCase().includes(q)
+      s.city?.toLowerCase().includes(q)
     );
   }, [shows, search]);
 
@@ -53,22 +94,20 @@ export default function ArchivedShows() {
     const q = search.toLowerCase();
     const candidates = new Set();
     shows.forEach((s) => {
-      if (s.band_name?.toLowerCase().includes(q)) candidates.add(s.band_name);
+      const title = s.event_name || s.band_name;
+      if (title?.toLowerCase().includes(q)) candidates.add(title);
       if (s.venue?.toLowerCase().includes(q)) candidates.add(s.venue);
-      if (s.location?.toLowerCase().includes(q)) candidates.add(s.location);
-      const city = s.location?.split(",")[0]?.trim();
-      if (city?.toLowerCase().includes(q)) candidates.add(city);
+      if (s.city?.toLowerCase().includes(q)) candidates.add(s.city);
     });
     return [...candidates].slice(0, 6);
   }, [search, shows]);
 
-  // Group by state, then city — location is stored as "City, State"
+  // Group by state, then city
   const grouped = useMemo(() => {
     const byState = {};
     filtered.forEach((s) => {
-      const [city, state] = (s.location || "Unknown").split(",").map((p) => p.trim());
-      const stateKey = state || "Unknown";
-      const cityKey = city || "Unknown";
+      const stateKey = s.state || "Unknown";
+      const cityKey = s.city || "Unknown";
       if (!byState[stateKey]) byState[stateKey] = {};
       if (!byState[stateKey][cityKey]) byState[stateKey][cityKey] = [];
       byState[stateKey][cityKey].push(s);
@@ -133,10 +172,14 @@ export default function ArchivedShows() {
                       </p>
                       <div className="space-y-1.5">
                         {cityShows.map((s) => (
-                          <div key={s.id} className="flex items-center justify-between gap-2">
-                            <button onClick={() => navigate(`/show/${s.id}`)} className="text-left min-w-0 flex-1">
-                              <p className="text-white text-sm truncate hover:text-[#8CFF3D] transition-colors">{s.band_name}</p>
-                              <p className="text-white/40 text-xs truncate">{s.venue}</p>
+                          <div key={s.is_owned ? s.id : s.share_token} className="flex items-center justify-between gap-2">
+                            <button onClick={() => openShow(s)} className="text-left min-w-0 flex-1">
+                              <p className="text-white text-sm truncate hover:text-[#8CFF3D] transition-colors">
+                                {s.event_name || s.band_name || "Untitled Gig"}
+                              </p>
+                              <p className="text-white/40 text-xs truncate">
+                                {s.venue}{!s.is_owned ? ` \u00b7 Owner: ${s.owner_display_name || "Unknown"}` : ""}
+                              </p>
                             </button>
                             <button
                               onClick={() => handleUnarchive(s)}
