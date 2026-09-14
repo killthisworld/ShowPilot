@@ -622,7 +622,27 @@ export default function SharedGig() {
     wifi_network: gig.wifi_network, wifi_password: gig.wifi_password,
     console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
   });
-  const saveManagerSection = () => saveSection("manager", gig.manager_info || {});
+  // This section covers both the Manager contact fields (saved via
+  // update_gig_section) and the Lineup/band members list, which lives in
+  // a separate table and is only persisted through update_shared_gig -
+  // so its Update button needs to trigger both saves together.
+  const saveManagerSection = async () => {
+    setSectionSaving((s) => ({ ...s, manager: true }));
+    try {
+      const [sectionRes, bandsRes] = await Promise.all([
+        supabase.rpc("update_gig_section", { p_token: resolvedToken, p_section: "manager", p_updates: gig.manager_info || {} }),
+        supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: { bands: gig.bands || [] } }),
+      ]);
+      if (sectionRes.error) throw sectionRes.error;
+      if (bandsRes.error) throw bandsRes.error;
+      await markLinkedAndAccepted();
+      setSectionSaved((s) => ({ ...s, manager: true }));
+      setTimeout(() => setSectionSaved((s) => ({ ...s, manager: false })), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+    setSectionSaving((s) => ({ ...s, manager: false }));
+  };
   const savePromoterSection = () => saveSection("promoter", gig.promoter_info || {});
   const saveBookingSection = () => saveSection("booking_agent", gig.booking_agent_info || {});
   const saveEngineerSection = () => saveSection(myEngineerRole(), gig.engineer_info || {});
