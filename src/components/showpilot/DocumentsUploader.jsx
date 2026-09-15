@@ -40,8 +40,7 @@ export default function DocumentsUploader({ documents, onChange, uploadPathPrefi
       {(documents || []).length > 0 ? (
         <div className="space-y-1.5 mt-2">
           {documents.map((f, i) => (
-            
-              key={i}
+            <a key={i}
               href={f.url}
               target="_blank"
               rel="noopener noreferrer"
