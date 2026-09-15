@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Link2, Music, Archive } from "lucide-react";
+import { Menu, User, LogOut, Star, Link2, Archive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -165,12 +165,13 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
 
             <button
               onClick={() => { setOpen(false); navigate("/band-profile"); }}
-              className="w-full border border-blue-400/50 rounded-xl p-3 flex items-center gap-3 hover:bg-blue-500/10 active:bg-blue-500/20 transition-colors"
+              className="w-full border rounded-xl p-3 flex items-center gap-3 transition-colors"
+              style={{ borderColor: accountStyle.color + "50", backgroundColor: "transparent" }}
             >
-              <Music className="w-4 h-4 text-blue-400/80 shrink-0" />
+              <accountStyle.icon className="w-4 h-4 shrink-0" style={{ color: accountStyle.color }} />
               <div className="text-left">
-                <p className="text-blue-400/90 text-xs font-medium">Band Profile</p>
-                <p className="text-white/40 text-[10px]">Save your info once, load it into any intake form</p>
+                <p className="text-xs font-medium" style={{ color: accountStyle.color }}>My Templates</p>
+                <p className="text-white/40 text-[10px]">Save your info once so it's ready whenever you need it</p>
               </div>
             </button>
 

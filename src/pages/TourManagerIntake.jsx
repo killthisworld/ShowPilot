@@ -75,7 +75,7 @@ export default function TourManagerIntake() {
         .maybeSingle();
       const t = data?.band_template;
       if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
-        toast({ title: "No saved band profile yet", description: "Set one up in Settings > Band Profile." });
+        toast({ title: "No saved band profile yet", description: "Set one up in Settings > My Templates." });
       } else {
         setForm((prev) => ({
           ...prev,

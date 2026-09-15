@@ -622,18 +622,23 @@ export default function SharedGig() {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes(section)) return true;
-    return !permissions?.claimed_roles?.includes(section);
+    // An un-invited section is locked to the owner only. A pending invite
+    // (generated but not yet accepted by anyone) still lets its first
+    // recipient in, so they can save and thereby accept it.
+    return !!permissions?.invited_roles?.includes(section) && !permissions?.claimed_roles?.includes(section);
   };
   const isLocked = (section) => canEdit && !permissions?.is_owner && !canEditSection(section);
 
   // The Engineer/Lighting section covers two distinct invite roles that
   // write to the same data, so its permission check considers either role
-  // held, and the section counts as "claimed" if either has been accepted.
+  // invited/held, and the section counts as "claimed" if either has been accepted.
   const canEditEngineerSection = () => {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
-    return !permissions?.claimed_roles?.includes("engineer") && !permissions?.claimed_roles?.includes("lighting");
+    const invited = permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting");
+    const claimed = permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting");
+    return !!invited && !claimed;
   };
   const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
   const isSectionIncluded = (key) => !gig?.included_sections || gig.included_sections.includes(key);
@@ -912,6 +917,11 @@ export default function SharedGig() {
 
         {isSectionIncluded("promoter") && (
         <GigSection title={`Promoter${(permissions?.my_roles?.includes("promoter") || isMyOwnerSection("promoter")) ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
+          <Field label="Contact Name" value={promoterInfo.contact_name} onChange={(v) => updateSection("promoter_info", "contact_name", v)} editable={canEditSection("promoter")} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={promoterInfo.contact_phone} onChange={(v) => updateSection("promoter_info", "contact_phone", v)} editable={canEditSection("promoter")} placeholder="Phone" />
+            <Field label="Email" value={promoterInfo.contact_email} onChange={(v) => updateSection("promoter_info", "contact_email", v)} editable={canEditSection("promoter")} placeholder="Email" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={canEditSection("promoter")} placeholder="e.g. 7:00 PM" />
             <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={canEditSection("promoter")} placeholder="e.g. 250" />
@@ -933,6 +943,11 @@ export default function SharedGig() {
 
         {isSectionIncluded("booking_agent") && (
         <GigSection title={`Booking Agent${(permissions?.my_roles?.includes("booking_agent") || isMyOwnerSection("booking_agent")) ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
+          <Field label="Contact Name" value={bookingInfo.contact_name} onChange={(v) => updateSection("booking_agent_info", "contact_name", v)} editable={canEditSection("booking_agent")} placeholder="Name" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Phone" value={bookingInfo.contact_phone} onChange={(v) => updateSection("booking_agent_info", "contact_phone", v)} editable={canEditSection("booking_agent")} placeholder="Phone" />
+            <Field label="Email" value={bookingInfo.contact_email} onChange={(v) => updateSection("booking_agent_info", "contact_email", v)} editable={canEditSection("booking_agent")} placeholder="Email" />
+          </div>
           <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
           <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
