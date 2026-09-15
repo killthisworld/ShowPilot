@@ -760,7 +760,7 @@ export default function SharedGig() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
+      const { error } = permissions?.is_owner ? await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig }) : { error: null };
       if (error) throw error;
       await markLinkedAndAccepted();
       setSaved(true);
@@ -850,7 +850,7 @@ export default function SharedGig() {
         )}
 
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-          {canEdit ? (
+          {permissions?.is_owner ? (
             <>
               <div>
                 <Label className="text-white/50 text-xs">Event Name</Label>
