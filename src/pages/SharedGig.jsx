@@ -107,6 +107,88 @@ function Field({ label, value, onChange, editable, placeholder, type = "text" })
   );
 }
 
+const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking", manager: "Manager/Band", engineer: "Audio/Lighting" };
+const REQUIREMENT_STATUS_STYLES = {
+  requested: { label: "Requested", color: "#EAB308" },
+  confirmed: { label: "Confirmed", color: "#8CFF3D" },
+  conflict: { label: "Conflict", color: "#EF4444" },
+};
+
+// A lightweight, per-section checklist of specific things that need to be
+// true for the show - not a text field to read once, but a tracked item
+// with a status that can flip to Conflict when it turns out to be a
+// problem. Saves immediately per action rather than batching into the
+// section's own Update button, since each item is its own small decision.
+function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDelete }) {
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onAdd(name.trim(), value.trim());
+    setName("");
+    setValue("");
+  };
+
+  const cycleStatus = (current) => {
+    const order = ["requested", "confirmed", "conflict"];
+    return order[(order.indexOf(current) + 1) % order.length];
+  };
+
+  return (
+    <div className="pt-2 border-t border-white/10">
+      <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-2">Requirements</p>
+      {requirements.length === 0 && !editable && (
+        <p className="text-white/25 text-xs">Nothing tracked yet.</p>
+      )}
+      <div className="space-y-1.5">
+        {requirements.map((r) => {
+          const style = REQUIREMENT_STATUS_STYLES[r.status] || REQUIREMENT_STATUS_STYLES.requested;
+          return (
+            <div key={r.id} className="bg-[#111] rounded-lg px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm truncate">
+                    {r.name}
+                    {r.value && <span className="text-white/50"> — {r.value}</span>}
+                  </p>
+                  {r.note && <p className="text-white/40 text-xs mt-0.5 truncate">{r.note}</p>}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={!editable}
+                    onClick={() => editable && onUpdateStatus(r.id, cycleStatus(r.status))}
+                    className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full transition-all ${editable ? "hover:brightness-110" : ""}`}
+                    style={{ color: style.color, backgroundColor: style.color + "1A" }}
+                  >
+                    {style.label}
+                  </button>
+                  {editable && (
+                    <button type="button" onClick={() => onDelete(r.id)} className="text-white/20 hover:text-red-400 p-1">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {editable && (
+        <form onSubmit={handleAdd} className="flex items-center gap-1.5 mt-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Load-in time" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
+          <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value (optional)" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
+          <Button type="submit" size="sm" className="h-8 bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 shrink-0 px-3">
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 // Technical details for one act - band members with per-instrument mic/DI
 // and phantom power needs, stage plot files, and per-member FX notes plus
 // general notes. Read-only for anyone without access; fully editable for
@@ -806,6 +888,41 @@ export default function SharedGig() {
   const saveBookingSection = () => saveSection("booking_agent", gig.booking_agent_info || {});
   const saveEngineerSection = () => saveSection(myEngineerRole(), gig.engineer_info || {});
 
+  // Requirements are small enough that each action saves immediately -
+  // there's no batched "Update" step, since a checklist item is its own
+  // decision rather than a form field to fill in over time.
+  const addRequirement = async (section, name, value) => {
+    try {
+      const { data, error } = await supabase.rpc("add_show_requirement", { p_token: resolvedToken, p_section: section, p_name: name, p_value: value || null });
+      if (error) throw error;
+      setGig((g) => ({ ...g, requirements: [...(g.requirements || []), data] }));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const updateRequirementStatus = async (id, status) => {
+    try {
+      const { data, error } = await supabase.rpc("update_show_requirement", { p_token: resolvedToken, p_requirement_id: id, p_status: status });
+      if (error) throw error;
+      setGig((g) => ({ ...g, requirements: (g.requirements || []).map((r) => (r.id === id ? data : r)) }));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const deleteRequirement = async (id) => {
+    try {
+      const { error } = await supabase.rpc("delete_show_requirement", { p_token: resolvedToken, p_requirement_id: id });
+      if (error) throw error;
+      setGig((g) => ({ ...g, requirements: (g.requirements || []).filter((r) => r.id !== id) }));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  const scrollToSection = (section) => {
+    const el = document.getElementById(`section-${section}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const openInvite = (section, label) => {
     setInviteFor({ section, label });
     setInviteRoleChoice(null);
@@ -999,7 +1116,38 @@ export default function SharedGig() {
           )}
         </div>
 
+        {(() => {
+          const attention = (gig.requirements || []).filter((r) => r.status === "conflict" || r.status === "requested");
+          if (attention.length === 0) return null;
+          const sorted = [...attention].sort((a, b) => (a.status === "conflict" ? 0 : 1) - (b.status === "conflict" ? 0 : 1));
+          return (
+            <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4">
+              <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-2">Needs Attention</p>
+              <div className="space-y-1.5">
+                {sorted.map((r) => {
+                  const sectionColor = SECTION_COLORS[r.section] || "#999";
+                  const isConflict = r.status === "conflict";
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => scrollToSection(r.section)}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConflict ? "bg-red-400" : "bg-amber-400"}`} />
+                      <span className="text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: sectionColor }}>{SECTION_LABELS[r.section]}</span>
+                      <span className="text-white/70 text-sm truncate flex-1">{r.name}{r.value ? ` — ${r.value}` : ""}</span>
+                      <span className={`text-[10px] font-bold uppercase shrink-0 ${isConflict ? "text-red-400" : "text-amber-400"}`}>{isConflict ? "Conflict" : "Pending"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {isSectionIncluded("venue") && (
+        <div id="section-venue">
         <GigSection title={`Venue${(permissions?.my_roles?.includes("venue") || isMyOwnerSection("venue")) ? " (You)" : ""}`} icon={MapPin} color={SECTION_COLORS.venue} locked={isLocked("venue")} editable={canEditSection("venue")} isOwner={permissions?.is_owner} onInvite={() => openInvite("venue", "Venue")} onSave={saveVenueSection} saving={sectionSaving.venue} saved={sectionSaved.venue}>
           {isTechProductionAccount && canEditSection("venue") && (
             <div className="flex justify-end -mb-1">
@@ -1032,10 +1180,19 @@ export default function SharedGig() {
             )}
           </div>
           <DocumentsUploader documents={gig.venue_documents} onChange={(docs) => update("venue_documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/venue`} editable={canEditSection("venue")} />
+          <RequirementsList
+            requirements={(gig.requirements || []).filter((r) => r.section === "venue")}
+            editable={canEditSection("venue")}
+            onAdd={(name, value) => addRequirement("venue", name, value)}
+            onUpdateStatus={updateRequirementStatus}
+            onDelete={deleteRequirement}
+          />
         </GigSection>
+        </div>
         )}
 
         {isSectionIncluded("promoter") && (
+        <div id="section-promoter">
         <GigSection title={`Promoter${(permissions?.my_roles?.includes("promoter") || isMyOwnerSection("promoter")) ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
           {myAccountType === "promoter" && canEditSection("promoter") && (
             <div className="flex justify-end -mb-1">
@@ -1066,10 +1223,19 @@ export default function SharedGig() {
             )}
           </div>
           <DocumentsUploader documents={promoterInfo.documents} onChange={(docs) => updateSection("promoter_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/promoter`} editable={canEditSection("promoter")} />
+          <RequirementsList
+            requirements={(gig.requirements || []).filter((r) => r.section === "promoter")}
+            editable={canEditSection("promoter")}
+            onAdd={(name, value) => addRequirement("promoter", name, value)}
+            onUpdateStatus={updateRequirementStatus}
+            onDelete={deleteRequirement}
+          />
         </GigSection>
+        </div>
         )}
 
         {isSectionIncluded("booking_agent") && (
+        <div id="section-booking_agent">
         <GigSection title={`Booking Agent${(permissions?.my_roles?.includes("booking_agent") || isMyOwnerSection("booking_agent")) ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
           {myAccountType === "booking_agent" && canEditSection("booking_agent") && (
             <div className="flex justify-end -mb-1">
@@ -1087,10 +1253,19 @@ export default function SharedGig() {
           <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
           <DocumentsUploader documents={bookingInfo.documents} onChange={(docs) => updateSection("booking_agent_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/booking_agent`} editable={canEditSection("booking_agent")} />
+          <RequirementsList
+            requirements={(gig.requirements || []).filter((r) => r.section === "booking_agent")}
+            editable={canEditSection("booking_agent")}
+            onAdd={(name, value) => addRequirement("booking_agent", name, value)}
+            onUpdateStatus={updateRequirementStatus}
+            onDelete={deleteRequirement}
+          />
         </GigSection>
+        </div>
         )}
 
         {isSectionIncluded("manager") && (
+        <div id="section-manager">
         <GigSection title={`Manager / Band${(permissions?.my_roles?.includes("manager") || isMyOwnerSection("manager")) ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
           {myAccountType === "manager" && canEditSection("manager") && (
             <div className="flex justify-end -mb-1">
@@ -1115,6 +1290,13 @@ export default function SharedGig() {
           </div>
           <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
           <DocumentsUploader documents={managerInfo.documents} onChange={(docs) => updateSection("manager_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/manager`} editable={canEditSection("manager")} />
+          <RequirementsList
+            requirements={(gig.requirements || []).filter((r) => r.section === "manager")}
+            editable={canEditSection("manager")}
+            onAdd={(name, value) => addRequirement("manager", name, value)}
+            onUpdateStatus={updateRequirementStatus}
+            onDelete={deleteRequirement}
+          />
 
           <div className="pt-2 border-t border-white/10">
             <div className="flex items-center justify-between mb-3 pt-2">
@@ -1228,9 +1410,11 @@ export default function SharedGig() {
             </div>
           </div>
         </GigSection>
+        </div>
         )}
 
         {isSectionIncluded("engineer") && (
+        <div id="section-engineer">
         <GigSection title={`Audio / Lighting${(permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting") || isMyOwnerEngineerSection()) ? " (You)" : ""}`} icon={Headphones} color={SECTION_COLORS.engineer} locked={isEngineerLocked()} editable={canEditEngineerSection()} isOwner={permissions?.is_owner} onInvite={() => openInvite("engineer_lighting", "Audio / Lighting")} onSave={saveEngineerSection} saving={sectionSaving.engineer || sectionSaving.lighting} saved={sectionSaved.engineer || sectionSaved.lighting}>
           {["audio", "lighting"].map((role, i) => {
             const info = (gig.engineer_info || {})[role] || {};
@@ -1255,19 +1439,22 @@ export default function SharedGig() {
                   </button>
                 )}
                 {cardInfo?.card_share_token && (
-                  
-                    href={`/pilot/${cardInfo.card_share_token}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 flex items-center gap-1.5 text-[#8CFF3D] text-xs hover:underline"
-                  >
+                  <a href={`/pilot/${cardInfo.card_share_token}`} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-1.5 text-[#8CFF3D] text-xs hover:underline">
                     <ExternalLink className="w-3 h-3" /> View {cardInfo.display_name || "their"} ShowPilot card
                   </a>
                 )}
               </div>
             );
           })}
+          <RequirementsList
+            requirements={(gig.requirements || []).filter((r) => r.section === "engineer")}
+            editable={canEditEngineerSection()}
+            onAdd={(name, value) => addRequirement("engineer", name, value)}
+            onUpdateStatus={updateRequirementStatus}
+            onDelete={deleteRequirement}
+          />
         </GigSection>
+        </div>
         )}
 
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
