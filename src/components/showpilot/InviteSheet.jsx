@@ -16,11 +16,33 @@ const ROLE_OPTIONS = [
   { value: "lighting", label: "Lighting Tech" },
 ];
 
+// Every invited role lands the recipient on one home section (where they
+// see "(You)" and are unlocked by default). The owner can additionally
+// delegate edit access to any of the other sections below, per invite -
+// so access isn't just a hard owner/not-owner switch.
+const SECTION_OPTIONS = [
+  { value: "venue", label: "Venue" },
+  { value: "promoter", label: "Promoter" },
+  { value: "booking_agent", label: "Booking Agent" },
+  { value: "manager", label: "Manager / Band" },
+  { value: "engineer", label: "Engineer / Lighting" },
+];
+const ROLE_HOME_SECTION = {
+  venue: "venue",
+  promoter: "promoter",
+  booking_agent: "booking_agent",
+  manager: "manager",
+  band: "manager",
+  engineer: "engineer",
+  lighting: "engineer",
+};
+
 export default function InviteSheet({ showId, trigger }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [labels, setLabels] = useState({});
+  const [grantedSections, setGrantedSections] = useState({}); // role -> string[] of extra sections delegated
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState(null);
   const [copiedToken, setCopiedToken] = useState(null);
@@ -29,6 +51,14 @@ export default function InviteSheet({ showId, trigger }) {
     setSelectedRoles((prev) =>
       prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value]
     );
+  };
+
+  const toggleGrantedSection = (role, section) => {
+    setGrantedSections((prev) => {
+      const current = prev[role] || [];
+      const next = current.includes(section) ? current.filter((s) => s !== section) : [...current, section];
+      return { ...prev, [role]: next };
+    });
   };
 
   const handleGenerate = async () => {
@@ -41,6 +71,7 @@ export default function InviteSheet({ showId, trigger }) {
         invited_role: role,
         label: labels[role]?.trim() || null,
         created_by: user.id,
+        granted_sections: grantedSections[role] || [],
       }));
       const { data, error } = await supabase.from("gig_invites").insert(rows).select();
       if (error) throw error;
@@ -49,6 +80,7 @@ export default function InviteSheet({ showId, trigger }) {
         ...inv,
         url: `${window.location.origin}/gig/shared?invite=${inv.invite_token}`,
         roleLabel: ROLE_OPTIONS.find((r) => r.value === inv.invited_role)?.label || inv.invited_role,
+        grantedLabels: (inv.granted_sections || []).map((s) => SECTION_OPTIONS.find((o) => o.value === s)?.label || s),
       }));
       setResults(withUrls);
     } catch (e) {
@@ -78,6 +110,7 @@ export default function InviteSheet({ showId, trigger }) {
   const reset = () => {
     setSelectedRoles([]);
     setLabels({});
+    setGrantedSections({});
     setResults(null);
   };
 
@@ -118,11 +151,14 @@ export default function InviteSheet({ showId, trigger }) {
               </div>
 
               {selectedRoles.length > 0 && (
-                <div className="space-y-2 mb-4">
+                <div className="space-y-4 mb-4">
                   {selectedRoles.map((role) => {
                     const roleLabel = ROLE_OPTIONS.find((r) => r.value === role)?.label;
+                    const homeSection = ROLE_HOME_SECTION[role];
+                    const otherSections = SECTION_OPTIONS.filter((s) => s.value !== homeSection);
+                    const picked = grantedSections[role] || [];
                     return (
-                      <div key={role}>
+                      <div key={role} className="space-y-2">
                         <label className="text-white/40 text-[11px]">{roleLabel} — name (optional)</label>
                         <Input
                           value={labels[role] || ""}
@@ -130,6 +166,29 @@ export default function InviteSheet({ showId, trigger }) {
                           placeholder="e.g. Joe's Bar, or a person's name"
                           className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white text-sm"
                         />
+                        {otherSections.length > 0 && (
+                          <div>
+                            <p className="text-white/40 text-[11px] mb-1.5">
+                              Also let this {roleLabel.toLowerCase()} edit (optional)
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {otherSections.map((s) => (
+                                <button
+                                  key={s.value}
+                                  type="button"
+                                  onClick={() => toggleGrantedSection(role, s.value)}
+                                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                                    picked.includes(s.value)
+                                      ? "border-[#8CFF3D] bg-[#8CFF3D]/10 text-[#8CFF3D]"
+                                      : "border-[#2a2a2a] text-white/50 hover:border-[#3a3a3a]"
+                                  }`}
+                                >
+                                  {s.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -160,6 +219,11 @@ export default function InviteSheet({ showId, trigger }) {
                         {inv.roleLabel}{inv.label ? ` — ${inv.label}` : ""}
                       </span>
                     </div>
+                    {inv.grantedLabels?.length > 0 && (
+                      <p className="text-[11px] text-white/40 mb-1.5">
+                        Can also edit: {inv.grantedLabels.join(", ")}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
                       <div className="flex-1 text-xs text-white/40 truncate bg-[#111] rounded-lg px-2 py-1.5">
                         {inv.url}

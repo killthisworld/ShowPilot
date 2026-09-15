@@ -525,7 +525,7 @@ export default function SharedGig() {
         if (!gigRes.data) { setNotFound(true); setLoading(false); return; }
         setGig({ ...gigRes.data, bands: (gigRes.data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
         if (permsRes.error) console.error(permsRes.error);
-        setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [] });
+        setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [], invited_roles: [], granted_sections: [] });
 
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser && gigRes.data.id) {
@@ -622,6 +622,11 @@ export default function SharedGig() {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes(section)) return true;
+    // The owner can delegate edit access to a section on top of whatever
+    // role an invite already grants - this unlocks it the same as holding
+    // that role outright, without adding the "(You)" label anywhere but
+    // the recipient's own home section.
+    if (permissions?.granted_sections?.includes(section)) return true;
     // An un-invited section is locked to the owner only. A pending invite
     // (generated but not yet accepted by anyone) still lets its first
     // recipient in, so they can save and thereby accept it.
@@ -636,6 +641,7 @@ export default function SharedGig() {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
+    if (permissions?.granted_sections?.includes("engineer")) return true;
     const invited = permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting");
     const claimed = permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting");
     return !!invited && !claimed;
@@ -757,11 +763,25 @@ export default function SharedGig() {
   // Handles the top-level event details (name, date, venue basics) plus
   // marking the gig linked - the 5 role sections below now save
   // independently via their own Update buttons.
+  //
+  // Only the owner is allowed to persist event_name/date/venue/etc (the
+  // update_shared_gig RPC enforces this and throws "Only the owner can
+  // edit event details" for anyone else). We used to send the whole `gig`
+  // object regardless of who was saving; since that object always carries
+  // those keys, the RPC treated every non-owner's Save as an attempt to
+  // edit event details and rejected it outright - which meant
+  // markLinkedAndAccepted() below was never reached, and the gig never
+  // made it into linked_gigs. So an invited collaborator could sign in,
+  // press Save, and the shared gig would just vanish instead of showing
+  // up on their Linked tab. Gate the event-details RPC to owners only;
+  // everyone else's Save just needs to link/accept the invite.
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
-      if (error) throw error;
+      if (permissions?.is_owner) {
+        const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
+        if (error) throw error;
+      }
       await markLinkedAndAccepted();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -850,7 +870,11 @@ export default function SharedGig() {
         )}
 
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-          {canEdit ? (
+          {/* Only the owner can actually persist these (update_shared_gig
+              rejects anyone else), so show them as editable only for the
+              owner - otherwise a collaborator could type into a field that
+              looks savable but silently never saves. */}
+          {permissions?.is_owner ? (
             <>
               <div>
                 <Label className="text-white/50 text-xs">Event Name</Label>
