@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2 } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
+import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 
 const ROLE_COLORS = {
@@ -611,8 +612,97 @@ export default function SharedGig() {
     }]);
   };
 
+  // Loads the viewer's own single saved template (from My Templates) into
+  // the matching section - venue/promoter/booking_agent/manager each keep
+  // one reusable template, unlike the engineer/lighting multi-template
+  // library above. Uploaded documents merge in rather than overwrite, so
+  // loading twice doesn't duplicate files already on the gig.
+  const mergeDocuments = (existing, incoming) => [
+    ...(existing || []),
+    ...(incoming || []).filter((d) => !(existing || []).some((e) => e.url === d.url)),
+  ];
+  const fetchMySectionTemplate = async () => {
+    if (!user) return {};
+    const { data } = await supabase.from("user_preferences").select("section_template").eq("user_id", user.id).maybeSingle();
+    return data?.section_template || {};
+  };
+  const loadOwnVenueTemplate = async () => {
+    const t = await fetchMySectionTemplate();
+    setGig((g) => ({
+      ...g,
+      city: t.city || g.city,
+      state: t.state || g.state,
+      wifi_network: t.wifi_network || g.wifi_network,
+      wifi_password: t.wifi_password || g.wifi_password,
+      console: t.console || g.console,
+      power_notes: t.power_notes || g.power_notes,
+      venue_documents: mergeDocuments(g.venue_documents, t.documents),
+    }));
+  };
+  const loadOwnPromoterTemplate = async () => {
+    const t = await fetchMySectionTemplate();
+    setGig((g) => ({
+      ...g,
+      promoter_info: {
+        ...(g.promoter_info || {}),
+        contact_name: t.contact_name || (g.promoter_info || {}).contact_name,
+        contact_phone: t.contact_phone || (g.promoter_info || {}).contact_phone,
+        contact_email: t.contact_email || (g.promoter_info || {}).contact_email,
+        settlement_notes: t.settlement_notes || (g.promoter_info || {}).settlement_notes,
+        documents: mergeDocuments((g.promoter_info || {}).documents, t.documents),
+      },
+    }));
+  };
+  const loadOwnBookingTemplate = async () => {
+    const t = await fetchMySectionTemplate();
+    setGig((g) => ({
+      ...g,
+      booking_agent_info: {
+        ...(g.booking_agent_info || {}),
+        contact_name: t.contact_name || (g.booking_agent_info || {}).contact_name,
+        contact_phone: t.contact_phone || (g.booking_agent_info || {}).contact_phone,
+        contact_email: t.contact_email || (g.booking_agent_info || {}).contact_email,
+        deal_terms: t.deal_terms || (g.booking_agent_info || {}).deal_terms,
+        documents: mergeDocuments((g.booking_agent_info || {}).documents, t.documents),
+      },
+    }));
+  };
+  const loadOwnManagerTemplate = async () => {
+    const t = await fetchMySectionTemplate();
+    setGig((g) => ({
+      ...g,
+      manager_info: {
+        ...(g.manager_info || {}),
+        contact_name: t.contact_name || (g.manager_info || {}).contact_name,
+        contact_title: t.contact_title || (g.manager_info || {}).contact_title,
+        contact_phone: t.contact_phone || (g.manager_info || {}).contact_phone,
+        contact_email: t.contact_email || (g.manager_info || {}).contact_email,
+        advancing_notes: t.advancing_notes || (g.manager_info || {}).advancing_notes,
+        guest_list: t.guest_list || (g.manager_info || {}).guest_list,
+        documents: mergeDocuments((g.manager_info || {}).documents, t.documents),
+      },
+    }));
+  };
+  const loadOwnBandAsNewAct = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("user_preferences").select("band_template").eq("user_id", user.id).maybeSingle();
+    const t = data?.band_template || {};
+    update("bands", [...(gig.bands || []), {
+      role: "N/A",
+      band_name: t.band_name || preferences?.display_name || "My Band",
+      genre_tags: t.genre_tags || [],
+      band_members: t.band_members || [],
+      stage_plot_url: t.stage_plot_url || "",
+      stage_plot_files: t.stage_plot_files || [],
+      general_notes: t.general_notes || "",
+      set_length_minutes: "",
+      sort_order: (gig.bands || []).length,
+    }]);
+  };
+
   const canEdit = !!user;
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  const myAccountType = preferences?.account_type;
   const busPresets = preferences?.mix_bus_presets || [];
   const iemMonitorColors = {
     IEM: busPresets.find((p) => p.bus_type === "IEM")?.color || "#EAB308",
@@ -622,10 +712,10 @@ export default function SharedGig() {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes(section)) return true;
-    // The owner can delegate edit access to a section on top of whatever
-    // role an invite already grants - this unlocks it the same as holding
-    // that role outright, without adding the "(You)" label anywhere but
-    // the recipient's own home section.
+    // A section the owner explicitly delegated to this person (set when
+    // they were invited to their own role) works like holding that role
+    // outright - it's a deliberate grant, so it isn't blocked by someone
+    // else already holding the section.
     if (permissions?.granted_sections?.includes(section)) return true;
     // An un-invited section is locked to the owner only. A pending invite
     // (generated but not yet accepted by anyone) still lets its first
@@ -641,7 +731,7 @@ export default function SharedGig() {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
-    if (permissions?.granted_sections?.includes("engineer")) return true;
+    if (permissions?.granted_sections?.includes("engineer") || permissions?.granted_sections?.includes("lighting")) return true;
     const invited = permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting");
     const claimed = permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting");
     return !!invited && !claimed;
@@ -766,14 +856,12 @@ export default function SharedGig() {
   //
   // Only the owner is allowed to persist event_name/date/venue/etc (the
   // update_shared_gig RPC enforces this and throws "Only the owner can
-  // edit event details" for anyone else). We used to send the whole `gig`
-  // object regardless of who was saving; since that object always carries
-  // those keys, the RPC treated every non-owner's Save as an attempt to
-  // edit event details and rejected it outright - which meant
-  // markLinkedAndAccepted() below was never reached, and the gig never
-  // made it into linked_gigs. So an invited collaborator could sign in,
-  // press Save, and the shared gig would just vanish instead of showing
-  // up on their Linked tab. Gate the event-details RPC to owners only;
+  // edit event details" for anyone else). Sending the whole `gig` object
+  // regardless of who's saving means that RPC call always fails for a
+  // non-owner - and since it throws before markLinkedAndAccepted() runs,
+  // an invited collaborator pressing Save would never actually get linked
+  // or have their invite accepted; the shared gig just wouldn't show up
+  // on their Linked tab. Gate the event-details RPC to owners only;
   // everyone else's Save just needs to link/accept the invite.
   const handleSave = async () => {
     setSaving(true);
@@ -918,6 +1006,13 @@ export default function SharedGig() {
               <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} />
             </div>
           )}
+          {myAccountType === "venue" && canEditSection("venue") && (
+            <div className="flex justify-end -mb-1">
+              <button onClick={loadOwnVenueTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
+                <FolderOpen className="w-3 h-3" /> Load My Template
+              </button>
+            </div>
+          )}
           <Field label="Venue" value={gig.venue} onChange={(v) => update("venue", v)} editable={canEditSection("venue")} placeholder="Venue name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
@@ -936,11 +1031,19 @@ export default function SharedGig() {
               <p className="mt-1 text-white/70 text-sm">{gig.power_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
+          <DocumentsUploader documents={gig.venue_documents} onChange={(docs) => update("venue_documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/venue`} editable={canEditSection("venue")} />
         </GigSection>
         )}
 
         {isSectionIncluded("promoter") && (
         <GigSection title={`Promoter${(permissions?.my_roles?.includes("promoter") || isMyOwnerSection("promoter")) ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
+          {myAccountType === "promoter" && canEditSection("promoter") && (
+            <div className="flex justify-end -mb-1">
+              <button onClick={loadOwnPromoterTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
+                <FolderOpen className="w-3 h-3" /> Load My Template
+              </button>
+            </div>
+          )}
           <Field label="Contact Name" value={promoterInfo.contact_name} onChange={(v) => updateSection("promoter_info", "contact_name", v)} editable={canEditSection("promoter")} placeholder="Name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone" value={promoterInfo.contact_phone} onChange={(v) => updateSection("promoter_info", "contact_phone", v)} editable={canEditSection("promoter")} placeholder="Phone" />
@@ -962,11 +1065,19 @@ export default function SharedGig() {
               <p className="mt-1 text-white/70 text-sm">{promoterInfo.settlement_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
+          <DocumentsUploader documents={promoterInfo.documents} onChange={(docs) => updateSection("promoter_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/promoter`} editable={canEditSection("promoter")} />
         </GigSection>
         )}
 
         {isSectionIncluded("booking_agent") && (
         <GigSection title={`Booking Agent${(permissions?.my_roles?.includes("booking_agent") || isMyOwnerSection("booking_agent")) ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
+          {myAccountType === "booking_agent" && canEditSection("booking_agent") && (
+            <div className="flex justify-end -mb-1">
+              <button onClick={loadOwnBookingTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
+                <FolderOpen className="w-3 h-3" /> Load My Template
+              </button>
+            </div>
+          )}
           <Field label="Contact Name" value={bookingInfo.contact_name} onChange={(v) => updateSection("booking_agent_info", "contact_name", v)} editable={canEditSection("booking_agent")} placeholder="Name" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone" value={bookingInfo.contact_phone} onChange={(v) => updateSection("booking_agent_info", "contact_phone", v)} editable={canEditSection("booking_agent")} placeholder="Phone" />
@@ -975,11 +1086,19 @@ export default function SharedGig() {
           <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
           <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
           <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
+          <DocumentsUploader documents={bookingInfo.documents} onChange={(docs) => updateSection("booking_agent_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/booking_agent`} editable={canEditSection("booking_agent")} />
         </GigSection>
         )}
 
         {isSectionIncluded("manager") && (
         <GigSection title={`Manager / Band${(permissions?.my_roles?.includes("manager") || isMyOwnerSection("manager")) ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
+          {myAccountType === "manager" && canEditSection("manager") && (
+            <div className="flex justify-end -mb-1">
+              <button onClick={loadOwnManagerTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
+                <FolderOpen className="w-3 h-3" /> Load My Template
+              </button>
+            </div>
+          )}
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
           <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={canEditSection("manager")} placeholder="e.g. Manager, Band Member" />
           <div className="grid grid-cols-2 gap-3">
@@ -995,6 +1114,7 @@ export default function SharedGig() {
             )}
           </div>
           <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
+          <DocumentsUploader documents={managerInfo.documents} onChange={(docs) => updateSection("manager_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/manager`} editable={canEditSection("manager")} />
 
           <div className="pt-2 border-t border-white/10">
             <div className="flex items-center justify-between mb-3 pt-2">
@@ -1005,6 +1125,11 @@ export default function SharedGig() {
               <div className="flex items-center gap-1.5">
                 {isTechProductionAccount && canEdit && (
                   <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplateAsNewBand} />
+                )}
+                {myAccountType === "band" && canEdit && (
+                  <button onClick={loadOwnBandAsNewAct} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
+                    <FolderOpen className="w-3 h-3" /> Load My Band
+                  </button>
                 )}
                 {canEdit && (
                   <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
@@ -1130,7 +1255,7 @@ export default function SharedGig() {
                   </button>
                 )}
                 {cardInfo?.card_share_token && (
-                  <a
+                  
                     href={`/pilot/${cardInfo.card_share_token}`}
                     target="_blank"
                     rel="noopener noreferrer"

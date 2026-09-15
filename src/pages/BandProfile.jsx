@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
@@ -17,16 +18,17 @@ const BAND_DEFAULT = {
   stage_plot_url: "",
   stage_plot_files: [],
   general_notes: "",
+  documents: [],
 };
 
 // Default shape per account type, matching exactly what that type's
 // section on a real gig actually captures - so whatever gets saved here
 // lines up with the fields it's meant to eventually fill in.
 const SECTION_TEMPLATE_DEFAULTS = {
-  venue: { city: "", state: "", wifi_network: "", wifi_password: "", console: "", power_notes: "" },
-  promoter: { contact_name: "", contact_phone: "", contact_email: "", settlement_notes: "" },
-  booking_agent: { contact_name: "", contact_phone: "", contact_email: "", deal_terms: "" },
-  manager: { contact_name: "", contact_title: "", contact_phone: "", contact_email: "", advancing_notes: "", guest_list: "" },
+  venue: { city: "", state: "", wifi_network: "", wifi_password: "", console: "", power_notes: "", documents: [] },
+  promoter: { contact_name: "", contact_phone: "", contact_email: "", settlement_notes: "", documents: [] },
+  booking_agent: { contact_name: "", contact_phone: "", contact_email: "", deal_terms: "", documents: [] },
+  manager: { contact_name: "", contact_title: "", contact_phone: "", contact_email: "", advancing_notes: "", guest_list: "", documents: [] },
 };
 
 export default function BandProfile() {
@@ -349,6 +351,15 @@ export default function BandProfile() {
                 ))}
               </div>
             </div>
+
+            <div className="bg-[#111] rounded-2xl p-4">
+              <DocumentsUploader
+                documents={template.documents}
+                onChange={(docs) => update("documents", docs)}
+                uploadPathPrefix={`template_docs/${user?.id}/band`}
+                label="Other Documents (rider, insurance, W9, etc.)"
+              />
+            </div>
           </>
         ) : (
           <div className="bg-[#111] rounded-2xl p-4 space-y-3">
@@ -433,6 +444,11 @@ export default function BandProfile() {
                 )}
               </>
             )}
+            <DocumentsUploader
+              documents={template.documents}
+              onChange={(docs) => update("documents", docs)}
+              uploadPathPrefix={`template_docs/${user?.id}/${accountType}`}
+            />
           </div>
         )}
 
