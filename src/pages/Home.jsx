@@ -525,7 +525,7 @@ export default function Home() {
                     className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0"
                     style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
                   >
-                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color }}>{show.band_name}</span>
+                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color }}>{show.event_name || show.band_name || "Untitled Gig"}</span>
                     <span className="text-[9px] text-white/40">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                   </Link>
                 );
