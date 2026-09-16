@@ -120,6 +120,7 @@ const REQUIREMENT_STATUS_STYLES = {
 // problem. Saves immediately per action rather than batching into the
 // section's own Update button, since each item is its own small decision.
 function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDelete }) {
+  const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
 
@@ -129,6 +130,7 @@ function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDel
     onAdd(name.trim(), value.trim());
     setName("");
     setValue("");
+    setAdding(false);
   };
 
   const cycleStatus = (current) => {
@@ -138,7 +140,14 @@ function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDel
 
   return (
     <div className="pt-2 border-t border-white/10">
-      <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-2">Requirements</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold">Requirements</p>
+        {editable && !adding && (
+          <button type="button" onClick={() => setAdding(true)} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
+            <Plus className="w-3.5 h-3.5" /> Add
+          </button>
+        )}
+      </div>
       {requirements.length === 0 && !editable && (
         <p className="text-white/25 text-xs">Nothing tracked yet.</p>
       )}
@@ -176,13 +185,16 @@ function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDel
           );
         })}
       </div>
-      {editable && (
+      {editable && adding && (
         <form onSubmit={handleAdd} className="flex items-center gap-1.5 mt-2">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Load-in time" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
+          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Load-in time" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
           <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value (optional)" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
           <Button type="submit" size="sm" className="h-8 bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 shrink-0 px-3">
             <Plus className="w-3.5 h-3.5" />
           </Button>
+          <button type="button" onClick={() => { setAdding(false); setName(""); setValue(""); }} className="h-8 px-2 text-white/30 hover:text-white/60 shrink-0">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </form>
       )}
     </div>
