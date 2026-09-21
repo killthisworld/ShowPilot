@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
@@ -122,15 +122,32 @@ const REQUIREMENT_STATUS_STYLES = {
 function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDelete }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [value, setValue] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [addError, setAddError] = useState("");
+  const inputRef = useRef(null);
 
-  const handleAdd = (e) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onAdd(name.trim(), value.trim());
-    setName("");
-    setValue("");
+  const cancelAdd = () => {
     setAdding(false);
+    setName("");
+    setAddError("");
+  };
+
+  // Stays open after each successful add - a Show Advance often needs
+  // several requirements logged in one sitting, so re-opening "+ Add"
+  // for every single one would be tedious. Re-focuses the input each
+  // time so the next one can be typed immediately.
+  const handleAdd = async () => {
+    if (!name.trim() || submitting) return;
+    setSubmitting(true);
+    setAddError("");
+    try {
+      await onAdd(name.trim(), "");
+      setName("");
+      inputRef.current?.focus();
+    } catch (e) {
+      setAddError("Couldn't save that - check your connection and try again.");
+    }
+    setSubmitting(false);
   };
 
   const cycleStatus = (current) => {
@@ -186,16 +203,23 @@ function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDel
         })}
       </div>
       {editable && adding && (
-        <form onSubmit={handleAdd} className="flex items-center gap-1.5 mt-2">
-          <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Load-in time" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
-          <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value (optional)" className="h-8 bg-[#111] border-[#222] text-white text-xs flex-1" />
-          <Button type="submit" size="sm" disabled={!name.trim()} className="h-8 bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 shrink-0 px-3 disabled:opacity-30">
-            <Plus className="w-3.5 h-3.5" />
-          </Button>
-          <button type="button" onClick={() => { setAdding(false); setName(""); setValue(""); }} className="h-8 px-2 text-white/30 hover:text-white/60 shrink-0">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </form>
+        <div className="space-y-1.5 mt-2">
+          <Input ref={inputRef} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAdd(); } }} placeholder='e.g. Load-in Time — 8:00 AM' className="h-8 bg-[#111] border-[#222] text-white text-xs w-full" />
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!name.trim() || submitting}
+              className={`flex-1 h-8 rounded-lg text-xs font-semibold transition-colors ${name.trim() && !submitting ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-white/5 text-white/30"}`}
+            >
+              {submitting ? "Adding..." : "Add Requirement"}
+            </button>
+            <button type="button" onClick={cancelAdd} className="h-8 px-3 text-white/30 hover:text-white/60 shrink-0 text-xs font-medium">
+              Done
+            </button>
+          </div>
+          {addError && <p className="text-red-400 text-xs">{addError}</p>}
+        </div>
       )}
     </div>
   );
@@ -904,13 +928,12 @@ export default function SharedGig() {
   // there's no batched "Update" step, since a checklist item is its own
   // decision rather than a form field to fill in over time.
   const addRequirement = async (section, name, value) => {
-    try {
-      const { data, error } = await supabase.rpc("add_show_requirement", { p_token: resolvedToken, p_section: section, p_name: name, p_value: value || null });
-      if (error) throw error;
-      setGig((g) => ({ ...g, requirements: [...(g.requirements || []), data] }));
-    } catch (e) {
-      console.error(e);
+    const { data, error } = await supabase.rpc("add_show_requirement", { p_token: resolvedToken, p_section: section, p_name: name, p_value: value || null });
+    if (error) {
+      console.error(error);
+      throw error;
     }
+    setGig((g) => ({ ...g, requirements: [...(g.requirements || []), data] }));
   };
   const updateRequirementStatus = async (id, status) => {
     try {
@@ -1047,14 +1070,23 @@ export default function SharedGig() {
             </div>
           </div>
           {canEdit && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="shrink-0 flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready) ? "Save" : "Save to Linked"}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate(`/gig/rooms?token=${resolvedToken}`)}
+                className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Rooms
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready) ? "Save" : "Save to Linked"}
+              </button>
+            </div>
           )}
         </div>
       </div>

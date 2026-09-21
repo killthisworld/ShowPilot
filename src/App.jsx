@@ -30,6 +30,7 @@ import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
+import GigRooms from '@/pages/GigRooms';
 import LinkedGigs from '@/pages/LinkedGigs';
 
 const AuthenticatedApp = () => {
@@ -63,6 +64,7 @@ const AuthenticatedApp = () => {
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
+      <Route path="/gig/rooms" element={<GigRooms />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
