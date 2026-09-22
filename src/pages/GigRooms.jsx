@@ -87,6 +87,16 @@ export default function GigRooms() {
     load();
   }, [checkingAuth, user, token]);
 
+  // Keeps the URL's room= in sync with whichever room is selected, using
+  // replace so switching rooms never adds history entries of its own. This
+  // is what lets a pilot-card visit opened from here (which does add a
+  // real entry) pop back via browser history to the exact room the person
+  // left, instead of always landing back on the first one.
+  useEffect(() => {
+    if (!token || !activeRoomId) return;
+    navigate(`/gig/rooms?token=${token}&room=${activeRoomId}`, { replace: true });
+  }, [token, activeRoomId]);
+
   // Loads history for the active room and subscribes to new messages live.
   // Re-subscribes whenever the room switches, cleaning up the previous
   // channel so switching rooms repeatedly doesn't stack up subscriptions.
@@ -270,7 +280,7 @@ export default function GigRooms() {
                         to={`/pilot/${profile.cardToken}`}
                         className="shrink-0"
                         title={profile.displayName || "View pilot card"}
-                        state={{ backTo: `/gig/rooms?token=${token}&room=${activeRoomId}` }}
+                        state={{ fromRoom: true }}
                       >
                         {avatar}
                       </Link>

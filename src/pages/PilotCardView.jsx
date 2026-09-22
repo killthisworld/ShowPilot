@@ -18,10 +18,13 @@ export default function PilotCardView() {
   const navigate = useNavigate();
   const location = useLocation();
   // Most entry points (Fellow Pilots list, shared-gig links) want the
-  // default "back to Fellow Pilots" behavior. A Room message avatar passes
-  // backTo in navigation state so the back button returns to that chat
-  // instead of losing the person's place.
-  const backTo = location.state?.backTo || "/experience?tab=fellow";
+  // default "back to Fellow Pilots" destination. A Room message avatar
+  // marks fromRoom in navigation state instead - that case uses real
+  // browser back-navigation (not a fixed destination) so the Room's own
+  // history entry is popped back to rather than a new one pushed on top
+  // of it, which is what kept the Room's own back button landing on this
+  // card instead of skipping past it.
+  const cameFromRoom = !!location.state?.fromRoom;
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -145,7 +148,7 @@ export default function PilotCardView() {
       }}
     >
       <button
-        onClick={() => navigate(backTo)}
+        onClick={() => (cameFromRoom ? navigate(-1) : navigate("/experience?tab=fellow"))}
         className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />
