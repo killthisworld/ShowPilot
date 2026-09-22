@@ -3,83 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Users, Link2, Wallet, MapPin, Calendar, X } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import { getConstellationLayout, ShowStamp } from "@/lib/constellation";
 
 const PINK = "#F472B6";
-
-function hashString(str) {
-  let hash = 5381;
-  for (let i = 0; i < (str || "").length; i++) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
-  return hash >>> 0;
-}
-
-function seededRandom(seed) {
-  let t = seed + 0x6d2b79f5;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-
-function getConstellationLayout(shows) {
-  const n = shows.length;
-  if (n === 0) return { positions: [], rows: 0, cols: 0 };
-  const cols = Math.max(3, Math.ceil(Math.sqrt(n * 1.5)));
-  const rows = Math.ceil(n / cols) + 1;
-  const centerCol = (cols - 1) / 2;
-  const centerRow = (rows - 1) / 2;
-  const cells = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      cells.push({ col: c, row: r, dist: Math.hypot(c - centerCol, r - centerRow) });
-    }
-  }
-  cells.sort((a, b) => a.dist - b.dist);
-  const sorted = [...shows].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  const positions = sorted.map((show, idx) => {
-    const cell = cells[idx] || cells[cells.length - 1];
-    const seed = hashString(show.share_token || `${show.band_name}-${show.date}-${idx}`);
-    const jitterX = (seededRandom(seed) - 0.5) * 0.6;
-    const jitterY = (seededRandom(seed + 1) - 0.5) * 0.6;
-    const rotation = (seededRandom(seed + 2) - 0.5) * 14;
-    const xPct = ((cell.col + 0.5 + jitterX) / cols) * 100;
-    const yPct = ((cell.row + 0.5 + jitterY) / rows) * 100;
-    return { show, xPct, yPct, rotation };
-  });
-  return { positions, rows, cols };
-}
-
-function ShowStamp({ show, onClick, isNewest }) {
-  const color = PINK;
-  return (
-    <button onClick={onClick} className="group relative flex items-center justify-center transition-transform duration-300 hover:scale-150" style={{ width: 56, height: 56 }}>
-      {isNewest && (
-        <style>{`
-          @keyframes starPulseGlow { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.6); opacity: 1; } }
-          @keyframes starPulseCore { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
-        `}</style>
-      )}
-      <div
-        className="absolute rounded-full transition-opacity duration-300 group-hover:opacity-100"
-        style={{
-          width: isNewest ? 50 : 40, height: isNewest ? 50 : 40,
-          background: `radial-gradient(circle, ${color}88 0%, transparent 70%)`,
-          filter: "blur(5px)", opacity: 0.85,
-          animation: isNewest ? "starPulseGlow 3s ease-in-out infinite" : undefined,
-        }}
-      />
-      <div
-        className="absolute rounded-full"
-        style={{
-          width: isNewest ? 11 : 9, height: isNewest ? 11 : 9,
-          background: `radial-gradient(circle at 35% 30%, #ffffff, ${color})`,
-          boxShadow: isNewest ? `0 0 14px 5px ${color}ee, 0 0 30px 12px ${color}88` : `0 0 8px 2px ${color}cc, 0 0 18px 7px ${color}55`,
-          animation: isNewest ? "starPulseCore 3s ease-in-out infinite" : undefined,
-        }}
-      />
-    </button>
-  );
-}
 
 export default function BandCockpit() {
   const navigate = useNavigate();
@@ -128,7 +54,10 @@ export default function BandCockpit() {
     load();
   }, []);
 
-  const { positions } = useMemo(() => getConstellationLayout(pastGigs), [pastGigs]);
+  const { positions } = useMemo(
+    () => getConstellationLayout(pastGigs, { getSeedKey: (show) => show.share_token }),
+    [pastGigs]
+  );
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
@@ -169,7 +98,12 @@ export default function BandCockpit() {
             <div className="relative w-full" style={{ height: `${Math.max(320, positions.length * 40)}px` }}>
               {positions.map((pos, i) => (
                 <div key={pos.show.share_token} className="absolute" style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: `translate(-50%, -50%) rotate(${pos.rotation}deg)` }}>
-                  <ShowStamp show={pos.show} onClick={() => setSelectedGig(pos.show)} isNewest={i === positions.length - 1} />
+                  <ShowStamp
+                    color={PINK}
+                    onClick={() => setSelectedGig(pos.show)}
+                    isNewest={i === positions.length - 1}
+                    ariaLabel={pos.show.band_name || pos.show.venue}
+                  />
                 </div>
               ))}
             </div>

@@ -1069,8 +1069,16 @@ export default function SharedGig() {
               <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>
             </div>
           </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
+              className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
+              title="View this gig as a role hub"
+            >
+              Gig Web
+            </button>
           {canEdit && (
-            <div className="flex items-center gap-2 shrink-0">
+            <>
               <button
                 onClick={() => navigate(`/gig/messages?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
@@ -1093,8 +1101,9 @@ export default function SharedGig() {
                 <Save className="w-3.5 h-3.5" />
                 {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready) ? "Save" : "Save to Linked"}
               </button>
-            </div>
+            </>
           )}
+          </div>
         </div>
       </div>
 

@@ -30,6 +30,9 @@ import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
+import GigWeb from '@/pages/GigWeb';
+import VenueProfile from '@/pages/VenueProfile';
+import RoleProfilePlaceholder from '@/pages/RoleProfilePlaceholder';
 import GigRooms from '@/pages/GigRooms';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
@@ -65,6 +68,9 @@ const AuthenticatedApp = () => {
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
+      <Route path="/gig/web" element={<GigWeb />} />
+      <Route path="/gig/venue" element={<VenueProfile />} />
+      <Route path="/gig/role" element={<RoleProfilePlaceholder />} />
       <Route path="/gig/rooms" element={<GigRooms />} />
       <Route path="/gig/messages" element={<GigDirectMessages />} />
       <Route path="/linked" element={<LinkedGigs />} />
