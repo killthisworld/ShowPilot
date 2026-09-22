@@ -17,14 +17,14 @@ export default function PilotCardView() {
   const { token } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  // Most entry points (Fellow Pilots list, shared-gig links) want the
-  // default "back to Fellow Pilots" destination. A Room message avatar
-  // marks fromRoom in navigation state instead - that case uses real
-  // browser back-navigation (not a fixed destination) so the Room's own
-  // history entry is popped back to rather than a new one pushed on top
-  // of it, which is what kept the Room's own back button landing on this
-  // card instead of skipping past it.
-  const cameFromRoom = !!location.state?.fromRoom;
+  // Both this and the Rooms page's own back button navigate to a fixed,
+  // known destination rather than browser history (-1) - relying on
+  // history depth here got fragile once two screens could push each
+  // other (Room -> card -> back landed a step short, or too far, of the
+  // actual gig page depending on however many entries had piled up). A
+  // Room message avatar passes exactly which room to return to; anywhere
+  // else defaults to Fellow Pilots as before.
+  const backTo = location.state?.backTo || "/experience?tab=fellow";
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -148,7 +148,7 @@ export default function PilotCardView() {
       }}
     >
       <button
-        onClick={() => (cameFromRoom ? navigate(-1) : navigate("/experience?tab=fellow"))}
+        onClick={() => navigate(backTo)}
         className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />

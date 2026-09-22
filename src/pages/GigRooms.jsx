@@ -217,7 +217,7 @@ export default function GigRooms() {
     <div className="h-screen bg-[#0d0d0d] flex flex-col">
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1 text-white/60 hover:text-white shrink-0">
+          <button onClick={() => navigate(`/gig/shared?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
@@ -280,7 +280,7 @@ export default function GigRooms() {
                         to={`/pilot/${profile.cardToken}`}
                         className="shrink-0"
                         title={profile.displayName || "View pilot card"}
-                        state={{ fromRoom: true }}
+                        state={{ backTo: `/gig/rooms?token=${token}&room=${activeRoomId}` }}
                       >
                         {avatar}
                       </Link>
