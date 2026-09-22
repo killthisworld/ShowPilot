@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle, MessageSquare } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
@@ -1071,6 +1071,13 @@ export default function SharedGig() {
           </div>
           {canEdit && (
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => navigate(`/gig/messages?token=${resolvedToken}`)}
+                className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                DMs
+              </button>
               <button
                 onClick={() => navigate(`/gig/rooms?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"

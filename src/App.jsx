@@ -31,6 +31,7 @@ import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
 import GigRooms from '@/pages/GigRooms';
+import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
 
 const AuthenticatedApp = () => {
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
       <Route path="/gig/rooms" element={<GigRooms />} />
+      <Route path="/gig/messages" element={<GigDirectMessages />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />

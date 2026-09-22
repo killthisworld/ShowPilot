@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Send, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
 // Matches SharedGig.jsx's palette exactly, plus a neutral for the
 // everyone-welcome General room - same color language the rest of the
@@ -15,21 +16,6 @@ const ROOM_META = {
   engineer: { label: "Audio/Lighting", icon: Headphones, color: "#8CFF3D" },
 };
 const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
-
-// Colors a message bubble by the sender's own account type (not the room's
-// color), so a mixed room like General still lets you tell people apart at
-// a glance. band shares manager's color since they already share a room.
-// lighting shares engineer's color for the same reason.
-const ACCOUNT_TYPE_COLORS = {
-  venue: "#FB923C",
-  promoter: "#60A5FA",
-  booking_agent: "#C026D3",
-  manager: "#EF4444",
-  band: "#EF4444",
-  engineer: "#8CFF3D",
-  lighting: "#8CFF3D",
-};
-const DEFAULT_SENDER_COLOR = "#9CA3AF";
 
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -262,7 +248,7 @@ export default function GigRooms() {
             {messages.map((m) => {
               const isMe = m.sender_id === user.id;
               const profile = senderProfiles[m.sender_id];
-              const senderColor = ACCOUNT_TYPE_COLORS[profile?.accountType] || DEFAULT_SENDER_COLOR;
+              const senderColor = getAccountTypeStyle(profile?.accountType).color;
               const avatar = (
                 <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[#222] flex items-center justify-center">
                   {profile?.photoUrl ? (
