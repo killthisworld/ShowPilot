@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft, ExternalLink } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
@@ -16,6 +16,12 @@ const SOUNDWAVE_TEMPLATES = {
 export default function PilotCardView() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Most entry points (Fellow Pilots list, shared-gig links) want the
+  // default "back to Fellow Pilots" behavior. A Room message avatar passes
+  // backTo in navigation state so the back button returns to that chat
+  // instead of losing the person's place.
+  const backTo = location.state?.backTo || "/experience?tab=fellow";
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -139,7 +145,7 @@ export default function PilotCardView() {
       }}
     >
       <button
-        onClick={() => navigate("/experience?tab=fellow")}
+        onClick={() => navigate(backTo)}
         className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />

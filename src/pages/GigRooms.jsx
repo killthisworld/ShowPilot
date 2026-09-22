@@ -16,6 +16,21 @@ const ROOM_META = {
 };
 const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
 
+// Colors a message bubble by the sender's own account type (not the room's
+// color), so a mixed room like General still lets you tell people apart at
+// a glance. band shares manager's color since they already share a room.
+// lighting shares engineer's color for the same reason.
+const ACCOUNT_TYPE_COLORS = {
+  venue: "#FB923C",
+  promoter: "#60A5FA",
+  booking_agent: "#C026D3",
+  manager: "#EF4444",
+  band: "#EF4444",
+  engineer: "#8CFF3D",
+  lighting: "#8CFF3D",
+};
+const DEFAULT_SENDER_COLOR = "#9CA3AF";
+
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
@@ -24,6 +39,7 @@ export default function GigRooms() {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
+  const preselectRoom = params.get("room");
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -55,7 +71,13 @@ export default function GigRooms() {
         setGigTitle(data.gig_title || "Gig");
         const sorted = (data.rooms || []).sort((a, b) => ROOM_ORDER.indexOf(a.section) - ROOM_ORDER.indexOf(b.section));
         setRooms(sorted);
-        if (sorted.length > 0) setActiveRoomId(sorted[0].id);
+        if (sorted.length > 0) {
+          // A pilot-card back link can ask to land back on the specific
+          // room the person was in rather than always defaulting to the
+          // first one.
+          const preselected = preselectRoom && sorted.find((r) => r.id === preselectRoom);
+          setActiveRoomId(preselected ? preselected.id : sorted[0].id);
+        }
       } catch (e) {
         console.error(e);
         setNotFound(true);
@@ -94,7 +116,7 @@ export default function GigRooms() {
       if (peopleError) { console.error(peopleError); return; }
       const map = {};
       (people || []).forEach((p) => {
-        map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token };
+        map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token, accountType: p.account_type };
       });
       if (!cancelled) setSenderProfiles((prev) => ({ ...prev, ...map }));
     };
@@ -114,7 +136,7 @@ export default function GigRooms() {
               .then(({ data }) => {
                 const map = {};
                 (data || []).forEach((p) => {
-                  map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token };
+                  map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token, accountType: p.account_type };
                 });
                 setSenderProfiles((p) => ({ ...p, ...map }));
               });
@@ -230,6 +252,7 @@ export default function GigRooms() {
             {messages.map((m) => {
               const isMe = m.sender_id === user.id;
               const profile = senderProfiles[m.sender_id];
+              const senderColor = ACCOUNT_TYPE_COLORS[profile?.accountType] || DEFAULT_SENDER_COLOR;
               const avatar = (
                 <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[#222] flex items-center justify-center">
                   {profile?.photoUrl ? (
@@ -243,16 +266,24 @@ export default function GigRooms() {
                 <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
                   {!isMe && (
                     profile?.cardToken ? (
-                      <Link to={`/pilot/${profile.cardToken}`} className="shrink-0" title={profile.displayName || "View pilot card"}>
+                      <Link
+                        to={`/pilot/${profile.cardToken}`}
+                        className="shrink-0"
+                        title={profile.displayName || "View pilot card"}
+                        state={{ backTo: `/gig/rooms?token=${token}&room=${activeRoomId}` }}
+                      >
                         {avatar}
                       </Link>
                     ) : (
                       avatar
                     )
                   )}
-                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "bg-[#1a1a1a] text-white"}`}>
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
+                    style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}
+                  >
                     {!isMe && (
-                      <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: activeMeta.color }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: senderColor }}>
                         {profile?.displayName || "Someone"}
                       </p>
                     )}
