@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Send, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
 
@@ -33,7 +33,7 @@ export default function GigRooms() {
   const [rooms, setRooms] = useState([]);
   const [activeRoomId, setActiveRoomId] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [senderNames, setSenderNames] = useState({});
+  const [senderProfiles, setSenderProfiles] = useState({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
@@ -86,11 +86,13 @@ export default function GigRooms() {
       if (senderIds.length > 0) {
         const { data: people } = await supabase
           .from("user_preferences")
-          .select("user_id, display_name")
+          .select("user_id, display_name, profile_photo_url, card_share_token")
           .in("user_id", senderIds);
         const map = {};
-        (people || []).forEach((p) => { map[p.user_id] = p.display_name; });
-        if (!cancelled) setSenderNames((prev) => ({ ...prev, ...map }));
+        (people || []).forEach((p) => {
+          map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token };
+        });
+        if (!cancelled) setSenderProfiles((prev) => ({ ...prev, ...map }));
       }
     };
     loadMessages();
@@ -103,10 +105,17 @@ export default function GigRooms() {
         (payload) => {
           setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
           const senderId = payload.new.sender_id;
-          setSenderNames((prev) => {
+          setSenderProfiles((prev) => {
             if (prev[senderId]) return prev;
-            supabase.from("user_preferences").select("display_name").eq("user_id", senderId).maybeSingle()
-              .then(({ data }) => { if (data) setSenderNames((p) => ({ ...p, [senderId]: data.display_name })); });
+            supabase.from("user_preferences").select("display_name, profile_photo_url, card_share_token").eq("user_id", senderId).maybeSingle()
+              .then(({ data }) => {
+                if (data) {
+                  setSenderProfiles((p) => ({
+                    ...p,
+                    [senderId]: { displayName: data.display_name, photoUrl: data.profile_photo_url, cardToken: data.card_share_token },
+                  }));
+                }
+              });
             return prev;
           });
         }
@@ -218,12 +227,31 @@ export default function GigRooms() {
             )}
             {messages.map((m) => {
               const isMe = m.sender_id === user.id;
+              const profile = senderProfiles[m.sender_id];
+              const avatar = (
+                <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[#222] flex items-center justify-center">
+                  {profile?.photoUrl ? (
+                    <img src={profile.photoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-3.5 h-3.5 text-white/30" />
+                  )}
+                </div>
+              );
               return (
-                <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
+                  {!isMe && (
+                    profile?.cardToken ? (
+                      <Link to={`/pilot/${profile.cardToken}`} className="shrink-0" title={profile.displayName || "View pilot card"}>
+                        {avatar}
+                      </Link>
+                    ) : (
+                      avatar
+                    )
+                  )}
                   <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "bg-[#1a1a1a] text-white"}`}>
                     {!isMe && (
                       <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: activeMeta.color }}>
-                        {senderNames[m.sender_id] || "Someone"}
+                        {profile?.displayName || "Someone"}
                       </p>
                     )}
                     <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
