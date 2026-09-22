@@ -27,13 +27,19 @@ function roleInvited(role, permissions) {
 }
 
 function profileHref(role, token) {
-  return role === "venue" ? `/gig/venue?token=${token}` : `/gig/role?role=${role}&token=${token}`;
+  return `/gig/role?role=${role}&token=${token}`;
 }
 
-export default function GigWeb() {
+// Renders standalone at /gig/web?token=... (reached from SharedGig's "Gig
+// Web" button - a real page, real back button) and also embeds directly
+// inside the constellation home screen (BandHome) as a front-of-page layer:
+// passing `token`+`onClose` skips the URL read and swaps the back button
+// for a close call, so the same component serves both without a fork.
+export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
+  const token = tokenProp || params.get("token");
+  const goBack = () => (onClose ? onClose() : navigate(`/gig/shared?token=${token}`));
 
   const [gig, setGig] = useState(null);
   const [permissions, setPermissions] = useState(null);
@@ -114,7 +120,7 @@ export default function GigWeb() {
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(`/gig/shared?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
+          <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
@@ -193,6 +199,32 @@ export default function GigWeb() {
                 <div className="h-full rounded-full" style={{ width: `${selected.percent}%`, background: selected.style.color }} />
               </div>
             </div>
+
+            {(() => {
+              const reqs = (gig?.requirements || []).filter((r) => r.section === selected.role);
+              const open = reqs.filter((r) => r.status !== "confirmed");
+              if (reqs.length === 0) return null;
+              return (
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">
+                    {open.length > 0 ? "Needs attention" : "Recent activity"}
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {(open.length > 0 ? open : reqs).slice(0, 3).map((r) => {
+                      const color = r.status === "conflict" ? "#EF4444" : r.status === "confirmed" ? "#8CFF3D" : "#EAB308";
+                      return (
+                        <div key={r.id} className="flex items-center justify-between gap-2 bg-[#161616] rounded-lg px-3 py-2">
+                          <span className="text-white/70 text-xs truncate">{r.name}{r.value ? ` — ${r.value}` : ""}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0" style={{ color, background: color + "1A" }}>
+                            {r.status || "requested"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             <a
               href={`/gig/shared?token=${token}#section-${selected.role}`}

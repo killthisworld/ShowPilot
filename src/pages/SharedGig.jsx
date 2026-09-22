@@ -13,19 +13,19 @@ import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 
-const ROLE_COLORS = {
+export const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
   Opener: { text: "text-[#8CFF3D]", bg: "bg-[#8CFF3D]/10", border: "border-[#8CFF3D]/40" },
   "Performer/Group": { text: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-400/40" },
   "N/A": { text: "text-white/50", bg: "bg-white/10", border: "border-white/20" },
 };
-const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
+export const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 // One color per section, consistent everywhere this app shows section
 // progress (the Home page progress bar uses the same palette) so position
 // and color together become a language the user only has to learn once.
-const SECTION_COLORS = {
+export const SECTION_COLORS = {
   venue: "#FB923C",
   promoter: "#60A5FA",
   booking_agent: "#C026D3",
@@ -44,7 +44,7 @@ const ENGINEER_ROLE_OPTIONS = [
 // current viewer doesn't hold, an inline Invite affordance for the owner,
 // and a per-section Update button for whoever can actually edit it - so
 // nobody has to save the whole page just to log their own update.
-function GigSection({ title, icon: Icon, color, locked, editable, isOwner, onInvite, onSave, saving, saved, children }) {
+export function GigSection({ title, icon: Icon, color, locked, editable, isOwner, onInvite, onSave, saving, saved, children }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: color }}>
@@ -88,7 +88,7 @@ function GigSection({ title, icon: Icon, color, locked, editable, isOwner, onInv
   );
 }
 
-function Field({ label, value, onChange, editable, placeholder, type = "text" }) {
+export function Field({ label, value, onChange, editable, placeholder, type = "text" }) {
   return (
     <div>
       <Label className="text-white/50 text-xs">{label}</Label>
@@ -119,7 +119,7 @@ const REQUIREMENT_STATUS_STYLES = {
 // with a status that can flip to Conflict when it turns out to be a
 // problem. Saves immediately per action rather than batching into the
 // section's own Update button, since each item is its own small decision.
-function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDelete }) {
+export function RequirementsList({ requirements, editable, onAdd, onUpdateStatus, onDelete }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -234,7 +234,7 @@ function getMemberNote(fxNotes, name) {
   return (fxNotes || []).find((n) => n.artist_name === name)?.notes || "";
 }
 
-function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
+export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
   const [noteModal, setNoteModal] = useState(null); // { label, value, onChange }
   const [collapsedMembers, setCollapsedMembers] = useState({}); // memberIndex -> bool
 

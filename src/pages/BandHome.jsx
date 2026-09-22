@@ -1,24 +1,31 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { MapPin, Calendar, CalendarDays, Plus, Link2, Star } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
-import BandGigCard from "@/components/showpilot/BandGigCard";
 import { Button } from "@/components/ui/button";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getConstellationLayout, ShowStamp } from "@/lib/constellation";
+import GigWeb from "@/pages/GigWeb";
 
+// The home screen for every account type except engineer/lighting (those
+// keep the card-list Home.jsx - a tech-production account often tracks many
+// shows they don't own a stake in, where a dense scannable list still beats
+// a starfield). Every show you own or are linked to becomes one star;
+// tapping it doesn't navigate away, it brings the Gig Web hub forward as a
+// layer over this screen, so the constellation is always still right there
+// underneath when you close it.
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [progressByShowId, setProgressByShowId] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [confirmDeleteGig, setConfirmDeleteGig] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [webToken, setWebToken] = useState(null);
+  const [webVisible, setWebVisible] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -67,53 +74,22 @@ export default function BandHome() {
     load();
   }, []);
 
-  useEffect(() => {
-    if (gigs.length === 0) return;
-    const ids = gigs.map((g) => g.id).filter(Boolean);
-    if (ids.length === 0) return;
-    supabase
-      .rpc("get_gigs_progress", { p_show_ids: ids })
-      .then(({ data, error }) => {
-        if (error) { console.error(error); return; }
-        const map = {};
-        (data || []).forEach((row) => { map[row.show_id] = row.progress; });
-        setProgressByShowId(map);
-      });
-  }, [gigs]);
-
   const openGig = (g) => {
-    navigate(`/gig/shared?token=${g.share_token}`);
+    setWebToken(g.share_token);
+    // Mounts with the layer already positioned off-screen, then flips to
+    // its resting position next frame - a plain Tailwind transition, no
+    // animation config to add, but still reads as "brought to the front"
+    // rather than a hard cut.
+    requestAnimationFrame(() => requestAnimationFrame(() => setWebVisible(true)));
+  };
+  const closeGig = () => {
+    setWebVisible(false);
+    setTimeout(() => setWebToken(null), 250);
   };
 
   const handleCreateEvent = () => navigate("/event/new");
 
   const gigKey = (g) => (g.is_owned ? g.id : g.share_token);
-
-  const handleArchive = async (gig) => {
-    if (gig.is_owned) {
-      await supabase.from("shows").update({ archived: true }).eq("id", gig.id);
-    } else if (currentUserId) {
-      await supabase.from("linked_gigs").update({ archived: true }).eq("user_id", currentUserId).eq("share_token", gig.share_token);
-    }
-    setGigs((prev) => prev.filter((g) => gigKey(g) !== gigKey(gig)));
-  };
-
-  const confirmDelete = async () => {
-    if (!confirmDeleteGig) return;
-    setDeleting(true);
-    try {
-      if (confirmDeleteGig.is_owned) {
-        await supabase.from("shows").delete().eq("id", confirmDeleteGig.id);
-      } else if (currentUserId) {
-        await supabase.from("linked_gigs").delete().eq("user_id", currentUserId).eq("share_token", confirmDeleteGig.share_token);
-      }
-      setGigs((prev) => prev.filter((g) => gigKey(g) !== gigKey(confirmDeleteGig)));
-      setConfirmDeleteGig(null);
-    } catch (e) {
-      console.error(e);
-    }
-    setDeleting(false);
-  };
 
   const sortedGigs = useMemo(() => {
     return [...gigs].sort((a, b) => {
@@ -122,6 +98,12 @@ export default function BandHome() {
       return new Date(a.date) - new Date(b.date);
     });
   }, [gigs]);
+
+  const { positions, rows } = useMemo(
+    () => getConstellationLayout(sortedGigs, { getSeedKey: gigKey }),
+    [sortedGigs]
+  );
+  const containerHeight = sortedGigs.length === 0 ? 220 : Math.max(340, rows * 110);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -183,7 +165,7 @@ export default function BandHome() {
                 const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                 return (
                   <button
-                    key={g.is_owned ? g.id : g.share_token}
+                    key={gigKey(g)}
                     onClick={() => openGig(g)}
                     className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0 text-left"
                     style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
@@ -198,9 +180,13 @@ export default function BandHome() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
-        <div className="flex items-center justify-between mb-1">
+      <div className="px-4 pt-5 max-w-lg mx-auto">
+        <div className="flex items-center justify-between mb-1 px-1">
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-[10px] text-white/35"><span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" /> Owned</span>
+            <span className="flex items-center gap-1 text-[10px] text-white/35"><span className="w-1.5 h-1.5 rounded-full bg-[#F472B6]" /> Linked</span>
+          </div>
         </div>
 
         {loading ? (
@@ -218,41 +204,26 @@ export default function BandHome() {
             <p className="text-white/40 text-sm">No shows yet</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {sortedGigs.map((g) => (
-              <BandGigCard
-                key={g.is_owned ? g.id : g.share_token}
-                gig={g}
-                progress={progressByShowId[g.id]}
-                onOpen={openGig}
-                onArchive={handleArchive}
-                onDeleteRequest={setConfirmDeleteGig}
-              />
+          <div className="relative mx-auto" style={{ width: "100%", maxWidth: 400, height: containerHeight }}>
+            {positions.map((pos, i) => (
+              <div key={gigKey(pos.show)} className="absolute z-10" style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}>
+                <ShowStamp
+                  color={pos.show.is_owned ? "#8CFF3D" : "#F472B6"}
+                  onClick={() => openGig(pos.show)}
+                  isNewest={i === positions.length - 1}
+                  ariaLabel={pos.show.event_name || pos.show.band_name || "Untitled Gig"}
+                />
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      {confirmDeleteGig && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteGig(null)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
-            <p className="text-white font-semibold text-base mb-1">
-              {confirmDeleteGig.is_owned ? "Delete this event?" : "Remove this link?"}
-            </p>
-            <p className="text-white/40 text-sm mb-4">
-              {confirmDeleteGig.is_owned
-                ? `${confirmDeleteGig.event_name || confirmDeleteGig.band_name || "This event"} will be permanently deleted. This can't be undone.`
-                : "This just removes it from your list - the event itself isn't affected."}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setConfirmDeleteGig(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
-                Cancel
-              </Button>
-              <Button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-500 text-white hover:bg-red-600">
-                {deleting ? "..." : confirmDeleteGig.is_owned ? "Delete" : "Remove"}
-              </Button>
-            </div>
-          </div>
+      {webToken && (
+        <div
+          className={`fixed inset-0 z-[60] bg-[#0d0d0d] overflow-y-auto transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        >
+          <GigWeb token={webToken} onClose={closeGig} />
         </div>
       )}
 
