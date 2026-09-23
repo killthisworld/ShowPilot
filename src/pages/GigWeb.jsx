@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
+import { useGigInvite, InviteModal } from "@/pages/SharedGig";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 
 // The 5 roles a gig always has, in radial order. Position/color here
@@ -233,6 +234,13 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
         <div className="flex items-center gap-2 mb-3">
           {selectedNode ? (
             <>
+              <button
+                type="button"
+                onClick={() => selectRole(null)}
+                className="flex items-center gap-1 text-white/40 hover:text-white text-xs font-semibold shrink-0 -ml-1 pl-1 pr-2 py-1 rounded-full hover:bg-white/5 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Overview
+              </button>
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
               <span className="text-white font-semibold text-base truncate">{SECTION_LABELS[selectedRole]}</span>
               <span className="text-white/30 text-xs shrink-0 ml-auto">
@@ -303,6 +311,12 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
 // a save made right here.
 function ProfileTabPanel({ role, token, onChanged, color }) {
   const p = useRoleProfile({ role, token, onChanged });
+  // Invite is offered to the same people who can already edit this
+  // section - the owner, or whoever holds/was granted it - so a manager
+  // or promoter already in the seat can bring in a co-contact without
+  // routing every invite through the owner.
+  const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
+  const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -323,6 +337,17 @@ function ProfileTabPanel({ role, token, onChanged, color }) {
 
   return (
     <div>
+      {p.editable && (
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
+            className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
+          >
+            <UserPlus className="w-3 h-3" /> Invite
+          </button>
+        </div>
+      )}
       <RoleProfileBody
         role={role}
         token={token}
@@ -355,6 +380,18 @@ function ProfileTabPanel({ role, token, onChanged, color }) {
           {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
         </button>
       )}
+      <InviteModal
+        inviteFor={invite.inviteFor}
+        inviteRoleChoice={invite.inviteRoleChoice}
+        inviteUrl={invite.inviteUrl}
+        inviteCopied={invite.inviteCopied}
+        generatingInvite={invite.generatingInvite}
+        onClose={invite.closeInvite}
+        onChooseEngineerRole={invite.chooseEngineerRole}
+        onGenerate={invite.generateInvite}
+        onCopy={invite.copyInviteUrl}
+        onShare={invite.shareInviteUrl}
+      />
     </div>
   );
 }

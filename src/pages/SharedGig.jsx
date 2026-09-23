@@ -32,10 +32,148 @@ export const SECTION_COLORS = {
   manager: "#EF4444",
   engineer: "#8CFF3D",
 };
-const ENGINEER_ROLE_OPTIONS = [
+export const ENGINEER_ROLE_OPTIONS = [
   { value: "engineer", label: "Audio Engineer" },
   { value: "lighting", label: "Lighting Tech" },
 ];
+
+// Generates and shares a one-time invite link for one section of a gig -
+// pulled out of SharedGig's own state so Gig Web's Profile tab can offer
+// the same "Invite" flow for whoever can already touch that section
+// (the owner, or someone who already holds/was granted it), not just
+// from the accordion page. `gigId`/`user` are all it needs; the invite
+// link itself never carries a share token, only the gig_invites row's
+// own invite_token.
+export function useGigInvite({ gigId, user }) {
+  const [inviteFor, setInviteFor] = useState(null); // { section, label } while the invite popover is open
+  const [inviteRoleChoice, setInviteRoleChoice] = useState(null); // for the engineer section's dual role choice
+  const [inviteUrl, setInviteUrl] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+
+  const openInvite = (section, label) => {
+    setInviteFor({ section, label });
+    setInviteRoleChoice(null);
+    setInviteUrl(null);
+    setInviteCopied(false);
+  };
+  const closeInvite = () => setInviteFor(null);
+
+  const generateInvite = async (role) => {
+    if (!gigId || !user) return;
+    setGeneratingInvite(true);
+    try {
+      const { data, error } = await supabase
+        .from("gig_invites")
+        .insert({ show_id: gigId, invited_role: role, created_by: user.id })
+        .select()
+        .single();
+      if (error) throw error;
+      setInviteUrl(`${window.location.origin}/gig/shared?invite=${data.invite_token}`);
+    } catch (e) {
+      console.error(e);
+    }
+    setGeneratingInvite(false);
+  };
+
+  const chooseEngineerRole = (role) => {
+    setInviteRoleChoice(role);
+    generateInvite(role);
+  };
+
+  const copyInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 1500);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const shareInviteUrl = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.share({ title: `${inviteFor?.label || "Gig"} Invite`, url: inviteUrl });
+    } catch (e) {
+      // user cancelled - nothing to do
+    }
+  };
+
+  return {
+    inviteFor, inviteRoleChoice, inviteUrl, inviteCopied, generatingInvite,
+    openInvite, closeInvite, generateInvite, chooseEngineerRole, copyInviteUrl, shareInviteUrl,
+  };
+}
+
+// The invite popover itself - who to invite (with the engineer/lighting
+// dual choice) then the generated link to copy or share. Pure/presentational:
+// all state comes from useGigInvite above.
+export function InviteModal({ inviteFor, inviteRoleChoice, inviteUrl, inviteCopied, generatingInvite, onClose, onChooseEngineerRole, onGenerate, onCopy, onShare }) {
+  if (!inviteFor) return null;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={onClose}>
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-white font-bold text-base">Invite to {inviteFor.label}</h3>
+          <button onClick={onClose} className="text-white/40 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        {inviteFor.section === "engineer_lighting" && !inviteRoleChoice ? (
+          <>
+            <p className="text-white/40 text-xs mb-4">Which role is this invite for?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ENGINEER_ROLE_OPTIONS.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => onChooseEngineerRole(r.value)}
+                  className="px-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/70 text-sm hover:border-[#8CFF3D]/40 hover:text-white transition-colors"
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-white/40 text-xs mb-4">Share this link so they can fill in and update their section.</p>
+            {!inviteUrl ? (
+              <Button
+                onClick={() => onGenerate(inviteRoleChoice || inviteFor.section)}
+                disabled={generatingInvite}
+                className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]"
+              >
+                {generatingInvite ? "Generating..." : "Generate Invite Link"}
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 text-xs text-white/40 truncate bg-[#111] rounded-lg px-2 py-2">
+                  {inviteUrl}
+                </div>
+                <button
+                  onClick={onCopy}
+                  className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20"
+                >
+                  {inviteCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+                {typeof navigator !== "undefined" && navigator.share && (
+                  <button
+                    onClick={onShare}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // A card wrapper for each role-owned section. Collapsed by default so a
 // long list of sections stays scannable; outlined in the role's color so
@@ -578,11 +716,10 @@ export default function SharedGig() {
   const { preferences } = usePreferences();
   const [sectionSaving, setSectionSaving] = useState({});
   const [sectionSaved, setSectionSaved] = useState({});
-  const [inviteFor, setInviteFor] = useState(null); // { section, label } while the invite popover is open
-  const [inviteRoleChoice, setInviteRoleChoice] = useState(null); // for the engineer section's dual role choice
-  const [inviteUrl, setInviteUrl] = useState(null);
-  const [inviteCopied, setInviteCopied] = useState(false);
-  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const {
+    inviteFor, inviteRoleChoice, inviteUrl, inviteCopied, generatingInvite,
+    openInvite, closeInvite, generateInvite, chooseEngineerRole, copyInviteUrl, shareInviteUrl,
+  } = useGigInvite({ gigId: gig?.id, user });
   const [engineerCards, setEngineerCards] = useState({});
   const [isLinkedAlready, setIsLinkedAlready] = useState(false);
 
@@ -956,50 +1093,6 @@ export default function SharedGig() {
   const scrollToSection = (section) => {
     const el = document.getElementById(`section-${section}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const openInvite = (section, label) => {
-    setInviteFor({ section, label });
-    setInviteRoleChoice(null);
-    setInviteUrl(null);
-    setInviteCopied(false);
-  };
-
-  const generateInvite = async (role) => {
-    if (!gig?.id || !user) return;
-    setGeneratingInvite(true);
-    try {
-      const { data, error } = await supabase
-        .from("gig_invites")
-        .insert({ show_id: gig.id, invited_role: role, created_by: user.id })
-        .select()
-        .single();
-      if (error) throw error;
-      setInviteUrl(`${window.location.origin}/gig/shared?invite=${data.invite_token}`);
-    } catch (e) {
-      console.error(e);
-    }
-    setGeneratingInvite(false);
-  };
-
-  const copyInviteUrl = async () => {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 1500);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const shareInviteUrl = async () => {
-    if (!inviteUrl) return;
-    try {
-      await navigator.share({ title: `${inviteFor?.label || "Gig"} Invite`, url: inviteUrl });
-    } catch (e) {
-      // user cancelled - nothing to do
-    }
   };
 
   // Handles the top-level event details (name, date, venue basics) plus
@@ -1520,67 +1613,18 @@ export default function SharedGig() {
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
       </div>
 
-      {inviteFor && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setInviteFor(null)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-white font-bold text-base">Invite to {inviteFor.label}</h3>
-              <button onClick={() => setInviteFor(null)} className="text-white/40 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {inviteFor.section === "engineer_lighting" && !inviteRoleChoice ? (
-              <>
-                <p className="text-white/40 text-xs mb-4">Which role is this invite for?</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {ENGINEER_ROLE_OPTIONS.map((r) => (
-                    <button
-                      key={r.value}
-                      onClick={() => { setInviteRoleChoice(r.value); generateInvite(r.value); }}
-                      className="px-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/70 text-sm hover:border-[#8CFF3D]/40 hover:text-white transition-colors"
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-white/40 text-xs mb-4">Share this link so they can fill in and update their section.</p>
-                {!inviteUrl ? (
-                  <Button
-                    onClick={() => generateInvite(inviteRoleChoice || inviteFor.section)}
-                    disabled={generatingInvite}
-                    className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]"
-                  >
-                    {generatingInvite ? "Generating..." : "Generate Invite Link"}
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 text-xs text-white/40 truncate bg-[#111] rounded-lg px-2 py-2">
-                      {inviteUrl}
-                    </div>
-                    <button
-                      onClick={copyInviteUrl}
-                      className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20"
-                    >
-                      {inviteCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                    {typeof navigator !== "undefined" && navigator.share && (
-                      <button
-                        onClick={shareInviteUrl}
-                        className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <InviteModal
+        inviteFor={inviteFor}
+        inviteRoleChoice={inviteRoleChoice}
+        inviteUrl={inviteUrl}
+        inviteCopied={inviteCopied}
+        generatingInvite={generatingInvite}
+        onClose={closeInvite}
+        onChooseEngineerRole={chooseEngineerRole}
+        onGenerate={generateInvite}
+        onCopy={copyInviteUrl}
+        onShare={shareInviteUrl}
+      />
 
       {canEdit && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
     </div>
