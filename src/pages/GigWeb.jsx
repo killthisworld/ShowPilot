@@ -54,8 +54,17 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null); // null = center/overview
-  const [activeTab, setActiveTab] = useState("profile"); // "profile" | "rooms"
+  // A pilot-card visit opened from the Rooms tab passes back a role= and
+  // tab=rooms so its own back button returns to the exact room the
+  // person was chatting in, not just the overview - only meaningful for
+  // the standalone /gig/web route (embedded usage via tokenProp always
+  // starts fresh at Overview, since BandHome's own URL has no such params).
+  const [selectedRole, setSelectedRole] = useState(() => {
+    if (tokenProp) return null;
+    const r = params.get("role");
+    return r && r !== "general" ? r : null;
+  }); // null = center/overview
+  const [activeTab, setActiveTab] = useState(() => (!tokenProp && params.get("tab") === "rooms" ? "rooms" : "profile")); // "profile" | "rooms"
   const [rooms, setRooms] = useState([]);
   const [roomMembers, setRoomMembers] = useState({}); // roomId -> member rows
 
@@ -721,7 +730,7 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
         user={user}
         emptyLabel="No messages yet - say hello."
         placeholder={`Message ${selectedRole ? roleLabel : "General"}...`}
-        pilotCardBackTo={`/gig/web?token=${token}`}
+        pilotCardBackTo={`/gig/web?token=${token}&role=${selectedRole || "general"}&tab=rooms`}
       />
     </div>
   );
