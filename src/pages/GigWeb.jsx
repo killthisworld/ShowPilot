@@ -6,6 +6,15 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal } from "@/pages/SharedGig";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
+import { usePreferences } from "@/hooks/usePreferences";
+import BottomTabs from "@/components/showpilot/BottomTabs";
+import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+
+// Same account-type split every other main page uses to choose between the
+// two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
+// TECHNICAL_PRODUCTION_TYPES) - kept as its own constant here so Gig Web
+// doesn't have to import a whole page just for this one check.
+const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 
 // The 5 roles a gig always has, in radial order. Position/color here
 // intentionally match SharedGig's SECTION_COLORS and Home's progress bar,
@@ -40,12 +49,18 @@ function roleInvited(role, permissions) {
 // and everything below - status, Profile/Rooms tabs, and the bulletin
 // board - re-renders for whichever is currently selected. There is no
 // separate "open full profile" page to jump to anymore; tapping a star
-// IS opening it.
+// IS opening it. The standalone page's back button goes home (this is
+// now the primary place to work a gig, so there's no reason to detour
+// through the old block-based SharedGig page on the way out), and the
+// same 3-tab bar every other main page has stays pinned at the bottom
+// here too, so leaving the web is never the only way out.
 export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = tokenProp || params.get("token");
-  const goBack = () => (onClose ? onClose() : navigate(`/gig/shared?token=${token}`));
+  const goBack = () => (onClose ? onClose() : navigate("/"));
+  const { preferences } = usePreferences();
+  const isTechProductionAccount = TECHNICAL_PRODUCTION_TYPES.includes(preferences?.account_type || "engineer");
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -194,7 +209,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const selectedNode = selectedRole ? nodes.find((n) => n.role === selectedRole) : null;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-16">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
@@ -328,6 +343,8 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
           )}
         </div>
       </div>
+
+      {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
     </div>
   );
 }
