@@ -65,6 +65,11 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
     return r && r !== "general" ? r : null;
   }); // null = center/overview
   const [activeTab, setActiveTab] = useState(() => (!tokenProp && params.get("tab") === "rooms" ? "rooms" : "profile")); // "profile" | "rooms"
+  // Whether the Profile tab shows the full editable fields (RoleProfileBody)
+  // or just its summary (that role's board - tasks + activity - with a
+  // button to open the full thing). Resets to summary every time a
+  // different role (or the same one again) is selected.
+  const [profileExpanded, setProfileExpanded] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [roomMembers, setRoomMembers] = useState({}); // roomId -> member rows
 
@@ -127,6 +132,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const selectRole = (role) => {
     setSelectedRole(role);
     setActiveTab("profile");
+    setProfileExpanded(false);
   };
 
   // Tasks live on the gig itself (not per-role, like useRoleProfile's
@@ -304,6 +310,8 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
                 requirements={gig.requirements}
                 tasks={gig.tasks}
                 onCompleteTask={completeTask}
+                expanded={profileExpanded}
+                setExpanded={setProfileExpanded}
               />
             ) : (
               <OverviewBoard nodes={nodes} onSelectRole={selectRole} tasks={gig.tasks} isOwner={!!permissions?.is_owner} onAddTask={addTask} />
@@ -331,13 +339,17 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   );
 }
 
-// The Profile tab for a selected role - the same fields/documents/
-// requirements body RoleFullProfile.jsx renders on its own page, mounted
-// here as its own independent copy (own fetch, own state) via the shared
-// hook. `onChanged` refetches Gig Web's own gig/progress so the web's
-// rings, the overview board and the bulletin board never sit stale after
-// a save made right here.
-function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, onCompleteTask }) {
+// The Profile tab for a selected role. Leads with a summary - that
+// role's own board (its open tasks + activity feed) - and keeps the
+// full fields/documents/requirements body (RoleFullProfile.jsx's, mounted
+// here as its own independent copy via the shared hook) collapsed behind
+// an "Open Full Profile" button, so landing on a role reads as "here's
+// where this stands" before diving into the editable form. `expanded`/
+// `setExpanded` are lifted to Gig Web itself so selecting a different
+// role always resets back to the summary. `onChanged` refetches Gig
+// Web's own gig/progress so the web's rings, the overview board and the
+// bulletin board never sit stale after a save made right here.
+function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, onCompleteTask, expanded, setExpanded }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -374,57 +386,84 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, o
 
   return (
     <div>
-      {hasSummary && (
-        <div className="flex flex-col gap-3 mb-4">
-          {roleTasks.length > 0 && <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />}
-          {hasRequirements && <RoleActivityFeed role={role} requirements={requirements} />}
+      {p.editable && (
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
+            className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
+          >
+            <UserPlus className="w-3 h-3" /> Invite
+          </button>
         </div>
       )}
-      <div className={hasSummary ? "pt-4 border-t border-[#1f1f1f]" : ""}>
-        {p.editable && (
-          <div className="flex justify-end mb-3">
-            <button
-              type="button"
-              onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
-              className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
-            >
-              <UserPlus className="w-3 h-3" /> Invite
-            </button>
+
+      {/* Summary - that role's own board (its open tasks + activity feed),
+          shown up front so landing on a role reads as "here's where this
+          stands" before diving into the fields. */}
+      <div className="mb-4">
+        {hasSummary ? (
+          <div className="flex flex-col gap-3">
+            {roleTasks.length > 0 && <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />}
+            {hasRequirements && <RoleActivityFeed role={role} requirements={requirements} />}
           </div>
-        )}
-        <RoleProfileBody
-          role={role}
-          token={token}
-          gig={p.gig}
-          permissions={p.permissions}
-          user={p.user}
-          editable={p.editable}
-          canEdit={p.canEdit}
-          update={p.update}
-          updateSection={p.updateSection}
-          updateEngineerRole={p.updateEngineerRole}
-          updateBand={p.updateBand}
-          addBand={p.addBand}
-          removeBand={p.removeBand}
-          expandedBands={p.expandedBands}
-          toggleExpanded={p.toggleExpanded}
-          addRequirement={p.addRequirement}
-          updateRequirementStatus={p.updateRequirementStatus}
-          deleteRequirement={p.deleteRequirement}
-          iemMonitorColors={p.iemMonitorColors}
-          onSignIn={goSignIn}
-        />
-        {p.editable && (
-          <button
-            onClick={p.handleSave}
-            disabled={p.saving}
-            className="w-full mt-4 font-bold text-sm rounded-2xl px-4 py-3 disabled:opacity-50"
-            style={{ background: color, color: "#0d0d0d" }}
-          >
-            {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
-          </button>
+        ) : (
+          <p className="text-white/25 text-xs">Nothing tracked for this section yet.</p>
         )}
       </div>
+
+      {expanded ? (
+        <div className="pt-4 border-t border-[#1f1f1f]">
+          <RoleProfileBody
+            role={role}
+            token={token}
+            gig={p.gig}
+            permissions={p.permissions}
+            user={p.user}
+            editable={p.editable}
+            canEdit={p.canEdit}
+            update={p.update}
+            updateSection={p.updateSection}
+            updateEngineerRole={p.updateEngineerRole}
+            updateBand={p.updateBand}
+            addBand={p.addBand}
+            removeBand={p.removeBand}
+            expandedBands={p.expandedBands}
+            toggleExpanded={p.toggleExpanded}
+            addRequirement={p.addRequirement}
+            updateRequirementStatus={p.updateRequirementStatus}
+            deleteRequirement={p.deleteRequirement}
+            iemMonitorColors={p.iemMonitorColors}
+            onSignIn={goSignIn}
+          />
+          {p.editable && (
+            <button
+              onClick={p.handleSave}
+              disabled={p.saving}
+              className="w-full mt-4 font-bold text-sm rounded-2xl px-4 py-3 disabled:opacity-50"
+              style={{ background: color, color: "#0d0d0d" }}
+            >
+              {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="w-full mt-3 text-white/40 hover:text-white text-xs font-semibold py-2 text-center transition-colors"
+          >
+            Show summary only
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold rounded-2xl px-4 py-3 border border-white/15 text-white/70 hover:text-white hover:border-white/30 transition-colors"
+        >
+          Open Full Profile <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
+
       <InviteModal
         inviteFor={invite.inviteFor}
         inviteRoleChoice={invite.inviteRoleChoice}
