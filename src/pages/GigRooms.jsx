@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, Send, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { ArrowLeft, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
+import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 
 // Matches SharedGig.jsx's palette exactly, plus a neutral for the
 // everyone-welcome General room - same color language the rest of the
 // app already uses for these five sections.
-const ROOM_META = {
+export const ROOM_META = {
   general: { label: "General", icon: Users, color: "#9CA3AF" },
   venue: { label: "Venue", icon: MapPin, color: "#FB923C" },
   promoter: { label: "Promoter", icon: Ticket, color: "#60A5FA" },
@@ -15,11 +15,7 @@ const ROOM_META = {
   manager: { label: "Manager/Band", icon: User, color: "#EF4444" },
   engineer: { label: "Audio/Lighting", icon: Headphones, color: "#8CFF3D" },
 };
-const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
-
-function formatTime(ts) {
-  return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
+export const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
 
 export default function GigRooms() {
   const navigate = useNavigate();
@@ -34,11 +30,6 @@ export default function GigRooms() {
   const [gigTitle, setGigTitle] = useState("");
   const [rooms, setRooms] = useState([]);
   const [activeRoomId, setActiveRoomId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [senderProfiles, setSenderProfiles] = useState({});
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const scrollRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -82,92 +73,6 @@ export default function GigRooms() {
     if (!token || !activeRoomId) return;
     navigate(`/gig/rooms?token=${token}&room=${activeRoomId}`, { replace: true });
   }, [token, activeRoomId]);
-
-  // Loads history for the active room and subscribes to new messages live.
-  // Re-subscribes whenever the room switches, cleaning up the previous
-  // channel so switching rooms repeatedly doesn't stack up subscriptions.
-  useEffect(() => {
-    if (!activeRoomId) return;
-    let cancelled = false;
-
-    const loadMessages = async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("id, sender_id, body, created_at")
-        .eq("conversation_id", activeRoomId)
-        .order("created_at", { ascending: true });
-      if (error) { console.error(error); return; }
-      if (cancelled) return;
-      setMessages(data || []);
-
-      // user_preferences is locked down to "view your own row only", so a
-      // direct select here would silently return nothing for anyone else's
-      // profile. get_conversation_member_profiles is a SECURITY DEFINER RPC
-      // that checks you're actually a participant in this room and, if so,
-      // returns the public card fields for everyone in it.
-      const { data: people, error: peopleError } = await supabase.rpc(
-        "get_conversation_member_profiles",
-        { p_conversation_id: activeRoomId }
-      );
-      if (peopleError) { console.error(peopleError); return; }
-      const map = {};
-      (people || []).forEach((p) => {
-        map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token, accountType: p.account_type };
-      });
-      if (!cancelled) setSenderProfiles((prev) => ({ ...prev, ...map }));
-    };
-    loadMessages();
-
-    const channel = supabase
-      .channel(`room-${activeRoomId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${activeRoomId}` },
-        (payload) => {
-          setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
-          const senderId = payload.new.sender_id;
-          setSenderProfiles((prev) => {
-            if (prev[senderId]) return prev;
-            supabase.rpc("get_conversation_member_profiles", { p_conversation_id: activeRoomId })
-              .then(({ data }) => {
-                const map = {};
-                (data || []).forEach((p) => {
-                  map[p.user_id] = { displayName: p.display_name, photoUrl: p.profile_photo_url, cardToken: p.card_share_token, accountType: p.account_type };
-                });
-                setSenderProfiles((p) => ({ ...p, ...map }));
-              });
-            return prev;
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, [activeRoomId]);
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const sendMessage = async () => {
-    const body = draft.trim();
-    if (!body || sending || !activeRoomId) return;
-    setSending(true);
-    setDraft("");
-    try {
-      const { error } = await supabase
-        .from("messages")
-        .insert({ conversation_id: activeRoomId, sender_id: user.id, body });
-      if (error) throw error;
-    } catch (e) {
-      console.error(e);
-      setDraft(body);
-    }
-    setSending(false);
-  };
 
   if (checkingAuth || loading) {
     return (
@@ -240,77 +145,14 @@ export default function GigRooms() {
           <p className="text-white/30 text-sm">You'll see rooms here once you're connected to a section on this gig.</p>
         </div>
       ) : (
-        <>
-          <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full space-y-3">
-            {messages.length === 0 && (
-              <p className="text-white/25 text-sm text-center pt-8">No messages yet in {activeMeta.label} - say hello.</p>
-            )}
-            {messages.map((m) => {
-              const isMe = m.sender_id === user.id;
-              const profile = senderProfiles[m.sender_id];
-              const senderColor = getAccountTypeStyle(profile?.accountType).color;
-              const avatar = (
-                <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[#222] flex items-center justify-center">
-                  {profile?.photoUrl ? (
-                    <img src={profile.photoUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-3.5 h-3.5 text-white/30" />
-                  )}
-                </div>
-              );
-              return (
-                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                  {!isMe && (
-                    profile?.cardToken ? (
-                      <Link
-                        to={`/pilot/${profile.cardToken}`}
-                        className="shrink-0"
-                        title={profile.displayName || "View pilot card"}
-                        state={{ backTo: `/gig/rooms?token=${token}&room=${activeRoomId}` }}
-                      >
-                        {avatar}
-                      </Link>
-                    ) : (
-                      avatar
-                    )
-                  )}
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
-                    style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}
-                  >
-                    {!isMe && (
-                      <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: senderColor }}>
-                        {profile?.displayName || "Someone"}
-                      </p>
-                    )}
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
-                    <p className={`text-[10px] mt-1 ${isMe ? "text-black/50" : "text-white/30"}`}>{formatTime(m.created_at)}</p>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={scrollRef} />
-          </div>
-
-          <div className="shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg mx-auto w-full">
-            <div className="flex items-center gap-2">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={`Message ${activeMeta.label}...`}
-                className="flex-1 h-11 bg-[#161616] border border-[#222] rounded-full px-4 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!draft.trim() || sending}
-                className="w-11 h-11 shrink-0 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-[#7ae62e] transition-colors"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </>
+        <RoomChatPanel
+          fill
+          roomId={activeRoomId}
+          user={user}
+          emptyLabel={`No messages yet in ${activeMeta.label} - say hello.`}
+          placeholder={`Message ${activeMeta.label}...`}
+          pilotCardBackTo={`/gig/rooms?token=${token}&room=${activeRoomId}`}
+        />
       )}
     </div>
   );
