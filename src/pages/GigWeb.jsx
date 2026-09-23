@@ -203,7 +203,14 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const title = gig.event_name || gig.band_name || "Untitled Gig";
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
-  const cx = 170, cy = 170, r = 128;
+  // Sized down slightly from the original 340/170/128 to bring the board
+  // up into view sooner - icon size is untouched (still a comfortable tap
+  // target), just the overall footprint and the spokes' reach. Radial
+  // layout (angle = role index around a circle) has room to grow past 5
+  // spokes later without a rework, for when connections between profiles
+  // - not just profile-to-center - start adding their own lines to this
+  // same web.
+  const cx = 150, cy = 150, r = 112;
   const nodes = roles.map((role, i) => {
     const angle = (-90 + i * (360 / roles.length)) * (Math.PI / 180);
     const style = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
@@ -224,7 +231,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
+        <div className="px-4 py-3 max-w-lg mx-auto flex items-center gap-3">
           <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -235,9 +242,9 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
         </div>
       </div>
 
-      <div className="px-4 pt-6 max-w-lg mx-auto flex flex-col items-center">
-        <div className="relative shrink-0" style={{ width: 340, height: 340 }}>
-          <svg width="340" height="340" className="absolute left-0 top-0 pointer-events-none">
+      <div className="px-4 pt-4 max-w-lg mx-auto flex flex-col items-center">
+        <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
+          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none">
             {nodes.map((n) => (
               <line key={n.role} x1={cx} y1={cy} x2={n.x} y2={n.y} stroke="#242424" strokeWidth="1.5" />
             ))}
@@ -248,7 +255,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
             onClick={() => selectRole(null)}
             className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors"
             style={{
-              left: cx, top: cy, transform: "translate(-50%, -50%)", width: 128, height: 108,
+              left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96,
               borderColor: selectedRole === null ? "#8CFF3D" : "#2a2a2a",
               boxShadow: selectedRole === null ? "0 0 0 3px #8CFF3D33" : undefined,
             }}
@@ -286,8 +293,8 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
         </div>
       </div>
 
-      <div className="w-full max-w-lg mx-auto px-4 mt-5">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="w-full max-w-lg mx-auto px-4 mt-2">
+        <div className="flex items-center gap-2 mb-2">
           {selectedNode ? (
             <>
               <button
@@ -308,7 +315,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <button
             type="button"
             onClick={() => setActiveTab("profile")}
@@ -335,7 +342,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
           </button>
         </div>
 
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-4 mb-4">
+        <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
           {activeTab === "profile" ? (
             selectedRole ? (
               <ProfileTabPanel
