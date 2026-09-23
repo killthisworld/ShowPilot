@@ -38,6 +38,20 @@ function roleInvited(role, permissions) {
   return !!permissions?.invited_roles?.includes(role);
 }
 
+// Mirrors set_gig_task_status's own permission check exactly - owner, holds
+// the role, was granted the section, or is the first visitor to an
+// invited-but-unclaimed section - computed from the permissions Gig Web
+// already has at the top level, so the Tasks tab can show the right Mark
+// done control for whichever role is selected without a second fetch.
+function roleEditable(role, permissions) {
+  if (!permissions) return false;
+  if (permissions.is_owner) return true;
+  const roleMatch = role === "engineer" ? ["engineer", "lighting"] : [role];
+  if ((permissions.my_roles || []).some((r) => roleMatch.includes(r))) return true;
+  if ((permissions.granted_sections || []).includes(role)) return true;
+  return roleInvited(role, permissions) && !roleClaimed(role, permissions);
+}
+
 // Renders standalone at /gig/web?token=... (reached from SharedGig's "Gig
 // Web" button - a real page, real back button) and also embeds directly
 // inside the constellation home screen (BandHome) as a front-of-page layer:
@@ -46,8 +60,8 @@ function roleInvited(role, permissions) {
 //
 // This is the whole gig, not a preview of it: the web at the top is a
 // persistent selector (a role star, or the center hub for the overview),
-// and everything below - status, Profile/Rooms tabs, and the bulletin
-// board - re-renders for whichever is currently selected. There is no
+// and everything below - status, and the Profile/Board, Tasks and Rooms
+// tabs - re-renders for whichever is currently selected. There is no
 // separate "open full profile" page to jump to anymore; tapping a star
 // IS opening it. The standalone page's back button goes home (this is
 // now the primary place to work a gig, so there's no reason to detour
@@ -79,11 +93,10 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
     const r = params.get("role");
     return r && r !== "general" ? r : null;
   }); // null = center/overview
-  const [activeTab, setActiveTab] = useState(() => (!tokenProp && params.get("tab") === "rooms" ? "rooms" : "profile")); // "profile" | "rooms"
+  const [activeTab, setActiveTab] = useState(() => (!tokenProp && params.get("tab") === "rooms" ? "rooms" : "profile")); // "profile" | "tasks" | "rooms"
   // Whether the Profile tab shows the full editable fields (RoleProfileBody)
-  // or just its summary (that role's board - tasks + activity - with a
-  // button to open the full thing). Resets to summary every time a
-  // different role (or the same one again) is selected.
+  // or stays collapsed behind "Open Full Profile". Resets to collapsed
+  // every time a different role (or the same one again) is selected.
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [roomMembers, setRoomMembers] = useState({}); // roomId -> member rows
@@ -306,6 +319,14 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("tasks")}
+            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            style={activeTab === "tasks" ? { color: "#0d0d0d", background: "#8CFF3D" } : { color: "rgba(255,255,255,0.5)", background: "#161616" }}
+          >
+            Tasks
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("rooms")}
             className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
             style={activeTab === "rooms" ? { color: "#0d0d0d", background: "#8CFF3D" } : { color: "rgba(255,255,255,0.5)", background: "#161616" }}
@@ -322,14 +343,23 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
                 token={token}
                 onChanged={loadGig}
                 color={selectedNode?.style.color || "#8CFF3D"}
-                tasks={gig.tasks}
-                onCompleteTask={completeTask}
                 expanded={profileExpanded}
                 setExpanded={setProfileExpanded}
               />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} tasks={gig.tasks} permissions={permissions} isOwner={!!permissions?.is_owner} onAddTask={addTask} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} />
             )
+          ) : activeTab === "tasks" ? (
+            <TasksTabPanel
+              nodes={nodes}
+              selectedRole={selectedRole}
+              tasks={gig.tasks}
+              permissions={permissions}
+              isOwner={!!permissions?.is_owner}
+              onAddTask={addTask}
+              onCompleteTask={completeTask}
+              onSelectRole={selectRole}
+            />
           ) : (
             <RoomsTabPanel
               selectedRole={selectedRole}
@@ -349,17 +379,17 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   );
 }
 
-// The Profile tab for a selected role. Leads with a summary - that
-// role's own board (its open tasks) - and keeps the full
-// fields/documents/requirements body (RoleFullProfile.jsx's, mounted
-// here as its own independent copy via the shared hook) collapsed behind
-// an "Open Full Profile" button, so landing on a role reads as "here's
-// where this stands" before diving into the editable form. `expanded`/
-// `setExpanded` are lifted to Gig Web itself so selecting a different
-// role always resets back to the summary. `onChanged` refetches Gig
-// Web's own gig/progress so the web's rings and the overview board never
-// sit stale after a save made right here.
-function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask, expanded, setExpanded }) {
+// The Profile tab for a selected role - the full editable
+// fields/documents/requirements body (RoleFullProfile.jsx's, mounted here
+// as its own independent copy via the shared hook), collapsed behind an
+// "Open Full Profile" button by default so landing on a role doesn't drop
+// straight into a long form. `expanded`/`setExpanded` are lifted to Gig
+// Web itself so selecting a different role always resets back to
+// collapsed. `onChanged` refetches Gig Web's own gig/progress so the
+// web's rings and the overview board never sit stale after a save made
+// right here. That role's open tasks live on their own Tasks tab now,
+// not here - see TasksTabPanel below.
+function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -367,14 +397,6 @@ function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask,
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
-  // The open tasks pointed at this section - this is the "guided" half
-  // of tapping a task on the board: land here, see exactly what brought
-  // you here, mark it done without hunting through the fields below.
-  const roleTasks = (tasks || []).filter((t) => t.section === role && t.status !== "done");
-  // Whether there's anything to lead with - gates both the summary block
-  // itself and the divider under it, so a section with no open tasks
-  // goes straight into its fields with no dead space.
-  const hasSummary = roleTasks.length > 0;
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -406,17 +428,6 @@ function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask,
           </button>
         </div>
       )}
-
-      {/* Summary - that role's own board (its open tasks), shown up front
-          so landing on a role reads as "here's where this stands" before
-          diving into the fields. */}
-      <div className="mb-4">
-        {hasSummary ? (
-          <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />
-        ) : (
-          <p className="text-white/25 text-xs">Nothing tracked for this section yet.</p>
-        )}
-      </div>
 
       {expanded ? (
         <div className="pt-4 border-t border-[#1f1f1f]">
@@ -492,7 +503,10 @@ function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask,
 // here. Tapping a tile jumps straight to that role, same as its star.
 // A 2-column grid instead of a stacked list halves the vertical space
 // this takes for a typical 5-role gig, and the aligned grid reads as
-// more structured than a loose list of rows.
+// more structured than a loose list of rows. Tasks used to live inline
+// above this grid; they're their own tab now (TasksTabPanel below) so
+// the grid - the actual "what's the status of every role" board - sits
+// right under the tab pills instead of under a full task list first.
 //
 // The "N claimed · M invited" line above the grid is the real headcount
 // (every accepted/pending invite on the gig, from get_gig_section_permissions'
@@ -500,12 +514,10 @@ function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask,
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, tasks, permissions, isOwner, onAddTask }) {
+function OverviewBoard({ nodes, onSelectRole, permissions }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
-  const openTasks = (tasks || []).filter((t) => t.status !== "done");
-  const showTasks = isOwner || openTasks.length > 0;
   const claimedCount = permissions?.claimed_count ?? 0;
   const invitedCount = permissions?.invited_count ?? 0;
   const showHeadcount = claimedCount > 0 || invitedCount > 0;
@@ -518,12 +530,7 @@ function OverviewBoard({ nodes, onSelectRole, tasks, permissions, isOwner, onAdd
           <span className="font-semibold text-[#EAB308]">{invitedCount} invited</span>
         </div>
       )}
-      {showTasks && (
-        <div className={openTasks.length > 0 ? "mb-4" : "mb-3"}>
-          <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} />
-        </div>
-      )}
-      <div className={`grid grid-cols-2 gap-2 ${showTasks ? "pt-4 border-t border-[#1f1f1f]" : ""}`}>
+      <div className="grid grid-cols-2 gap-2">
         {nodes.map((n) => {
           const Icon = n.style.icon;
           const statusLabel = n.claimed ? "Claimed" : n.invited ? "Invited" : "Not invited";
@@ -553,6 +560,27 @@ function OverviewBoard({ nodes, onSelectRole, tasks, permissions, isOwner, onAdd
       </div>
     </div>
   );
+}
+
+// The Tasks tab - its own tab now instead of living inline at the top of
+// the Board, so the Board's role grid isn't sitting under a full task
+// list + add-task form. At the Overview level this is that same add-task
+// form plus every open task (TasksSection, unchanged); select a role and
+// it narrows to just that section's open tasks with the Mark done
+// control (RoleTaskList, unchanged) - same components, same "guided"
+// tap-a-task-to-go-fill-it-out behavior as before, just reachable from
+// their own tab rather than nested inside Board/Profile.
+function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAddTask, onCompleteTask, onSelectRole }) {
+  if (selectedRole) {
+    const roleTasks = (tasks || []).filter((t) => t.section === selectedRole && t.status !== "done");
+    if (roleTasks.length === 0) {
+      return <p className="text-white/25 text-xs text-center py-3">Nothing outstanding for this section right now.</p>;
+    }
+    return <RoleTaskList tasks={roleTasks} editable={roleEditable(selectedRole, permissions)} onComplete={onCompleteTask} />;
+  }
+
+  const openTasks = (tasks || []).filter((t) => t.status !== "done");
+  return <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} />;
 }
 
 // The board's Tasks section - free-form owner-created to-dos, each

@@ -220,10 +220,20 @@ export default function BandHome() {
       </div>
 
       {webToken && (
+        // The transform (translate-y, for the slide-up entrance) lives on
+        // this outer layer only - never combined with overflow-y-auto on
+        // the same element. A transform makes its box the containing
+        // block for any position:fixed descendant, so pairing it with
+        // overflow here would drag Gig Web's own fixed bottom tab bar
+        // along with the scroll instead of leaving it pinned to the
+        // viewport. The inner div below owns the scrolling instead, and
+        // has no transform of its own, so it doesn't hijack anything.
         <div
-          className={`fixed inset-0 z-[60] bg-[#0d0d0d] overflow-y-auto transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+          className={`fixed inset-0 z-[60] bg-[#0d0d0d] transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
         >
-          <GigWeb token={webToken} onClose={closeGig} />
+          <div className="h-full overflow-y-auto">
+            <GigWeb token={webToken} onClose={closeGig} />
+          </div>
         </div>
       )}
 
