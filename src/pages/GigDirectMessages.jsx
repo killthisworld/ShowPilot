@@ -255,7 +255,20 @@ export default function GigDirectMessages() {
               const senderColor = getAccountTypeStyle(activeThread.accountType).color;
               return (
                 <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                  {!isMe && <Avatar photoUrl={activeThread.photoUrl} />}
+                  {!isMe && (
+                    activeThread.cardToken ? (
+                      <Link
+                        to={`/pilot/${activeThread.cardToken}`}
+                        state={{ backTo: `/gig/messages?token=${token}&thread=${activeThread.id}` }}
+                        className="shrink-0"
+                        title={activeThread.displayName || "View pilot card"}
+                      >
+                        <Avatar photoUrl={activeThread.photoUrl} />
+                      </Link>
+                    ) : (
+                      <Avatar photoUrl={activeThread.photoUrl} />
+                    )
+                  )}
                   <div
                     className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
                     style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}

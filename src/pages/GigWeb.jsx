@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal } from "@/pages/SharedGig";
@@ -118,6 +118,22 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const selectRole = (role) => {
     setSelectedRole(role);
     setActiveTab("profile");
+  };
+
+  // Tasks live on the gig itself (not per-role, like useRoleProfile's
+  // requirements), since the Board tab needs to show all of them and a
+  // task's section is just where it happens to point - so state and the
+  // two mutations live here and get handed down to both the Board and
+  // whichever role's Profile tab is open.
+  const addTask = async (section, title) => {
+    const { data, error } = await supabase.rpc("add_gig_task", { p_token: token, p_section: section, p_title: title });
+    if (error) { console.error(error); throw error; }
+    setGig((g) => ({ ...g, tasks: [...(g.tasks || []), data] }));
+  };
+  const completeTask = async (taskId, done = true) => {
+    const { data, error } = await supabase.rpc("set_gig_task_status", { p_token: token, p_task_id: taskId, p_done: done });
+    if (error) { console.error(error); throw error; }
+    setGig((g) => ({ ...g, tasks: (g.tasks || []).map((t) => (t.id === taskId ? data : t)) }));
   };
 
   if (loading) {
@@ -271,9 +287,17 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-4 mb-4">
           {activeTab === "profile" ? (
             selectedRole ? (
-              <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} requirements={gig.requirements} />
+              <ProfileTabPanel
+                role={selectedRole}
+                token={token}
+                onChanged={loadGig}
+                color={selectedNode?.style.color || "#8CFF3D"}
+                requirements={gig.requirements}
+                tasks={gig.tasks}
+                onCompleteTask={completeTask}
+              />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} tasks={gig.tasks} isOwner={!!permissions?.is_owner} onAddTask={addTask} />
             )
           ) : (
             <RoomsTabPanel
@@ -304,7 +328,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
 // hook. `onChanged` refetches Gig Web's own gig/progress so the web's
 // rings, the overview board and the bulletin board never sit stale after
 // a save made right here.
-function ProfileTabPanel({ role, token, onChanged, color, requirements }) {
+function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, onCompleteTask }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -312,10 +336,15 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements }) {
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
+  // The open tasks pointed at this section - this is the "guided" half
+  // of tapping a task on the board: land here, see exactly what brought
+  // you here, mark it done without hunting through the fields below.
+  const roleTasks = (tasks || []).filter((t) => t.section === role && t.status !== "done");
   // Whether there's any activity/actions-needed to lead with - gates both
   // the summary block itself and the divider under it, so a section with
   // nothing tracked yet goes straight into its fields with no dead space.
-  const hasActivity = (requirements || []).some((r) => r.section === role);
+  const hasRequirements = (requirements || []).some((r) => r.section === role);
+  const hasSummary = roleTasks.length > 0 || hasRequirements;
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -336,12 +365,13 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements }) {
 
   return (
     <div>
-      {hasActivity && (
-        <div className="mb-4">
-          <RoleActivityFeed role={role} requirements={requirements} />
+      {hasSummary && (
+        <div className="flex flex-col gap-3 mb-4">
+          {roleTasks.length > 0 && <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />}
+          {hasRequirements && <RoleActivityFeed role={role} requirements={requirements} />}
         </div>
       )}
-      <div className={hasActivity ? "pt-4 border-t border-[#1f1f1f]" : ""}>
+      <div className={hasSummary ? "pt-4 border-t border-[#1f1f1f]" : ""}>
         {p.editable && (
           <div className="flex justify-end mb-3">
             <button
@@ -409,38 +439,199 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements }) {
 // A 2-column grid instead of a stacked list halves the vertical space
 // this takes for a typical 5-role gig, and the aligned grid reads as
 // more structured than a loose list of rows.
-function OverviewBoard({ nodes, onSelectRole }) {
+function OverviewBoard({ nodes, onSelectRole, tasks, isOwner, onAddTask }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
+  const openTasks = (tasks || []).filter((t) => t.status !== "done");
+  const showTasks = isOwner || openTasks.length > 0;
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {nodes.map((n) => {
-        const Icon = n.style.icon;
-        const statusLabel = n.claimed ? "Claimed" : n.invited ? "Invited" : "Not invited";
-        const statusColor = n.claimed ? "#8CFF3D" : n.invited ? "#EAB308" : "rgba(255,255,255,0.35)";
-        return (
-          <button
-            key={n.role}
-            type="button"
-            onClick={() => onSelectRole(n.role)}
-            className="flex flex-col gap-1.5 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: n.style.color + "18", color: n.style.color }}>
-                <Icon className="w-3 h-3" />
+    <div>
+      {showTasks && (
+        <div className={openTasks.length > 0 ? "mb-4" : "mb-3"}>
+          <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} />
+        </div>
+      )}
+      <div className={`grid grid-cols-2 gap-2 ${showTasks ? "pt-4 border-t border-[#1f1f1f]" : ""}`}>
+        {nodes.map((n) => {
+          const Icon = n.style.icon;
+          const statusLabel = n.claimed ? "Claimed" : n.invited ? "Invited" : "Not invited";
+          const statusColor = n.claimed ? "#8CFF3D" : n.invited ? "#EAB308" : "rgba(255,255,255,0.35)";
+          return (
+            <button
+              key={n.role}
+              type="button"
+              onClick={() => onSelectRole(n.role)}
+              className="flex flex-col gap-1.5 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: n.style.color + "18", color: n.style.color }}>
+                  <Icon className="w-3 h-3" />
+                </div>
+                <span className="text-white text-xs font-semibold truncate">{n.style.label}</span>
               </div>
-              <span className="text-white text-xs font-semibold truncate">{n.style.label}</span>
-            </div>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ color: statusColor, background: statusColor + "1A" }}>{statusLabel}</span>
-              <span className="flex items-center gap-0.5 text-white/40 text-[10px] shrink-0">
-                {n.percent}% <ChevronRight className="w-3 h-3 text-white/20" />
-              </span>
-            </div>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ color: statusColor, background: statusColor + "1A" }}>{statusLabel}</span>
+                <span className="flex items-center gap-0.5 text-white/40 text-[10px] shrink-0">
+                  {n.percent}% <ChevronRight className="w-3 h-3 text-white/20" />
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// The board's Tasks section - free-form owner-created to-dos, each
+// pointed at a section. This is the "digital board everyone can see and
+// interact with" from the request: tapping a task jumps into that
+// role's Profile tab (RoleTaskList below renders it there with a Mark
+// done button), so the board itself stays a scannable list of what's
+// still outstanding rather than a form.
+function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole }) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [section, setSection] = useState(nodes[0]?.role || "");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!title.trim() || !section || submitting) return;
+    setSubmitting(true);
+    try {
+      await onAddTask(section, title.trim());
+      setTitle("");
+      setAdding(false);
+    } catch (e) {
+      console.error(e);
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">Tasks</p>
+        {isOwner && !adding && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1 text-[#8CFF3D] text-[10px] font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg transition-colors"
+          >
+            <Plus className="w-3 h-3" /> Add Task
           </button>
-        );
-      })}
+        )}
+      </div>
+
+      {adding && (
+        <div className="bg-[#161616] rounded-xl p-2.5 mb-2 space-y-2">
+          <input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") setAdding(false); }}
+            placeholder="e.g. Book venues for East Coast leg"
+            className="w-full h-9 bg-[#111] border border-[#222] rounded-lg px-3 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
+          />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {nodes.map((n) => (
+              <button
+                key={n.role}
+                type="button"
+                onClick={() => setSection(n.role)}
+                className="text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors"
+                style={section === n.role
+                  ? { color: n.style.color, background: n.style.color + "22", borderColor: n.style.color + "60" }
+                  : { color: "rgba(255,255,255,0.4)", borderColor: "#222" }}
+              >
+                {n.style.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" onClick={() => { setAdding(false); setTitle(""); }} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!title.trim() || submitting}
+              className="bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+            >
+              {submitting ? "Adding..." : "Add"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tasks.length > 0 ? (
+        <div className="space-y-1.5">
+          {tasks.map((t) => {
+            const node = nodes.find((n) => n.role === t.section);
+            const color = node?.style.color || "#8CFF3D";
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onSelectRole(t.section)}
+                className="w-full flex items-center gap-2 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
+              >
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
+                <span className="text-white text-sm truncate flex-1 min-w-0">{t.title}</span>
+                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0" style={{ color, background: color + "1A" }}>
+                  {node?.style.label || t.section}
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-white/20 shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        !adding && <p className="text-white/25 text-xs">Nothing outstanding right now.</p>
+      )}
+    </div>
+  );
+}
+
+// Rendered at the top of a role's Profile tab - the tasks that pointed
+// here, each with a Mark done button for whoever can edit this section
+// (owner, role-holder, or granted access - same `editable` flag the
+// fields below already use).
+function RoleTaskList({ tasks, editable, onComplete }) {
+  const [completingId, setCompletingId] = useState(null);
+
+  const complete = async (id) => {
+    if (completingId) return;
+    setCompletingId(id);
+    try {
+      await onComplete(id, true);
+    } catch (e) {
+      console.error(e);
+    }
+    setCompletingId(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">Tasks for this section</p>
+      <div className="flex flex-col gap-1">
+        {tasks.map((t) => (
+          <div key={t.id} className="flex items-center justify-between gap-2 bg-[#161616] rounded-lg px-3 py-2">
+            <span className="text-white/80 text-xs truncate">{t.title}</span>
+            {editable && (
+              <button
+                type="button"
+                onClick={() => complete(t.id)}
+                disabled={!!completingId}
+                className="flex items-center gap-1 text-[10px] font-semibold text-[#8CFF3D] hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-full shrink-0 disabled:opacity-50 transition-colors"
+              >
+                <Check className="w-3 h-3" /> {completingId === t.id ? "..." : "Mark done"}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -530,6 +721,7 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
         user={user}
         emptyLabel="No messages yet - say hello."
         placeholder={`Message ${selectedRole ? roleLabel : "General"}...`}
+        pilotCardBackTo={`/gig/web?token=${token}`}
       />
     </div>
   );
