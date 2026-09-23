@@ -160,7 +160,6 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
     };
   });
 
-  const activeCount = nodes.filter((n) => n.claimed).length;
   const selectedNode = selectedRole ? nodes.find((n) => n.role === selectedRole) : null;
 
   return (
@@ -226,8 +225,6 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
             );
           })}
         </div>
-
-        <p className="text-white/25 text-xs mt-6">{activeCount} of {nodes.length} roles active on this gig</p>
       </div>
 
       <div className="w-full max-w-lg mx-auto px-4 mt-5">
@@ -274,7 +271,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-4 mb-4">
           {activeTab === "profile" ? (
             selectedRole ? (
-              <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} />
+              <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} requirements={gig.requirements} />
             ) : (
               <OverviewBoard nodes={nodes} onSelectRole={selectRole} />
             )
@@ -291,13 +288,11 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
           )}
         </div>
 
-        <div className="mb-4">
-          {selectedRole ? (
-            <RoleActivityFeed role={selectedRole} requirements={gig.requirements} />
-          ) : (
+        {!selectedRole && (
+          <div className="mb-4">
             <OverviewActivityFeed nodes={nodes} requirements={gig.requirements} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -309,7 +304,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
 // hook. `onChanged` refetches Gig Web's own gig/progress so the web's
 // rings, the overview board and the bulletin board never sit stale after
 // a save made right here.
-function ProfileTabPanel({ role, token, onChanged, color }) {
+function ProfileTabPanel({ role, token, onChanged, color, requirements }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -317,6 +312,10 @@ function ProfileTabPanel({ role, token, onChanged, color }) {
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
+  // Whether there's any activity/actions-needed to lead with - gates both
+  // the summary block itself and the divider under it, so a section with
+  // nothing tracked yet goes straight into its fields with no dead space.
+  const hasActivity = (requirements || []).some((r) => r.section === role);
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -337,49 +336,56 @@ function ProfileTabPanel({ role, token, onChanged, color }) {
 
   return (
     <div>
-      {p.editable && (
-        <div className="flex justify-end mb-3">
-          <button
-            type="button"
-            onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
-            className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
-          >
-            <UserPlus className="w-3 h-3" /> Invite
-          </button>
+      {hasActivity && (
+        <div className="mb-4">
+          <RoleActivityFeed role={role} requirements={requirements} />
         </div>
       )}
-      <RoleProfileBody
-        role={role}
-        token={token}
-        gig={p.gig}
-        permissions={p.permissions}
-        user={p.user}
-        editable={p.editable}
-        canEdit={p.canEdit}
-        update={p.update}
-        updateSection={p.updateSection}
-        updateEngineerRole={p.updateEngineerRole}
-        updateBand={p.updateBand}
-        addBand={p.addBand}
-        removeBand={p.removeBand}
-        expandedBands={p.expandedBands}
-        toggleExpanded={p.toggleExpanded}
-        addRequirement={p.addRequirement}
-        updateRequirementStatus={p.updateRequirementStatus}
-        deleteRequirement={p.deleteRequirement}
-        iemMonitorColors={p.iemMonitorColors}
-        onSignIn={goSignIn}
-      />
-      {p.editable && (
-        <button
-          onClick={p.handleSave}
-          disabled={p.saving}
-          className="w-full mt-4 font-bold text-sm rounded-2xl px-4 py-3 disabled:opacity-50"
-          style={{ background: color, color: "#0d0d0d" }}
-        >
-          {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
-        </button>
-      )}
+      <div className={hasActivity ? "pt-4 border-t border-[#1f1f1f]" : ""}>
+        {p.editable && (
+          <div className="flex justify-end mb-3">
+            <button
+              type="button"
+              onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
+              className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
+            >
+              <UserPlus className="w-3 h-3" /> Invite
+            </button>
+          </div>
+        )}
+        <RoleProfileBody
+          role={role}
+          token={token}
+          gig={p.gig}
+          permissions={p.permissions}
+          user={p.user}
+          editable={p.editable}
+          canEdit={p.canEdit}
+          update={p.update}
+          updateSection={p.updateSection}
+          updateEngineerRole={p.updateEngineerRole}
+          updateBand={p.updateBand}
+          addBand={p.addBand}
+          removeBand={p.removeBand}
+          expandedBands={p.expandedBands}
+          toggleExpanded={p.toggleExpanded}
+          addRequirement={p.addRequirement}
+          updateRequirementStatus={p.updateRequirementStatus}
+          deleteRequirement={p.deleteRequirement}
+          iemMonitorColors={p.iemMonitorColors}
+          onSignIn={goSignIn}
+        />
+        {p.editable && (
+          <button
+            onClick={p.handleSave}
+            disabled={p.saving}
+            className="w-full mt-4 font-bold text-sm rounded-2xl px-4 py-3 disabled:opacity-50"
+            style={{ background: color, color: "#0d0d0d" }}
+          >
+            {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
+          </button>
+        )}
+      </div>
       <InviteModal
         inviteFor={invite.inviteFor}
         inviteRoleChoice={invite.inviteRoleChoice}
@@ -397,15 +403,18 @@ function ProfileTabPanel({ role, token, onChanged, color }) {
 }
 
 // The Board tab for the center/overview node - "the profile of the
-// center event itself" from the request: a rollup row per role instead
+// center event itself" from the request: a rollup tile per role instead
 // of fields to edit, since there's no single event-level section to edit
-// here. Tapping a row jumps straight to that role, same as its star.
+// here. Tapping a tile jumps straight to that role, same as its star.
+// A 2-column grid instead of a stacked list halves the vertical space
+// this takes for a typical 5-role gig, and the aligned grid reads as
+// more structured than a loose list of rows.
 function OverviewBoard({ nodes, onSelectRole }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
   return (
-    <div className="space-y-1.5">
+    <div className="grid grid-cols-2 gap-2">
       {nodes.map((n) => {
         const Icon = n.style.icon;
         const statusLabel = n.claimed ? "Claimed" : n.invited ? "Invited" : "Not invited";
@@ -415,18 +424,19 @@ function OverviewBoard({ nodes, onSelectRole }) {
             key={n.role}
             type="button"
             onClick={() => onSelectRole(n.role)}
-            className="w-full flex items-center justify-between gap-2 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
+            className="flex flex-col gap-1.5 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: n.style.color + "18", color: n.style.color }}>
-                <Icon className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: n.style.color + "18", color: n.style.color }}>
+                <Icon className="w-3 h-3" />
               </div>
-              <span className="text-white text-sm font-medium truncate">{n.style.label}</span>
+              <span className="text-white text-xs font-semibold truncate">{n.style.label}</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ color: statusColor, background: statusColor + "1A" }}>{statusLabel}</span>
-              <span className="text-white/40 text-xs w-8 text-right">{n.percent}%</span>
-              <ChevronRight className="w-3.5 h-3.5 text-white/20" />
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ color: statusColor, background: statusColor + "1A" }}>{statusLabel}</span>
+              <span className="flex items-center gap-0.5 text-white/40 text-[10px] shrink-0">
+                {n.percent}% <ChevronRight className="w-3 h-3 text-white/20" />
+              </span>
             </div>
           </button>
         );
