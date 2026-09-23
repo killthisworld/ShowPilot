@@ -307,14 +307,13 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
                 token={token}
                 onChanged={loadGig}
                 color={selectedNode?.style.color || "#8CFF3D"}
-                requirements={gig.requirements}
                 tasks={gig.tasks}
                 onCompleteTask={completeTask}
                 expanded={profileExpanded}
                 setExpanded={setProfileExpanded}
               />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} tasks={gig.tasks} isOwner={!!permissions?.is_owner} onAddTask={addTask} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} tasks={gig.tasks} permissions={permissions} isOwner={!!permissions?.is_owner} onAddTask={addTask} />
             )
           ) : (
             <RoomsTabPanel
@@ -328,28 +327,22 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
             />
           )}
         </div>
-
-        {!selectedRole && (
-          <div className="mb-4">
-            <OverviewActivityFeed nodes={nodes} requirements={gig.requirements} />
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 // The Profile tab for a selected role. Leads with a summary - that
-// role's own board (its open tasks + activity feed) - and keeps the
-// full fields/documents/requirements body (RoleFullProfile.jsx's, mounted
+// role's own board (its open tasks) - and keeps the full
+// fields/documents/requirements body (RoleFullProfile.jsx's, mounted
 // here as its own independent copy via the shared hook) collapsed behind
 // an "Open Full Profile" button, so landing on a role reads as "here's
 // where this stands" before diving into the editable form. `expanded`/
 // `setExpanded` are lifted to Gig Web itself so selecting a different
 // role always resets back to the summary. `onChanged` refetches Gig
-// Web's own gig/progress so the web's rings, the overview board and the
-// bulletin board never sit stale after a save made right here.
-function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, onCompleteTask, expanded, setExpanded }) {
+// Web's own gig/progress so the web's rings and the overview board never
+// sit stale after a save made right here.
+function ProfileTabPanel({ role, token, onChanged, color, tasks, onCompleteTask, expanded, setExpanded }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -361,11 +354,10 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, o
   // of tapping a task on the board: land here, see exactly what brought
   // you here, mark it done without hunting through the fields below.
   const roleTasks = (tasks || []).filter((t) => t.section === role && t.status !== "done");
-  // Whether there's any activity/actions-needed to lead with - gates both
-  // the summary block itself and the divider under it, so a section with
-  // nothing tracked yet goes straight into its fields with no dead space.
-  const hasRequirements = (requirements || []).some((r) => r.section === role);
-  const hasSummary = roleTasks.length > 0 || hasRequirements;
+  // Whether there's anything to lead with - gates both the summary block
+  // itself and the divider under it, so a section with no open tasks
+  // goes straight into its fields with no dead space.
+  const hasSummary = roleTasks.length > 0;
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -398,15 +390,12 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, o
         </div>
       )}
 
-      {/* Summary - that role's own board (its open tasks + activity feed),
-          shown up front so landing on a role reads as "here's where this
-          stands" before diving into the fields. */}
+      {/* Summary - that role's own board (its open tasks), shown up front
+          so landing on a role reads as "here's where this stands" before
+          diving into the fields. */}
       <div className="mb-4">
         {hasSummary ? (
-          <div className="flex flex-col gap-3">
-            {roleTasks.length > 0 && <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />}
-            {hasRequirements && <RoleActivityFeed role={role} requirements={requirements} />}
-          </div>
+          <RoleTaskList tasks={roleTasks} editable={p.editable} onComplete={onCompleteTask} />
         ) : (
           <p className="text-white/25 text-xs">Nothing tracked for this section yet.</p>
         )}
@@ -487,14 +476,31 @@ function ProfileTabPanel({ role, token, onChanged, color, requirements, tasks, o
 // A 2-column grid instead of a stacked list halves the vertical space
 // this takes for a typical 5-role gig, and the aligned grid reads as
 // more structured than a loose list of rows.
-function OverviewBoard({ nodes, onSelectRole, tasks, isOwner, onAddTask }) {
+//
+// The "N claimed · M invited" line above the grid is the real headcount
+// (every accepted/pending invite on the gig, from get_gig_section_permissions'
+// claimed_count/invited_count) rather than the 5-role tile grid below it,
+// which only shows one tile per section regardless of how many people
+// hold it - so this is what actually scales as a gig grows past one
+// person per role.
+function OverviewBoard({ nodes, onSelectRole, tasks, permissions, isOwner, onAddTask }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
   const openTasks = (tasks || []).filter((t) => t.status !== "done");
   const showTasks = isOwner || openTasks.length > 0;
+  const claimedCount = permissions?.claimed_count ?? 0;
+  const invitedCount = permissions?.invited_count ?? 0;
+  const showHeadcount = claimedCount > 0 || invitedCount > 0;
   return (
     <div>
+      {showHeadcount && (
+        <div className="flex items-center gap-1.5 mb-3 text-xs">
+          <span className="font-semibold" style={{ color: "#8CFF3D" }}>{claimedCount} claimed</span>
+          <span className="text-white/20">·</span>
+          <span className="font-semibold text-[#EAB308]">{invitedCount} invited</span>
+        </div>
+      )}
       {showTasks && (
         <div className={openTasks.length > 0 ? "mb-4" : "mb-3"}>
           <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} />
@@ -775,80 +781,3 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
   );
 }
 
-// The bulletin board underneath everything - "up to date progress and
-// activity, connects yet to be made, and further development on ones
-// that have been made" - built entirely from data that already exists
-// (show_requirements' status/updated_at, invite claimed/invited state)
-// rather than a new activity-log table.
-function RequirementRow({ r, sectionTag }) {
-  const color = r.status === "conflict" ? "#EF4444" : r.status === "confirmed" ? "#8CFF3D" : "#EAB308";
-  return (
-    <div className="flex items-center justify-between gap-2 bg-[#161616] rounded-lg px-3 py-2">
-      <span className="text-white/70 text-xs truncate">
-        {sectionTag && <span className="text-white/30 uppercase text-[9px] font-bold mr-1.5">{sectionTag}</span>}
-        {r.name}{r.value ? ` — ${r.value}` : ""}
-      </span>
-      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0" style={{ color, background: color + "1A" }}>
-        {r.status || "requested"}
-      </span>
-    </div>
-  );
-}
-
-function byRecent(a, b) {
-  return new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0);
-}
-
-function RoleActivityFeed({ role, requirements }) {
-  const reqs = (requirements || []).filter((r) => r.section === role);
-  if (reqs.length === 0) return null;
-  const open = reqs.filter((r) => r.status !== "confirmed").sort(byRecent);
-  const list = open.length > 0 ? open : [...reqs].sort(byRecent);
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">{open.length > 0 ? "Needs attention" : "Recent activity"}</p>
-      <div className="flex flex-col gap-1">
-        {list.slice(0, 4).map((r) => <RequirementRow key={r.id} r={r} />)}
-      </div>
-    </div>
-  );
-}
-
-function OverviewActivityFeed({ nodes, requirements }) {
-  const notInvited = nodes.filter((n) => !n.claimed && !n.invited);
-  const pendingInvites = nodes.filter((n) => n.invited && !n.claimed);
-  const allReqs = [...(requirements || [])].sort(byRecent);
-  const needsAttention = allReqs.filter((r) => r.status !== "confirmed").slice(0, 4);
-  const list = needsAttention.length > 0 ? needsAttention : allReqs.slice(0, 4);
-  const hasConnections = notInvited.length > 0 || pendingInvites.length > 0;
-
-  if (!hasConnections && list.length === 0) {
-    return <p className="text-white/25 text-xs text-center py-3">All roles connected - nothing waiting on anyone right now.</p>;
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {hasConnections && (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">Connections yet to be made</p>
-          <div className="flex flex-wrap gap-1.5">
-            {pendingInvites.map((n) => (
-              <span key={n.role} className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ color: "#EAB308", background: "#EAB30818" }}>{n.style.label} invited</span>
-            ))}
-            {notInvited.map((n) => (
-              <span key={n.role} className="text-[10px] font-semibold px-2 py-1 rounded-full text-white/40 bg-white/5">{n.style.label} not invited</span>
-            ))}
-          </div>
-        </div>
-      )}
-      {list.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">{needsAttention.length > 0 ? "Needs attention" : "Recent activity"}</p>
-          <div className="flex flex-col gap-1">
-            {list.map((r) => <RequirementRow key={r.id} r={r} sectionTag={SECTION_LABELS[r.section]?.split(" ")[0]} />)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
