@@ -9,6 +9,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { getConstellationLayout, ShowStamp } from "@/lib/constellation";
 import GigWeb from "@/pages/GigWeb";
+import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 
 // The home screen for every account type except engineer/lighting (those
 // keep the card-list Home.jsx - a tech-production account often tracks many
@@ -26,6 +27,14 @@ export default function BandHome() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
+  // The post-show "web comes together into a star" celebration - queued
+  // shows the viewer hasn't seen their wrap-up for yet (get_unseen_gig_wraps),
+  // played one at a time, and the running set of every show they HAVE
+  // already seen (get_my_gig_wrap_views) so that show's star stays
+  // visibly "closed out" on every future visit, not just the one where
+  // the animation played.
+  const [wrapQueue, setWrapQueue] = useState([]);
+  const [wrapSeenKeys, setWrapSeenKeys] = useState(new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -70,6 +79,19 @@ export default function BandHome() {
       const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));
       setGigs([...ownedGigs, ...linkedGigs]);
       setLoading(false);
+
+      // Best-effort, same as the rest of this load - a stale/missing RPC
+      // just means no celebration plays and no star gets its ribbon this
+      // visit, never something that should block the constellation itself
+      // from loading.
+      const [unseenRes, seenRes] = await Promise.all([
+        supabase.rpc("get_unseen_gig_wraps"),
+        supabase.rpc("get_my_gig_wrap_views"),
+      ]);
+      if (!unseenRes.error && unseenRes.data?.length) setWrapQueue(unseenRes.data);
+      if (!seenRes.error && seenRes.data) {
+        setWrapSeenKeys(new Set(seenRes.data.flatMap((r) => [r.show_id, r.share_token].filter(Boolean))));
+      }
     };
     load();
   }, []);
@@ -85,6 +107,19 @@ export default function BandHome() {
   const closeGig = () => {
     setWebVisible(false);
     setTimeout(() => setWebToken(null), 250);
+  };
+
+  // Called when the celebration's "Nice" button is tapped - records that
+  // this viewer has now seen this show's wrap-up (so its star keeps its
+  // ribbon from here on) and advances to the next queued one, if any.
+  const finishWrap = async (wrap) => {
+    setWrapSeenKeys((prev) => new Set(prev).add(wrap.id).add(wrap.share_token));
+    setWrapQueue((q) => q.slice(1));
+    try {
+      await supabase.rpc("mark_gig_wrap_seen", { p_show_id: wrap.id });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleCreateEvent = () => navigate("/event/new");
@@ -212,6 +247,7 @@ export default function BandHome() {
                   onClick={() => openGig(pos.show)}
                   isNewest={i === positions.length - 1}
                   ariaLabel={pos.show.event_name || pos.show.band_name || "Untitled Gig"}
+                  wrapped={wrapSeenKeys.has(gigKey(pos.show))}
                 />
               </div>
             ))}
@@ -235,6 +271,14 @@ export default function BandHome() {
             <GigWeb token={webToken} onClose={closeGig} />
           </div>
         </div>
+      )}
+
+      {/* The post-show celebration, one at a time from the queue. Sits
+          above the Gig Web overlay (z-80 vs z-60) since it should never
+          be possible for both to be visible at once in practice, but if
+          it ever were, the celebration is the one that should win. */}
+      {wrapQueue.length > 0 && (
+        <GigWrapCelebration key={wrapQueue[0].id} wrap={wrapQueue[0]} onDone={() => finishWrap(wrapQueue[0])} />
       )}
 
       <BandBottomTabs />
