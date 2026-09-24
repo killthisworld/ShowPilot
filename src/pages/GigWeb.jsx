@@ -4,7 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
-import { useGigInvite, InviteModal } from "@/pages/SharedGig";
+import { useGigInvite, InviteModal, Field } from "@/pages/SharedGig";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
@@ -354,7 +354,7 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
                 setExpanded={setProfileExpanded}
               />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} />
             )
           ) : activeTab === "tasks" ? (
             <TasksTabPanel
@@ -504,16 +504,74 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
   );
 }
 
+// The event's own top-level details - owner-only, since update_shared_gig
+// itself enforces that server-side ("Only the owner can edit event
+// details") for exactly these fields. Local draft state so typing doesn't
+// write into Gig Web's own `gig` on every keystroke; Save calls the same
+// RPC the old SharedGig page used for this, then onChanged() (loadGig)
+// picks the saved values back up everywhere else on the page (the header,
+// the web's center hub, the status line) at once.
+function EventDetailsEditor({ token, gig, onChanged }) {
+  const [eventName, setEventName] = useState(gig.event_name || "");
+  const [date, setDate] = useState(gig.date || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { setEventName(gig.event_name || ""); }, [gig.event_name]);
+  useEffect(() => { setDate(gig.date || ""); }, [gig.date]);
+
+  const dirty = eventName !== (gig.event_name || "") || date !== (gig.date || "");
+
+  const save = async () => {
+    if (saving || !dirty) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null } });
+      if (error) throw error;
+      setSaved(true);
+      onChanged?.();
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="mb-4 pb-4 border-b border-[#1f1f1f]">
+      <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide mb-2">Event Details</p>
+      <div className="space-y-2.5">
+        <Field label="Event Name" value={eventName} onChange={setEventName} editable placeholder="e.g. Friday Night Showcase" />
+        <Field label="Date" value={date} onChange={setDate} editable type="date" />
+      </div>
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving || !dirty}
+        className="w-full mt-3 font-bold text-sm rounded-xl px-4 py-2.5 disabled:opacity-40 transition-colors"
+        style={{ background: "#8CFF3D", color: "#0d0d0d" }}
+      >
+        {saved ? "Saved ✓" : saving ? "Saving..." : "Save"}
+      </button>
+    </div>
+  );
+}
+
 // The Board tab for the center/overview node - "the profile of the
 // center event itself" from the request: a rollup tile per role instead
-// of fields to edit, since there's no single event-level section to edit
-// here. Tapping a tile jumps straight to that role, same as its star.
-// A 2-column grid instead of a stacked list halves the vertical space
-// this takes for a typical 5-role gig, and the aligned grid reads as
-// more structured than a loose list of rows. Tasks used to live inline
-// above this grid; they're their own tab now (TasksTabPanel below) so
-// the grid - the actual "what's the status of every role" board - sits
-// right under the tab pills instead of under a full task list first.
+// of fields to edit for each role, since there's no single role section
+// those belong to. The event's own top-level details (name, date - the
+// fields update_shared_gig actually recognizes and which its own
+// permission check restricts to the owner) get a small owner-only editor
+// up top instead, since Gig Web otherwise had no path to them at all
+// once the old SharedGig page stopped being where the back button leads.
+// Tapping a role tile jumps straight to that role, same as its star. A
+// 2-column grid instead of a stacked list halves the vertical space this
+// takes for a typical 5-role gig, and the aligned grid reads as more
+// structured than a loose list of rows. Tasks used to live inline above
+// this grid; they're their own tab now (TasksTabPanel below) so the grid
+// - the actual "what's the status of every role" board - sits right
+// under the tab pills instead of under a full task list first.
 //
 // The "N claimed · M invited" line above the grid is the real headcount
 // (every accepted/pending invite on the gig, from get_gig_section_permissions'
@@ -521,7 +579,7 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -530,6 +588,9 @@ function OverviewBoard({ nodes, onSelectRole, permissions }) {
   const showHeadcount = claimedCount > 0 || invitedCount > 0;
   return (
     <div>
+      {permissions?.is_owner && gig && (
+        <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} />
+      )}
       {showHeadcount && (
         <div className="flex items-center gap-1.5 mb-3 text-xs">
           <span className="font-semibold" style={{ color: "#8CFF3D" }}>{claimedCount} claimed</span>
