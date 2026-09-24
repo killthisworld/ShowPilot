@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { CalendarDays, Plus } from "lucide-react";
@@ -29,12 +29,17 @@ export default function BandHome() {
   const [webVisible, setWebVisible] = useState(false);
   // The post-show "web comes together into a star" celebration - queued
   // shows the viewer hasn't seen their wrap-up for yet (get_unseen_gig_wraps),
-  // played one at a time, and the running set of every show they HAVE
-  // already seen (get_my_gig_wrap_views) so that show's star stays
-  // visibly "closed out" on every future visit, not just the one where
-  // the animation played.
+  // played one at a time; get_unseen_gig_wraps already only returns shows
+  // not yet in gig_wrap_views for this viewer, so nothing else needs to
+  // track "already seen" client-side.
   const [wrapQueue, setWrapQueue] = useState([]);
-  const [wrapSeenKeys, setWrapSeenKeys] = useState(new Set());
+  // Where the currently-celebrating show's real star sits on screen right
+  // now, measured from its actual DOM node below - lets the celebration's
+  // formed star fly to and land exactly on top of it. null until measured
+  // (or if that show isn't resolvable in the current constellation).
+  const [flightTarget, setFlightTarget] = useState(null);
+  const [hiddenGigKey, setHiddenGigKey] = useState(null);
+  const starRefs = useRef({});
 
   useEffect(() => {
     const load = async () => {
@@ -81,17 +86,10 @@ export default function BandHome() {
       setLoading(false);
 
       // Best-effort, same as the rest of this load - a stale/missing RPC
-      // just means no celebration plays and no star gets its ribbon this
-      // visit, never something that should block the constellation itself
-      // from loading.
-      const [unseenRes, seenRes] = await Promise.all([
-        supabase.rpc("get_unseen_gig_wraps"),
-        supabase.rpc("get_my_gig_wrap_views"),
-      ]);
-      if (!unseenRes.error && unseenRes.data?.length) setWrapQueue(unseenRes.data);
-      if (!seenRes.error && seenRes.data) {
-        setWrapSeenKeys(new Set(seenRes.data.flatMap((r) => [r.show_id, r.share_token].filter(Boolean))));
-      }
+      // just means no celebration plays this visit, never something that
+      // should block the constellation itself from loading.
+      const { data: unseen, error: unseenError } = await supabase.rpc("get_unseen_gig_wraps");
+      if (!unseenError && unseen?.length) setWrapQueue(unseen);
     };
     load();
   }, []);
@@ -109,11 +107,14 @@ export default function BandHome() {
     setTimeout(() => setWebToken(null), 250);
   };
 
-  // Called when the celebration's "Nice" button is tapped - records that
-  // this viewer has now seen this show's wrap-up (so its star keeps its
-  // ribbon from here on) and advances to the next queued one, if any.
+  // Called once the celebration's formed star has finished flying into
+  // place (or immediately, if there was nowhere to fly it to) - records
+  // that this viewer has now seen this show's wrap-up and advances to the
+  // next queued one, if any. Un-hides the real star at the same moment,
+  // since the flight animation is what was standing in for it until now.
   const finishWrap = async (wrap) => {
-    setWrapSeenKeys((prev) => new Set(prev).add(wrap.id).add(wrap.share_token));
+    setHiddenGigKey(null);
+    setFlightTarget(null);
     setWrapQueue((q) => q.slice(1));
     try {
       await supabase.rpc("mark_gig_wrap_seen", { p_show_id: wrap.id });
@@ -139,6 +140,43 @@ export default function BandHome() {
     [sortedGigs]
   );
   const containerHeight = sortedGigs.length === 0 ? 220 : Math.max(340, rows * 110);
+
+  // Resolve which real star the currently-celebrating show corresponds to
+  // and measure where it actually sits on screen right now, so the
+  // celebration's formed star has somewhere real to fly to. Matches on
+  // `id` first (the show's own row id - present on every gig regardless
+  // of ownership, since get_shared_gig returns it too) and falls back to
+  // `share_token`. Re-runs whenever the queue advances; the matched
+  // star's own div is hidden for as long as it's "standing in" for the
+  // celebration, and revealed again the instant finishWrap runs.
+  useEffect(() => {
+    const wrap = wrapQueue[0];
+    if (!wrap) {
+      setHiddenGigKey(null);
+      setFlightTarget(null);
+      return;
+    }
+    const matchedGig = sortedGigs.find((g) => g.id === wrap.id || g.share_token === wrap.share_token);
+    if (!matchedGig) {
+      setHiddenGigKey(null);
+      setFlightTarget(null);
+      return;
+    }
+    const key = gigKey(matchedGig);
+    setHiddenGigKey(key);
+    const raf = requestAnimationFrame(() => {
+      const el = starRefs.current[key];
+      if (!el) { setFlightTarget(null); return; }
+      const rect = el.getBoundingClientRect();
+      setFlightTarget({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        color: matchedGig.is_owned ? "#8CFF3D" : "#F472B6",
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wrapQueue, sortedGigs]);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -240,17 +278,29 @@ export default function BandHome() {
           </div>
         ) : (
           <div className="relative mx-auto" style={{ width: "100%", maxWidth: 400, height: containerHeight }}>
-            {positions.map((pos, i) => (
-              <div key={gigKey(pos.show)} className="absolute z-10" style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}>
-                <ShowStamp
-                  color={pos.show.is_owned ? "#8CFF3D" : "#F472B6"}
-                  onClick={() => openGig(pos.show)}
-                  isNewest={i === positions.length - 1}
-                  ariaLabel={pos.show.event_name || pos.show.band_name || "Untitled Gig"}
-                  wrapped={wrapSeenKeys.has(gigKey(pos.show))}
-                />
-              </div>
-            ))}
+            {positions.map((pos, i) => {
+              const key = gigKey(pos.show);
+              return (
+                <div
+                  key={key}
+                  ref={(el) => { starRefs.current[key] = el; }}
+                  className="absolute z-10 transition-opacity duration-300"
+                  style={{
+                    left: `${pos.xPct}%`,
+                    top: `${pos.yPct}%`,
+                    transform: "translate(-50%, -50%)",
+                    opacity: hiddenGigKey === key ? 0 : 1,
+                  }}
+                >
+                  <ShowStamp
+                    color={pos.show.is_owned ? "#8CFF3D" : "#F472B6"}
+                    onClick={() => openGig(pos.show)}
+                    isNewest={i === positions.length - 1}
+                    ariaLabel={pos.show.event_name || pos.show.band_name || "Untitled Gig"}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -278,7 +328,12 @@ export default function BandHome() {
           be possible for both to be visible at once in practice, but if
           it ever were, the celebration is the one that should win. */}
       {wrapQueue.length > 0 && (
-        <GigWrapCelebration key={wrapQueue[0].id} wrap={wrapQueue[0]} onDone={() => finishWrap(wrapQueue[0])} />
+        <GigWrapCelebration
+          key={wrapQueue[0].id}
+          wrap={wrapQueue[0]}
+          targetPos={flightTarget}
+          onDone={() => finishWrap(wrapQueue[0])}
+        />
       )}
 
       <BandBottomTabs />

@@ -5,8 +5,6 @@
 // duplicates are now passed in by the caller instead of hardcoded here -
 // see hashColor/getSeedKey/color usage at each call site.
 
-import { Award } from "lucide-react";
-
 export const STAMP_COLORS = ["#8CFF3D", "#60A5FA", "#F59E0B", "#F472B6", "#A78BFA", "#34D399", "#F87171", "#38BDF8"];
 
 export function hashColor(str) {
@@ -80,11 +78,7 @@ export function getConstellationLayout(items, { getSeedKey } = {}) {
 // rather than by this component, since what a star's color *means*
 // differs per screen. `rotation` was accepted but never actually used by
 // the three previous copies of this component, so it isn't here either.
-//
-// `wrapped` is optional and additive - only BandHome passes it (once a
-// gig's post-show celebration has been seen, via get_my_gig_wrap_views),
-// so every other caller of this shared component is unaffected.
-export function ShowStamp({ onClick, color, isNewest, ariaLabel, wrapped }) {
+export function ShowStamp({ onClick, color, isNewest, ariaLabel }) {
   return (
     <button
       type="button"
@@ -128,15 +122,6 @@ export function ShowStamp({ onClick, color, isNewest, ariaLabel, wrapped }) {
           animation: isNewest ? "starPulseCore 3s ease-in-out infinite" : undefined,
         }}
       />
-      {wrapped && (
-        <div
-          className="absolute rounded-full flex items-center justify-center border border-[#0d0d0d]"
-          style={{ width: 16, height: 16, right: -2, bottom: -2, background: "#EAB308" }}
-          title="Wrapped"
-        >
-          <Award className="w-2.5 h-2.5 text-[#0d0d0d]" />
-        </div>
-      )}
     </button>
   );
 }
