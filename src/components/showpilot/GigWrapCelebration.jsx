@@ -254,7 +254,7 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.7 }}
           >
-            <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">Show's a wrap</p>
+            <p className="text-white/40 text-xs font-semibold uppercase tracking-wide mb-1">That's a wrap!</p>
             <h2 className="text-white font-bold text-xl mb-1">{title}</h2>
             {dateLabel && <p className="text-white/40 text-sm mb-4">{dateLabel}</p>}
             <p className="text-white/60 text-sm max-w-xs mx-auto mb-6">
@@ -265,7 +265,7 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
               onClick={startFlight}
               className="flex items-center gap-1.5 mx-auto bg-[#8CFF3D] text-black text-sm font-bold px-5 py-2.5 rounded-full hover:bg-[#7ae62e] transition-colors"
             >
-              <Star className="w-4 h-4 fill-current" /> Nice
+              <Star className="w-4 h-4 fill-current" /> Add to Sky
             </button>
           </motion.div>
         )}
