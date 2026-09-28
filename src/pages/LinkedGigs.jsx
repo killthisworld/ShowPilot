@@ -184,7 +184,7 @@ export default function LinkedGigs() {
               <SwipeableGigCard
                 key={g.share_token}
                 gig={g}
-                onOpen={() => navigate(`/gig/shared?token=${g.share_token}`)}
+                onOpen={() => navigate(`/gig/web?token=${g.share_token}`)}
                 onArchive={() => archiveGig(g.share_token)}
                 onRemove={() => removeGig(g.share_token)}
               />

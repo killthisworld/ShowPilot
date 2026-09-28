@@ -74,7 +74,7 @@ export default function NewEventForNonTech() {
         .select()
         .single();
       if (insertError) throw insertError;
-      navigate(`/gig/shared?token=${data.share_token}`);
+      navigate(`/gig/web?token=${data.share_token}`);
     } catch (e) {
       console.error(e);
       setError("Something went wrong. Please try again.");

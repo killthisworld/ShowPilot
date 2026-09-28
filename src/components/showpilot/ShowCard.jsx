@@ -45,7 +45,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
   const handleCardClick = () => {
     if (moved.current) return; // this was a swipe, not a tap
     if (offset !== 0) { setOffset(0); return; } // tap while open just closes the actions
-    if (show.is_owned === false) navigate(`/gig/shared?token=${show.share_token}`);
+    if (show.is_owned === false) navigate(`/gig/web?token=${show.share_token}`);
     else navigate(`/show/${show.id}`);
   };
 

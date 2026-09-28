@@ -159,7 +159,7 @@ export default function CalendarPage() {
 
   const openShow = (show) => {
     if (show.is_linked) {
-      navigate(`/gig/shared?token=${show.share_token}`);
+      navigate(`/gig/web?token=${show.share_token}`);
     } else {
       navigate(`/show/${show.id}`, { state: { from: "calendar" } });
     }

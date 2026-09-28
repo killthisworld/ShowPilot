@@ -451,7 +451,7 @@ export default function ShowDetail() {
 
   const handleShareGig = async () => {
     if (!show.share_token) return;
-    const url = `${window.location.origin}/gig/shared?token=${show.share_token}`;
+    const url = `${window.location.origin}/gig/web?token=${show.share_token}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: show.event_name || show.band_name || "Gig details", url });

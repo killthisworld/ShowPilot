@@ -58,11 +58,11 @@ export default function ArchivedShows() {
 
   // Owned shows for tech profiles go to the engineer-built ShowDetail page,
   // same as always. Everything else - non-tech owned events, and any
-  // linked gig regardless of account type - goes through the shared/
-  // sectioned gig page, since every show already has a share_token.
+  // linked gig regardless of account type - goes through Gig Web, the
+  // radial hub that replaced the old block-based SharedGig page.
   const openShow = (s) => {
     if (s.is_owned && isTechProductionAccount) navigate(`/show/${s.id}`);
-    else navigate(`/gig/shared?token=${s.share_token}`);
+    else navigate(`/gig/web?token=${s.share_token}`);
   };
 
   const handleUnarchive = async (show) => {

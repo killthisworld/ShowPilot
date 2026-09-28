@@ -184,7 +184,7 @@ export default function BandCockpit() {
               )}
             </div>
             <button
-              onClick={() => navigate(`/gig/shared?token=${selectedGig.share_token}`)}
+              onClick={() => navigate(`/gig/web?token=${selectedGig.share_token}`)}
               className="w-full bg-pink-500/15 text-pink-400 font-medium text-sm py-2.5 rounded-xl hover:bg-pink-500/25 transition-colors"
             >
               View Full Details
