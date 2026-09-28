@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal, Field } from "@/pages/SharedGig";
@@ -68,7 +68,7 @@ function roleEditable(role, permissions) {
 // through the old block-based SharedGig page on the way out), and the
 // same 3-tab bar every other main page has stays pinned at the bottom
 // here too, so leaving the web is never the only way out.
-export default function GigWeb({ token: tokenProp, onClose } = {}) {
+export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {}) {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = tokenProp || params.get("token");
@@ -100,6 +100,14 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
   const [profileExpanded, setProfileExpanded] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [roomMembers, setRoomMembers] = useState({}); // roomId -> member rows
+  // Owner-only gig management. Archive is reversible (Settings > Archived
+  // has an Unarchive already, unchanged by this) so it fires straight
+  // away; delete is permanent (cascades through every child table -
+  // tasks, requirements, invites, rooms, everyone's linked copy) so it
+  // sits behind a confirm step.
+  const [archiving, setArchiving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const loadGig = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -179,6 +187,41 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
     setGig((g) => ({ ...g, tasks: (g.tasks || []).map((t) => (t.id === taskId ? data : t)) }));
   };
 
+  // Both go straight through the shows table (same RLS-gated pattern
+  // Home.jsx's own archive/delete already use - owner_id = auth.uid() is
+  // enforced server-side, this is just the same door from a second
+  // room). `onGigChanged` lets an embedding page (BandHome's
+  // constellation) drop the star immediately instead of waiting for a
+  // full reload; the standalone /gig/web route doesn't need it since
+  // goBack() already navigates home and remounts everything fresh there.
+  const archiveShow = async () => {
+    if (archiving || deleting || !gig?.id) return;
+    setArchiving(true);
+    try {
+      const { error } = await supabase.from("shows").update({ archived: true }).eq("id", gig.id);
+      if (error) throw error;
+      onGigChanged?.();
+      goBack();
+    } catch (e) {
+      console.error(e);
+      setArchiving(false);
+    }
+  };
+
+  const deleteShow = async () => {
+    if (deleting || !gig?.id) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("shows").delete().eq("id", gig.id);
+      if (error) throw error;
+      onGigChanged?.();
+      goBack();
+    } catch (e) {
+      console.error(e);
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
@@ -239,6 +282,29 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
             <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
             <p className="text-white/40 text-xs mt-0.5 truncate">{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
+          {permissions?.is_owner && (
+            <div className="flex items-center gap-1 shrink-0 ml-auto">
+              <button
+                type="button"
+                onClick={archiveShow}
+                disabled={archiving}
+                title="Archive"
+                aria-label="Archive gig"
+                className="p-2 text-white/40 hover:text-white transition-colors disabled:opacity-40"
+              >
+                <Archive className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                title="Delete"
+                aria-label="Delete gig"
+                className="p-2 text-white/40 hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -382,6 +448,43 @@ export default function GigWeb({ token: tokenProp, onClose } = {}) {
       </div>
 
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
+          onClick={() => !deleting && setShowDeleteConfirm(false)}
+        >
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Delete this gig?</h3>
+              <button onClick={() => setShowDeleteConfirm(false)} className="text-white/40 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-white/40 text-xs mb-4">
+              This permanently deletes {title} — profiles, tasks, requirements, invites and every room's chat history. Anyone linked to it loses access. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteShow}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500/90 hover:bg-red-500 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "Deleting..." : "Delete Forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

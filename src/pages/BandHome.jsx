@@ -41,58 +41,61 @@ export default function BandHome() {
   const [hiddenGigKey, setHiddenGigKey] = useState(null);
   const starRefs = useRef({});
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      setCurrentUserId(user.id);
+  // Pulled out of the mount effect so it can be re-run after Gig Web
+  // reports an owned show got archived or deleted there - otherwise that
+  // star would keep sitting in the constellation, stale, until the next
+  // full page load.
+  const loadGigs = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    setCurrentUserId(user.id);
 
-      const { data: owned } = await supabase
-        .from("shows")
-        .select("*")
-        .eq("owner_id", user.id)
-        .order("date", { ascending: true });
+    const { data: owned } = await supabase
+      .from("shows")
+      .select("*")
+      .eq("owner_id", user.id)
+      .eq("archived", false)
+      .order("date", { ascending: true });
 
-      const { data: links } = await supabase
-        .from("linked_gigs")
-        .select("share_token, linked_at, starred")
-        .eq("user_id", user.id)
-        .eq("archived", false)
-        .order("linked_at", { ascending: false });
+    const { data: links } = await supabase
+      .from("linked_gigs")
+      .select("share_token, linked_at, starred")
+      .eq("user_id", user.id)
+      .eq("archived", false)
+      .order("linked_at", { ascending: false });
 
-      // Which of this account's own events have been shared with anyone
-      // else - these belong in "Linked" too, since sharing is a two-way
-      // relationship, not just something that happens to other people's
-      // events.
-      const { data: sentInvites } = await supabase
-        .from("gig_invites")
-        .select("show_id")
-        .eq("created_by", user.id);
-      const sharedShowIds = new Set((sentInvites || []).map((i) => i.show_id));
+    // Which of this account's own events have been shared with anyone
+    // else - these belong in "Linked" too, since sharing is a two-way
+    // relationship, not just something that happens to other people's
+    // events.
+    const { data: sentInvites } = await supabase
+      .from("gig_invites")
+      .select("show_id")
+      .eq("created_by", user.id);
+    const sharedShowIds = new Set((sentInvites || []).map((i) => i.show_id));
 
-      let linkedGigs = [];
-      if (links) {
-        const details = await Promise.all(
-          links.map(async (link) => {
-            const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
-            return data ? { ...data, share_token: link.share_token, is_owned: false, starred: link.starred } : null;
-          })
-        );
-        linkedGigs = details.filter(Boolean);
-      }
+    let linkedGigs = [];
+    if (links) {
+      const details = await Promise.all(
+        links.map(async (link) => {
+          const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
+          return data ? { ...data, share_token: link.share_token, is_owned: false, starred: link.starred } : null;
+        })
+      );
+      linkedGigs = details.filter(Boolean);
+    }
 
-      const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));
-      setGigs([...ownedGigs, ...linkedGigs]);
-      setLoading(false);
+    const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));
+    setGigs([...ownedGigs, ...linkedGigs]);
+    setLoading(false);
 
-      // Best-effort, same as the rest of this load - a stale/missing RPC
-      // just means no celebration plays this visit, never something that
-      // should block the constellation itself from loading.
-      const { data: unseen, error: unseenError } = await supabase.rpc("get_unseen_gig_wraps");
-      if (!unseenError && unseen?.length) setWrapQueue(unseen);
-    };
-    load();
-  }, []);
+    // Best-effort, same as the rest of this load - a stale/missing RPC
+    // just means no celebration plays this visit, never something that
+    // should block the constellation itself from loading.
+    const { data: unseen, error: unseenError } = await supabase.rpc("get_unseen_gig_wraps");
+    if (!unseenError && unseen?.length) setWrapQueue(unseen);
+  };
+  useEffect(() => { loadGigs(); }, []);
 
   const openGig = (g) => {
     setWebToken(g.share_token);
@@ -318,7 +321,7 @@ export default function BandHome() {
           className={`fixed inset-0 z-[60] bg-[#0d0d0d] transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
         >
           <div className="h-full overflow-y-auto">
-            <GigWeb token={webToken} onClose={closeGig} />
+            <GigWeb token={webToken} onClose={closeGig} onGigChanged={loadGigs} />
           </div>
         </div>
       )}
