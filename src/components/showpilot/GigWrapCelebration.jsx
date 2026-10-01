@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Star } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
@@ -40,23 +40,18 @@ function buildSpiralFrames(startAngleDeg, startR, cx, cy) {
 // like a supernova collapsing into a star. Plays once per (show, viewer),
 // ever - BandHome gates that via get_unseen_gig_wraps / mark_gig_wrap_seen,
 // this component just plays the moment it's handed. Tapping through at
-// the end sends the newly-formed star flying off into the home screen's
-// constellation, landing exactly where that show's star already lives
-// there (BandHome measures and passes `targetPos`) - "the web that was
-// the event" literally taking its place in the sky.
+// the end lifts the newly-formed star up and lets it fade out right where
+// it formed - the star isn't going to live on a home screen anymore, it's
+// headed to that show's spot in the Logbook, so BandHome takes it from
+// there (onDone) and navigates there once the fade finishes.
 //
 // No push notification yet (that's a separate, later build - this only
 // surfaces the next time someone opens the app after a show has passed).
 // `wrap` is one row shaped by get_unseen_gig_wraps: id, share_token,
 // event_name, band_name, venue, date, included_sections, claimed_roles,
-// invited_roles. `targetPos` is optional: { x, y, color } in viewport
-// pixels for where this show's real star sits on the home screen right
-// now - when BandHome can't resolve it, the star just fades out in place
-// instead of flying anywhere.
-export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
+// invited_roles.
+export default function GigWrapCelebration({ wrap, onDone }) {
   const [phase, setPhase] = useState("spiral"); // spiral -> burst -> reveal -> flight
-  const boxRef = useRef(null);
-  const [flightStart, setFlightStart] = useState(null);
 
   const roles = useMemo(
     () => ROLE_ORDER.filter((role) => !wrap.included_sections || wrap.included_sections.includes(role)),
@@ -102,14 +97,9 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  const starColor = targetPos?.color || (nodes[0]?.style.color ?? "#8CFF3D");
+  const starColor = nodes[0]?.style.color ?? "#8CFF3D";
 
-  const startFlight = () => {
-    if (!targetPos || !boxRef.current) { onDone(); return; }
-    const rect = boxRef.current.getBoundingClientRect();
-    setFlightStart({ x: rect.left + cx, y: rect.top + cy });
-    setPhase("flight");
-  };
+  const startFlight = () => setPhase("flight");
 
   const title = wrap.event_name || wrap.band_name || "That gig";
   const dateLabel = wrap.date
@@ -124,7 +114,7 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
       transition={{ duration: phase === "flight" ? 0.85 : 0.3 }}
       style={{ pointerEvents: phase === "flight" ? "none" : "auto" }}
     >
-      <div ref={boxRef} className="relative shrink-0" style={{ width: 300, height: 300 }}>
+      <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
         {phase === "spiral" &&
           nodes.map((n) => (
             <motion.div
@@ -155,57 +145,64 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
 
         {/* The forming star - a dim seed through the spiral, a bright
             supernova flash the instant everything lands, then a steady
-            glowing point. Never renders as circles/icons; this is the
-            same element (visually) that flies to the home screen below. */}
-        {phase !== "flight" && (
-          <>
-            <motion.div
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                left: cx, top: cy, marginLeft: -45, marginTop: -45, width: 90, height: 90,
-                background: `radial-gradient(circle, ${starColor}66 0%, transparent 70%)`,
-                filter: "blur(6px)",
-              }}
-              initial={{ scale: 0.25, opacity: 0.25 }}
-              animate={
-                phase === "spiral"
-                  ? { scale: [0.25, 0.35, 0.6, 0.95], opacity: [0.25, 0.35, 0.55, 0.8] }
-                  : phase === "burst"
-                  ? { scale: [0.95, 2.8, 1.3], opacity: [0.8, 1, 0.85] }
-                  : { scale: [1.3, 1.45, 1.3], opacity: [0.85, 0.7, 0.85] }
-              }
-              transition={
-                phase === "spiral"
-                  ? { duration: SPIRAL_DURATION, times: [0, 0.5, 0.85, 1], ease: "easeIn" }
-                  : phase === "burst"
-                  ? { duration: 1.05, times: [0, 0.4, 1], ease: "easeOut" }
-                  : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
-              }
-            />
-            <motion.div
-              className="absolute rounded-full pointer-events-none"
-              style={{
-                left: cx, top: cy, marginLeft: -7, marginTop: -7, width: 14, height: 14,
-                background: `radial-gradient(circle at 35% 30%, #ffffff, ${starColor})`,
-              }}
-              initial={{ scale: 0.15, opacity: 0.4 }}
-              animate={
-                phase === "spiral"
-                  ? { scale: [0.15, 0.3, 0.6, 0.95] }
-                  : phase === "burst"
-                  ? { scale: [0.95, 1.7, 1] }
-                  : { scale: [1, 1.12, 1] }
-              }
-              transition={
-                phase === "spiral"
-                  ? { duration: SPIRAL_DURATION, times: [0, 0.5, 0.85, 1], ease: "easeIn" }
-                  : phase === "burst"
-                  ? { duration: 1.05, times: [0, 0.4, 1], ease: "easeOut" }
-                  : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
-              }
-            />
-          </>
-        )}
+            glowing point that, on "Add to Sky", lifts and fades out right
+            here in place (no cross-screen travel - BandHome and Logbook
+            are different routes, not both mounted at once). onDone fires
+            once that fade finishes, and BandHome takes it from there. */}
+        <motion.div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: cx, top: cy, marginLeft: -45, marginTop: -45, width: 90, height: 90,
+            background: `radial-gradient(circle, ${starColor}66 0%, transparent 70%)`,
+            filter: "blur(6px)",
+          }}
+          initial={{ scale: 0.25, opacity: 0.25, y: 0 }}
+          animate={
+            phase === "spiral"
+              ? { scale: [0.25, 0.35, 0.6, 0.95], opacity: [0.25, 0.35, 0.55, 0.8] }
+              : phase === "burst"
+              ? { scale: [0.95, 2.8, 1.3], opacity: [0.8, 1, 0.85] }
+              : phase === "reveal"
+              ? { scale: [1.3, 1.45, 1.3], opacity: [0.85, 0.7, 0.85] }
+              : { y: -420, scale: 0.4, opacity: 0 }
+          }
+          transition={
+            phase === "spiral"
+              ? { duration: SPIRAL_DURATION, times: [0, 0.5, 0.85, 1], ease: "easeIn" }
+              : phase === "burst"
+              ? { duration: 1.05, times: [0, 0.4, 1], ease: "easeOut" }
+              : phase === "reveal"
+              ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+              : { duration: 1.3, ease: "easeIn" }
+          }
+        />
+        <motion.div
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: cx, top: cy, marginLeft: -7, marginTop: -7, width: 14, height: 14,
+            background: `radial-gradient(circle at 35% 30%, #ffffff, ${starColor})`,
+          }}
+          initial={{ scale: 0.15, opacity: 0.4, y: 0 }}
+          animate={
+            phase === "spiral"
+              ? { scale: [0.15, 0.3, 0.6, 0.95] }
+              : phase === "burst"
+              ? { scale: [0.95, 1.7, 1] }
+              : phase === "reveal"
+              ? { scale: [1, 1.12, 1] }
+              : { y: -420, scale: 0.2, opacity: 0 }
+          }
+          transition={
+            phase === "spiral"
+              ? { duration: SPIRAL_DURATION, times: [0, 0.5, 0.85, 1], ease: "easeIn" }
+              : phase === "burst"
+              ? { duration: 1.05, times: [0, 0.4, 1], ease: "easeOut" }
+              : phase === "reveal"
+              ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+              : { duration: 1.3, ease: "easeIn" }
+          }
+          onAnimationComplete={() => { if (phase === "flight") onDone(); }}
+        />
 
         {phase === "burst" &&
           particles.map((p) => (
@@ -219,31 +216,6 @@ export default function GigWrapCelebration({ wrap, onDone, targetPos }) {
             />
           ))}
       </div>
-
-      {/* Flying star - a separate, viewport-fixed element so it can travel
-          clear of this 300x300 box out to wherever the real star sits on
-          the home screen underneath, as the backdrop above fades away to
-          reveal it. Starts exactly where the settled star was sitting, so
-          the handoff is invisible. */}
-      {phase === "flight" && flightStart && targetPos && (
-        <>
-          <motion.div
-            className="fixed rounded-full pointer-events-none z-[85]"
-            style={{ width: 90, height: 90, marginLeft: -45, marginTop: -45, background: `radial-gradient(circle, ${starColor}66 0%, transparent 70%)`, filter: "blur(6px)" }}
-            initial={{ left: flightStart.x, top: flightStart.y, scale: 1.45, opacity: 0.85 }}
-            animate={{ left: targetPos.x, top: targetPos.y, scale: 0.45, opacity: 0.85 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          />
-          <motion.div
-            className="fixed rounded-full pointer-events-none z-[85]"
-            style={{ width: 14, height: 14, marginLeft: -7, marginTop: -7, background: `radial-gradient(circle at 35% 30%, #ffffff, ${starColor})` }}
-            initial={{ left: flightStart.x, top: flightStart.y, scale: 1, opacity: 1 }}
-            animate={{ left: targetPos.x, top: targetPos.y, scale: 0.4, opacity: 1 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-            onAnimationComplete={onDone}
-          />
-        </>
-      )}
 
       <AnimatePresence>
         {phase === "reveal" && (

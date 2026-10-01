@@ -1,23 +1,26 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus } from "lucide-react";
+import { CalendarDays, Plus, Search, MapPin, Link2 } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
-import { getConstellationLayout, ShowStamp } from "@/lib/constellation";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 
 // The home screen for every account type except engineer/lighting (those
-// keep the card-list Home.jsx - a tech-production account often tracks many
-// shows they don't own a stake in, where a dense scannable list still beats
-// a starfield). Every show you own or are linked to becomes one star;
-// tapping it doesn't navigate away, it brings the Gig Web hub forward as a
-// layer over this screen, so the constellation is always still right there
-// underneath when you close it.
+// keep the card-list Home.jsx). This used to be a starfield constellation -
+// a nice hero, but feedback from an actual venue owner made the problem
+// obvious: a venue running hundreds of shows a year can't find anything in
+// an unlabeled field of dots. The star idea itself wasn't wrong, it was
+// just in the wrong place - it's kept exactly as before over in Logbook,
+// which is a "look back on what happened" view where a loose field of
+// stamps is the point. Here, where the job is "find and open a specific
+// upcoming show," that's a search box and a labeled, month-grouped list.
+// Tapping a row doesn't navigate away, it brings the Gig Web hub forward
+// as a layer over this screen, same as always.
 export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
@@ -27,24 +30,18 @@ export default function BandHome() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
+  const [search, setSearch] = useState("");
   // The post-show "web comes together into a star" celebration - queued
   // shows the viewer hasn't seen their wrap-up for yet (get_unseen_gig_wraps),
   // played one at a time; get_unseen_gig_wraps already only returns shows
   // not yet in gig_wrap_views for this viewer, so nothing else needs to
   // track "already seen" client-side.
   const [wrapQueue, setWrapQueue] = useState([]);
-  // Where the currently-celebrating show's real star sits on screen right
-  // now, measured from its actual DOM node below - lets the celebration's
-  // formed star fly to and land exactly on top of it. null until measured
-  // (or if that show isn't resolvable in the current constellation).
-  const [flightTarget, setFlightTarget] = useState(null);
-  const [hiddenGigKey, setHiddenGigKey] = useState(null);
-  const starRefs = useRef({});
 
   // Pulled out of the mount effect so it can be re-run after Gig Web
   // reports an owned show got archived or deleted there - otherwise that
-  // star would keep sitting in the constellation, stale, until the next
-  // full page load.
+  // row would keep sitting in the list, stale, until the next full page
+  // load.
   const loadGigs = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
@@ -91,7 +88,7 @@ export default function BandHome() {
 
     // Best-effort, same as the rest of this load - a stale/missing RPC
     // just means no celebration plays this visit, never something that
-    // should block the constellation itself from loading.
+    // should block the list itself from loading.
     const { data: unseen, error: unseenError } = await supabase.rpc("get_unseen_gig_wraps");
     if (!unseenError && unseen?.length) setWrapQueue(unseen);
   };
@@ -110,20 +107,29 @@ export default function BandHome() {
     setTimeout(() => setWebToken(null), 250);
   };
 
-  // Called once the celebration's formed star has finished flying into
-  // place (or immediately, if there was nowhere to fly it to) - records
-  // that this viewer has now seen this show's wrap-up and advances to the
-  // next queued one, if any. Un-hides the real star at the same moment,
-  // since the flight animation is what was standing in for it until now.
+  // Called once the celebration finishes (the formed star rises and
+  // fades) - a show that's wrapped is a show that's over, so this is also
+  // the moment it actually becomes a Logbook entry: mark it done (only
+  // the owner can - a claimed-but-not-owned show's Logbook copy doesn't
+  // key off `done` at all, see Logbook.jsx), record that this viewer has
+  // seen the wrap-up, then take them straight there to see it land.
   const finishWrap = async (wrap) => {
-    setHiddenGigKey(null);
-    setFlightTarget(null);
     setWrapQueue((q) => q.slice(1));
+    const matchedGig = gigs.find((g) => g.id === wrap.id || g.share_token === wrap.share_token);
+    if (matchedGig?.is_owned) {
+      try {
+        const { error } = await supabase.from("shows").update({ done: true }).eq("id", wrap.id);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+      }
+    }
     try {
       await supabase.rpc("mark_gig_wrap_seen", { p_show_id: wrap.id });
     } catch (e) {
       console.error(e);
     }
+    navigate("/logbook", { state: { landOnShowId: wrap.id, landOnDate: wrap.date } });
   };
 
   const handleCreateEvent = () => navigate("/event/new");
@@ -138,48 +144,36 @@ export default function BandHome() {
     });
   }, [gigs]);
 
-  const { positions, rows } = useMemo(
-    () => getConstellationLayout(sortedGigs, { getSeedKey: gigKey }),
-    [sortedGigs]
-  );
-  const containerHeight = sortedGigs.length === 0 ? 220 : Math.max(340, rows * 110);
+  const filteredGigs = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return sortedGigs;
+    return sortedGigs.filter((g) =>
+      (g.event_name || g.band_name || "").toLowerCase().includes(q) ||
+      g.venue?.toLowerCase().includes(q) ||
+      g.city?.toLowerCase().includes(q)
+    );
+  }, [sortedGigs, search]);
 
-  // Resolve which real star the currently-celebrating show corresponds to
-  // and measure where it actually sits on screen right now, so the
-  // celebration's formed star has somewhere real to fly to. Matches on
-  // `id` first (the show's own row id - present on every gig regardless
-  // of ownership, since get_shared_gig returns it too) and falls back to
-  // `share_token`. Re-runs whenever the queue advances; the matched
-  // star's own div is hidden for as long as it's "standing in" for the
-  // celebration, and revealed again the instant finishWrap runs.
-  useEffect(() => {
-    const wrap = wrapQueue[0];
-    if (!wrap) {
-      setHiddenGigKey(null);
-      setFlightTarget(null);
-      return;
-    }
-    const matchedGig = sortedGigs.find((g) => g.id === wrap.id || g.share_token === wrap.share_token);
-    if (!matchedGig) {
-      setHiddenGigKey(null);
-      setFlightTarget(null);
-      return;
-    }
-    const key = gigKey(matchedGig);
-    setHiddenGigKey(key);
-    const raf = requestAnimationFrame(() => {
-      const el = starRefs.current[key];
-      if (!el) { setFlightTarget(null); return; }
-      const rect = el.getBoundingClientRect();
-      setFlightTarget({
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-        color: matchedGig.is_owned ? "#8CFF3D" : "#F472B6",
-      });
+  // Grouped by month, soonest first - the same organizing idea Logbook
+  // already uses for looking back, just running forward instead. This is
+  // what actually scales to hundreds of shows: a venue can jump straight
+  // to "October" instead of hunting through an undifferentiated field.
+  const monthGroups = useMemo(() => {
+    const groups = {};
+    const undated = [];
+    filteredGigs.forEach((g) => {
+      if (!g.date) { undated.push(g); return; }
+      const key = g.date.slice(0, 7);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(g);
     });
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wrapQueue, sortedGigs]);
+    const entries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+    if (undated.length > 0) entries.push(["undated", undated]);
+    return entries;
+  }, [filteredGigs]);
+
+  const monthLabel = (key) =>
+    key === "undated" ? "No Date" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -257,13 +251,25 @@ export default function BandHome() {
       </div>
 
       <div className="px-4 pt-5 max-w-lg mx-auto">
-        <div className="flex items-center justify-between mb-1 px-1">
+        <div className="flex items-center justify-between mb-2 px-1">
           <h2 className="text-white font-semibold text-sm">Your Shows</h2>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1 text-[10px] text-white/35"><span className="w-1.5 h-1.5 rounded-full bg-[#8CFF3D]" /> Owned</span>
             <span className="flex items-center gap-1 text-[10px] text-white/35"><span className="w-1.5 h-1.5 rounded-full bg-[#F472B6]" /> Linked</span>
           </div>
         </div>
+
+        {sortedGigs.length > 0 && (
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search shows, venues, cities..."
+              className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
+            />
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -279,31 +285,52 @@ export default function BandHome() {
             </button>
             <p className="text-white/40 text-sm">No shows yet</p>
           </div>
+        ) : monthGroups.length === 0 ? (
+          <p className="text-center text-white/30 text-sm py-12">No shows match your search</p>
         ) : (
-          <div className="relative mx-auto" style={{ width: "100%", maxWidth: 400, height: containerHeight }}>
-            {positions.map((pos, i) => {
-              const key = gigKey(pos.show);
-              return (
-                <div
-                  key={key}
-                  ref={(el) => { starRefs.current[key] = el; }}
-                  className="absolute z-10 transition-opacity duration-300"
-                  style={{
-                    left: `${pos.xPct}%`,
-                    top: `${pos.yPct}%`,
-                    transform: "translate(-50%, -50%)",
-                    opacity: hiddenGigKey === key ? 0 : 1,
-                  }}
-                >
-                  <ShowStamp
-                    color={pos.show.is_owned ? "#8CFF3D" : "#F472B6"}
-                    onClick={() => openGig(pos.show)}
-                    isNewest={i === positions.length - 1}
-                    ariaLabel={pos.show.event_name || pos.show.band_name || "Untitled Gig"}
-                  />
+          <div className="space-y-4">
+            {monthGroups.map(([monthKey, monthGigs]) => (
+              <div key={monthKey}>
+                <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
+                <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
+                  {monthGigs.map((g) => {
+                    const color = g.is_owned ? "#8CFF3D" : "#F472B6";
+                    const d = g.date ? new Date(g.date + "T00:00:00") : null;
+                    return (
+                      <button
+                        key={gigKey(g)}
+                        type="button"
+                        onClick={() => openGig(g)}
+                        className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-white text-sm font-medium truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
+                          <div className="flex items-center gap-1 text-white/35 text-xs mt-0.5 truncate">
+                            {g.venue && (
+                              <span className="flex items-center gap-0.5 truncate">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{[g.venue, g.city].filter(Boolean).join(", ")}</span>
+                              </span>
+                            )}
+                            {!g.is_owned && (
+                              <span className="flex items-center gap-0.5 text-pink-400/70 shrink-0 ml-1">
+                                <Link2 className="w-3 h-3" /> Linked
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {d && (
+                          <span className="text-white/40 text-xs font-medium shrink-0">
+                            {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -334,7 +361,6 @@ export default function BandHome() {
         <GigWrapCelebration
           key={wrapQueue[0].id}
           wrap={wrapQueue[0]}
-          targetPos={flightTarget}
           onDone={() => finishWrap(wrapQueue[0])}
         />
       )}

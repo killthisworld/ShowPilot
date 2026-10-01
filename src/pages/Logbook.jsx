@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar, Link2, Users, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,6 +8,13 @@ import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellatio
 
 export default function Logbook() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // A wrap-celebration ending on BandHome lands here with the show that
+  // just wrapped, instead of this always opening on the cover page - this
+  // is the "looking back" view the stars live in, so finishing a show
+  // should drop you right on it, mid-glow, not make you dig for it.
+  const landOnShowId = location.state?.landOnShowId || null;
+  const landOnDate = location.state?.landOnDate || null;
   const [shows, setShows] = useState([]);
   const [monthSettingsMap, setMonthSettingsMap] = useState({});
   const [coverSettings, setCoverSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5 });
@@ -17,10 +25,19 @@ export default function Logbook() {
   const [collaborators, setCollaborators] = useState(null);
   const [loadingCollaborators, setLoadingCollaborators] = useState(false);
   const [togglingPublic, setTogglingPublic] = useState(false);
-  const [showingCover, setShowingCover] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(null);
-  const [selectedMonthKey, setSelectedMonthKey] = useState(null);
+  const [showingCover, setShowingCover] = useState(!landOnShowId);
+  const [selectedYear, setSelectedYear] = useState(landOnDate ? landOnDate.slice(0, 4) : null);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(landOnDate ? landOnDate.slice(0, 7) : null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [justLandedId, setJustLandedId] = useState(landOnShowId);
+
+  // The landing glow plays once, then this clears so it never replays
+  // (switching months and back, say).
+  useEffect(() => {
+    if (!justLandedId) return;
+    const t = setTimeout(() => setJustLandedId(null), 2600);
+    return () => clearTimeout(t);
+  }, [justLandedId]);
 
   useEffect(() => {
     const load = async () => {
@@ -331,20 +348,41 @@ export default function Logbook() {
                               />
                             ))}
                           </svg>
-                          {positions.map((pos, i) => (
-                            <div
-                              key={pos.show.id}
-                              className="absolute z-10"
-                              style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
-                            >
-                              <ShowStamp
-                                color={pos.show.is_linked ? "#F472B6" : hashColor(pos.show.venue || pos.show.band_name || "show")}
-                                onClick={() => setSelectedShow(pos.show)}
-                                isNewest={i === positions.length - 1}
-                                ariaLabel={pos.show.band_name || pos.show.venue}
-                              />
-                            </div>
-                          ))}
+                          {positions.map((pos, i) => {
+                            const isLanded = pos.show.id === justLandedId;
+                            return (
+                              <div
+                                key={pos.show.id}
+                                className="absolute z-10"
+                                style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}
+                              >
+                                <motion.div
+                                  initial={isLanded ? { scale: 0.3, opacity: 0 } : false}
+                                  animate={
+                                    isLanded
+                                      ? {
+                                          scale: [0.3, 1.5, 1],
+                                          opacity: [0, 1, 1],
+                                          filter: [
+                                            "drop-shadow(0 0 0px rgba(140,255,61,0))",
+                                            "drop-shadow(0 0 18px rgba(140,255,61,0.95))",
+                                            "drop-shadow(0 0 0px rgba(140,255,61,0))",
+                                          ],
+                                        }
+                                      : undefined
+                                  }
+                                  transition={isLanded ? { duration: 2.4, times: [0, 0.35, 1], ease: "easeOut" } : undefined}
+                                >
+                                  <ShowStamp
+                                    color={pos.show.is_linked ? "#F472B6" : hashColor(pos.show.venue || pos.show.band_name || "show")}
+                                    onClick={() => setSelectedShow(pos.show)}
+                                    isNewest={i === positions.length - 1}
+                                    ariaLabel={pos.show.band_name || pos.show.venue}
+                                  />
+                                </motion.div>
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })()}
