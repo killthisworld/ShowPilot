@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, ChevronDown, Check, Plus, Trash2, LogIn, UserPlus, Pencil } from "lucide-react";
-import { STAMP_COLORS, getConstellationLayout, ShowStamp } from "@/lib/constellation";
+import { STAMP_COLORS } from "@/lib/constellation";
 
 const DEFAULT_CATEGORIES = [
   { key: "new", label: "New", color: "#EF4444" },
@@ -98,10 +98,32 @@ export default function VenueProfile() {
     return monthOk && catOk;
   }), [events, selectedMonth, selectedCategory]);
 
-  const { positions, rows } = useMemo(
-    () => getConstellationLayout(filteredEvents, { getSeedKey: (e) => e.show_id }),
-    [filteredEvents]
-  );
+  // Grouped by pipeline status - New / In Progress / Ready to Go, in
+  // whatever order the venue defined them, soonest date first within each.
+  // This is a booking pipeline the venue actually works, not a look-back,
+  // so "what's in which stage" is the thing to show, not an unlabeled
+  // field of dots.
+  const statusGroups = useMemo(() => {
+    const byCategory = new Map();
+    filteredEvents.forEach((e) => {
+      const key = e.category_id || "uncategorized";
+      if (!byCategory.has(key)) byCategory.set(key, []);
+      byCategory.get(key).push(e);
+    });
+    byCategory.forEach((list) =>
+      list.sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(a.date) - new Date(b.date);
+      })
+    );
+    const ordered = categories
+      .map((c) => [c.id, byCategory.get(c.id) || []])
+      .filter(([, list]) => list.length > 0);
+    const uncategorized = byCategory.get("uncategorized");
+    if (uncategorized?.length) ordered.push([null, uncategorized]);
+    return ordered;
+  }, [filteredEvents, categories]);
 
   const recolorCategory = async (catId, color) => {
     setCategories((cs) => cs.map((c) => (c.id === catId ? { ...c, color } : c)));
@@ -159,11 +181,10 @@ export default function VenueProfile() {
   }
 
   const selectedEvent = events.find((e) => e.show_id === selectedEventId) || null;
-  const containerHeight = filteredEvents.length === 0 ? 220 : Math.max(320, rows * 110);
   const monthActive = selectedMonth !== "all";
   const categoryActive = selectedCategory !== "all";
   const monthLabel = (monthOptions.find((m) => m.value === selectedMonth) || monthOptions[0]).label;
-  const categoryLabel = selectedCategory === "all" ? "All Types" : (catById(selectedCategory)?.label || "All Types");
+  const categoryLabel = selectedCategory === "all" ? "All Statuses" : (catById(selectedCategory)?.label || "All Statuses");
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
@@ -215,41 +236,54 @@ export default function VenueProfile() {
               </button>
             </div>
 
-            {categories.length > 0 && (
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                {categories.map((c) => (
-                  <div key={c.id} className="flex items-center gap-1.5">
-                    <div className="w-[7px] h-[7px] rounded-full" style={{ background: c.color, boxShadow: `0 0 6px 1px ${c.color}aa` }} />
-                    <span className="text-[10.5px] text-white/40 font-semibold">{c.label}</span>
-                  </div>
-                ))}
+            {filteredEvents.length === 0 ? (
+              <div className="text-center py-16 bg-[#111] rounded-2xl border border-[#222]">
+                <span className="text-white/30 text-sm">
+                  {events.length === 0 ? "No other events found for this venue yet." : "No shows match these filters."}
+                </span>
               </div>
-            )}
-
-            <div className="relative mx-auto" style={{ width: "100%", maxWidth: 350, height: containerHeight }}>
-              {filteredEvents.length === 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center text-center px-10">
-                  <span className="text-white/30 text-sm">
-                    {events.length === 0 ? "No other events found for this venue yet." : "No shows match these filters."}
-                  </span>
-                </div>
-              ) : (
-                positions.map((pos, i) => {
-                  const cat = catById(pos.show.category_id);
+            ) : (
+              <div className="space-y-4">
+                {statusGroups.map(([catId, catEvents]) => {
+                  const cat = catById(catId);
                   const color = cat?.color || "#5a5a5a";
+                  const label = cat?.label || "Uncategorized";
                   return (
-                    <div key={pos.show.show_id} className="absolute z-10" style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}>
-                      <ShowStamp
-                        color={color}
-                        onClick={() => setSelectedEventId(pos.show.show_id)}
-                        isNewest={i === positions.length - 1}
-                        ariaLabel={pos.show.event_name || pos.show.venue}
-                      />
+                    <div key={catId ?? "uncategorized"}>
+                      <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 6px 1px ${color}aa` }} />
+                        <p className="font-bold text-xs uppercase tracking-wide truncate" style={{ color }}>{label}</p>
+                        <span className="text-white/25 text-[10px] ml-auto shrink-0">{catEvents.length}</span>
+                      </div>
+                      <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
+                        {catEvents.map((e) => {
+                          const d = e.date ? new Date(e.date + "T00:00:00") : null;
+                          return (
+                            <button
+                              key={e.show_id}
+                              type="button"
+                              onClick={() => setSelectedEventId(e.show_id)}
+                              className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                            >
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-white text-sm font-medium truncate">{e.event_name || e.venue || "Untitled"}</p>
+                                {e.venue && <p className="text-white/35 text-xs mt-0.5 truncate">{e.venue}</p>}
+                              </div>
+                              {d && (
+                                <span className="text-white/40 text-xs font-medium shrink-0">
+                                  {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -306,7 +340,7 @@ export default function VenueProfile() {
           <div onClick={() => { setSheetMode(null); setEditingCategoryId(null); }} className="fixed inset-0 z-50 bg-black/60" />
           <div className="fixed left-0 right-0 bottom-0 z-50 bg-[#111111] border-t border-[#2a2a2a] rounded-t-[24px] px-5 pt-5 pb-7 flex flex-col gap-3.5 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <div className="text-white font-semibold text-base">{sheetMode === "month" ? "Filter by Month" : "Filter by Type"}</div>
+              <div className="text-white font-semibold text-base">{sheetMode === "month" ? "Filter by Month" : "Filter by Status"}</div>
               <button onClick={() => { setSheetMode(null); setEditingCategoryId(null); }} aria-label="Close" className="w-8 h-8 rounded-[10px] bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center">
                 <X className="w-3.5 h-3.5 text-white/60" />
               </button>
@@ -335,7 +369,7 @@ export default function VenueProfile() {
 
             {sheetMode === "category" && (
               <>
-                <p className="text-[11.5px] text-white/35 -mt-1.5">Tap a category to filter. Tap the pencil to recolor or remove it.</p>
+                <p className="text-[11.5px] text-white/35 -mt-1.5">Tap a status to filter. Tap the pencil to recolor or remove it.</p>
                 <div className="flex flex-col gap-0.5">
                   <button
                     type="button"
@@ -347,7 +381,7 @@ export default function VenueProfile() {
                       fontWeight: selectedCategory === "all" ? 700 : 500,
                     }}
                   >
-                    <span>All Types</span>
+                    <span>All Statuses</span>
                     {selectedCategory === "all" && <Check className="w-4 h-4 text-[#8CFF3D]" />}
                   </button>
 
