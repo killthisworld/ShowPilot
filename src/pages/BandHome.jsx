@@ -5,6 +5,7 @@ import { CalendarDays, Plus, Search, MapPin, Link2 } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
@@ -31,6 +32,15 @@ export default function BandHome() {
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
   const [search, setSearch] = useState("");
+  // "All Months" by default - a venue running hundreds of shows a year
+  // needs a way to jump straight to a month far out instead of scrolling
+  // every group between now and then.
+  const [monthFilter, setMonthFilter] = useState("all");
+  // show_id -> { confirmed_roles, total_roles, open_tasks }, from
+  // get_gigs_home_progress - best-effort like the wrap queue below, a
+  // failed/slow fetch just means rows render without their progress
+  // ring rather than blocking the list.
+  const [progressByShow, setProgressByShow] = useState({});
   // The post-show "web comes together into a star" celebration - queued
   // shows the viewer hasn't seen their wrap-up for yet (get_unseen_gig_wraps),
   // played one at a time; get_unseen_gig_wraps already only returns shows
@@ -83,7 +93,8 @@ export default function BandHome() {
     }
 
     const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));
-    setGigs([...ownedGigs, ...linkedGigs]);
+    const allGigs = [...ownedGigs, ...linkedGigs];
+    setGigs(allGigs);
     setLoading(false);
 
     // Best-effort, same as the rest of this load - a stale/missing RPC
@@ -91,6 +102,19 @@ export default function BandHome() {
     // should block the list itself from loading.
     const { data: unseen, error: unseenError } = await supabase.rpc("get_unseen_gig_wraps");
     if (!unseenError && unseen?.length) setWrapQueue(unseen);
+
+    // One bulk call for every visible show's progress - both owned and
+    // linked, same "just needs the id" shape get_shared_gig already
+    // returns for linked gigs - rather than a query per row.
+    const progressIds = allGigs.map((g) => g.id).filter(Boolean);
+    if (progressIds.length > 0) {
+      const { data: progressRows, error: progressError } = await supabase.rpc("get_gigs_home_progress", { p_show_ids: progressIds });
+      if (!progressError && progressRows) {
+        const map = {};
+        progressRows.forEach((row) => { map[row.show_id] = row; });
+        setProgressByShow(map);
+      }
+    }
   };
   useEffect(() => { loadGigs(); }, []);
 
@@ -174,6 +198,14 @@ export default function BandHome() {
 
   const monthLabel = (key) =>
     key === "undated" ? "No Date" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  // The dropdown's own options always list every month that exists in
+  // the full (search-filtered) list, regardless of which one is
+  // currently selected - only the rendered groups below narrow down.
+  const visibleMonthGroups = useMemo(() => {
+    if (monthFilter === "all") return monthGroups;
+    return monthGroups.filter(([key]) => key === monthFilter);
+  }, [monthGroups, monthFilter]);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -260,14 +292,29 @@ export default function BandHome() {
         </div>
 
         {sortedGigs.length > 0 && (
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search shows, venues, cities..."
-              className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
-            />
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search shows, venues, cities..."
+                className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
+              />
+            </div>
+            {monthGroups.length > 1 && (
+              <Select value={monthFilter} onValueChange={setMonthFilter}>
+                <SelectTrigger className="h-10 w-[112px] shrink-0 bg-[#161616] border-[#222] text-white/70 text-xs rounded-xl px-2.5">
+                  <SelectValue placeholder="All Months" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
+                  <SelectItem value="all">All Months</SelectItem>
+                  {monthGroups.map(([key]) => (
+                    <SelectItem key={key} value={key}>{monthLabel(key)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         )}
 
@@ -287,15 +334,19 @@ export default function BandHome() {
           </div>
         ) : monthGroups.length === 0 ? (
           <p className="text-center text-white/30 text-sm py-12">No shows match your search</p>
+        ) : visibleMonthGroups.length === 0 ? (
+          <p className="text-center text-white/30 text-sm py-12">No shows in {monthLabel(monthFilter)}</p>
         ) : (
           <div className="space-y-4">
-            {monthGroups.map(([monthKey, monthGigs]) => (
+            {visibleMonthGroups.map(([monthKey, monthGigs]) => (
               <div key={monthKey}>
                 <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
                 <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
                   {monthGigs.map((g) => {
                     const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                     const d = g.date ? new Date(g.date + "T00:00:00") : null;
+                    const prog = progressByShow[g.id];
+                    const ringDeg = prog ? Math.round((prog.confirmed_roles / Math.max(prog.total_roles, 1)) * 360) : 0;
                     return (
                       <button
                         key={gigKey(g)}
@@ -320,11 +371,26 @@ export default function BandHome() {
                             )}
                           </div>
                         </div>
-                        {d && (
-                          <span className="text-white/40 text-xs font-medium shrink-0">
-                            {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        )}
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          {d && (
+                            <span className="text-white/40 text-xs font-medium">
+                              {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </span>
+                          )}
+                          {prog && (
+                            <div className="flex items-center gap-1" title={`${prog.confirmed_roles}/${prog.total_roles} roles confirmed${prog.open_tasks ? ` · ${prog.open_tasks} open task${prog.open_tasks === 1 ? "" : "s"}` : ""}`}>
+                              <span className="text-white/30 text-[9px] font-medium">{prog.confirmed_roles}/{prog.total_roles}</span>
+                              <span
+                                className="relative w-3.5 h-3.5 rounded-full shrink-0"
+                                style={{ background: `conic-gradient(#8CFF3D ${ringDeg}deg, #242424 0deg)` }}
+                              >
+                                {prog.open_tasks > 0 && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[#FACC15] border border-[#111111]" />
+                                )}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
