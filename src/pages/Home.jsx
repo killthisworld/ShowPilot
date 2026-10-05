@@ -11,6 +11,7 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
+import { buildEventTypeOptions, matchesEventType } from "@/lib/eventTypes";
 
 // Status tabs config
 const STATUS_TABS = [
@@ -30,6 +31,7 @@ export default function Home() {
   const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
+  const [eventTypeFilter, setEventTypeFilter] = useState("all");
   const [venueFilter, setVenueFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [stateFilter, setStateFilter] = useState("all");
@@ -221,6 +223,12 @@ export default function Home() {
   }, [shows]);
 
   const genres = useMemo(() => [...new Set(shows.map((s) => s.genre_tag).filter(Boolean))], [shows]);
+  // Built-ins + the user's own custom types + anything already on an event,
+  // so a newly added type shows up here right away.
+  const eventTypes = useMemo(
+    () => buildEventTypeOptions(shows, preferences?.custom_event_types),
+    [shows, preferences?.custom_event_types]
+  );
   const venues = useMemo(() => [...new Set(shows.map((s) => s.venue).filter(Boolean))].sort(), [shows]);
 
   // Parse city and state from location field "City, State"
@@ -311,12 +319,13 @@ export default function Home() {
         if (m !== parseInt(monthFilter)) return false;
       }
       if (genreFilter !== "all" && s.genre_tag !== genreFilter) return false;
+      if (!matchesEventType(s, eventTypeFilter)) return false;
       if (venueFilter !== "all" && s.venue !== venueFilter) return false;
       if (cityFilter !== "all" && !s.location?.toLowerCase().includes(cityFilter.toLowerCase())) return false;
       if (stateFilter !== "all" && !s.location?.toLowerCase().includes(stateFilter.toLowerCase())) return false;
       return true;
     });
-  }, [shows, search, activeTab, yearFilter, monthFilter, genreFilter, venueFilter, cityFilter, stateFilter]);
+  }, [shows, search, activeTab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
 
   const genreTagMap = useMemo(() => {
     const map = {};
@@ -324,8 +333,8 @@ export default function Home() {
     return map;
   }, [preferences]);
 
-  const hasActiveFilters = yearFilter !== "all" || monthFilter !== "all" || genreFilter !== "all" || venueFilter !== "all" || cityFilter !== "all" || stateFilter !== "all";
-  const clearFilters = () => { setYearFilter("all"); setMonthFilter("all"); setGenreFilter("all"); setVenueFilter("all"); setCityFilter("all"); setStateFilter("all"); };
+  const hasActiveFilters = yearFilter !== "all" || monthFilter !== "all" || genreFilter !== "all" || eventTypeFilter !== "all" || venueFilter !== "all" || cityFilter !== "all" || stateFilter !== "all";
+  const clearFilters = () => { setYearFilter("all"); setMonthFilter("all"); setGenreFilter("all"); setEventTypeFilter("all"); setVenueFilter("all"); setCityFilter("all"); setStateFilter("all"); };
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
@@ -443,6 +452,15 @@ export default function Home() {
                 <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                   <SelectItem value="all">All Genres</SelectItem>
                   {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
+                  <SelectValue placeholder="Event Type" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Event Types</SelectItem>
+                  {eventTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={venueFilter} onValueChange={setVenueFilter}>

@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus, Search, MapPin, Link2 } from "lucide-react";
+import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
+import { buildEventTypeOptions, matchesEventType } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
 // keep the card-list Home.jsx). This used to be a starfield constellation -
@@ -32,10 +34,19 @@ export default function BandHome() {
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
   const [search, setSearch] = useState("");
-  // "All Months" by default - a venue running hundreds of shows a year
-  // needs a way to jump straight to a month far out instead of scrolling
-  // every group between now and then.
+  // Same search + filter panel, in the same spot, as the tech Home: a
+  // search box with a sliders toggle in the sticky header, and a
+  // Year / Month / Genre / Event Type / Venue / City / State panel under it.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
+  const [genreFilter, setGenreFilter] = useState("all");
+  const [eventTypeFilter, setEventTypeFilter] = useState("all");
+  const [venueFilter, setVenueFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
+  const searchRef = useRef(null);
   // show_id -> { confirmed_roles, total_roles, open_tasks }, from
   // get_gigs_home_progress - best-effort like the wrap queue below, a
   // failed/slow fetch just means rows render without their progress
@@ -168,15 +179,65 @@ export default function BandHome() {
     });
   }, [gigs]);
 
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  const years = useMemo(
+    () => [...new Set(sortedGigs.map((g) => g.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
+    [sortedGigs]
+  );
+  const genres = useMemo(() => [...new Set(sortedGigs.map((g) => g.genre_tag).filter(Boolean))].sort(), [sortedGigs]);
+  // Built-ins + custom types the user added + any type already on an event.
+  const eventTypes = useMemo(
+    () => buildEventTypeOptions(sortedGigs, preferences?.custom_event_types),
+    [sortedGigs, preferences?.custom_event_types]
+  );
+  const venues = useMemo(() => [...new Set(sortedGigs.map((g) => g.venue).filter(Boolean))].sort(), [sortedGigs]);
+  const cities = useMemo(() => [...new Set(sortedGigs.map((g) => g.city?.trim()).filter(Boolean))].sort(), [sortedGigs]);
+  const states = useMemo(() => [...new Set(sortedGigs.map((g) => g.state?.trim()).filter(Boolean))].sort(), [sortedGigs]);
+
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    const candidates = new Set();
+    sortedGigs.forEach((g) => {
+      const title = g.event_name || g.band_name;
+      if (title?.toLowerCase().includes(q)) candidates.add(title);
+      if (g.venue?.toLowerCase().includes(q)) candidates.add(g.venue);
+      if (g.city?.toLowerCase().includes(q)) candidates.add(g.city);
+    });
+    return [...candidates].slice(0, 6);
+  }, [search, sortedGigs]);
+
   const filteredGigs = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return sortedGigs;
-    return sortedGigs.filter((g) =>
-      (g.event_name || g.band_name || "").toLowerCase().includes(q) ||
-      g.venue?.toLowerCase().includes(q) ||
-      g.city?.toLowerCase().includes(q)
-    );
-  }, [sortedGigs, search]);
+    return sortedGigs.filter((g) => {
+      if (q) {
+        const hit =
+          (g.event_name || "").toLowerCase().includes(q) ||
+          (g.band_name || "").toLowerCase().includes(q) ||
+          g.venue?.toLowerCase().includes(q) ||
+          g.city?.toLowerCase().includes(q) ||
+          g.state?.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (yearFilter !== "all" && !g.date?.startsWith(yearFilter)) return false;
+      if (monthFilter !== "all") {
+        if (!g.date || new Date(g.date + "T00:00:00").getMonth() !== parseInt(monthFilter)) return false;
+      }
+      if (genreFilter !== "all" && g.genre_tag !== genreFilter) return false;
+      if (!matchesEventType(g, eventTypeFilter)) return false;
+      if (venueFilter !== "all" && g.venue !== venueFilter) return false;
+      if (cityFilter !== "all" && g.city?.trim() !== cityFilter) return false;
+      if (stateFilter !== "all" && g.state?.trim() !== stateFilter) return false;
+      return true;
+    });
+  }, [sortedGigs, search, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
+
+  const hasActiveFilters = yearFilter !== "all" || monthFilter !== "all" || genreFilter !== "all" || eventTypeFilter !== "all" || venueFilter !== "all" || cityFilter !== "all" || stateFilter !== "all";
+  const clearFilters = () => {
+    setYearFilter("all"); setMonthFilter("all"); setGenreFilter("all"); setEventTypeFilter("all");
+    setVenueFilter("all"); setCityFilter("all"); setStateFilter("all");
+  };
 
   // Grouped by month, soonest first - the same organizing idea Logbook
   // already uses for looking back, just running forward instead. This is
@@ -198,14 +259,6 @@ export default function BandHome() {
 
   const monthLabel = (key) =>
     key === "undated" ? "No Date" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-  // The dropdown's own options always list every month that exists in
-  // the full (search-filtered) list, regardless of which one is
-  // currently selected - only the rendered groups below narrow down.
-  const visibleMonthGroups = useMemo(() => {
-    if (monthFilter === "all") return monthGroups;
-    return monthGroups.filter(([key]) => key === monthFilter);
-  }, [monthGroups, monthFilter]);
 
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
@@ -247,6 +300,115 @@ export default function BandHome() {
           <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
             <Plus className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Search row - same as the tech Home */}
+        <div className="px-4 pb-3 max-w-lg mx-auto">
+          <div className="flex gap-2">
+            <div className="relative flex-1" ref={searchRef}>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Search shows, venues..."
+                className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl z-50 overflow-hidden">
+                  {suggestions.map((sg, i) => (
+                    <button key={i} onMouseDown={() => { setSearch(sg); setShowSuggestions(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-[#222] flex items-center gap-2">
+                      <Search className="w-3 h-3 text-white/30" />
+                      <span>{sg}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterOpen(!filterOpen)}
+              className={`h-10 w-10 p-0 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#161616] text-white/50"}`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {filterOpen && (
+            <div className="flex gap-2 mt-2 flex-wrap">
+              <Select value={yearFilter} onValueChange={setYearFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Years</SelectItem>
+                  {years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={monthFilter} onValueChange={setMonthFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Months</SelectItem>
+                  {MONTHS.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={genreFilter} onValueChange={setGenreFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+                  <SelectValue placeholder="Genre" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Genres</SelectItem>
+                  {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
+                  <SelectValue placeholder="Event Type" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Event Types</SelectItem>
+                  {eventTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={venueFilter} onValueChange={setVenueFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
+                  <SelectValue placeholder="Venue" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Venues</SelectItem>
+                  {venues.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+                  <SelectValue placeholder="City" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All Cities</SelectItem>
+                  {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={stateFilter} onValueChange={setStateFilter}>
+                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+                  <SelectValue placeholder="State" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                  <SelectItem value="all">All States</SelectItem>
+                  {states.map((st) => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button size="sm" variant="ghost" className="h-8 text-white/40 hover:text-white px-2" onClick={clearFilters}>
+                  <X className="w-3 h-3 mr-1" /> Clear
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -291,33 +453,6 @@ export default function BandHome() {
           </div>
         </div>
 
-        {sortedGigs.length > 0 && (
-          <div className="flex items-center gap-2 mb-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search shows, venues, cities..."
-                className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
-              />
-            </div>
-            {monthGroups.length > 1 && (
-              <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger className="h-10 w-[112px] shrink-0 bg-[#161616] border-[#222] text-white/70 text-xs rounded-xl px-2.5">
-                  <SelectValue placeholder="All Months" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] text-white">
-                  <SelectItem value="all">All Months</SelectItem>
-                  {monthGroups.map(([key]) => (
-                    <SelectItem key={key} value={key}>{monthLabel(key)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
-
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
@@ -333,12 +468,10 @@ export default function BandHome() {
             <p className="text-white/40 text-sm">No shows yet</p>
           </div>
         ) : monthGroups.length === 0 ? (
-          <p className="text-center text-white/30 text-sm py-12">No shows match your search</p>
-        ) : visibleMonthGroups.length === 0 ? (
-          <p className="text-center text-white/30 text-sm py-12">No shows in {monthLabel(monthFilter)}</p>
+          <p className="text-center text-white/30 text-sm py-12">No shows match your search or filters</p>
         ) : (
           <div className="space-y-4">
-            {visibleMonthGroups.map(([monthKey, monthGigs]) => (
+            {monthGroups.map(([monthKey, monthGigs]) => (
               <div key={monthKey}>
                 <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
                 <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
