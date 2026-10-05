@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
-import { Search, Plus, SlidersHorizontal, X, Star, CalendarDays } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, X, CalendarDays, Archive, Trash2, Star } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import ShowCard from "@/components/showpilot/ShowCard";
+import SceneRow from "@/components/showpilot/SceneRow";
+import CuePad from "@/components/showpilot/CuePad";
+import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -13,21 +16,14 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
-// Status tabs config
-const STATUS_TABS = [
-  { id: "not_started", label: "New", shortLabel: "New", activeBg: "bg-white/10", activeText: "text-white", dot: "bg-white/30" },
-  { id: "in_progress", label: "Frequent", shortLabel: "Frequent", activeBg: "bg-blue-500/15", activeText: "text-blue-400", dot: "bg-blue-400" },
-  { id: "complete", label: "Worked", shortLabel: "Worked", activeBg: "bg-[#8CFF3D]/15", activeText: "text-[#8CFF3D]", dot: "bg-[#8CFF3D]" },
-  { id: "starred", label: "Starred", shortLabel: "★", activeBg: "bg-amber-500/15", activeText: "text-amber-400", dot: null },
-  { id: "linked", label: "Linked", shortLabel: "Linked", activeBg: "bg-pink-500/15", activeText: "text-pink-400", dot: "bg-pink-400" },
-];
-
 export default function Home() {
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("not_started");
+  const [loadedKey, setLoadedKey] = useState(null);
+  const navigate = useNavigate();
   const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [genreFilter, setGenreFilter] = useState("all");
@@ -327,6 +323,16 @@ export default function Home() {
     });
   }, [shows, search, activeTab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
 
+  const bankCounts = useMemo(() => {
+    const counts = {};
+    shows.forEach((s) => { const k = sceneBankOf(s); counts[k] = (counts[k] || 0) + 1; });
+    return counts;
+  }, [shows]);
+
+  const isLighting = preferences?.account_type === "lighting";
+  const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
+  const openShow = (s) => navigate(s.is_owned === false ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`);
+
   const genreTagMap = useMemo(() => {
     const map = {};
     (preferences?.genre_tags || []).forEach(t => { map[t.name] = t.color; });
@@ -355,7 +361,7 @@ export default function Home() {
   const clearFilters = () => { setYearFilter("all"); setMonthFilter("all"); setGenreFilter("all"); setEventTypeFilter("all"); setVenueFilter("all"); setCityFilter("all"); setStateFilter("all"); };
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       {/* Confirm delete modal */}
       {confirmDeleteShow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteShow(null)}>
@@ -519,24 +525,24 @@ export default function Home() {
           )}
         </div>
 
-        {/* Status Tabs */}
+        {/* Banks - the status tabs, styled like console bank buttons */}
         <div className="px-4 pb-3 max-w-lg mx-auto">
-          <div className="flex gap-1 bg-[#111] rounded-xl p-1">
-            {STATUS_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === tab.id ? `${tab.activeBg} ${tab.activeText}` : "text-white/35 hover:text-white/60"
-                }`}
-              >
-                <span>{tab.shortLabel}</span>
-                {tab.id === "starred"
-                  ? <Star className="w-3 h-3" fill={activeTab === "starred" ? "currentColor" : "none"} />
-                  : tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`} />
-                }
-              </button>
-            ))}
+          <div className="flex gap-1.5">
+            {SCENE_BANKS.map((bank) => {
+              const active = activeTab === bank.id;
+              return (
+                <button
+                  key={bank.id}
+                  onClick={() => setActiveTab(bank.id)}
+                  className="flex-1 min-w-0 flex flex-col items-center gap-1.5 pt-2 pb-1.5 rounded-lg text-white transition-colors"
+                  style={{ background: active ? "#1a1a1a" : "#121212", border: `1px solid ${active ? bank.color + "88" : "#1f1f1f"}` }}
+                >
+                  <span className="w-[22px] h-1 rounded-sm" style={{ background: active ? bank.color : bank.color + "40" }} />
+                  <span className="text-sm font-bold tracking-[0.06em]" style={{ color: active ? "#fff" : "rgba(255,255,255,0.6)" }}>{bank.label}</span>
+                  <span className="text-[10px] text-white/50" style={{ fontFamily: SCENE_MONO }}>{bankCounts[bank.id] || 0}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -546,8 +552,8 @@ export default function Home() {
         <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-3.5 h-3.5 text-white/40" />
-            <p className="text-xs text-white/40 uppercase tracking-wider font-semibold">This Week</p>
-            <span className="ml-auto text-[10px] text-white/25">{weekLabel}</span>
+            <p className="text-[10px] text-white/55 tracking-[0.14em] font-medium" style={{ fontFamily: SCENE_MONO }}>THIS WEEK</p>
+            <span className="ml-auto text-[10px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{weekLabel.toUpperCase()}</span>
           </div>
           {thisWeekShows.length === 0 ? (
             <p className="text-white/30 text-sm">No shows scheduled this week — enjoy the break.</p>
@@ -555,16 +561,16 @@ export default function Home() {
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {thisWeekShows.map((show) => {
                 const d = new Date(show.date + "T00:00:00");
-                const color = show.starred ? "#FBBF24" : show.status === "complete" ? "#8CFF3D" : show.status === "in_progress" ? "#60A5FA" : "#999";
+                const color = sceneAccent(show);
                 return (
                   <Link
-                    key={show.id}
-                    to={`/show/${show.id}`}
+                    key={show.is_owned === false ? show.share_token : show.id}
+                    to={show.is_owned === false ? `/gig/web?token=${show.share_token}` : `/show/${show.id}`}
                     className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0"
                     style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
                   >
-                    <span className="text-xs font-semibold truncate max-w-[90px]" style={{ color }}>{show.event_name || show.band_name || "Untitled Gig"}</span>
-                    <span className="text-[9px] text-white/40">{d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    <span className="text-[15px] font-bold truncate max-w-[130px]" style={{ color }}>{sceneTitle(show)}</span>
+                    <span className="text-[9.5px] text-white/55" style={{ fontFamily: SCENE_MONO }}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</span>
                   </Link>
                 );
               })}
@@ -573,8 +579,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Shows List */}
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
+      {/* Scene list (audio) / cue pads (lighting) */}
+      <div className="px-4 pt-4 max-w-lg mx-auto">
+        <div className="flex items-center justify-between px-0.5 pb-1.5 text-[10px] tracking-[0.14em] text-white/50" style={{ fontFamily: SCENE_MONO }}>
+          <span>{isLighting ? "CUE PADS" : "SCENE LIST"}</span>
+          <span>{filtered.length} {search ? (filtered.length === 1 ? "RESULT" : "RESULTS") : isLighting ? (filtered.length === 1 ? "CUE" : "CUES") : (filtered.length === 1 ? "SCENE" : "SCENES")}</span>
+        </div>
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
@@ -591,18 +601,36 @@ export default function Home() {
               {activeTab === "starred" ? "Star a show to find it quickly here" : "Add Event"}
             </p>
           </div>
+        ) : isLighting ? (
+          <div className="grid grid-cols-3 gap-2" style={{ paddingBottom: 110 }}>
+            {filtered.map((show) => (
+              <CuePad key={showKey(show)} show={show} selected={loadedShow && showKey(show) === showKey(loadedShow)} onSelect={(s) => setLoadedKey(showKey(s))} />
+            ))}
+          </div>
         ) : (
-          filtered.map((show) => (
-            <ShowCard
-              key={show.id}
-              show={show}
-              genreTagMap={genreTagMap}
-              onArchive={handleArchive}
-              onDeleteRequest={requestDelete}
-            />
-          ))
+          <div className="bg-[#111111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
+            {filtered.map((show) => (
+              <SceneRow key={showKey(show)} show={show} onArchive={handleArchive} onDeleteRequest={requestDelete} />
+            ))}
+          </div>
         )}
       </div>
+
+      {/* Lighting: the loaded cue and its GO button, above the tab bar */}
+      {isLighting && loadedShow && !loading && (
+        <div className="fixed left-0 right-0 bottom-[76px] z-40 bg-[#101010] border-t border-[#242424]">
+          <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] tracking-[0.14em] text-[#8CFF3D]/70" style={{ fontFamily: SCENE_MONO }}>LOADED</div>
+              <div className="text-lg font-bold leading-tight truncate text-white">{sceneTitle(loadedShow)}</div>
+              <div className="text-[12.5px] text-white/55 truncate">{scenePlace(loadedShow)}{loadedShow.date ? " · " : ""}<span className="text-[11px]" style={{ fontFamily: SCENE_MONO }}>{sceneDate(loadedShow)}</span></div>
+            </div>
+            <button onClick={() => handleArchive(loadedShow)} aria-label="Archive" className="shrink-0 w-9 h-[52px] flex items-center justify-center text-blue-300/70 hover:text-blue-300"><Archive className="w-4 h-4" /></button>
+            <button onClick={() => requestDelete(loadedShow)} aria-label="Delete" className="shrink-0 w-9 h-[52px] flex items-center justify-center text-red-400/70 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+            <button onClick={() => openShow(loadedShow)} aria-label="Go to loaded gig" className="shrink-0 w-[84px] h-[52px] rounded-lg bg-[#8CFF3D] text-[#0d0d0d] text-xl font-bold tracking-[0.16em] hover:bg-[#7ae62e]">GO</button>
+          </div>
+        </div>
+      )}
 
       <BottomTabs />
     </div>
