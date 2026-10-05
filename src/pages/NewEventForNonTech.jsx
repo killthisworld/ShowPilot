@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/hooks/usePreferences";
+import { buildEventTypeOptions, addCustomEventType, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
-const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 const SECTION_OPTIONS = [
   { key: "venue", label: "Venue", color: "#FB923C" },
@@ -31,7 +31,7 @@ const ACCOUNT_TYPE_TO_SECTION = {
 export default function NewEventForNonTech() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { preferences } = usePreferences();
+  const { preferences, reload } = usePreferences();
   const mySection = ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] || "manager";
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState("");
@@ -39,6 +39,22 @@ export default function NewEventForNonTech() {
   const [selectedSections, setSelectedSections] = useState([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+
+  // Built-in + the user's custom types (shared with the home filters and the
+  // event page), "Other" last.
+  const eventTypeOptions = [...buildEventTypeOptions([], preferences?.custom_event_types), "Other"];
+  const handleEventTypeChange = async (v) => {
+    if (v !== ADD_NEW_VALUE) { setEventType(v); return; }
+    const input = window.prompt("Add a new event type:");
+    if (!input || !input.trim()) return;
+    try {
+      const saved = await addCustomEventType(preferences, input);
+      if (saved) { await reload(); setEventType(saved); }
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't save the new event type. Please try again.");
+    }
+  };
 
   const toggleSection = (key) => {
     if (key === mySection) return;
@@ -101,11 +117,12 @@ export default function NewEventForNonTech() {
           </div>
           <div>
             <Label className="text-white/50 text-xs">Event Type</Label>
-            <select value={eventType} onChange={(e) => setEventType(e.target.value)} className="mt-1 w-full h-10 bg-[#0d0d0d] border border-[#222] rounded-md text-white text-sm px-3">
+            <select value={eventType} onChange={(e) => handleEventTypeChange(e.target.value)} className="mt-1 w-full h-10 bg-[#0d0d0d] border border-[#222] rounded-md text-white text-sm px-3">
               <option value="">Select type</option>
-              {EVENT_TYPES.map((t) => (
+              {eventTypeOptions.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
+              <option value={ADD_NEW_VALUE}>+ Add new…</option>
             </select>
           </div>
           <div>

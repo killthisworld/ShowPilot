@@ -11,7 +11,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
-import { buildEventTypeOptions, matchesEventType } from "@/lib/eventTypes";
+import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
 // keep the card-list Home.jsx). This used to be a starfield constellation -
@@ -185,7 +185,7 @@ export default function BandHome() {
     () => [...new Set(sortedGigs.map((g) => g.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
     [sortedGigs]
   );
-  const genres = useMemo(() => [...new Set(sortedGigs.map((g) => g.genre_tag).filter(Boolean))].sort(), [sortedGigs]);
+  const genres = useMemo(() => buildGenreOptions(sortedGigs, preferences?.genre_tags), [sortedGigs, preferences?.genre_tags]);
   // Built-ins + custom types the user added + any type already on an event.
   const eventTypes = useMemo(
     () => buildEventTypeOptions(sortedGigs, preferences?.custom_event_types),
@@ -224,7 +224,7 @@ export default function BandHome() {
       if (monthFilter !== "all") {
         if (!g.date || new Date(g.date + "T00:00:00").getMonth() !== parseInt(monthFilter)) return false;
       }
-      if (genreFilter !== "all" && g.genre_tag !== genreFilter) return false;
+      if (!matchesGenre(g, genreFilter)) return false;
       if (!matchesEventType(g, eventTypeFilter)) return false;
       if (venueFilter !== "all" && g.venue !== venueFilter) return false;
       if (cityFilter !== "all" && g.city?.trim() !== cityFilter) return false;
@@ -232,6 +232,24 @@ export default function BandHome() {
       return true;
     });
   }, [sortedGigs, search, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
+
+  // "Add new..." at the bottom of the Genre / Event Type dropdowns. Saves to
+  // the user's preferences (the same lists the event forms use) and
+  // reloads them, so the new entry appears everywhere those lists do.
+  const handleAddNew = async (kind) => {
+    const label = kind === "genre" ? "genre" : "event type";
+    const input = window.prompt(`Add a new ${label}:`);
+    if (!input || !input.trim()) return;
+    try {
+      const saved = kind === "genre" ? await addGenreTag(preferences, input) : await addCustomEventType(preferences, input);
+      if (saved) await reload();
+    } catch (e) {
+      console.error(e);
+      window.alert(`Couldn't save the new ${label}. Please try again.`);
+    }
+  };
+  const onGenreChange = (v) => (v === ADD_NEW_VALUE ? handleAddNew("genre") : setGenreFilter(v));
+  const onEventTypeChange = (v) => (v === ADD_NEW_VALUE ? handleAddNew("eventType") : setEventTypeFilter(v));
 
   const hasActiveFilters = yearFilter !== "all" || monthFilter !== "all" || genreFilter !== "all" || eventTypeFilter !== "all" || venueFilter !== "all" || cityFilter !== "all" || stateFilter !== "all";
   const clearFilters = () => {
@@ -357,22 +375,24 @@ export default function BandHome() {
                   {MONTHS.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Select value={genreFilter} onValueChange={setGenreFilter}>
+              <Select value={genreFilter} onValueChange={onGenreChange}>
                 <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
                   <SelectValue placeholder="Genre" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                   <SelectItem value="all">All Genres</SelectItem>
                   {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                  <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+              <Select value={eventTypeFilter} onValueChange={onEventTypeChange}>
                 <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
                   <SelectValue placeholder="Event Type" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                   <SelectItem value="all">All Event Types</SelectItem>
                   {eventTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={venueFilter} onValueChange={setVenueFilter}>
