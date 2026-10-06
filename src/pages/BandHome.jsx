@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X } from "lucide-react";
+import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ export default function BandHome() {
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
   const [search, setSearch] = useState("");
+  const [showPast, setShowPast] = useState(false);
   // Same search + filter panel, in the same spot, as the tech Home: a
   // search box with a sliders toggle in the sticky header, and a
   // Year / Month / Genre / Event Type / Venue / City / State panel under it.
@@ -281,19 +282,28 @@ export default function BandHome() {
   const monthGroups = useMemo(() => {
     const groups = {};
     const undated = [];
+    const past = [];
+    const now = new Date();
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     filteredGigs.forEach((g) => {
       if (!g.date) { undated.push(g); return; }
+      if (g.date < todayISO) { past.push(g); return; }
       const key = g.date.slice(0, 7);
       if (!groups[key]) groups[key] = [];
       groups[key].push(g);
     });
     const entries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
     if (undated.length > 0) entries.push(["undated", undated]);
+    // Shows already behind you get their own "Past" group at the bottom (newest first) instead of mixing in with what is coming up.
+    if (past.length > 0) entries.push(["past", past.sort((a, b) => b.date.localeCompare(a.date))]);
     return entries;
   }, [filteredGigs]);
 
   const monthLabel = (key) =>
-    key === "undated" ? "No Date" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    key === "undated" ? "No Date" : key === "past" ? "Past" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  // Past stays collapsed unless asked for - or while searching/filtering, when you are plainly looking for something old.
+  const pastOpen = showPast || search.trim() !== "" || hasActiveFilters;
 
   const stripCells = useMemo(
     () => buildStatusStrip(preferences?.account_type, gigs, progressByShow),
@@ -546,8 +556,20 @@ export default function BandHome() {
           <div className="space-y-4">
             {monthGroups.map(([monthKey, monthGigs]) => (
               <div key={monthKey}>
-                <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
-                <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
+                {monthKey === "past" ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPast((v) => !v)}
+                    className="w-full flex items-center justify-between mb-1.5 px-1 text-white/50 hover:text-white/80 font-bold text-xs uppercase tracking-wide"
+                  >
+                    <span>Past · {monthGigs.length}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${pastOpen ? "rotate-180" : ""}`} />
+                  </button>
+                ) : (
+                  <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
+                )}
+                {(monthKey !== "past" || pastOpen) && (
+                <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden" style={monthKey === "past" ? { opacity: 0.6 } : undefined}>
                   {monthGigs.map((g) => {
                     const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                     const typeColor = eventTypeColor(g.event_type);
@@ -595,6 +617,7 @@ export default function BandHome() {
                     );
                   })}
                 </div>
+                )}
               </div>
             ))}
           </div>
