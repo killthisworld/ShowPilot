@@ -552,8 +552,6 @@ export default function BandHome() {
                     const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                     const typeColor = eventTypeColor(g.event_type);
                     const d = g.date ? new Date(g.date + "T00:00:00") : null;
-                    const prog = progressByShow[g.id];
-                    const ringDeg = prog ? Math.round((prog.confirmed_roles / Math.max(prog.total_roles, 1)) * 360) : 0;
                     return (
                       <button
                         key={gigKey(g)}
@@ -590,19 +588,6 @@ export default function BandHome() {
                             <span className="text-white/40 text-xs font-medium">
                               {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             </span>
-                          )}
-                          {prog && (
-                            <div className="flex items-center gap-1" title={`${prog.confirmed_roles}/${prog.total_roles} roles confirmed${prog.open_tasks ? ` · ${prog.open_tasks} open task${prog.open_tasks === 1 ? "" : "s"}` : ""}`}>
-                              <span className="text-white/30 text-[9px] font-medium">{prog.confirmed_roles}/{prog.total_roles}</span>
-                              <span
-                                className="relative w-3.5 h-3.5 rounded-full shrink-0"
-                                style={{ background: `conic-gradient(#8CFF3D ${ringDeg}deg, #242424 0deg)` }}
-                              >
-                                {prog.open_tasks > 0 && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full bg-[#FACC15] border border-[#111111]" />
-                                )}
-                              </span>
-                            </div>
                           )}
                         </div>
                       </button>
