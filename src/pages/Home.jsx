@@ -585,10 +585,6 @@ export default function Home() {
 
       {/* Scene list (audio) / cue pads (lighting) */}
       <div className="px-4 pt-4 max-w-lg mx-auto">
-        <div className="flex items-center justify-between px-0.5 pb-1.5 text-[10px] tracking-[0.14em] text-white/50" style={{ fontFamily: SCENE_MONO }}>
-          <span>{isLighting ? "CUE PADS" : "SCENE LIST"}</span>
-          <span>{filtered.length} {search ? (filtered.length === 1 ? "RESULT" : "RESULTS") : isLighting ? (filtered.length === 1 ? "CUE" : "CUES") : (filtered.length === 1 ? "SCENE" : "SCENES")}</span>
-        </div>
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
