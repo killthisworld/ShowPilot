@@ -16,7 +16,7 @@ import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 // Short console-style codes for the role channel buttons.
-const ROLE_CODES = { venue: "VEN", promoter: "PRO", booking_agent: "AGT", manager: "MGR", engineer: "A/L" };
+const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/BND", engineer: "AUD/LTG" };
 
 // Same account-type split every other main page uses to choose between the
 // two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
@@ -346,9 +346,20 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       <div className="px-4 pt-3 max-w-lg mx-auto flex flex-col items-center">
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
           <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none">
-            {nodes.map((n) => (
-              <line key={n.role} x1={cx} y1={cy} x2={n.x} y2={n.y} stroke={n.claimed ? n.style.color + "66" : "#242424"} strokeWidth="1.5" strokeDasharray={n.claimed ? undefined : "3 4"} />
-            ))}
+            {nodes.map((n) => {
+              const on = n.role === selectedRole;
+              return (
+                <line
+                  key={n.role}
+                  x1={cx} y1={cy} x2={n.x} y2={n.y}
+                  stroke={on ? n.style.color : n.claimed ? n.style.color + "99" : "#383838"}
+                  strokeWidth={on ? 3 : 1.5}
+                  strokeLinecap="round"
+                  strokeDasharray={n.claimed || on ? undefined : "3 4"}
+                  style={on ? { filter: `drop-shadow(0 0 4px ${n.style.color})` } : undefined}
+                />
+              );
+            })}
           </svg>
 
           <button
@@ -388,13 +399,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 onClick={() => selectRole(n.role)}
                 className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
                 style={{
-                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 62, height: 56,
+                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 68, height: 56,
                   background: active ? n.style.color + "26" : "#161616",
                   border: `1.5px solid ${active ? n.style.color : n.style.color + "55"}`,
                   boxShadow: active ? `0 0 0 3px ${n.style.color}33` : undefined,
                 }}
               >
-                <span className="text-[13px] font-bold tracking-[0.08em] leading-none" style={{ fontFamily: SCENE_MONO, color: n.style.color }}>{ROLE_CODES[n.role]}</span>
+                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
                 <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
