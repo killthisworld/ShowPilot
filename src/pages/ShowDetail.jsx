@@ -16,6 +16,7 @@ import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { usePreferences } from "@/hooks/usePreferences";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 const US_STATES = [
   "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
@@ -130,6 +131,28 @@ export default function ShowDetail() {
   }, [isNew, draftKey]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const handleIconUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showPill("Image must be under 2 MB"); return; }
+    setUploadingIcon(true);
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) throw new Error("Not logged in");
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const filePath = `${u.id}/event-icons/${Date.now()}.${ext || "png"}`;
+      const { error: upErr } = await supabase.storage.from("profile-photos").upload(filePath, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
+      update("icon_url", urlData.publicUrl);
+    } catch (err) {
+      console.error(err);
+      showPill("Couldn't upload that image");
+    }
+    setUploadingIcon(false);
+  };
   const [shareCopied, setShareCopied] = useState(false);
   const [tmCopied, setTmCopied] = useState(false);
   const [savedToast, setSavedToast] = useState("");
@@ -390,6 +413,7 @@ export default function ShowDetail() {
         wifi_network: show.wifi_network, wifi_password: show.wifi_password,
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
+        ...(show.icon_url !== undefined ? { icon_url: show.icon_url } : {}),
         venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope, done: show.done, event_name: show.event_name,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
@@ -1007,6 +1031,20 @@ export default function ShowDetail() {
               <SelectItem value="__add_new__">Other / Add New</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Event Icon</Label>
+            <div className="mt-1 flex items-center gap-3">
+              <EventTypeIcon type={show.event_type || "Other"} imageUrl={show.icon_url} size={44} />
+              <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
+                {uploadingIcon ? "Uploading..." : show.icon_url ? "Change image" : "Upload image"}
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingIcon} onChange={handleIconUpload} />
+              </label>
+              {show.icon_url && (
+                <button type="button" onClick={() => update("icon_url", null)} className="text-xs text-white/40 hover:text-red-400">Remove</button>
+              )}
+            </div>
+            <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>
