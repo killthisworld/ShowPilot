@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Archive, Trash2 } from "lucide-react";
+import { eventTypeColor } from "@/lib/eventTypes";
 import { sceneAccent, scenePlace, sceneDate, sceneTitle, SCENE_COLORS, SCENE_MONO } from "@/lib/sceneStyle";
 
 const SWIPE_WIDTH = 144;
@@ -10,6 +11,7 @@ const SWIPE_WIDTH = 144;
 export default function SceneRow({ show, onArchive, onDeleteRequest }) {
   const navigate = useNavigate();
   const accent = sceneAccent(show);
+  const typeColor = eventTypeColor(show.event_type);
   const [offset, setOffset] = useState(0);
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -54,9 +56,16 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
         <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-[17px] leading-tight truncate">{sceneTitle(show)}</div>
-          <div className="text-white/50 text-[12.5px] truncate">
-            {show.is_owned === false && <span style={{ color: SCENE_COLORS.linked }}>{show.owner_display_name ? `${show.owner_display_name} · ` : "Linked · "}</span>}
-            {scenePlace(show)}
+          <div className="flex items-center gap-1.5 min-w-0 text-white/50 text-[12.5px]">
+            {typeColor && (
+              <span className="shrink-0 text-[8.5px] tracking-[0.08em] px-[5px] py-px rounded-[3px]" style={{ fontFamily: SCENE_MONO, color: typeColor, background: typeColor + "1f" }}>
+                {show.event_type.toUpperCase()}
+              </span>
+            )}
+            <span className="truncate">
+              {show.is_owned === false && <span style={{ color: SCENE_COLORS.linked }}>{show.owner_display_name ? `${show.owner_display_name} · ` : "Linked · "}</span>}
+              {scenePlace(show)}
+            </span>
           </div>
         </div>
         <span className="shrink-0 text-[11px] text-white/60" style={{ fontFamily: SCENE_MONO }}>{sceneDate(show)}</span>

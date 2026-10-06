@@ -11,7 +11,9 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
-import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import { buildStatusStrip } from "@/lib/homeStats";
+import { eventTypeColor, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
 // keep the card-list Home.jsx). This used to be a starfield constellation -
@@ -278,6 +280,11 @@ export default function BandHome() {
   const monthLabel = (key) =>
     key === "undated" ? "No Date" : new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
+  const stripCells = useMemo(
+    () => buildStatusStrip(preferences?.account_type, gigs, progressByShow),
+    [preferences?.account_type, gigs, progressByShow]
+  );
+
   const thisWeekGigs = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -432,7 +439,13 @@ export default function BandHome() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto">
+      {!loading && gigs.length > 0 && (
+        <div className="px-4 pt-3 max-w-lg mx-auto">
+          <StatusStrip cells={stripCells} />
+        </div>
+      )}
+
+      <div className="px-4 pt-3 max-w-lg mx-auto">
         <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-3.5 h-3.5 text-white/40" />
@@ -446,7 +459,7 @@ export default function BandHome() {
               {thisWeekGigs.map((g) => {
                 const d = new Date(g.date + "T00:00:00");
                 const title = g.event_name || g.band_name || "Untitled Gig";
-                const color = g.is_owned ? "#8CFF3D" : "#F472B6";
+                const color = eventTypeColor(g.event_type) || (g.is_owned ? "#8CFF3D" : "#F472B6");
                 return (
                   <button
                     key={gigKey(g)}
@@ -497,6 +510,7 @@ export default function BandHome() {
                 <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden">
                   {monthGigs.map((g) => {
                     const color = g.is_owned ? "#8CFF3D" : "#F472B6";
+                    const typeColor = eventTypeColor(g.event_type);
                     const d = g.date ? new Date(g.date + "T00:00:00") : null;
                     const prog = progressByShow[g.id];
                     const ringDeg = prog ? Math.round((prog.confirmed_roles / Math.max(prog.total_roles, 1)) * 360) : 0;
@@ -505,8 +519,9 @@ export default function BandHome() {
                         key={gigKey(g)}
                         type="button"
                         onClick={() => openGig(g)}
-                        className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                        className="relative w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/[0.03] transition-colors"
                       >
+                        {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                         <div className="min-w-0 flex-1">
                           <p className="text-white text-sm font-medium truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
@@ -515,6 +530,11 @@ export default function BandHome() {
                               <span className="flex items-center gap-0.5 truncate">
                                 <MapPin className="w-3 h-3 shrink-0" />
                                 <span className="truncate">{[g.venue, g.city].filter(Boolean).join(", ")}</span>
+                              </span>
+                            )}
+                            {typeColor && (
+                              <span className="shrink-0 ml-1 text-[9px] font-semibold tracking-wide px-1.5 py-px rounded" style={{ color: typeColor, background: typeColor + "1f" }}>
+                                {g.event_type.toUpperCase()}
                               </span>
                             )}
                             {!g.is_owned && (

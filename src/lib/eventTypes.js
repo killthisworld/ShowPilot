@@ -99,3 +99,29 @@ export async function addGenreTag(preferences, rawName) {
   if (error) throw error;
   return name;
 }
+
+// ---- Colors -------------------------------------------------------------
+// Each event type has its own color so a mixed calendar reads at a glance
+// (a stripe + tag on every row). Built-ins are fixed; a custom type gets a
+// stable color derived from its name, so it looks the same everywhere
+// without needing any extra storage.
+export const EVENT_TYPE_COLORS = {
+  "concert": "#38BDF8",
+  "comedy show": "#FACC15",
+  "festival": "#34D399",
+  "theatre play": "#A78BFA",
+  "corporate event": "#94A3B8",
+  "private party": "#F472B6",
+  "open mic": "#FB923C",
+  "other": "#9A9A9A",
+};
+const CUSTOM_TYPE_PALETTE = ["#F87171", "#2DD4BF", "#C084FC", "#FBBF24", "#818CF8", "#4ADE80", "#F472B6", "#22D3EE"];
+
+export function eventTypeColor(type) {
+  const t = (type || "").trim().toLowerCase();
+  if (!t) return null;
+  if (EVENT_TYPE_COLORS[t]) return EVENT_TYPE_COLORS[t];
+  let h = 0;
+  for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return CUSTOM_TYPE_PALETTE[h % CUSTOM_TYPE_PALETTE.length];
+}

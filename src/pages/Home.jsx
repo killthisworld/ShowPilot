@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SceneRow from "@/components/showpilot/SceneRow";
 import CuePad from "@/components/showpilot/CuePad";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import { buildStatusStrip } from "@/lib/homeStats";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
@@ -330,6 +332,7 @@ export default function Home() {
   }, [shows]);
 
   const isLighting = preferences?.account_type === "lighting";
+  const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
   const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
   const openShow = (s) => navigate(s.is_owned === false ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`);
 
@@ -551,8 +554,15 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Status strip */}
+      {!loading && (
+        <div className="px-4 pt-3 max-w-lg mx-auto">
+          <StatusStrip cells={stripCells} />
+        </div>
+      )}
+
       {/* This Week Banner */}
-      <div className="px-4 pt-4 max-w-lg mx-auto">
+      <div className="px-4 pt-3 max-w-lg mx-auto">
         <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-3.5 h-3.5 text-white/40" />
