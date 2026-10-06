@@ -534,12 +534,16 @@ export default function Home() {
                 <button
                   key={bank.id}
                   onClick={() => setActiveTab(bank.id)}
-                  className="flex-1 min-w-0 flex flex-col items-center gap-1.5 pt-2 pb-1.5 rounded-lg text-white transition-colors"
-                  style={{ background: active ? "#1a1a1a" : "#121212", border: `1px solid ${active ? bank.color + "88" : "#1f1f1f"}` }}
+                  className="flex-1 min-w-0 flex flex-col items-center gap-1.5 pt-2 pb-1.5 rounded-lg transition-all"
+                  style={{
+                    background: active ? bank.color : bank.color + "24",
+                    border: `1px solid ${active ? bank.color : bank.color + "66"}`,
+                    boxShadow: active ? `0 0 14px ${bank.color}66` : "none",
+                  }}
                 >
-                  <span className="w-[22px] h-1 rounded-sm" style={{ background: active ? bank.color : bank.color + "40" }} />
-                  <span className="text-sm font-bold tracking-[0.06em]" style={{ color: active ? "#fff" : "rgba(255,255,255,0.6)" }}>{bank.label}</span>
-                  <span className="text-[10px] text-white/50" style={{ fontFamily: SCENE_MONO }}>{bankCounts[bank.id] || 0}</span>
+                  <span className="w-[22px] h-1 rounded-sm" style={{ background: active ? "#0d0d0d" : bank.color }} />
+                  <span className="text-sm font-bold tracking-[0.06em]" style={{ color: active ? "#0d0d0d" : bank.color }}>{bank.label}</span>
+                  <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, color: active ? "rgba(13,13,13,0.7)" : "rgba(255,255,255,0.55)" }}>{bankCounts[bank.id] || 0}</span>
                 </button>
               );
             })}
