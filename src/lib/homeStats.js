@@ -81,3 +81,45 @@ export function buildStatusStrip(accountType, gigs = [], progress = {}) {
     }
   }
 }
+
+// ---- Role banks ---------------------------------------------------------
+// The colored bank buttons under the filters on the non-tech home. Every
+// role gets ALL plus the buckets it actually works through, derived from
+// the same fields as the status strip. `test` runs against one gig.
+const isSigned = (g) => /signed/i.test(g.booking_agent_info?.contract_status || "") && !/unsigned/i.test(g.booking_agent_info?.contract_status || "");
+const isOwnedUpcoming = (g) => g.is_owned !== false && g.date && g.date >= todayStr();
+const venueReady = (g) => !blank(g.wifi_network) && !blank(g.console) && !blank(g.power_notes);
+
+export function getRoleBanks(accountType, accentColor) {
+  const all = { id: "all", label: "ALL", color: accentColor, test: () => true };
+  switch (accountType) {
+    case "venue":
+      return [
+        all,
+        { id: "todo", label: "TO DO", color: AMBER, test: (g) => isOwnedUpcoming(g) && !venueReady(g) },
+        { id: "ready", label: "READY", color: GREEN, test: (g) => isOwnedUpcoming(g) && venueReady(g) },
+        { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
+      ];
+    case "promoter":
+      return [
+        all,
+        { id: "notix", label: "NO TIX", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.promoter_info?.ticket_link) },
+        { id: "sale", label: "ON SALE", color: GREEN, test: (g) => isOwnedUpcoming(g) && !blank(g.promoter_info?.ticket_link) },
+        { id: "settle", label: "SETTLE", color: "#F472B6", test: (g) => g.is_owned !== false && g.date && g.date < todayStr() && blank(g.promoter_info?.settlement_notes) },
+      ];
+    case "booking_agent":
+      return [
+        all,
+        { id: "nodeal", label: "NO DEAL", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.booking_agent_info?.deal_terms) },
+        { id: "sent", label: "SENT", color: BLUE, test: (g) => isOwnedUpcoming(g) && !blank(g.booking_agent_info?.contract_status) && !isSigned(g) },
+        { id: "signed", label: "SIGNED", color: GREEN, test: (g) => isOwnedUpcoming(g) && isSigned(g) },
+      ];
+    default: // band, manager
+      return [
+        all,
+        { id: "advance", label: "ADVANCE", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.manager_info?.advancing_notes) },
+        { id: "ready", label: "READY", color: GREEN, test: (g) => isOwnedUpcoming(g) && !blank(g.manager_info?.advancing_notes) },
+        { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
+      ];
+  }
+}

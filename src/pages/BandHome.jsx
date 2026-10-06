@@ -12,7 +12,8 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 import StatusStrip from "@/components/showpilot/StatusStrip";
-import { buildStatusStrip } from "@/lib/homeStats";
+import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
+import { SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
@@ -40,6 +41,7 @@ export default function BandHome() {
   // search box with a sliders toggle in the sticky header, and a
   // Year / Month / Genre / Event Type / Venue / City / State panel under it.
   const [filterOpen, setFilterOpen] = useState(false);
+  const [activeBank, setActiveBank] = useState("all");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
@@ -210,6 +212,14 @@ export default function BandHome() {
     return [...candidates].slice(0, 6);
   }, [search, sortedGigs]);
 
+  const roleBanks = useMemo(() => getRoleBanks(preferences?.account_type, accountStyle.color), [preferences?.account_type, accountStyle.color]);
+  const bankCounts = useMemo(() => {
+    const counts = {};
+    roleBanks.forEach((b) => { counts[b.id] = b.id === "all" ? sortedGigs.length : sortedGigs.filter(b.test).length; });
+    return counts;
+  }, [roleBanks, sortedGigs]);
+  const activeBankDef = roleBanks.find((b) => b.id === activeBank) || roleBanks[0];
+
   const filteredGigs = useMemo(() => {
     const q = search.trim().toLowerCase();
     return sortedGigs.filter((g) => {
@@ -222,6 +232,8 @@ export default function BandHome() {
           g.state?.toLowerCase().includes(q);
         if (!hit) return false;
       }
+      // The selected bank narrows the list unless the user is searching (search spans everything, like the tech Home).
+      if (!q && !activeBankDef.test(g)) return false;
       if (yearFilter !== "all" && !g.date?.startsWith(yearFilter)) return false;
       if (monthFilter !== "all") {
         if (!g.date || new Date(g.date + "T00:00:00").getMonth() !== parseInt(monthFilter)) return false;
@@ -233,7 +245,7 @@ export default function BandHome() {
       if (stateFilter !== "all" && g.state?.trim() !== stateFilter) return false;
       return true;
     });
-  }, [sortedGigs, search, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
+  }, [sortedGigs, search, activeBankDef, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
 
   // "Add new..." at the bottom of the Genre / Event Type dropdowns. Saves to
   // the user's preferences (the same lists the event forms use) and
@@ -436,6 +448,31 @@ export default function BandHome() {
               )}
             </div>
           )}
+        </div>
+
+        {/* Role banks - colored buttons for the buckets this profile works through */}
+        <div className="px-4 pb-3 max-w-lg mx-auto">
+          <div className="flex gap-1.5">
+            {roleBanks.map((bank) => {
+              const active = activeBankDef.id === bank.id;
+              return (
+                <button
+                  key={bank.id}
+                  onClick={() => setActiveBank(bank.id)}
+                  className="flex-1 min-w-0 flex flex-col items-center gap-1.5 pt-2 pb-1.5 rounded-lg transition-all"
+                  style={{
+                    background: active ? bank.color : bank.color + "24",
+                    border: `1px solid ${active ? bank.color : bank.color + "66"}`,
+                    boxShadow: active ? `0 0 14px ${bank.color}66` : "none",
+                  }}
+                >
+                  <span className="w-[22px] h-1 rounded-sm" style={{ background: active ? "#0d0d0d" : bank.color }} />
+                  <span className="text-xs font-bold tracking-[0.06em]" style={{ color: active ? "#0d0d0d" : bank.color }}>{bank.label}</span>
+                  <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, color: active ? "rgba(13,13,13,0.7)" : "rgba(255,255,255,0.55)" }}>{bankCounts[bank.id] || 0}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
