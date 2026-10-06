@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType, ADD_NEW_VALUE } from "@/lib/eventTypes";
+import { uploadIconImage } from "@/lib/eventIcons";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 
 const SECTION_OPTIONS = [
@@ -61,6 +63,20 @@ export default function NewEventForNonTech() {
     setSelectedSections((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
+  // Optional icon picked up front: previewed locally, uploaded on Create.
+  const [iconFile, setIconFile] = useState(null);
+  const [iconPreview, setIconPreview] = useState("");
+  const pickIcon = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) { setError("Icon image must be under 2 MB."); return; }
+    setError("");
+    setIconFile(f);
+    setIconPreview(URL.createObjectURL(f));
+  };
+  const clearIcon = () => { setIconFile(null); setIconPreview(""); };
+
   const handleCreate = async () => {
     if (!eventName.trim()) {
       setError("Event name is required.");
@@ -76,6 +92,12 @@ export default function NewEventForNonTech() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
       const includedSections = Array.from(new Set([mySection, ...selectedSections]));
+      // A failed image upload shouldn't block creating the event - it just
+      // starts without one and can be added from Gig Web's Overview.
+      let iconUrl = null;
+      if (iconFile) {
+        try { iconUrl = await uploadIconImage(iconFile); } catch (upErr) { console.error(upErr); }
+      }
       const { data, error: insertError } = await supabase
         .from("shows")
         .insert({
@@ -83,6 +105,7 @@ export default function NewEventForNonTech() {
           event_name: eventName.trim(),
           band_name: "",
           event_type: eventType || null,
+          ...(iconUrl ? { icon_url: iconUrl } : {}),
           date,
           included_sections: includedSections,
           status: "not_started",
@@ -124,6 +147,18 @@ export default function NewEventForNonTech() {
               ))}
               <option value={ADD_NEW_VALUE}>+ Add new…</option>
             </select>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Event Icon (optional)</Label>
+            <div className="mt-1 flex items-center gap-3">
+              <EventTypeIcon type={eventType && eventType !== ADD_NEW_VALUE ? eventType : "Other"} imageUrl={iconPreview} size={44} />
+              <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
+                {iconPreview ? "Change image" : "Upload image"}
+                <input type="file" accept="image/*" className="hidden" onChange={pickIcon} />
+              </label>
+              {iconPreview && <button type="button" onClick={clearIcon} className="text-xs text-white/40 hover:text-red-400">Remove</button>}
+            </div>
+            <p className="text-white/25 text-[10px] mt-1">Without one, the event type's icon is used.</p>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>
