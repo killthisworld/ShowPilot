@@ -10,6 +10,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 // Short console-style codes for the role channel buttons.
@@ -303,6 +304,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
+          <EventTypeIcon type={gig.event_type} imageUrl={gig.icon_url} size={36} />
           <div className="min-w-0">
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
             <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
@@ -443,7 +445,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 setExpanded={setProfileExpanded}
               />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} />
             )
           ) : activeTab === "tasks" ? (
             <TasksTabPanel
@@ -637,7 +639,7 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
 // RPC the old SharedGig page used for this, then onChanged() (loadGig)
 // picks the saved values back up everywhere else on the page (the header,
 // the web's center hub, the status line) at once.
-function EventDetailsEditor({ token, gig, onChanged }) {
+function EventDetailsEditor({ token, gig, onChanged, onIconChanged }) {
   const [eventName, setEventName] = useState(gig.event_name || "");
   const [date, setDate] = useState(gig.date || "");
   const [saving, setSaving] = useState(false);
@@ -647,6 +649,45 @@ function EventDetailsEditor({ token, gig, onChanged }) {
   useEffect(() => { setDate(gig.date || ""); }, [gig.date]);
 
   const dirty = eventName !== (gig.event_name || "") || date !== (gig.date || "");
+
+  // The icon saves on its own (upload or remove), straight to the show row -
+  // same owner-gated door archive/delete use - rather than waiting on Save.
+  const [iconBusy, setIconBusy] = useState(false);
+  const [iconError, setIconError] = useState("");
+  const setIcon = async (url) => {
+    const { error } = await supabase.from("shows").update({ icon_url: url }).eq("id", gig.id);
+    if (error) throw error;
+    onChanged?.();
+    onIconChanged?.();
+  };
+  const uploadIcon = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setIconError("Image must be under 2 MB"); return; }
+    setIconBusy(true);
+    setIconError("");
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) throw new Error("Not logged in");
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const filePath = `${u.id}/event-icons/${Date.now()}.${ext || "png"}`;
+      const { error: upErr } = await supabase.storage.from("profile-photos").upload(filePath, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
+      await setIcon(urlData.publicUrl);
+    } catch (err) {
+      console.error(err);
+      setIconError("Couldn't upload that image");
+    }
+    setIconBusy(false);
+  };
+  const removeIcon = async () => {
+    setIconBusy(true);
+    setIconError("");
+    try { await setIcon(null); } catch (err) { console.error(err); setIconError("Couldn't remove it"); }
+    setIconBusy(false);
+  };
 
   const save = async () => {
     if (saving || !dirty) return;
@@ -669,6 +710,21 @@ function EventDetailsEditor({ token, gig, onChanged }) {
       <div className="space-y-2.5">
         <Field label="Event Name" value={eventName} onChange={setEventName} editable placeholder="e.g. Friday Night Showcase" />
         <Field label="Date" value={date} onChange={setDate} editable type="date" />
+        <div>
+          <p className="text-white/50 text-xs mb-1">Event Icon</p>
+          <div className="flex items-center gap-3">
+            <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={44} />
+            <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
+              {iconBusy ? "Working..." : gig.icon_url ? "Change image" : "Upload image"}
+              <input type="file" accept="image/*" className="hidden" disabled={iconBusy} onChange={uploadIcon} />
+            </label>
+            {gig.icon_url && !iconBusy && (
+              <button type="button" onClick={removeIcon} className="text-xs text-white/40 hover:text-red-400">Remove</button>
+            )}
+          </div>
+          {iconError && <p className="text-red-400 text-[11px] mt-1">{iconError}</p>}
+          <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this gig.</p>
+        </div>
       </div>
       <button
         type="button"
@@ -705,7 +761,7 @@ function EventDetailsEditor({ token, gig, onChanged }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -715,7 +771,7 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
   return (
     <div>
       {permissions?.is_owner && gig && (
-        <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} />
+        <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} />
       )}
       {showHeadcount && (
         <div className="flex items-center gap-1.5 mb-3 text-xs">
