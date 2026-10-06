@@ -1,5 +1,6 @@
 import React from "react";
 import { eventTypeColor } from "@/lib/eventTypes";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { sceneAccent, sceneDate, sceneTitle, SCENE_MONO } from "@/lib/sceneStyle";
 
 // One cue pad in the lighting profile's grid. Tapping loads it into the
@@ -20,7 +21,10 @@ export default function CuePad({ show, selected, onSelect }) {
     >
       <span className="block w-full h-[5px] shrink-0" style={{ background: accent }} />
       <div className="px-2 pt-1.5 pb-2 flex flex-col flex-1 min-h-0 w-full">
-        <span className="text-[16px] font-semibold leading-[1.1] line-clamp-3">{sceneTitle(show)}</span>
+        <div className="flex items-start gap-1.5">
+          <span className="flex-1 min-w-0 text-[16px] font-semibold leading-[1.1] line-clamp-3">{sceneTitle(show)}</span>
+          <EventTypeIcon type={show.event_type} size={22} />
+        </div>
         {typeColor && <span className="mt-auto text-[8.5px] tracking-[0.08em] truncate" style={{ fontFamily: SCENE_MONO, color: typeColor }}>{show.event_type.toUpperCase()}</span>}
         <span className={`${typeColor ? "" : "mt-auto "}text-[10px] text-white/60`} style={{ fontFamily: SCENE_MONO }}>{sceneDate(show)}</span>
       </div>

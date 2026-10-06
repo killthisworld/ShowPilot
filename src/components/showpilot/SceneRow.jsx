@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Archive, Trash2 } from "lucide-react";
 import { eventTypeColor } from "@/lib/eventTypes";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { sceneAccent, scenePlace, sceneDate, sceneTitle, SCENE_COLORS, SCENE_MONO } from "@/lib/sceneStyle";
 
 const SWIPE_WIDTH = 144;
@@ -54,6 +55,7 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
         style={{ transform: `translateX(${offset}px)`, transition: dragging.current ? "none" : "transform 0.2s ease-out", touchAction: "pan-y" }}
       >
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
+        <EventTypeIcon type={show.event_type} />
         <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-[17px] leading-tight truncate">{sceneTitle(show)}</div>
           <div className="flex items-center gap-1.5 min-w-0 text-white/50 text-[12.5px]">

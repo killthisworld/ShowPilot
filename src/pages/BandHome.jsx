@@ -14,6 +14,7 @@ import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
@@ -560,6 +561,7 @@ export default function BandHome() {
                       >
                         {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                        <EventTypeIcon type={g.event_type} />
                         <div className="min-w-0 flex-1">
                           <p className="text-white text-sm font-medium truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
                           <div className="flex items-center gap-1 text-white/35 text-xs mt-0.5 truncate">
