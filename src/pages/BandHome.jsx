@@ -15,6 +15,7 @@ import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { fetchMyIcons } from "@/lib/eventIcons";
 import { eventTypeColor, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
@@ -105,7 +106,8 @@ export default function BandHome() {
           return data ? { ...data, share_token: link.share_token, is_owned: false, starred: link.starred } : null;
         })
       );
-      linkedGigs = details.filter(Boolean);
+      const myIcons = await fetchMyIcons();
+      linkedGigs = details.filter(Boolean).map((g) => ({ ...g, icon_url: myIcons[g.id] || g.icon_url }));
     }
 
     const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true, is_shared_by_me: sharedShowIds.has(s.id) }));

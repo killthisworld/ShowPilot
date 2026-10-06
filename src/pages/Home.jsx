@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { fetchMyIcons } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
 import { Search, Plus, SlidersHorizontal, X, CalendarDays, Archive, Trash2, Star } from "lucide-react";
@@ -163,7 +164,8 @@ export default function Home() {
             return gigData ? { ...gigData, share_token: link.share_token, is_owned: false, starred: link.starred, opener_names: [] } : null;
           })
         );
-        linkedGigs = details.filter(Boolean);
+        const myIcons = await fetchMyIcons();
+        linkedGigs = details.filter(Boolean).map((g) => ({ ...g, icon_url: myIcons[g.id] || g.icon_url }));
       }
 
       if (isMounted) {

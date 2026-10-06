@@ -11,6 +11,7 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 // Short console-style codes for the role channel buttons.
@@ -86,6 +87,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [gig, setGig] = useState(null);
   const [permissions, setPermissions] = useState(null);
+  const [myIcon, setMyIcon] = useState(null); // this person's own icon for the gig, if any
   const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -124,6 +126,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       ]);
       if (gigRes.error || !gigRes.data) { setNotFound(true); setLoading(false); return; }
       setGig(gigRes.data);
+      fetchMyIcons().then((m) => setMyIcon(m[gigRes.data.id] || null));
       setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [], invited_roles: [], granted_sections: [] });
 
       // Best-effort - the ring for a role just reads 0% until this call
@@ -304,7 +307,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <EventTypeIcon type={gig.event_type} imageUrl={gig.icon_url} size={36} />
+          <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={36} />
           <div className="min-w-0">
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
             <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
@@ -445,7 +448,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 setExpanded={setProfileExpanded}
               />
             ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} />
+              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
             )
           ) : activeTab === "tasks" ? (
             <TasksTabPanel
@@ -739,6 +742,47 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged }) {
   );
 }
 
+// Anyone linked to a gig (not just its owner) can give it their own icon.
+// It's personal - only they see it on their lists and Gig Web - and takes
+// priority over the owner's shared icon and the automatic type icon.
+function MyIconControl({ gig, myIcon, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const upload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2 MB"); return; }
+    setBusy(true); setError("");
+    try {
+      const url = await uploadIconImage(file);
+      await saveMyIcon(gig.id, url);
+      onChanged?.(url);
+    } catch (err) { console.error(err); setError("Couldn't save that image"); }
+    setBusy(false);
+  };
+  const remove = async () => {
+    setBusy(true); setError("");
+    try { await saveMyIcon(gig.id, null); onChanged?.(null); } catch (err) { console.error(err); setError("Couldn't remove it"); }
+    setBusy(false);
+  };
+  return (
+    <div className="mb-4 pb-4 border-b border-[#1f1f1f]">
+      <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide mb-2">My Icon For This Gig</p>
+      <div className="flex items-center gap-3">
+        <EventTypeIcon type={gig.event_type || "Other"} imageUrl={myIcon || gig.icon_url} size={44} />
+        <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
+          {busy ? "Working..." : myIcon ? "Change image" : "Upload image"}
+          <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={upload} />
+        </label>
+        {myIcon && !busy && <button type="button" onClick={remove} className="text-xs text-white/40 hover:text-red-400">Remove</button>}
+      </div>
+      {error && <p className="text-red-400 text-[11px] mt-1">{error}</p>}
+      <p className="text-white/25 text-[10px] mt-1">Only you see this one, on your own lists.</p>
+    </div>
+  );
+}
+
 // The Board tab for the center/overview node - "the profile of the
 // center event itself" from the request: a rollup tile per role instead
 // of fields to edit for each role, since there's no single role section
@@ -761,7 +805,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -772,6 +816,9 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
     <div>
       {permissions?.is_owner && gig && (
         <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} />
+      )}
+      {canPersonalIcon && gig && (
+        <MyIconControl gig={gig} myIcon={myIcon} onChanged={onMyIconChanged} />
       )}
       {showHeadcount && (
         <div className="flex items-center gap-1.5 mb-3 text-xs">
