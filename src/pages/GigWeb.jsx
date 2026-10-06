@@ -311,7 +311,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={36} />
           <div className="min-w-0">
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
-            <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{gig.venue || "Tap a role to see status"}</p>
+            <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
           {permissions?.is_owner && (
             <div className="flex items-center gap-1 shrink-0 ml-auto">
@@ -387,7 +387,6 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               />
             ) : null}
             <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
-            {dateLabel && <div className="relative text-[9px] text-[#B6FF5C] uppercase" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{dateLabel}</div>}
           </button>
 
           {nodes.map((n) => {
