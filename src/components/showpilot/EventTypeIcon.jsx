@@ -12,6 +12,12 @@ const ICONS = {
   "open mic": MessageSquare,
 };
 
+// The bare glyph for a type (no tile), used for large faded backdrops.
+export function EventTypeGlyph({ type, className, style }) {
+  const Icon = ICONS[(type || "").trim().toLowerCase()] || CalendarDays;
+  return <Icon className={className} style={style} />;
+}
+
 // Small tile for an event: its uploaded image if there is one, otherwise
 // the icon for its type.
 // Small colored tile showing the icon for an event's type. Custom types

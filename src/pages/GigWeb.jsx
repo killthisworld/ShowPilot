@@ -10,7 +10,8 @@ import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
-import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
+import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -353,16 +354,29 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <button
             type="button"
             onClick={() => selectRole(null)}
-            className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors"
+            className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors overflow-hidden"
             style={{
               left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96,
               borderColor: selectedRole === null ? "#8CFF3D" : "#2a2a2a",
               boxShadow: selectedRole === null ? "0 0 0 3px #8CFF3D33" : undefined,
             }}
           >
-            <div className="text-[9px] tracking-[0.14em] text-white/40" style={{ fontFamily: SCENE_MONO }}>SOURCE</div>
-            <div className="text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2">{title}</div>
-            {dateLabel && <div className="text-[9px] text-[#8CFF3D] uppercase" style={{ fontFamily: SCENE_MONO }}>{dateLabel}</div>}
+            {/* The event's icon as a faded backdrop: an uploaded image (dimmed, with a dark wash so text stays crisp) or the type glyph in its color. */}
+            {(myIcon || gig.icon_url) ? (
+              <>
+                <img src={myIcon || gig.icon_url} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
+                <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
+              </>
+            ) : eventTypeColor(gig.event_type) ? (
+              <EventTypeGlyph
+                type={gig.event_type}
+                className="absolute pointer-events-none"
+                style={{ width: 84, height: 84, right: -10, bottom: -12, color: eventTypeColor(gig.event_type), opacity: 0.2, strokeWidth: 1.5 }}
+              />
+            ) : null}
+            <div className="relative text-[9px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>SOURCE</div>
+            <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+            {dateLabel && <div className="relative text-[9px] text-[#8CFF3D] uppercase" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{dateLabel}</div>}
           </button>
 
           {nodes.map((n) => {
