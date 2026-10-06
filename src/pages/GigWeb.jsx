@@ -9,6 +9,11 @@ import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+
+// Short console-style codes for the role channel buttons.
+const ROLE_CODES = { venue: "VEN", promoter: "PRO", booking_agent: "AGT", manager: "MGR", engineer: "A/L" };
 
 // Same account-type split every other main page uses to choose between the
 // two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
@@ -271,16 +276,36 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
   const selectedNode = selectedRole ? nodes.find((n) => n.role === selectedRole) : null;
 
+  const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
+  const openTasksFor = (role) => openTasks.filter((t) => t.section === role).length;
+  const avgPercent = nodes.length ? Math.round(nodes.reduce((a, n) => a + n.percent, 0) / nodes.length) : 0;
+  const stripCells = selectedNode
+    ? [
+        { label: "FIELDS FILLED", value: `${selectedNode.percent}%`, color: selectedNode.style.color },
+        { label: "OPEN TASKS", value: String(openTasksFor(selectedNode.role)), color: openTasksFor(selectedNode.role) ? "#F59E0B" : "#8CFF3D" },
+        { label: "STATUS", value: selectedNode.claimed ? "CLAIMED" : selectedNode.invited ? "INVITED" : "OPEN", color: selectedNode.claimed ? "#8CFF3D" : selectedNode.invited ? "#EAB308" : "#9A9A9A" },
+      ]
+    : [
+        { label: "ROLES CONFIRMED", value: `${nodes.filter((n) => n.claimed).length}/${nodes.length}`, color: "#8CFF3D" },
+        { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#F59E0B" : "#8CFF3D" },
+        { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#60A5FA" },
+      ];
+  const tabCounts = {
+    profile: selectedNode ? null : nodes.length,
+    tasks: selectedNode ? openTasksFor(selectedNode.role) : openTasks.length,
+    rooms: null,
+  };
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-3 max-w-lg mx-auto flex items-center gap-3">
           <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
-            <p className="text-white/40 text-xs mt-0.5 truncate">{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
+            <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
+            <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
           {permissions?.is_owner && (
             <div className="flex items-center gap-1 shrink-0 ml-auto">
@@ -308,11 +333,15 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto flex flex-col items-center">
+      <div className="px-4 pt-3 max-w-lg mx-auto">
+        <StatusStrip cells={stripCells} />
+      </div>
+
+      <div className="px-4 pt-3 max-w-lg mx-auto flex flex-col items-center">
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
           <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none">
             {nodes.map((n) => (
-              <line key={n.role} x1={cx} y1={cy} x2={n.x} y2={n.y} stroke="#242424" strokeWidth="1.5" />
+              <line key={n.role} x1={cx} y1={cy} x2={n.x} y2={n.y} stroke={n.claimed ? n.style.color + "66" : "#242424"} strokeWidth="1.5" strokeDasharray={n.claimed ? undefined : "3 4"} />
             ))}
           </svg>
 
@@ -326,33 +355,32 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               boxShadow: selectedRole === null ? "0 0 0 3px #8CFF3D33" : undefined,
             }}
           >
-            {dateLabel && <div className="text-[10px] font-semibold text-white/40 tracking-wide uppercase">{dateLabel}</div>}
-            <div className="text-[13.5px] font-bold text-white text-center leading-tight">{title}</div>
+            <div className="text-[9px] tracking-[0.14em] text-white/40" style={{ fontFamily: SCENE_MONO }}>SOURCE</div>
+            <div className="text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2">{title}</div>
+            {dateLabel && <div className="text-[9px] text-[#8CFF3D] uppercase" style={{ fontFamily: SCENE_MONO }}>{dateLabel}</div>}
           </button>
 
           {nodes.map((n) => {
-            const Icon = n.style.icon;
             const active = n.role === selectedRole;
             return (
               <button
                 key={n.role}
                 type="button"
                 onClick={() => selectRole(n.role)}
-                className="absolute flex flex-col items-center gap-1.5 bg-transparent border-0 p-0 cursor-pointer"
-                style={{ left: n.x, top: n.y, transform: "translate(-50%, -50%)" }}
+                className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
+                style={{
+                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 62, height: 56,
+                  background: active ? n.style.color + "26" : "#161616",
+                  border: `1.5px solid ${active ? n.style.color : n.style.color + "55"}`,
+                  boxShadow: active ? `0 0 0 3px ${n.style.color}33` : undefined,
+                }}
               >
-                <div className="relative" style={{ width: 62, height: 62 }}>
-                  <div
-                    className="rounded-full flex items-center justify-center"
-                    style={{ width: 62, height: 62, background: `conic-gradient(${n.style.color} ${n.percent * 3.6}deg, #1f1f1f 0deg)`, boxShadow: active ? `0 0 0 3px ${n.style.color}55` : undefined }}
-                  >
-                    <div className="rounded-full flex items-center justify-center bg-[#0d0d0d]" style={{ width: 52, height: 52, color: n.style.color }}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                  </div>
-                  {n.claimed && <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color }} />}
-                </div>
-                <span className={`text-[10.5px] w-[76px] text-center leading-tight ${active ? "text-white" : "text-white/50"}`}>{n.style.label}</span>
+                <span className="text-[13px] font-bold tracking-[0.08em] leading-none" style={{ fontFamily: SCENE_MONO, color: n.style.color }}>{ROLE_CODES[n.role]}</span>
+                <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
+                </span>
+                <span className="text-[9px] text-white/50 leading-none" style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
+                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color }} />}
               </button>
             );
           })}
@@ -381,31 +409,26 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           )}
         </div>
 
-        <div className="flex items-center gap-2 mb-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("profile")}
-            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
-            style={activeTab === "profile" ? { color: "#0d0d0d", background: "#8CFF3D" } : { color: "rgba(255,255,255,0.5)", background: "#161616" }}
-          >
-            {selectedRole ? "Profile" : "Board"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("tasks")}
-            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
-            style={activeTab === "tasks" ? { color: "#0d0d0d", background: "#8CFF3D" } : { color: "rgba(255,255,255,0.5)", background: "#161616" }}
-          >
-            Tasks
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("rooms")}
-            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors"
-            style={activeTab === "rooms" ? { color: "#0d0d0d", background: "#8CFF3D" } : { color: "rgba(255,255,255,0.5)", background: "#161616" }}
-          >
-            Rooms
-          </button>
+        <div className="flex items-center gap-1.5 mb-2">
+          {[
+            { id: "profile", label: selectedRole ? "PROFILE" : "BOARD", color: "#60A5FA" },
+            { id: "tasks", label: "TASKS", color: "#F59E0B" },
+            { id: "rooms", label: "ROOMS", color: "#F472B6" },
+          ].map((t) => {
+            const on = activeTab === t.id;
+            const count = tabCounts[t.id];
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveTab(t.id)}
+                className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] transition-colors"
+                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "1A", border: `1px solid ${on ? t.color : t.color + "44"}` }}
+              >
+                {t.label}{count != null ? ` · ${count}` : ""}
+              </button>
+            );
+          })}
         </div>
 
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
