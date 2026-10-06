@@ -6,12 +6,18 @@ import { ChevronLeft, ChevronRight, X, MapPin, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
+import CalendarHeader from "@/components/showpilot/CalendarHeader";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { eventTypeColor } from "@/lib/eventTypes";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
 const GOLD = "#FBBF24";
 
 function getGigColor(g) {
+  const typeColor = eventTypeColor(g.event_type);
+  if (typeColor) return typeColor; // event type first, same colors as the home bars
   if (g.starred) return GOLD;
   return g.is_owned ? GREEN : PINK;
 }
@@ -87,29 +93,26 @@ export default function BandCalendar() {
     navigate("/event/new", { state: { from: "calendar", prefillDate: dateKey } });
   };
 
+
+  const monthItems = gigs.filter((x) => x.date && moment(x.date).isSame(currentMonth, "month"));
+  const monthTypes = [...new Set(monthItems.map((x) => (x.event_type || "").trim()).filter(Boolean))];
+  const todayStart = moment().startOf("day");
+  const nextUp = gigs.filter((x) => x.date && !moment(x.date).isBefore(todayStart)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const headerCells = [
+    { label: "EVENTS", value: String(monthItems.length), color: "#8CFF3D" },
+    { label: "NEXT UP", value: nextUp ? moment(nextUp.date).format("MMM D").toUpperCase() : "—", color: "#60A5FA" },
+    { label: "LINKED", value: String(monthItems.filter((x) => x.is_owned === false).length), color: "#F472B6" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <button onClick={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))} className="text-white/50 hover:text-white h-8 w-8 flex items-center justify-center">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="text-lg font-bold text-white">{currentMonth.format("MMMM YYYY")}</h2>
-          <button onClick={() => setCurrentMonth((m) => m.clone().add(1, "month"))} className="text-white/50 hover:text-white h-8 w-8 flex items-center justify-center">
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-3 px-4 pb-2.5 max-w-lg mx-auto">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: GOLD }} />
-            <span className="text-[11px] text-white/40">Starred</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PINK }} />
-            <span className="text-[11px] text-white/40">Linked</span>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+      <CalendarHeader
+        monthLabel={currentMonth.format("MMMM YYYY")}
+        onPrev={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))}
+        onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
+        cells={headerCells}
+        types={monthTypes}
+      />
 
       {loading ? (
         <div className="flex justify-center py-20">
@@ -141,11 +144,11 @@ export default function BandCalendar() {
                       setSelectedDate(key);
                     }
                   }}
-                  className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616] cursor-pointer hover:bg-[#1c1c1c]" : "bg-transparent"} ${selectedDate === key ? "ring-2 ring-[#8CFF3D]" : ""}`}
+                  className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "ring-2 ring-[#D2FF85] shadow-[0_0_14px_#C6FF6B66]" : ""}`}
                   style={{ minHeight: hasGigs ? "70px" : "52px" }}
                 >
                   <div className="px-1.5 pt-1.5">
-                    <span className={`text-sm font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`}>
+                    <span className={`text-[13px] font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
                       {day.date()}
                     </span>
                   </div>
@@ -187,12 +190,12 @@ export default function BandCalendar() {
                 const color = getGigColor(g);
                 return (
                   <button key={g.is_owned ? g.id : g.share_token} onClick={() => openGig(g)} className="w-full text-left">
-                    <div className="bg-[#111] rounded-xl border border-[#222] p-3 flex items-center gap-3 hover:bg-[#1a1a1a] transition-colors">
-                      <div className="w-1 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <div className="rounded-xl border p-3 flex items-center gap-3 hover:brightness-110 transition-all" style={{ background: `linear-gradient(90deg, ${color}2e, ${color}10 55%, #111 100%)`, borderColor: color + "55" }}>
+                      <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} size={36} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           {!g.is_owned && <Link2 className="w-3 h-3 shrink-0" style={{ color }} />}
-                          <p className="text-white font-medium text-sm truncate flex-1">{title}</p>
+                          <p className="text-white font-semibold text-base truncate flex-1 leading-tight">{title}</p>
                         </div>
                         {location && (
                           <div className="flex items-center gap-1 text-white/40 text-xs truncate">

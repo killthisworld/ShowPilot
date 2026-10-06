@@ -1,5 +1,5 @@
 import React from "react";
-import { eventTypeColor } from "@/lib/eventTypes";
+import { eventTypeColor, typeBarBackground } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { sceneAccent, sceneDate, sceneTitle, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -14,8 +14,8 @@ export default function CuePad({ show, selected, onSelect }) {
       onClick={() => onSelect(show)}
       className="relative h-28 rounded-lg overflow-hidden flex flex-col text-left text-white"
       style={{
-        background: selected ? "rgba(140,255,61,0.10)" : "#141414",
-        border: `1px solid ${selected ? "#8CFF3D" : "#262626"}`,
+        background: selected ? "rgba(140,255,61,0.10)" : typeBarBackground(typeColor, "#141414"),
+        border: `1px solid ${selected ? "#8CFF3D" : typeColor ? typeColor + "55" : "#262626"}`,
         boxShadow: selected ? "0 0 0 1px #8CFF3D" : "none",
       }}
     >

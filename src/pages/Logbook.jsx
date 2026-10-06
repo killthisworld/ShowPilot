@@ -5,6 +5,10 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar, Link2, Users, ExternalLink } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { eventTypeColor } from "@/lib/eventTypes";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 export default function Logbook() {
   const navigate = useNavigate();
@@ -394,52 +398,73 @@ export default function Logbook() {
         </>
       )}
 
-      {selectedShow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setSelectedShow(null)}>
-          <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-white font-bold text-xl">{selectedShow.event_name || selectedShow.band_name || "Untitled"}</h2>
-                  {selectedShow.is_linked && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-full shrink-0">
-                      <Link2 className="w-3 h-3" /> Linked
-                    </span>
-                  )}
+      {selectedShow && (() => {
+        const typeColor = eventTypeColor(selectedShow.event_type) || (selectedShow.is_linked ? "#F472B6" : "#8CFF3D");
+        const when = selectedShow.date ? new Date(selectedShow.date + "T00:00:00") : null;
+        const place = [selectedShow.venue, [selectedShow.city, selectedShow.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setSelectedShow(null)}>
+            <div
+              className="rounded-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto border"
+              style={{ fontFamily: SCENE_FONT, background: `linear-gradient(180deg, ${typeColor}26 0%, #111111 38%)`, borderColor: typeColor + "66", boxShadow: `0 0 28px ${typeColor}33` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3 p-4 pb-3">
+                <EventTypeIcon type={selectedShow.event_type || "Other"} imageUrl={selectedShow.icon_url} size={48} />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-white font-semibold text-2xl leading-tight tracking-wide">{selectedShow.event_name || selectedShow.band_name || "Untitled"}</h2>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {selectedShow.event_type && (
+                      <span className="text-[9px] tracking-[0.08em] px-[6px] py-[2px] rounded-[3px]" style={{ fontFamily: SCENE_MONO, color: typeColor, background: typeColor + "1f" }}>
+                        {selectedShow.event_type.toUpperCase()}
+                      </span>
+                    )}
+                    {selectedShow.is_linked && (
+                      <span className="flex items-center gap-1 text-[9px] tracking-[0.08em] px-[6px] py-[2px] rounded-[3px] text-pink-400 bg-pink-500/10" style={{ fontFamily: SCENE_MONO }}>
+                        <Link2 className="w-3 h-3" /> LINKED
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {selectedShow.event_type && <p className="text-white/40 text-xs mt-0.5">{selectedShow.event_type}</p>}
+                <button onClick={() => setSelectedShow(null)} className="text-white/40 hover:text-white shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button onClick={() => setSelectedShow(null)} className="text-white/40 hover:text-white shrink-0 ml-2">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="space-y-2.5 text-sm">
-              {selectedShow.venue && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <MapPin className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{selectedShow.venue}{selectedShow.city ? `, ${[selectedShow.city, selectedShow.state].filter(Boolean).join(", ")}` : ""}</span>
+              <div className="px-4">
+                <StatusStrip
+                  cells={[
+                    { label: "DATE", value: when ? when.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase() : "—", color: typeColor },
+                    { label: "YEAR", value: when ? String(when.getFullYear()) : "—", color: "#ffffff" },
+                    { label: "DAY", value: when ? when.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase() : "—", color: "#60A5FA" },
+                  ]}
+                />
+              </div>
+
+              {place && (
+                <div className="px-4 pt-3">
+                  <div className="flex items-center gap-2 bg-[#111111] border border-[#1f1f1f] rounded-[10px] px-3 py-2.5">
+                    <MapPin className="w-4 h-4 shrink-0" style={{ color: typeColor }} />
+                    <span className="text-white/75 text-[12px] leading-snug" style={{ fontFamily: SCENE_MONO }}>{place}</span>
+                  </div>
                 </div>
               )}
-              {selectedShow.date && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <Calendar className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{new Date(selectedShow.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
-                </div>
-              )}
-            </div>
 
-            {selectedShow.is_linked && (
-              <button
-                onClick={() => loadCollaborators(selectedShow.share_token)}
-                className="mt-4 w-full flex items-center justify-center gap-2 text-pink-400 text-sm font-medium bg-pink-500/10 hover:bg-pink-500/20 border border-pink-400/20 rounded-xl py-2.5 transition-colors"
-              >
-                <Users className="w-4 h-4" /> Shared With
-              </button>
-            )}
+              <div className="p-4">
+                {selectedShow.is_linked && (
+                  <button
+                    onClick={() => loadCollaborators(selectedShow.share_token)}
+                    className="w-full flex items-center justify-center gap-2 text-pink-300 text-[12px] tracking-[0.1em] bg-pink-500/10 hover:bg-pink-500/20 border border-pink-400/30 rounded-lg py-2.5 transition-colors"
+                    style={{ fontFamily: SCENE_MONO }}
+                  >
+                    <Users className="w-4 h-4" /> SHARED WITH
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {showCollaborators && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setShowCollaborators(false)}>

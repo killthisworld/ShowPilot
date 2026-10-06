@@ -16,7 +16,7 @@ import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { fetchMyIcons } from "@/lib/eventIcons";
-import { eventTypeColor, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
+import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 // The home screen for every account type except engineer/lighting (those
 // keep the card-list Home.jsx). This used to be a starfield constellation -
@@ -557,7 +557,8 @@ export default function BandHome() {
                         key={gigKey(g)}
                         type="button"
                         onClick={() => openGig(g)}
-                        className="relative w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-white/[0.03] transition-colors"
+                        className="relative w-full flex items-center gap-3 px-3.5 py-3 text-left hover:brightness-110 transition-all"
+                        style={{ background: typeBarBackground(typeColor) }}
                       >
                         {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />

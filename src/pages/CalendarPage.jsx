@@ -7,8 +7,14 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import moment from "moment";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
+import CalendarHeader from "@/components/showpilot/CalendarHeader";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { eventTypeColor } from "@/lib/eventTypes";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 function getShowAccentColor(show) {
+  const typeColor = eventTypeColor(show.event_type);
+  if (typeColor) return typeColor; // event type first, same colors as the home bars
   if (show.is_linked) return "#F472B6"; // pink for linked gigs
   if (show.starred) return "#FBBF24"; // amber for starred
   if (show.status === "complete") return "#8CFF3D"; // green for worked
@@ -172,8 +178,19 @@ export default function CalendarPage() {
     navigate("/show/new", { state: { from: "calendar", prefillDate: dateKey } });
   };
 
+
+  const monthItems = shows.filter((x) => x.date && moment(x.date).isSame(currentMonth, "month"));
+  const monthTypes = [...new Set(monthItems.map((x) => (x.event_type || "").trim()).filter(Boolean))];
+  const todayStart = moment().startOf("day");
+  const nextUp = shows.filter((x) => x.date && !moment(x.date).isBefore(todayStart)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  const headerCells = [
+    { label: "EVENTS", value: String(monthItems.length), color: "#8CFF3D" },
+    { label: "NEXT UP", value: nextUp ? moment(nextUp.date).format("MMM D").toUpperCase() : "—", color: "#60A5FA" },
+    { label: "STARRED", value: String(monthItems.filter((x) => x.starred).length), color: "#F59E0B" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       {/* Manager Import Link share menu */}
       {tmLink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setTmLink(null)}>
@@ -214,14 +231,14 @@ export default function CalendarPage() {
                 const color = getShowAccentColor(s);
                 return (
                   <button key={s.id} onClick={() => openShow(s)} className="w-full text-left">
-                    <div className="bg-[#111] rounded-xl border border-[#222] p-3 flex items-center gap-3 hover:bg-[#1a1a1a] transition-colors">
-                      <div className="w-1 h-8 rounded-full" style={{ backgroundColor: color }} />
+                    <div className="rounded-xl border p-3 flex items-center gap-3 hover:brightness-110 transition-all" style={{ background: `linear-gradient(90deg, ${color}2e, ${color}10 55%, #111 100%)`, borderColor: color + "55" }}>
+                      <EventTypeIcon type={s.event_type} imageUrl={s.icon_url} size={36} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-white font-medium text-sm truncate">{s.event_name || s.band_name || "Untitled Gig"}</p>
+                          <p className="text-white font-semibold text-base truncate leading-tight">{s.event_name || s.band_name || "Untitled Gig"}</p>
                           {s.starred && <Star className="w-3 h-3 text-amber-400 shrink-0" fill="currentColor" />}
                         </div>
-                        {s.venue && <p className="text-white/40 text-xs truncate">{s.venue}</p>}
+                        {s.venue && <p className="text-white/50 text-[11px] truncate" style={{ fontFamily: SCENE_MONO }}>{s.venue}</p>}
                       </div>
                       <StatusBadge status={s.status} />
                     </div>
@@ -236,26 +253,13 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))} className="text-white/50 hover:text-white h-8 w-8 p-0">
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <h2 className="text-lg font-bold text-white">{currentMonth.format("MMMM YYYY")}</h2>
-          <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => m.clone().add(1, "month"))} className="text-white/50 hover:text-white h-8 w-8 p-0">
-            <ChevronRight className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center gap-3 px-4 pb-3 max-w-lg mx-auto text-[10px] text-white/40 flex-wrap">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#555]" />New</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400" />Frequent</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#8CFF3D]" />Worked</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Starred</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: "#F472B6" }} />Linked</span>
-        </div>
-      </div>
+      <CalendarHeader
+        monthLabel={currentMonth.format("MMMM YYYY")}
+        onPrev={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))}
+        onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
+        cells={headerCells}
+        types={monthTypes}
+      />
 
       <div className="px-4 pt-4 max-w-lg mx-auto">
         {loading ? (
@@ -289,11 +293,11 @@ export default function CalendarPage() {
                         setSelectedDate(key);
                       }
                     }}
-                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#161616] cursor-pointer hover:bg-[#1c1c1c]" : "bg-transparent"} ${selectedDate === key ? "ring-2 ring-[#8CFF3D]" : ""}`}
+                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "ring-2 ring-[#D2FF85] shadow-[0_0_14px_#C6FF6B66]" : ""}`}
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
                     <div className="px-1.5 pt-1.5">
-                      <span className={`text-sm font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`}>
+                      <span className={`text-[13px] font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
                         {day.date()}
                       </span>
                     </div>

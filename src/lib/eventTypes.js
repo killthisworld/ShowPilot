@@ -117,6 +117,13 @@ export const EVENT_TYPE_COLORS = {
 };
 const CUSTOM_TYPE_PALETTE = ["#F87171", "#2DD4BF", "#C084FC", "#FBBF24", "#818CF8", "#4ADE80", "#F472B6", "#22D3EE"];
 
+// Fill for a whole event bar: a wash of the type's color fading to the
+// normal dark surface, so rows read as color-coded at a glance.
+export function typeBarBackground(color, base = "#111111") {
+  if (!color) return base;
+  return `linear-gradient(90deg, ${color}2e 0%, ${color}12 45%, ${base} 100%), ${base}`;
+}
+
 export function eventTypeColor(type) {
   const t = (type || "").trim().toLowerCase();
   if (!t) return null;

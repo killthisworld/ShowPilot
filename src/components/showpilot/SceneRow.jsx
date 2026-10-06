@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Archive, Trash2 } from "lucide-react";
-import { eventTypeColor } from "@/lib/eventTypes";
+import { eventTypeColor, typeBarBackground } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { sceneAccent, scenePlace, sceneDate, sceneTitle, SCENE_COLORS, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -51,8 +51,8 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
         onClick={open}
-        className="relative bg-[#111111] hover:bg-[#161616] cursor-pointer select-none flex items-center gap-2.5 px-3 py-2.5"
-        style={{ transform: `translateX(${offset}px)`, transition: dragging.current ? "none" : "transform 0.2s ease-out", touchAction: "pan-y" }}
+        className="relative cursor-pointer select-none flex items-center gap-2.5 px-3 py-2.5"
+        style={{ background: typeBarBackground(typeColor), boxShadow: typeColor ? `inset 4px 0 0 ${typeColor}` : undefined, paddingLeft: typeColor ? 16 : undefined, transform: `translateX(${offset}px)`, transition: dragging.current ? "none" : "transform 0.2s ease-out", touchAction: "pan-y" }}
       >
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
         <EventTypeIcon type={show.event_type} imageUrl={show.icon_url} />
