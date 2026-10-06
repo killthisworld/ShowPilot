@@ -346,20 +346,17 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       <div className="px-4 pt-3 max-w-lg mx-auto flex flex-col items-center">
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
           <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0 }}>
-            {nodes.map((n) => {
-              const on = n.role === selectedRole;
-              return (
-                <line
-                  key={n.role}
-                  x1={cx} y1={cy} x2={n.x} y2={n.y}
-                  stroke={on ? n.style.color : n.claimed ? "#4a4a4a" : "#383838"}
-                  strokeWidth={n.claimed ? (on ? 3 : 1.5) : (on ? 3.5 : 2.5)}
-                  strokeLinecap="round"
-                  strokeDasharray={n.claimed ? undefined : "0.1 7"}
-                  style={on ? { filter: `drop-shadow(0 0 4px ${n.style.color})` } : undefined}
-                />
-              );
-            })}
+            {nodes.map((n) => (
+              // Spokes stay neutral - selecting a role lights up its box, not its line.
+              <line
+                key={n.role}
+                x1={cx} y1={cy} x2={n.x} y2={n.y}
+                stroke={n.claimed ? "#4a4a4a" : "#383838"}
+                strokeWidth={n.claimed ? 1.5 : 2.5}
+                strokeLinecap="round"
+                strokeDasharray={n.claimed ? undefined : "0.1 7"}
+              />
+            ))}
           </svg>
 
           <button
@@ -368,11 +365,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors overflow-hidden"
             style={{
               left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96, zIndex: 1,
-              borderColor: selectedRole === null ? "#B6FF5C" : "#2a2a2a",
+              borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
-              boxShadow: selectedRole === null ? "0 0 0 3px #B6FF5C40, 0 0 18px #B6FF5C66" : undefined,
+              boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA, 0 0 60px #B6FF5C44" : undefined,
             }}
           >
+            {selectedRole === null && <span className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 40%, rgba(198,255,107,0.28), rgba(198,255,107,0.06) 70%)" }} />}
             {/* The event's icon as a faded backdrop: an uploaded image (dimmed, with a dark wash so text stays crisp) or the type glyph in its color. */}
             {(myIcon || gig.icon_url) ? (
               <>
