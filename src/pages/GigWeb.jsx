@@ -345,17 +345,17 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
       <div className="px-4 pt-3 max-w-lg mx-auto flex flex-col items-center">
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
-          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none">
+          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0 }}>
             {nodes.map((n) => {
               const on = n.role === selectedRole;
               return (
                 <line
                   key={n.role}
                   x1={cx} y1={cy} x2={n.x} y2={n.y}
-                  stroke={on ? n.style.color : n.claimed ? n.style.color + "99" : "#383838"}
-                  strokeWidth={on ? 3 : 1.5}
+                  stroke={on ? n.style.color : n.claimed ? "#4a4a4a" : "#383838"}
+                  strokeWidth={n.claimed ? (on ? 3 : 1.5) : (on ? 3.5 : 2.5)}
                   strokeLinecap="round"
-                  strokeDasharray={n.claimed || on ? undefined : "3 4"}
+                  strokeDasharray={n.claimed ? undefined : "0.1 7"}
                   style={on ? { filter: `drop-shadow(0 0 4px ${n.style.color})` } : undefined}
                 />
               );
@@ -367,9 +367,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             onClick={() => selectRole(null)}
             className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors overflow-hidden"
             style={{
-              left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96,
-              borderColor: selectedRole === null ? "#8CFF3D" : "#2a2a2a",
-              boxShadow: selectedRole === null ? "0 0 0 3px #8CFF3D33" : undefined,
+              left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96, zIndex: 1,
+              borderColor: selectedRole === null ? "#B6FF5C" : "#2a2a2a",
+              borderWidth: selectedRole === null ? 2 : 1,
+              boxShadow: selectedRole === null ? "0 0 0 3px #B6FF5C40, 0 0 18px #B6FF5C66" : undefined,
             }}
           >
             {/* The event's icon as a faded backdrop: an uploaded image (dimmed, with a dark wash so text stays crisp) or the type glyph in its color. */}
@@ -387,7 +388,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             ) : null}
             <div className="relative text-[9px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>SOURCE</div>
             <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
-            {dateLabel && <div className="relative text-[9px] text-[#8CFF3D] uppercase" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{dateLabel}</div>}
+            {dateLabel && <div className="relative text-[9px] text-[#B6FF5C] uppercase" style={{ fontFamily: SCENE_MONO, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{dateLabel}</div>}
           </button>
 
           {nodes.map((n) => {
@@ -399,18 +400,20 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 onClick={() => selectRole(n.role)}
                 className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
                 style={{
-                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 68, height: 56,
-                  background: active ? n.style.color + "26" : "#161616",
-                  border: `1.5px solid ${active ? n.style.color : n.style.color + "55"}`,
-                  boxShadow: active ? `0 0 0 3px ${n.style.color}33` : undefined,
+                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 68, height: 56, zIndex: 1,
+                  // Solid base so the spoke line behind never shows through; only the selected one lights up.
+                  backgroundColor: "#161616",
+                  backgroundImage: active ? `linear-gradient(${n.style.color}33, ${n.style.color}33)` : undefined,
+                  border: `1.5px solid ${active ? n.style.color : "#2a2a2a"}`,
+                  boxShadow: active ? `0 0 0 3px ${n.style.color}40, 0 0 16px ${n.style.color}66` : undefined,
                 }}
               >
-                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
+                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, opacity: active ? 1 : 0.5, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
                 <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
-                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color, opacity: active ? 1 : 0.45 }} />
                 </span>
-                <span className="text-[9px] text-white/50 leading-none" style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
-                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color }} />}
+                <span className={`text-[9px] leading-none ${active ? "text-white/80" : "text-white/35"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
+                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color, opacity: active ? 1 : 0.5 }} />}
               </button>
             );
           })}
