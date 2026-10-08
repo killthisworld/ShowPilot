@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
 export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
   const [open, setOpen] = useState(false);
@@ -132,103 +133,20 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
           <Menu className="w-6 h-6 text-white/70" />
         </button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 bg-[#111] border-[#222] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <div className="p-5">
-          <h2 className="text-lg font-bold text-white mb-4">Settings</h2>
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-[#222] flex items-center justify-center overflow-hidden border-2 border-[#333]">
-                {prefs.profile_photo_url ? (
-                  <img src={prefs.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-8 h-8 text-white/30" />
-                )}
-              </div>
-              <label className="text-sm text-[#8CFF3D] cursor-pointer hover:underline">
-                Upload Photo
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-              </label>
-            </div>
-            <div className="flex items-center gap-1.5 -mt-1">
-              <accountStyle.icon className="w-3.5 h-3.5" style={{ color: accountStyle.color }} />
-              <span className="text-xs font-medium" style={{ color: accountStyle.color }}>
-                Account Type: {accountStyle.label}
-              </span>
-            </div>
-            <div>
-              <Label className="text-white/50 text-xs">Display Name</Label>
-              <Input value={prefs.display_name || ""} onChange={(e) => setPrefs({ ...prefs, display_name: e.target.value })} className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white" />
-            </div>
-            <div>
-              <Label className="text-white/50 text-xs">Email</Label>
-              <Input value={user?.email || ""} readOnly className="mt-1 bg-[#1a1a1a] border-[#2a2a2a] text-white/50" />
-            </div>
-
-            <Button onClick={() => { setOpen(false); navigate("/linked"); }} variant="outline" className="w-full border-pink-400/50 text-pink-400/80 hover:bg-pink-500/10 hover:text-pink-400 justify-start">
-              <Link2 className="w-4 h-4 mr-2" /> Linked
-            </Button>
-
-            <Button onClick={() => { setOpen(false); navigate("/archived"); }} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] justify-start">
-              <Archive className="w-4 h-4 mr-2" /> Archived Shows
-            </Button>
-
-            <Button onClick={() => { setOpen(false); navigate("/manager-links"); }} variant="outline" className="w-full border-blue-400/50 text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-400 justify-start">
-              <Mail className="w-4 h-4 mr-2" /> Manage Links
-            </Button>
-
-            <button
-              onClick={() => { setOpen(false); navigate("/my-templates"); }}
-              className="w-full border border-orange-400/50 rounded-xl p-3 flex items-center gap-3 hover:bg-orange-500/10 active:bg-orange-500/20 transition-colors"
-            >
-              <FolderOpen className="w-4 h-4 text-orange-400/80 shrink-0" />
-              <div className="text-left">
-                <p className="text-orange-400/90 text-xs font-medium">My Templates</p>
-                <p className="text-white/40 text-[10px]">Save venue and artist info to reuse on repeat shows</p>
-              </div>
-            </button>
-
-            <Button onClick={save} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
-              {saving ? "Saving..." : "Save Settings"}
-            </Button>
-
-            <div className="border-t border-[#222] pt-4">
-              <Label className="text-white/50 text-xs block mb-2">Rate ShowPilot</Label>
-              {canRate ? (
-                <>
-                  <div className="flex gap-1 mb-2">
-                    {[1,2,3,4,5].map((star) => (
-                      <button key={star} onClick={() => setRating(star)} className="transition-transform hover:scale-110">
-                        <Star className="w-6 h-6" fill={star <= rating ? "#8CFF3D" : "none"} stroke={star <= rating ? "#8CFF3D" : "#555"} />
-                      </button>
-                    ))}
-                  </div>
-                  <Textarea
-                    value={ratingComment}
-                    onChange={(e) => setRatingComment(e.target.value)}
-                    placeholder="Any feedback or comments..."
-                    className="bg-[#1a1a1a] border-[#2a2a2a] text-white text-sm min-h-[70px] resize-none"
-                  />
-                  <Button
-                    size="sm"
-                    disabled={rating === 0 || ratingSubmitting}
-                    onClick={submitRating}
-                    className="mt-2 w-full bg-[#8CFF3D]/10 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 border border-[#8CFF3D]/20 disabled:opacity-40"
-                  >
-                    {ratingSubmitting ? "Sending..." : "Submit Rating"}
-                  </Button>
-                </>
-              ) : (
-                <p className="text-xs text-white/30 py-2">
-                  Thanks for your feedback! You can rate again in {Math.ceil(7 - daysSinceRating)} day{Math.ceil(7 - daysSinceRating) !== 1 ? "s" : ""}.
-                </p>
-              )}
-            </div>
-            <Button onClick={handleLogout} variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 w-full justify-start">
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </Button>
-          </div>
-        </div>
+      <SheetContent side="left" className="w-80 bg-[#0d0d0d] border-[#1f1f1f] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <SettingsPanel
+          prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
+          navItems={[
+            { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
+            { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
+            { icon: Mail, label: "Manage Links", color: "#60A5FA", onClick: () => { setOpen(false); navigate("/manager-links"); } },
+            { icon: FolderOpen, label: "My Templates", sub: "Save venue and artist info to reuse on repeat shows", color: "#FB923C", onClick: () => { setOpen(false); navigate("/my-templates"); } },
+          ]}
+          onSave={save} saving={saving}
+          canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}
+          ratingComment={ratingComment} setRatingComment={setRatingComment} ratingSubmitting={ratingSubmitting} onSubmitRating={submitRating}
+          onSignOut={handleLogout}
+        />
       </SheetContent>
     </Sheet>
   );
