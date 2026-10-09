@@ -55,7 +55,7 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
         className="relative cursor-pointer select-none flex items-center gap-2.5 px-3 py-2.5"
         style={{ background: typeBarBackground(typeColor), boxShadow: typeColor ? `inset 4px 0 0 ${typeColor}` : undefined, paddingLeft: typeColor ? 16 : undefined, transform: `translateX(${offset}px)`, transition: dragging.current ? "none" : "transform 0.2s ease-out", touchAction: "pan-y" }}
       >
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: accent }} />
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: typeColor || accent }} />
         <EventTypeIcon type={show.event_type} imageUrl={show.icon_url} />
         <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-[17px] leading-tight truncate">{sceneTitle(show)}</div>

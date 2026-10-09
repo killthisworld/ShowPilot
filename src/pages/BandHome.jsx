@@ -586,7 +586,7 @@ export default function BandHome() {
                         style={{ background: typeBarBackground(typeColor) }}
                       >
                         {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: typeColor || color }} />
                         <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
                         <div className="min-w-0 flex-1">
                           <p className="text-white text-sm font-medium truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
