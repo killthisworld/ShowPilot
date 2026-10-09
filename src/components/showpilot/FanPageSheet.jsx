@@ -3,7 +3,7 @@ import { supabase } from "@/api/supabaseClient";
 import { Check, ChevronRight, ImagePlus, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
-import { normalizeLink } from "@/lib/links";
+import { normalizeLink, isTruncatedLink } from "@/lib/links";
 
 const G = "#8CFF3D";
 
@@ -85,7 +85,12 @@ function OwnerSheet({ showId, onClose }) {
     let ticketLink = draft.ticketLink.trim();
     if (ticketLink) {
       const ok = normalizeLink(ticketLink);
-      if (!ok) { setErr("The ticket link doesn't look like a web address. Paste the link where fans buy tickets, like eventbrite.com/e/your-show."); return; }
+      if (!ok) {
+        setErr(isTruncatedLink(ticketLink)
+          ? "That ticket link is cut off (it has “…” in it), so it won't open. On the ticket site, tap Share or Copy link to get the full address, then paste that."
+          : "The ticket link doesn't look like a web address. Paste the link where fans buy tickets, like eventbrite.com/e/your-show.");
+        return;
+      }
       ticketLink = ok;
     }
     setSaving(true);
