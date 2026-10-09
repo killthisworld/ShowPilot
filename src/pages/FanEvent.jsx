@@ -4,12 +4,13 @@ import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
+import { normalizeLink } from "@/lib/links";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 // Public, no-login page for one event. Everything on it comes from
 // get_fan_event, which only returns what the owner chose to show - crew
 // details never reach this page.
-const withProtocol = (u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
+
 
 export default function FanEvent() {
   const { token } = useParams();
@@ -75,6 +76,8 @@ export default function FanEvent() {
     ? new Date(ev.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()
     : "";
   const place = [ev.city, ev.state].filter(Boolean).join(", ");
+  // Only a real web address becomes a button, so a bad entry never gives fans a broken link.
+  const ticketUrl = normalizeLink(ev.ticket_link);
   const times = [
     ev.door_time && { label: "DOORS", value: ev.door_time, color: "#fff" },
     ev.show_time && { label: "SHOW", value: ev.show_time, color },
@@ -159,21 +162,6 @@ export default function FanEvent() {
           </div>
         )}
 
-        {ev.ticket_link && (
-          <div className="px-5 mt-4">
-            <a
-              href={withProtocol(ev.ticket_link)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2.5 py-[15px] rounded-xl text-[22px] font-bold tracking-[0.06em] text-[#0d0d0d]"
-              style={{ background: color, boxShadow: `0 0 22px ${color}66` }}
-            >
-              <Ticket className="w-5 h-5" /> GET TICKETS
-              {ev.ticket_price && <span className="text-[13px] font-semibold opacity-70" style={{ fontFamily: SCENE_MONO }}>{ev.ticket_price}</span>}
-            </a>
-          </div>
-        )}
-
         {ev.note && (
           <div className="mx-5 mt-4 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
             <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FROM THE ARTIST</div>
@@ -195,6 +183,21 @@ export default function FanEvent() {
                 MAP <Navigation className="w-3 h-3" />
               </a>
             )}
+          </div>
+        )}
+
+        {ticketUrl && (
+          <div className="px-5 mt-3.5">
+            <a
+              href={ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-3 px-5 py-4 rounded-xl text-[#0d0d0d]"
+              style={{ background: color, boxShadow: `0 0 22px ${color}66` }}
+            >
+              <span className="flex items-center gap-2.5 text-[24px] font-bold tracking-[0.06em]"><Ticket className="w-6 h-6" /> GET TICKETS</span>
+              {ev.ticket_price && <span className="text-[30px] font-bold leading-none" style={{ fontFamily: SCENE_MONO }}>{ev.ticket_price}</span>}
+            </a>
           </div>
         )}
 
