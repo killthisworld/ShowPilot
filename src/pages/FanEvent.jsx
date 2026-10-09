@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { MapPin, Ticket, Navigation } from "lucide-react";
+import { MapPin, Ticket, Navigation, Image as ImageIcon, X } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -15,6 +15,8 @@ export default function FanEvent() {
   const { token } = useParams();
   const [ev, setEv] = useState(null);
   const [state, setState] = useState("loading");
+  // Flyer viewing mode: the page info dissolves and the flyer comes forward.
+  const [viewing, setViewing] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -25,6 +27,13 @@ export default function FanEvent() {
     });
     return () => { alive = false; };
   }, [token]);
+
+  useEffect(() => {
+    if (!viewing) return;
+    const onKey = (e) => { if (e.key === "Escape") setViewing(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewing]);
 
   if (state === "loading") {
     return (
@@ -63,11 +72,25 @@ export default function FanEvent() {
     <div className="min-h-screen bg-[#0d0d0d] text-white relative" style={{ fontFamily: SCENE_FONT }}>
       {ev.flyer_url && (
         <>
-          <div className="fixed inset-0 z-0 bg-cover bg-center scale-110" style={{ backgroundImage: `url(${ev.flyer_url})`, filter: "blur(3px) saturate(1.1)" }} />
-          <div className="fixed inset-0 z-0" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.55) 0%, rgba(13,13,13,0.72) 40%, rgba(13,13,13,0.9) 100%)" }} />
+          <div className="fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url(${ev.flyer_url})`, filter: viewing ? "blur(0px)" : "blur(3px) saturate(1.1)", transform: viewing ? "scale(1.25)" : "scale(1.1)", opacity: viewing ? 0 : 1, transition: "opacity 700ms ease, transform 900ms ease, filter 700ms ease" }} />
+          <div className="fixed inset-0 z-0" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.55) 0%, rgba(13,13,13,0.72) 40%, rgba(13,13,13,0.9) 100%)", opacity: viewing ? 0 : 1, transition: "opacity 600ms ease" }} />
+          {/* The clear, full flyer: fits the screen, fades and settles in when viewing. */}
+          <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#0d0d0d]" style={{ opacity: viewing ? 1 : 0, pointerEvents: viewing ? "auto" : "none", transition: "opacity 700ms ease 150ms" }} onClick={() => setViewing(false)}>
+            <img src={ev.flyer_url} alt="Event flyer" className="max-w-full max-h-full object-contain" style={{ transform: viewing ? "scale(1)" : "scale(1.12)", transition: "transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms" }} />
+          </div>
+          <button
+            type="button"
+            onClick={() => setViewing(false)}
+            aria-label="Back to event info"
+            tabIndex={viewing ? 0 : -1}
+            className="fixed z-30 left-1/2 -translate-x-1/2 bottom-6 flex items-center gap-2 px-5 py-3 rounded-full text-base font-bold tracking-[0.06em] text-white bg-black/60 backdrop-blur-md border border-white/25"
+            style={{ opacity: viewing ? 1 : 0, pointerEvents: viewing ? "auto" : "none", transition: "opacity 500ms ease 700ms" }}
+          >
+            <X className="w-4 h-4" /> BACK TO INFO
+          </button>
         </>
       )}
-      <div className="max-w-lg mx-auto relative z-10">
+      <div className="max-w-lg mx-auto relative z-10" style={{ opacity: viewing ? 0 : 1, filter: viewing ? "blur(6px)" : "none", transform: viewing ? "scale(0.97)" : "none", pointerEvents: viewing ? "none" : "auto", transition: "opacity 550ms ease, filter 550ms ease, transform 550ms ease" }} aria-hidden={viewing}>
         <div className="px-5 pt-6 pb-5 border-b border-white/10" style={{ background: ev.flyer_url ? `linear-gradient(180deg, ${color}2a 0%, transparent 100%)` : `linear-gradient(180deg, ${color}38 0%, ${color}0f 60%, #0d0d0d 100%)` }}>
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
@@ -84,6 +107,11 @@ export default function FanEvent() {
           )}
           <p className="mt-3 text-xs tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_MONO, color }}>{[dateLabel, ev.venue].filter(Boolean).join(" · ")}</p>
           {place && <p className="mt-1 text-[11px] tracking-[0.08em] uppercase text-white/50" style={{ fontFamily: SCENE_MONO }}>{place}</p>}
+          {ev.flyer_url && (
+            <button type="button" onClick={() => setViewing(true)} className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] tracking-[0.1em] text-white/80 bg-black/35 border border-white/20 hover:bg-black/50" style={{ fontFamily: SCENE_MONO }}>
+              <ImageIcon className="w-3 h-3" /> VIEW FLYER
+            </button>
+          )}
         </div>
 
         {times.length > 0 && (
@@ -116,14 +144,6 @@ export default function FanEvent() {
           <div className="mx-5 mt-4 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
             <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FROM THE ARTIST</div>
             <p className="mt-2 text-lg font-medium leading-tight text-white/90 whitespace-pre-line">{ev.note}</p>
-          </div>
-        )}
-
-        {ev.flyer_url && (
-          <div className="px-5 mt-3.5">
-            <a href={ev.flyer_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2.5 rounded-xl text-base font-bold tracking-[0.06em] bg-black/40 backdrop-blur-md border border-white/15 text-white/85">
-              VIEW FULL FLYER
-            </a>
           </div>
         )}
 
