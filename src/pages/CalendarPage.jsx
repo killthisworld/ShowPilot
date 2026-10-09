@@ -293,11 +293,11 @@ export default function CalendarPage() {
                         setSelectedDate(key);
                       }
                     }}
-                    className={`relative rounded-xl overflow-hidden transition-colors ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "ring-2 ring-[#D2FF85] shadow-[0_0_14px_#C6FF6B66]" : ""}`}
+                    className={`relative rounded-xl overflow-hidden transition-all duration-150 ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "!bg-[#1b2a0e] !border-[#D2FF85] ring-[3px] ring-[#D2FF85] shadow-[0_0_26px_6px_#C6FF6BAA] scale-[1.05] z-10" : ""}`}
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
                     <div className="px-1.5 pt-1.5">
-                      <span className={`text-[13px] font-medium ${isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
+                      <span className={`text-[13px] font-medium ${selectedDate === key ? "text-[#D2FF85] font-bold" : isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
                         {day.date()}
                       </span>
                     </div>
