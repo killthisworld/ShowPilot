@@ -29,6 +29,9 @@ function OwnerSheet({ showId, onClose }) {
   const [showTime, setShowTime] = useState("");
   const [ages, setAges] = useState("");
   const [note, setNote] = useState("");
+  const [ticketLink, setTicketLink] = useState("");
+  const [ticketPrice, setTicketPrice] = useState("");
+  const [address, setAddress] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -45,6 +48,9 @@ function OwnerSheet({ showId, onClose }) {
         setShowTime(cfg.show_time || "");
         setAges(cfg.ages || "");
         setNote(cfg.note || "");
+        setAddress(cfg.address || "");
+        setTicketLink(data.promoter_info?.ticket_link || "");
+        setTicketPrice(data.promoter_info?.ticket_price || "");
       });
     return () => { alive = false; };
   }, [showId]);
@@ -65,6 +71,9 @@ function OwnerSheet({ showId, onClose }) {
     setRow(data);
   };
   const savePage = (changes) => save({ fan_page: { ...cfg, ...changes } });
+  // Ticket link and price live in the promoter section of the Gig Web, so
+  // the promoter sees what's entered here and vice versa.
+  const savePromoter = (changes) => save({ promoter_info: { ...(row?.promoter_info || {}), ...changes } });
 
   const togglePublic = () => { setCopied(false); save({ fan_page_enabled: !row.fan_page_enabled }); };
   const toggleField = (key) => savePage({ hidden: hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key] });
@@ -83,7 +92,6 @@ function OwnerSheet({ showId, onClose }) {
 
   const on = !!row?.fan_page_enabled;
   const inputCls = "w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#8CFF3D]/60";
-  const missing = row && !row.promoter_info?.ticket_link;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ fontFamily: SCENE_FONT }}>
@@ -150,12 +158,14 @@ function OwnerSheet({ showId, onClose }) {
                   })}
                 </div>
 
-                {missing && !hidden.includes("tickets") && (
-                  <p className="mt-2 text-[13px] text-[#F59E0B]">No ticket link yet. The promoter section of the Gig Web is where it goes, and the Get Tickets button appears once it's filled in.</p>
-                )}
 
                 <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>FAN PAGE DETAILS</div>
-                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                <div className="mt-1.5 grid grid-cols-[1fr_88px] gap-2">
+                  <input className={inputCls} placeholder="Ticket link (where fans buy)" inputMode="url" value={ticketLink} onChange={(e) => setTicketLink(e.target.value)} onBlur={() => ticketLink !== (row.promoter_info?.ticket_link || "") && savePromoter({ ticket_link: ticketLink.trim() })} />
+                  <input className={inputCls} placeholder="Price" value={ticketPrice} onChange={(e) => setTicketPrice(e.target.value)} onBlur={() => ticketPrice !== (row.promoter_info?.ticket_price || "") && savePromoter({ ticket_price: ticketPrice.trim() })} />
+                </div>
+                <input className={`${inputCls} mt-2`} placeholder="Venue street address (used for the map link)" value={address} onChange={(e) => setAddress(e.target.value)} onBlur={() => address !== (cfg.address || "") && savePage({ address: address.trim() })} />
+                <div className="mt-2 grid grid-cols-2 gap-2">
                   <input className={inputCls} placeholder="Show time, e.g. 8:00 PM" value={showTime} onChange={(e) => setShowTime(e.target.value)} onBlur={() => showTime !== (cfg.show_time || "") && savePage({ show_time: showTime.trim() })} />
                   <input className={inputCls} placeholder="Ages, e.g. 18+" value={ages} onChange={(e) => setAges(e.target.value)} onBlur={() => ages !== (cfg.ages || "") && savePage({ ages: ages.trim() })} />
                 </div>

@@ -54,7 +54,10 @@ export default function FanEvent() {
     ev.show_time && { label: "SHOW", value: ev.show_time, color },
     ev.ages && { label: "AGES", value: ev.ages, color: "rgba(255,255,255,0.7)" },
   ].filter(Boolean);
-  const mapsUrl = ev.venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([ev.venue, place].filter(Boolean).join(" "))}` : null;
+  // A street address, when the host gave one, is what makes the map link land
+  // on the right spot; otherwise fall back to the venue name and city.
+  const mapQuery = ev.address ? [ev.address, place].filter(Boolean).join(", ") : [ev.venue, place].filter(Boolean).join(" ");
+  const mapsUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white relative" style={{ fontFamily: SCENE_FONT }}>
@@ -131,7 +134,7 @@ export default function FanEvent() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-lg font-bold leading-tight truncate">{ev.venue}</div>
-              {place && <div className="text-[10px] tracking-[0.06em] uppercase text-white/50 mt-0.5" style={{ fontFamily: SCENE_MONO }}>{place}</div>}
+              {(ev.address || place) && <div className="text-[10px] tracking-[0.06em] uppercase text-white/50 mt-0.5" style={{ fontFamily: SCENE_MONO }}>{ev.address ? [ev.address, place].filter(Boolean).join(", ") : place}</div>}
             </div>
             {mapsUrl && (
               <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.1em] flex items-center gap-1" style={{ fontFamily: SCENE_MONO, color: "#FB923C" }}>
