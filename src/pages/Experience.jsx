@@ -751,7 +751,7 @@ export default function Cockpit() {
                   backgroundPosition: "center",
                 }}
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
                 {draft.card_bg_image_url ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); update("card_bg_image_url", ""); }}
@@ -780,23 +780,23 @@ export default function Cockpit() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-lg truncate" style={{ color: textColor }}>{draft.display_name || "Your Name"}</p>
+                    <p className="font-bold text-xl truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{draft.display_name || "Your Name"}</p>
                     {draft.job_title && (
-                      <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: textColor }}>
-                        <Briefcase className="w-3 h-3 shrink-0" /> {draft.job_title}
+                      <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                        <Briefcase className="w-4 h-4 shrink-0" /> {draft.job_title}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="relative z-10 space-y-1">
                   {draft.contact_email && (
-                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                      <Mail className="w-3 h-3 shrink-0" /> {draft.contact_email}
+                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Mail className="w-4 h-4 shrink-0" /> {draft.contact_email}
                     </p>
                   )}
                   {draft.contact_phone && (
-                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                      <Phone className="w-3 h-3 shrink-0" /> {draft.contact_phone}
+                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Phone className="w-4 h-4 shrink-0" /> {draft.contact_phone}
                     </p>
                   )}
                   {draft.custom_link_url && (
@@ -805,10 +805,10 @@ export default function Cockpit() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-xs flex items-center gap-1.5 opacity-90 hover:underline"
-                      style={{ color: textColor }}
+                      className="text-sm font-medium flex items-center gap-1.5 hover:underline"
+                      style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
                     >
-                      <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
+                      <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
                     </a>
                   )}
                 </div>
@@ -939,7 +939,7 @@ export default function Cockpit() {
                   )}
                   {!openedWallet.icon_image_url && (() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="relative z-10 w-6 h-6 text-black shrink-0" />; })()}
                   <div className="relative z-10 min-w-0 flex-1">
-                    <p className={`font-bold text-lg truncate ${openedWallet.icon_image_url ? "text-white" : "text-black"}`}>{openedWallet.name}</p>
+                    <p className={`font-bold text-xl truncate ${openedWallet.icon_image_url ? "text-white" : "text-black"}`}>{openedWallet.name}</p>
                     {(openedWallet.city || openedWallet.state) && (
                       <p className={`text-xs truncate ${openedWallet.icon_image_url ? "text-white/80" : "text-black/70"}`}>{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
                     )}
@@ -1537,7 +1537,7 @@ export default function Cockpit() {
                   backgroundPosition: "center",
                 }}
               >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
                 <div className="relative z-10 flex items-center gap-3 mb-3">
                   <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
                     {viewingCard.profile_photo_url ? (
@@ -1547,23 +1547,23 @@ export default function Cockpit() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-lg truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>{viewingCard.display_name || "Pilot"}</p>
+                    <p className="font-bold text-xl truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{viewingCard.display_name || "Pilot"}</p>
                     {viewingCard.job_title && (
-                      <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                        <Briefcase className="w-3 h-3 shrink-0" /> {viewingCard.job_title}
+                      <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                        <Briefcase className="w-4 h-4 shrink-0" /> {viewingCard.job_title}
                       </p>
                     )}
                   </div>
                 </div>
                 <div className="relative z-10 space-y-1">
                   {viewingCard.contact_email && (
-                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                      <Mail className="w-3 h-3 shrink-0" /> {viewingCard.contact_email}
+                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Mail className="w-4 h-4 shrink-0" /> {viewingCard.contact_email}
                     </p>
                   )}
                   {viewingCard.contact_phone && (
-                    <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: viewingCard.card_text_color || "#FFFFFF" }}>
-                      <Phone className="w-3 h-3 shrink-0" /> {viewingCard.contact_phone}
+                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Phone className="w-4 h-4 shrink-0" /> {viewingCard.contact_phone}
                     </p>
                   )}
                   {viewingCard.custom_link_url && (
@@ -1572,10 +1572,10 @@ export default function Cockpit() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-xs flex items-center gap-1.5 opacity-90 hover:underline"
-                      style={{ color: viewingCard.card_text_color || "#FFFFFF" }}
+                      className="text-sm font-medium flex items-center gap-1.5 hover:underline"
+                      style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
                     >
-                      <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
+                      <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
                     </a>
                   )}
                 </div>

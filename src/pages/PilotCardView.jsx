@@ -239,7 +239,7 @@ export default function PilotCardView() {
             backgroundPosition: "center",
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
           <div className="relative z-10 flex items-center gap-3 mb-3">
             <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: textColor }}>
               {card.profile_photo_url ? (
@@ -249,23 +249,23 @@ export default function PilotCardView() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-lg truncate" style={{ color: textColor }}>{card.display_name || "ShowPilot User"}</p>
+              <p className="font-bold text-xl truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{card.display_name || "ShowPilot User"}</p>
               {card.job_title && (
-                <p className="text-sm opacity-80 truncate flex items-center gap-1" style={{ color: textColor }}>
-                  <Briefcase className="w-3 h-3 shrink-0" /> {card.job_title}
+                <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                  <Briefcase className="w-4 h-4 shrink-0" /> {card.job_title}
                 </p>
               )}
             </div>
           </div>
           <div className="relative z-10 space-y-1">
             {card.contact_email && (
-              <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                <Mail className="w-3 h-3 shrink-0" /> {card.contact_email}
+              <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                <Mail className="w-4 h-4 shrink-0" /> {card.contact_email}
               </p>
             )}
             {card.contact_phone && (
-              <p className="text-xs flex items-center gap-1.5 opacity-90" style={{ color: textColor }}>
-                <Phone className="w-3 h-3 shrink-0" /> {card.contact_phone}
+              <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                <Phone className="w-4 h-4 shrink-0" /> {card.contact_phone}
               </p>
             )}
             {card.custom_link_url && (
@@ -274,10 +274,10 @@ export default function PilotCardView() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs flex items-center gap-1.5 opacity-90 hover:opacity-100 hover:underline w-fit"
-                style={{ color: textColor }}
+                className="text-sm font-medium flex items-center gap-1.5 hover:opacity-100 hover:underline w-fit"
+                style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
               >
-                <ExternalLink className="w-3 h-3 shrink-0" /> Visit Link
+                <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
               </a>
             )}
           </div>
