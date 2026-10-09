@@ -19,7 +19,7 @@ const FIELDS = [
 // Owner-only sheet that turns the public fan page on or off and picks what
 // it shows. Reads and writes the show row directly (owner RLS), like the
 // event icon does.
-export default function FanPageSheet({ showId, onClose }) {
+function OwnerSheet({ showId, onClose }) {
   const [row, setRow] = useState(null);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -86,7 +86,7 @@ export default function FanPageSheet({ showId, onClose }) {
   const missing = row && !row.promoter_info?.ticket_link;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ fontFamily: SCENE_FONT }}>
+    <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ fontFamily: SCENE_FONT }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto bg-[#0d0d0d] border-t border-[#2a2a2a] rounded-t-[18px] px-4 pt-2.5 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]">
         <div className="w-10 h-1 rounded-sm bg-[#2a2a2a] mx-auto mb-3" />
@@ -191,4 +191,68 @@ export default function FanPageSheet({ showId, onClose }) {
       </div>
     </div>
   );
+}
+
+// Read-only version for anyone linked to the event who isn't its owner: they
+// can open and copy the fan page link once the owner has turned it on, but
+// only the owner can change it.
+function ViewerSheet({ shareToken, onClose }) {
+  const [info, setInfo] = useState(undefined);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    supabase.rpc("get_fan_link", { p_share_token: shareToken }).then(({ data, error }) => {
+      if (alive) setInfo(error ? null : data || null);
+    });
+    return () => { alive = false; };
+  }, [shareToken]);
+
+  const url = info?.fan_token ? `${window.location.origin}/e/${info.fan_token}` : "";
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ fontFamily: SCENE_FONT }}>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-[#0d0d0d] border-t border-[#2a2a2a] rounded-t-[18px] px-4 pt-2.5 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]">
+        <div className="w-10 h-1 rounded-sm bg-[#2a2a2a] mx-auto mb-3" />
+        <div className="flex items-center gap-2.5">
+          <span className="text-2xl font-bold flex-1 text-white">Event page for fans</span>
+          <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: info?.enabled ? G : "rgba(255,255,255,0.45)" }}>{info === undefined ? "" : info?.enabled ? "LIVE" : "OFF"}</span>
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        {info === undefined && <div className="py-8 flex justify-center"><div className="w-5 h-5 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></div>}
+
+        {info !== undefined && !info?.enabled && (
+          <p className="mt-2 text-[15px] font-medium leading-tight text-white/50">The host hasn't turned on the public page for this event yet. Only the owner can switch it on and edit it.</p>
+        )}
+
+        {info?.enabled && (
+          <>
+            <p className="mt-1 text-[15px] font-medium leading-tight text-white/50">This is the page fans see. Only the event owner can edit it.</p>
+            <div className="mt-3 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] py-1.5 pl-3 pr-1.5">
+              <span className="flex-1 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</span>
+              <button type="button" onClick={copy} className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
+            </div>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
+              VIEW PAGE <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </>
+        )}
+
+        <button type="button" onClick={onClose} className="mt-3 w-full py-[11px] rounded-[10px] bg-[#111] border border-[#2a2a2a] text-white/70 text-base font-bold tracking-[0.06em]">DONE</button>
+      </div>
+    </div>
+  );
+}
+
+// Owner (has showId) gets the editor; everyone else linked to the event
+// (has shareToken) gets the read-only view.
+export default function FanPageSheet({ showId, shareToken, onClose }) {
+  if (showId) return <OwnerSheet showId={showId} onClose={onClose} />;
+  if (shareToken) return <ViewerSheet shareToken={shareToken} onClose={onClose} />;
+  return null;
 }

@@ -315,6 +315,17 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
             <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
+          {!permissions?.is_owner && token && (
+            <button
+              type="button"
+              onClick={() => setShowFanSheet(true)}
+              title="Event page for fans"
+              aria-label="View event page for fans"
+              className="ml-auto p-2 text-white/40 hover:text-[#8CFF3D] transition-colors shrink-0"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          )}
           {permissions?.is_owner && (
             <div className="flex items-center gap-1 shrink-0 ml-auto">
               <button
@@ -512,7 +523,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
 
-      {showFanSheet && gig?.id && <FanPageSheet showId={gig.id} onClose={() => setShowFanSheet(false)} />}
+      {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}
       {showDeleteConfirm && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"

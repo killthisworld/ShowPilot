@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Archive, Trash2 } from "lucide-react";
 import { eventTypeColor, typeBarBackground } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import FanPageButton from "@/components/showpilot/FanPageButton";
 import { sceneAccent, scenePlace, sceneDate, sceneTitle, SCENE_COLORS, SCENE_MONO } from "@/lib/sceneStyle";
 
 const SWIPE_WIDTH = 144;
@@ -71,6 +72,7 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
           </div>
         </div>
         <span className="shrink-0 text-[11px] text-white/60" style={{ fontFamily: SCENE_MONO }}>{sceneDate(show)}</span>
+        <FanPageButton show={show} />
       </div>
     </div>
   );
