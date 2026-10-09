@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Check, ExternalLink, ImagePlus, X } from "lucide-react";
+import { Check, ChevronRight, ImagePlus, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
 
@@ -185,8 +185,8 @@ function OwnerSheet({ showId, onClose }) {
                 </div>
 
                 <div className="mt-4 flex gap-2">
-                  <a href={url} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
-                    PREVIEW PAGE <ExternalLink className="w-3.5 h-3.5" />
+                  <a href={url} className="flex-1 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
+                    PREVIEW PAGE <ChevronRight className="w-3.5 h-3.5" />
                   </a>
                   <button type="button" onClick={onClose} className="flex-1 py-[11px] rounded-[10px] bg-[#111] border border-[#2a2a2a] text-white/70 text-base font-bold tracking-[0.06em]">DONE</button>
                 </div>
@@ -247,8 +247,8 @@ function ViewerSheet({ shareToken, onClose }) {
               <span className="flex-1 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</span>
               <button type="button" onClick={copy} className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
             </div>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
-              VIEW PAGE <ExternalLink className="w-3.5 h-3.5" />
+            <a href={url} className="mt-3 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
+              VIEW PAGE <ChevronRight className="w-3.5 h-3.5" />
             </a>
           </>
         )}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { MapPin, Ticket, Navigation, Image as ImageIcon, X } from "lucide-react";
+import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -13,7 +13,15 @@ const withProtocol = (u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`);
 
 export default function FanEvent() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [ev, setEv] = useState(null);
+  // Back shows when there is somewhere to go back to: earlier history (a fan
+  // who arrived from a link, or an owner who previewed from the app) or a
+  // signed-in ShowPilot user (falls back to their home).
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => { supabase.auth.getSession().then(({ data }) => setSignedIn(!!data?.session)); }, []);
+  const hasHistory = typeof window !== "undefined" && window.history.length > 1;
+  const goBack = () => (hasHistory ? navigate(-1) : navigate("/"));
   const [state, setState] = useState("loading");
   // Flyer viewing mode: the page info dissolves and the flyer comes forward.
   const [viewing, setViewing] = useState(false);
@@ -93,7 +101,14 @@ export default function FanEvent() {
       <div className="max-w-lg mx-auto relative z-10" style={{ opacity: viewing ? 0 : 1, filter: viewing ? "blur(6px)" : "none", transform: viewing ? "scale(0.97)" : "none", pointerEvents: viewing ? "none" : "auto", transition: "opacity 550ms ease, filter 550ms ease, transform 550ms ease" }} aria-hidden={viewing}>
         <div className="px-5 pt-6 pb-5 border-b border-white/10" style={{ background: ev.flyer_url ? `linear-gradient(180deg, ${color}2a 0%, transparent 100%)` : `linear-gradient(180deg, ${color}38 0%, ${color}0f 60%, #0d0d0d 100%)` }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
+            <div className="flex items-center gap-2.5">
+              {(hasHistory || signedIn) && (
+                <button type="button" onClick={goBack} aria-label="Go back" className="w-8 h-8 -ml-1 rounded-full flex items-center justify-center text-white/80 bg-black/35 border border-white/20 hover:bg-black/50">
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              )}
+              <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
+            </div>
             {ev.event_type && (
               <span className="text-[9px] tracking-[0.1em] px-[7px] py-[3px] rounded-[3px] uppercase" style={{ fontFamily: SCENE_MONO, color, background: color + "24" }}>{ev.event_type}</span>
             )}
