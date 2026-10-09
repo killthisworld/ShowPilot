@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -42,9 +44,9 @@ const US_STATES = [
 ];
 
 const TABS = [
-  { id: "pilot", label: "My Pilot" },
-  { id: "fellow", label: "Fellow Pilots" },
-  { id: "logbook", label: "Logbook" },
+  { id: "pilot", label: "My Pilot", color: "#8CFF3D" },
+  { id: "fellow", label: "Fellow Pilots", color: "#F472B6" },
+  { id: "logbook", label: "Logbook", color: "#F59E0B" },
 ];
 
 const formatPhoneNumber = (value) => {
@@ -680,30 +682,45 @@ export default function Cockpit() {
   const textColor = draft.card_text_color || "#FFFFFF";
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       {savedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
           {savedToast}
         </div>
       )}
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex gap-1 px-4 pt-4 pb-3 max-w-lg mx-auto">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                setActiveTab(t.id);
-                if (t.id === "fellow") {
-                  setOpenWalletId(null);
-                  setActiveWalletId(null);
-                }
-              }}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === t.id ? "bg-[#8CFF3D] text-black" : "bg-[#161616] text-white/40"}`}
-            >
-              {t.id === "pilot" ? pilotTabLabel : t.label}
-            </button>
-          ))}
+        <div className="flex gap-1.5 px-4 pt-4 pb-3 max-w-lg mx-auto">
+          {TABS.map((t) => {
+            const on = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setActiveTab(t.id);
+                  if (t.id === "fellow") {
+                    setOpenWalletId(null);
+                    setActiveWalletId(null);
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase transition-all"
+                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "1A", border: `1px solid ${on ? t.color : t.color + "44"}`, boxShadow: on ? `0 0 12px ${t.color}55` : undefined }}
+              >
+                {t.id === "pilot" ? pilotTabLabel : t.label}
+              </button>
+            );
+          })}
         </div>
+        {activeTab === "fellow" && !openWalletId && (
+          <div className="px-4 pb-3 max-w-lg mx-auto">
+            <StatusStrip
+              cells={[
+                { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
+                { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
+                { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-4">
@@ -800,21 +817,21 @@ export default function Cockpit() {
             <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
             <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "background")} />
 
-            <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]">
+            <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
               <RotateCw className="w-3.5 h-3.5 mr-2" /> Flip Card
             </Button>
 
             <Button
               onClick={() => setShowShareMenu(true)}
-              className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D]"}`}
+              className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]"}`}
             >
               {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
               {shareCopied ? "Link Copied!" : "Share ID"}
             </Button>
 
             {showBack ? (
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-                <Label className="text-white/50 text-xs block mb-1">Soundwave Style</Label>
+              <div className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-4 space-y-3">
+                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] block mb-1">Soundwave Style</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {Object.entries(SOUNDWAVE_TEMPLATES).map(([key, tpl]) => (
                     <button
@@ -830,25 +847,25 @@ export default function Cockpit() {
                 <p className="text-xs text-white/30 pt-1">Tap the soundwave to view your work history, grouped by state and city.</p>
               </div>
             ) : (
-              <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+              <div className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-4 space-y-3">
                 <div>
-                  <Label className="text-white/50 text-xs">Display Name</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Display Name</Label>
                   <Input value={draft.display_name || ""} onChange={(e) => update("display_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div>
-                  <Label className="text-white/50 text-xs">Job Title</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Job Title</Label>
                   <Input value={draft.job_title || ""} onChange={(e) => update("job_title", e.target.value)} placeholder="e.g. FOH Engineer" className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div>
-                  <Label className="text-white/50 text-xs">Contact Email</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Contact Email</Label>
                   <Input value={draft.contact_email || ""} onChange={(e) => update("contact_email", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div>
-                  <Label className="text-white/50 text-xs">Contact Phone</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Contact Phone</Label>
                   <Input value={draft.contact_phone || ""} onChange={(e) => update("contact_phone", formatPhoneNumber(e.target.value))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div>
-                  <Label className="text-white/50 text-xs">Link URL</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Link URL</Label>
                   <Input value={draft.custom_link_url || ""} onChange={(e) => update("custom_link_url", e.target.value)} placeholder="https://... (website, Spotify, Instagram, etc)" className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div className="flex items-center gap-2">
@@ -858,7 +875,7 @@ export default function Cockpit() {
                   <ColorPicker value={draft.card_text_color || "#FFFFFF"} onChange={(c) => update("card_text_color", c)} label="Text Color" />
                 </div>
                 <div className="pt-2 border-t border-[#222]">
-                  <Label className="text-white/50 text-xs block mb-2">Page Background (behind your shared card)</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] block mb-2">Page Background (behind your shared card)</Label>
                   <div className="flex items-center gap-2 mb-2">
                     <ColorPicker value={draft.page_bg_color || "#0d0d0d"} onChange={(c) => update("page_bg_color", c)} label="Color" />
                   </div>
@@ -895,7 +912,7 @@ export default function Cockpit() {
               </div>
             )}
 
-            <Button onClick={savePilotCard} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
+            <Button onClick={savePilotCard} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
               {saving ? "Saving..." : "Save Pilot Card"}
             </Button>
           </>
@@ -931,7 +948,7 @@ export default function Cockpit() {
                 </div>
               )}
 
-              <Button onClick={openAddIdModal} variant="outline" className="w-full border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] mb-3">
+              <Button onClick={openAddIdModal} variant="outline" className="w-full bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px] mb-3">
                 <Plus className="w-4 h-4 mr-2" /> Add ID
               </Button>
 
@@ -940,7 +957,7 @@ export default function Cockpit() {
               ) : (
                 <div className="space-y-3">
                   {openedWalletPilots.map((p) => (
-                    <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
+                    <div key={p.id} className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-4 flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
                         {p.profile_photo_url ? (
                           <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
@@ -1019,7 +1036,7 @@ export default function Cockpit() {
                 ) : (
                   <div className="space-y-3">
                     {starredPilots.map((p) => (
-                      <div key={p.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4 flex items-center gap-3">
+                      <div key={p.id} className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-4 flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }}>
                           {p.profile_photo_url ? (
                             <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" />
@@ -1053,7 +1070,7 @@ export default function Cockpit() {
                   <Wallet className="w-10 h-10 text-white/15 mb-3" />
                   <p className="text-white/40 text-sm mb-4">{walletView === "starred_wallets" ? "No starred wallets" : "No wallets yet"}</p>
                   {walletView === "all" && (
-                    <Button onClick={openCreateWalletModal} className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold rounded-full px-6">
+                    <Button onClick={openCreateWalletModal} className="bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px] rounded-full px-6">
                       <Plus className="w-4 h-4 mr-2" /> New Wallet
                     </Button>
                   )}
@@ -1171,10 +1188,10 @@ export default function Cockpit() {
                 </div>
 
                 <div>
-                  <h3 className="text-white font-bold text-sm mb-1">Cover Page</h3>
+                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-1">Cover Page</h3>
                   <p className="text-white/30 text-xs mb-3">The first thing people see when they open your Logbook</p>
 
-                  <Label className="text-white/50 text-xs">Bio</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Bio</Label>
                   <Textarea
                     value={logbookBio}
                     onChange={(e) => setLogbookBio(e.target.value)}
@@ -1214,7 +1231,7 @@ export default function Cockpit() {
                   )}
 
                   <div className="mt-3">
-                    <Label className="text-white/50 text-xs">Blur ({coverSettings.blur || 0}px)</Label>
+                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({coverSettings.blur || 0}px)</Label>
                     <input
                       type="range"
                       min="0"
@@ -1225,7 +1242,7 @@ export default function Cockpit() {
                     />
                   </div>
                   <div className="mt-3">
-                    <Label className="text-white/50 text-xs">Overlay Darkness ({Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
+                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
                     <input
                       type="range"
                       min="0"
@@ -1239,18 +1256,18 @@ export default function Cockpit() {
                     <ColorPicker value={coverSettings.text_color || "#ffffff"} onChange={(c) => setCoverSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
                   </div>
 
-                  <Button onClick={saveCoverSettings} disabled={savingCover} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
+                  <Button onClick={saveCoverSettings} disabled={savingCover} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                     {savingCover ? "Saving..." : "Save Cover Page"}
                   </Button>
                 </div>
 
                 <div className="border-t border-[#222] pt-6">
-                  <h3 className="text-white font-bold text-sm mb-3">Month Pages</h3>
+                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-3">Month Pages</h3>
                   {logbookMonths.length === 0 ? (
                     <p className="text-center text-white/40 py-10 text-sm">Mark a show as Done to start customizing month pages</p>
                   ) : (
                     <>
-                      <Label className="text-white/50 text-xs">Month</Label>
+                      <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Month</Label>
                       <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth} open={monthSelectOpen} onOpenChange={setMonthSelectOpen}>
                         <SelectTrigger
                           className="mt-1 h-10 bg-[#111] border-[#222] text-white"
@@ -1304,7 +1321,7 @@ export default function Cockpit() {
                       )}
 
                       <div className="mt-3">
-                        <Label className="text-white/50 text-xs">Blur ({monthSettings.blur || 0}px)</Label>
+                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({monthSettings.blur || 0}px)</Label>
                         <input
                           type="range"
                           min="0"
@@ -1315,7 +1332,7 @@ export default function Cockpit() {
                         />
                       </div>
                       <div className="mt-3">
-                        <Label className="text-white/50 text-xs">Overlay Darkness ({Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
+                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
                         <input
                           type="range"
                           min="0"
@@ -1329,7 +1346,7 @@ export default function Cockpit() {
                         <ColorPicker value={monthSettings.text_color || "#ffffff"} onChange={(c) => setMonthSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
                       </div>
 
-                      <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
+                      <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                         {savingMonthSettings ? "Saving..." : "Save Month Page"}
                       </Button>
                     </>
@@ -1355,7 +1372,7 @@ export default function Cockpit() {
 
       {showShareMenu && (
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShowShareMenu(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <button onClick={copyShareLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
               <Share2 className="w-4 h-4 text-[#8CFF3D]" />
               <span className="text-white text-sm font-medium">Copy Link</span>
@@ -1375,15 +1392,15 @@ export default function Cockpit() {
 
       {showWalletModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
             <div className="space-y-3">
               <div>
-                <Label className="text-white/50 text-xs">Name</Label>
+                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Name</Label>
                 <Input value={walletForm.name} onChange={(e) => setWalletForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Coachella" className="mt-1 bg-[#111] border-[#222] text-white" />
               </div>
               <div>
-                <Label className="text-white/50 text-xs mb-2 block">Photo</Label>
+                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2 block">Photo</Label>
                 {walletForm.icon_image_url ? (
                   <div className="flex items-center gap-3">
                     <img src={walletForm.icon_image_url} alt="" className="w-24 h-12 rounded-lg object-cover border border-[#2a2a2a]" />
@@ -1417,11 +1434,11 @@ export default function Cockpit() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-white/50 text-xs">City</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">City</Label>
                   <Input value={walletForm.city} onChange={(e) => setWalletForm((f) => ({ ...f, city: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
                 </div>
                 <div>
-                  <Label className="text-white/50 text-xs">State</Label>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">State</Label>
                   <Select value={walletForm.state} onValueChange={(v) => setWalletForm((f) => ({ ...f, state: v }))}>
                     <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
                       <SelectValue placeholder="State" />
@@ -1436,10 +1453,10 @@ export default function Cockpit() {
               </div>
             </div>
             <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowWalletModal(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+              <Button variant="outline" onClick={() => setShowWalletModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                 Cancel
               </Button>
-              <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+              <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                 {savingWallet ? "Saving..." : editingWalletId ? "Save Changes" : "Create Wallet"}
               </Button>
             </div>
@@ -1454,11 +1471,11 @@ export default function Cockpit() {
 
       {confirmDeleteWalletId && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteWalletId(null)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
             <p className="text-white font-semibold text-base mb-1">Delete this wallet?</p>
             <p className="text-white/40 text-sm mb-4">Any saved IDs inside it won't be deleted — they'll just no longer be assigned to a wallet.</p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setConfirmDeleteWalletId(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+              <Button variant="outline" onClick={() => setConfirmDeleteWalletId(null)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                 Cancel
               </Button>
               <Button onClick={deleteWallet} disabled={deletingWallet} className="flex-1 bg-red-500 text-white hover:bg-red-600">
@@ -1471,8 +1488,8 @@ export default function Cockpit() {
 
       {showAddIdModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-2">Add ID</h3>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2">Add ID</h3>
             <p className="text-white/40 text-xs mb-3">Paste the Pilot ID link they shared with you.</p>
             <Input
               value={addIdLink}
@@ -1482,10 +1499,10 @@ export default function Cockpit() {
             />
             {addIdError && <p className="text-red-400 text-xs mt-2">{addIdError}</p>}
             <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+              <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                 Cancel
               </Button>
-              <Button onClick={addIdFromLink} disabled={savingId || !addIdLink.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold">
+              <Button onClick={addIdFromLink} disabled={savingId || !addIdLink.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
                 {savingId ? "Adding..." : "Add"}
               </Button>
             </div>
