@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Share2 } from "lucide-react";
+import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal, Field } from "@/pages/SharedGig";
@@ -117,6 +118,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFanSheet, setShowFanSheet] = useState(false);
 
   const loadGig = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -317,6 +319,15 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <div className="flex items-center gap-1 shrink-0 ml-auto">
               <button
                 type="button"
+                onClick={() => setShowFanSheet(true)}
+                title="Event page for fans"
+                aria-label="Event page for fans"
+                className="p-2 text-white/40 hover:text-[#8CFF3D] transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
                 onClick={archiveShow}
                 disabled={archiving}
                 title="Archive"
@@ -501,6 +512,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
 
+      {showFanSheet && gig?.id && <FanPageSheet showId={gig.id} onClose={() => setShowFanSheet(false)} />}
       {showDeleteConfirm && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"

@@ -31,6 +31,7 @@ import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
 import GigWeb from '@/pages/GigWeb';
+import FanEvent from '@/pages/FanEvent';
 import VenueProfile from '@/pages/VenueProfile';
 import RoleFullProfile from '@/pages/RoleFullProfile';
 import GigRooms from '@/pages/GigRooms';
@@ -69,6 +70,7 @@ const AuthenticatedApp = () => {
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
       <Route path="/gig/web" element={<GigWeb />} />
+      <Route path="/e/:token" element={<FanEvent />} />
       <Route path="/gig/venue" element={<VenueProfile />} />
       <Route path="/gig/role" element={<RoleFullProfile />} />
       <Route path="/gig/rooms" element={<GigRooms />} />
