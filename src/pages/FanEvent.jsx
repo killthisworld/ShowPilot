@@ -57,9 +57,15 @@ export default function FanEvent() {
   const mapsUrl = ev.venue ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([ev.venue, place].filter(Boolean).join(" "))}` : null;
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
-      <div className="max-w-lg mx-auto">
-        <div className="px-5 pt-6 pb-5 border-b border-[#1a1a1a]" style={{ background: `linear-gradient(180deg, ${color}38 0%, ${color}0f 60%, #0d0d0d 100%)` }}>
+    <div className="min-h-screen bg-[#0d0d0d] text-white relative" style={{ fontFamily: SCENE_FONT }}>
+      {ev.flyer_url && (
+        <>
+          <div className="fixed inset-0 z-0 bg-cover bg-center scale-110" style={{ backgroundImage: `url(${ev.flyer_url})`, filter: "blur(3px) saturate(1.1)" }} />
+          <div className="fixed inset-0 z-0" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.55) 0%, rgba(13,13,13,0.72) 40%, rgba(13,13,13,0.9) 100%)" }} />
+        </>
+      )}
+      <div className="max-w-lg mx-auto relative z-10">
+        <div className="px-5 pt-6 pb-5 border-b border-white/10" style={{ background: ev.flyer_url ? `linear-gradient(180deg, ${color}2a 0%, transparent 100%)` : `linear-gradient(180deg, ${color}38 0%, ${color}0f 60%, #0d0d0d 100%)` }}>
           <div className="flex items-center justify-between">
             <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
             {ev.event_type && (
@@ -78,7 +84,7 @@ export default function FanEvent() {
         </div>
 
         {times.length > 0 && (
-          <div className="mx-5 mt-4 flex bg-[#111111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
+          <div className="mx-5 mt-4 flex bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] overflow-hidden">
             {times.map((t, i) => (
               <div key={t.label} className="flex-1 min-w-0 px-3 py-[9px]" style={{ borderRight: i < times.length - 1 ? "1px solid #1c1c1c" : "none" }}>
                 <div className="text-[9px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{t.label}</div>
@@ -104,20 +110,22 @@ export default function FanEvent() {
         )}
 
         {ev.note && (
-          <div className="mx-5 mt-4 bg-[#111111] border border-[#1f1f1f] rounded-[10px] p-3.5">
+          <div className="mx-5 mt-4 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
             <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FROM THE ARTIST</div>
             <p className="mt-2 text-lg font-medium leading-tight text-white/90 whitespace-pre-line">{ev.note}</p>
           </div>
         )}
 
         {ev.flyer_url && (
-          <div className="mx-5 mt-3.5 bg-[#111111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
-            <img src={ev.flyer_url} alt="Event flyer" className="w-full h-auto block" />
+          <div className="px-5 mt-3.5">
+            <a href={ev.flyer_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center py-2.5 rounded-xl text-base font-bold tracking-[0.06em] bg-black/40 backdrop-blur-md border border-white/15 text-white/85">
+              VIEW FULL FLYER
+            </a>
           </div>
         )}
 
         {ev.venue && (
-          <div className="mx-5 mt-3.5 bg-[#111111] border border-[#1f1f1f] rounded-[10px] p-3.5 flex items-center gap-3">
+          <div className="mx-5 mt-3.5 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5 flex items-center gap-3">
             <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#FB923C24", border: "1px solid #FB923C8c", color: "#FB923C" }}>
               <MapPin className="w-[18px] h-[18px]" />
             </span>
