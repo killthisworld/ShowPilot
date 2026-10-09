@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
@@ -24,7 +24,16 @@ export default function FanEvent() {
   const goBack = () => (hasHistory ? navigate(-1) : navigate("/"));
   const [state, setState] = useState("loading");
   // Flyer viewing mode: the page info dissolves and the flyer comes forward.
-  const [viewing, setViewing] = useState(false);
+  // It lives in the router's history state, so the phone's back gesture, the
+  // browser Back button and the on-screen buttons all return to the info side
+  // of this page instead of leaving it.
+  const location = useLocation();
+  const viewing = !!location.state?.flyer;
+  const openFlyer = () => navigate(location.pathname + location.search, { state: { flyer: true } });
+  const closeFlyer = () => {
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate(location.pathname + location.search, { replace: true, state: null });
+  };
 
   useEffect(() => {
     let alive = true;
@@ -38,7 +47,7 @@ export default function FanEvent() {
 
   useEffect(() => {
     if (!viewing) return;
-    const onKey = (e) => { if (e.key === "Escape") setViewing(false); };
+    const onKey = (e) => { if (e.key === "Escape") closeFlyer(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewing]);
@@ -83,12 +92,22 @@ export default function FanEvent() {
           <div className="fixed inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url(${ev.flyer_url})`, filter: viewing ? "blur(0px)" : "blur(3px) saturate(1.1)", transform: viewing ? "scale(1.25)" : "scale(1.1)", opacity: viewing ? 0 : 1, transition: "opacity 700ms ease, transform 900ms ease, filter 700ms ease" }} />
           <div className="fixed inset-0 z-0" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.55) 0%, rgba(13,13,13,0.72) 40%, rgba(13,13,13,0.9) 100%)", opacity: viewing ? 0 : 1, transition: "opacity 600ms ease" }} />
           {/* The clear, full flyer: fits the screen, fades and settles in when viewing. */}
-          <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#0d0d0d]" style={{ opacity: viewing ? 1 : 0, pointerEvents: viewing ? "auto" : "none", transition: "opacity 700ms ease 150ms" }} onClick={() => setViewing(false)}>
+          <div className="fixed inset-0 z-20 flex items-center justify-center bg-[#0d0d0d]" style={{ opacity: viewing ? 1 : 0, pointerEvents: viewing ? "auto" : "none", transition: "opacity 700ms ease 150ms" }} onClick={closeFlyer}>
             <img src={ev.flyer_url} alt="Event flyer" className="max-w-full max-h-full object-contain" style={{ transform: viewing ? "scale(1)" : "scale(1.12)", transition: "transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms" }} />
           </div>
           <button
             type="button"
-            onClick={() => setViewing(false)}
+            onClick={closeFlyer}
+            aria-label="Back to event info"
+            tabIndex={viewing ? 0 : -1}
+            className="fixed z-30 top-4 left-4 w-10 h-10 rounded-full flex items-center justify-center text-white bg-black/60 backdrop-blur-md border border-white/25"
+            style={{ opacity: viewing ? 1 : 0, pointerEvents: viewing ? "auto" : "none", transition: "opacity 500ms ease 700ms" }}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={closeFlyer}
             aria-label="Back to event info"
             tabIndex={viewing ? 0 : -1}
             className="fixed z-30 left-1/2 -translate-x-1/2 bottom-6 flex items-center gap-2 px-5 py-3 rounded-full text-base font-bold tracking-[0.06em] text-white bg-black/60 backdrop-blur-md border border-white/25"
@@ -123,7 +142,7 @@ export default function FanEvent() {
           <p className="mt-3 text-xs tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_MONO, color }}>{[dateLabel, ev.venue].filter(Boolean).join(" · ")}</p>
           {place && <p className="mt-1 text-[11px] tracking-[0.08em] uppercase text-white/50" style={{ fontFamily: SCENE_MONO }}>{place}</p>}
           {ev.flyer_url && (
-            <button type="button" onClick={() => setViewing(true)} className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] tracking-[0.1em] text-white/80 bg-black/35 border border-white/20 hover:bg-black/50" style={{ fontFamily: SCENE_MONO }}>
+            <button type="button" onClick={openFlyer} className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] tracking-[0.1em] text-white/80 bg-black/35 border border-white/20 hover:bg-black/50" style={{ fontFamily: SCENE_MONO }}>
               <ImageIcon className="w-3 h-3" /> VIEW FLYER
             </button>
           )}
