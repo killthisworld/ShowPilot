@@ -37,7 +37,9 @@ const ROLE_HOME_SECTION = {
   lighting: "engineer",
 };
 
-export default function InviteSheet({ showId, trigger }) {
+// `elevated` lifts the sheet above full-screen overlays (Gig Web opened over
+// the home screen sits at z-60).
+export default function InviteSheet({ showId, trigger, elevated = false }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState([]);
@@ -127,7 +129,7 @@ export default function InviteSheet({ showId, trigger }) {
       }}
     >
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent side="bottom" className="bg-[#111] border-[#222] rounded-t-2xl max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" overlayClassName={elevated ? "z-[79]" : undefined} className={`bg-[#111] border-[#222] rounded-t-2xl max-h-[85vh] overflow-y-auto ${elevated ? "z-[80]" : ""}`}>
         <div className="p-5 max-w-lg mx-auto">
           {!results ? (
             <>

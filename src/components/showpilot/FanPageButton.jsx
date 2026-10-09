@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Share2 } from "lucide-react";
+import { Ticket } from "lucide-react";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 
 // Small icon button for an event bar. The owner opens the editor; anyone
@@ -17,14 +17,15 @@ export default function FanPageButton({ show, className = "" }) {
       <span
         role="button"
         tabIndex={0}
-        aria-label={owned ? "Edit event page for fans" : "View event page for fans"}
-        title={owned ? "Event page · edit" : "Event page · view"}
+        aria-label={owned ? "Edit fan page" : "View fan page"}
+        title={owned ? "Fan page · edit" : "Fan page · view"}
         onPointerDown={stop}
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(true); } }}
-        className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-black/30 border border-white/10 text-white/55 hover:text-[#8CFF3D] hover:border-[#8CFF3D]/50 cursor-pointer ${className}`}
+        className={`shrink-0 h-7 px-2 rounded-md flex items-center gap-1 bg-[#8CFF3D]/10 border border-[#8CFF3D]/35 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 cursor-pointer text-[9px] font-semibold tracking-[0.08em] ${className}`}
+        style={{ fontFamily: "'IBM Plex Mono', monospace" }}
       >
-        <Share2 className="w-3.5 h-3.5" />
+        <Ticket className="w-3 h-3" /> FAN PAGE
       </span>
       {open && createPortal(
         <div onClick={stop} onPointerDown={stop}>

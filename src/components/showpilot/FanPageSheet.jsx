@@ -99,7 +99,7 @@ function OwnerSheet({ showId, onClose }) {
       <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto bg-[#0d0d0d] border-t border-[#2a2a2a] rounded-t-[18px] px-4 pt-2.5 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]">
         <div className="w-10 h-1 rounded-sm bg-[#2a2a2a] mx-auto mb-3" />
         <div className="flex items-center gap-2.5">
-          <span className="text-2xl font-bold flex-1 text-white">Event page for fans</span>
+          <span className="text-2xl font-bold flex-1 text-white">Fan page</span>
           <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: on ? G : "rgba(255,255,255,0.45)" }}>{on ? "LIVE" : "OFF"}</span>
           <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
@@ -229,7 +229,7 @@ function ViewerSheet({ shareToken, onClose }) {
       <div className="relative w-full max-w-lg bg-[#0d0d0d] border-t border-[#2a2a2a] rounded-t-[18px] px-4 pt-2.5 pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.6)]">
         <div className="w-10 h-1 rounded-sm bg-[#2a2a2a] mx-auto mb-3" />
         <div className="flex items-center gap-2.5">
-          <span className="text-2xl font-bold flex-1 text-white">Event page for fans</span>
+          <span className="text-2xl font-bold flex-1 text-white">Fan page</span>
           <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: info?.enabled ? G : "rgba(255,255,255,0.45)" }}>{info === undefined ? "" : info?.enabled ? "LIVE" : "OFF"}</span>
           <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
         </div>

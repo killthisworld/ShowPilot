@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Share2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket } from "lucide-react";
+import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
@@ -119,6 +120,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showFanSheet, setShowFanSheet] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   const loadGig = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -315,49 +317,35 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
             <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
-          {!permissions?.is_owner && token && (
-            <button
-              type="button"
-              onClick={() => setShowFanSheet(true)}
-              title="Event page for fans"
-              aria-label="View event page for fans"
-              className="ml-auto p-2 text-white/40 hover:text-[#8CFF3D] transition-colors shrink-0"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
-          )}
-          {permissions?.is_owner && (
-            <div className="flex items-center gap-1 shrink-0 ml-auto">
-              <button
-                type="button"
-                onClick={() => setShowFanSheet(true)}
-                title="Event page for fans"
-                aria-label="Event page for fans"
-                className="p-2 text-white/40 hover:text-[#8CFF3D] transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={archiveShow}
-                disabled={archiving}
-                title="Archive"
-                aria-label="Archive gig"
-                className="p-2 text-white/40 hover:text-white transition-colors disabled:opacity-40"
-              >
-                <Archive className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                title="Delete"
-                aria-label="Delete gig"
-                className="p-2 text-white/40 hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          {(() => {
+            // Each action is an icon with a word under it, so none of them
+            // has to be guessed at. Fan page is the public page for fans;
+            // Archive hides the event (reversible); Delete removes it.
+            const act = "flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors";
+            const cap = "text-[8px] tracking-[0.08em] leading-none";
+            return (
+              <div className="flex items-center gap-1 shrink-0 ml-auto">
+                {(permissions?.is_owner || token) && (
+                  <button type="button" onClick={() => setShowFanSheet(true)} aria-label={permissions?.is_owner ? "Edit fan page" : "View fan page"} className={`${act} text-[#8CFF3D]/70 hover:text-[#8CFF3D]`}>
+                    <Ticket className="w-4 h-4" />
+                    <span className={cap} style={{ fontFamily: SCENE_MONO }}>FAN PAGE</span>
+                  </button>
+                )}
+                {permissions?.is_owner && (
+                  <>
+                    <button type="button" onClick={() => setShowArchiveConfirm(true)} disabled={archiving} aria-label="Archive gig" className={`${act} text-white/45 hover:text-white disabled:opacity-40`}>
+                      <Archive className="w-4 h-4" />
+                      <span className={cap} style={{ fontFamily: SCENE_MONO }}>ARCHIVE</span>
+                    </button>
+                    <button type="button" onClick={() => setShowDeleteConfirm(true)} aria-label="Delete gig" className={`${act} text-red-400/60 hover:text-red-400`}>
+                      <Trash2 className="w-4 h-4" />
+                      <span className={cap} style={{ fontFamily: SCENE_MONO }}>DELETE</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -524,6 +512,23 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
 
       {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => !archiving && setShowArchiveConfirm(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Archive this gig?</h3>
+              <button onClick={() => setShowArchiveConfirm(false)} className="text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-white/40 text-xs mb-4">
+              {title} will disappear from your home screen and its fan page will go offline. Nothing is deleted. You can bring it back any time from Settings, then Archived.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowArchiveConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 text-sm font-semibold hover:bg-white/5">Cancel</button>
+              <button type="button" onClick={archiveShow} disabled={archiving} className="flex-1 py-2.5 rounded-xl bg-[#8CFF3D] text-black text-sm font-bold disabled:opacity-50">{archiving ? "Archiving..." : "Archive"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showDeleteConfirm && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
@@ -902,6 +907,21 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
           );
         })}
       </div>
+
+      {permissions?.is_owner && gig?.id && (
+        <div className="mt-3 pt-3 border-t border-[#1f1f1f]">
+          <InviteSheet
+            showId={gig.id}
+            elevated
+            trigger={
+              <button type="button" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold tracking-[0.04em] transition-colors" style={{ color: "#8CFF3D", background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)" }}>
+                <UserPlus className="w-4 h-4" /> Invite profiles & users
+              </button>
+            }
+          />
+          <p className="text-white/30 text-[11px] text-center mt-1.5">Pick who you're bringing in, then send them their link.</p>
+        </div>
+      )}
     </div>
   );
 }
