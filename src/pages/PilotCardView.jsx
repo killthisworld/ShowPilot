@@ -249,22 +249,22 @@ export default function PilotCardView() {
               )}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-xl truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{card.display_name || "ShowPilot User"}</p>
+              <p className="font-bold text-xl tracking-wide truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{card.display_name || "ShowPilot User"}</p>
               {card.job_title && (
-                <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                <p className="text-base font-medium tracking-wide truncate flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                   <Briefcase className="w-4 h-4 shrink-0" /> {card.job_title}
                 </p>
               )}
             </div>
           </div>
-          <div className="relative z-10 space-y-1">
+          <div className="relative z-10 space-y-1.5">
             {card.contact_email && (
-              <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+              <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                 <Mail className="w-4 h-4 shrink-0" /> {card.contact_email}
               </p>
             )}
             {card.contact_phone && (
-              <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+              <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                 <Phone className="w-4 h-4 shrink-0" /> {card.contact_phone}
               </p>
             )}
@@ -274,7 +274,7 @@ export default function PilotCardView() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-sm font-medium flex items-center gap-1.5 hover:opacity-100 hover:underline w-fit"
+                className="text-sm font-medium tracking-wide flex items-center gap-2 hover:opacity-100 hover:underline w-fit"
                 style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
               >
                 <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link

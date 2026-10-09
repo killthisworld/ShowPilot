@@ -780,22 +780,22 @@ export default function Cockpit() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-xl truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{draft.display_name || "Your Name"}</p>
+                    <p className="font-bold text-xl tracking-wide truncate" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{draft.display_name || "Your Name"}</p>
                     {draft.job_title && (
-                      <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <p className="text-base font-medium tracking-wide truncate flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                         <Briefcase className="w-4 h-4 shrink-0" /> {draft.job_title}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="relative z-10 space-y-1">
+                <div className="relative z-10 space-y-1.5">
                   {draft.contact_email && (
-                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                       <Mail className="w-4 h-4 shrink-0" /> {draft.contact_email}
                     </p>
                   )}
                   {draft.contact_phone && (
-                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                       <Phone className="w-4 h-4 shrink-0" /> {draft.contact_phone}
                     </p>
                   )}
@@ -805,7 +805,7 @@ export default function Cockpit() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-sm font-medium flex items-center gap-1.5 hover:underline"
+                      className="text-sm font-medium tracking-wide flex items-center gap-2 hover:underline"
                       style={{ color: textColor, textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
                     >
                       <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
@@ -939,7 +939,7 @@ export default function Cockpit() {
                   )}
                   {!openedWallet.icon_image_url && (() => { const Icon = WALLET_ICONS[openedWallet.icon] || Wallet; return <Icon className="relative z-10 w-6 h-6 text-black shrink-0" />; })()}
                   <div className="relative z-10 min-w-0 flex-1">
-                    <p className={`font-bold text-xl truncate ${openedWallet.icon_image_url ? "text-white" : "text-black"}`}>{openedWallet.name}</p>
+                    <p className={`font-bold text-xl tracking-wide truncate ${openedWallet.icon_image_url ? "text-white" : "text-black"}`}>{openedWallet.name}</p>
                     {(openedWallet.city || openedWallet.state) && (
                       <p className={`text-xs truncate ${openedWallet.icon_image_url ? "text-white/80" : "text-black/70"}`}>{[openedWallet.city, openedWallet.state].filter(Boolean).join(", ")}</p>
                     )}
@@ -1547,22 +1547,22 @@ export default function Cockpit() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-xl truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{viewingCard.display_name || "Pilot"}</p>
+                    <p className="font-bold text-xl tracking-wide truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{viewingCard.display_name || "Pilot"}</p>
                     {viewingCard.job_title && (
-                      <p className="text-base font-medium truncate flex items-center gap-1" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <p className="text-base font-medium tracking-wide truncate flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                         <Briefcase className="w-4 h-4 shrink-0" /> {viewingCard.job_title}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="relative z-10 space-y-1">
+                <div className="relative z-10 space-y-1.5">
                   {viewingCard.contact_email && (
-                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                       <Mail className="w-4 h-4 shrink-0" /> {viewingCard.contact_email}
                     </p>
                   )}
                   {viewingCard.contact_phone && (
-                    <p className="text-sm font-medium flex items-center gap-1.5" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
                       <Phone className="w-4 h-4 shrink-0" /> {viewingCard.contact_phone}
                     </p>
                   )}
@@ -1572,7 +1572,7 @@ export default function Cockpit() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-sm font-medium flex items-center gap-1.5 hover:underline"
+                      className="text-sm font-medium tracking-wide flex items-center gap-2 hover:underline"
                       style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
                     >
                       <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
