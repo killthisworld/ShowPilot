@@ -6,6 +6,7 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
+import FanQrCode from "@/components/showpilot/FanQrCode";
 
 const G = "#8CFF3D";
 const MAX_LINEUP = 12;
@@ -479,6 +480,7 @@ function OwnerSheet({ showId, onClose }) {
         className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]"
         style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}
       >{copied ? "COPIED" : "COPY"}</button>
+      {row.fan_page_enabled && <FanQrCode url={url} eventName={row.event_name || row.band_name} />}
     </div>
   );
 
@@ -637,6 +639,7 @@ function ViewerSheet({ shareToken, onClose }) {
             <div className="mt-3 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] py-1.5 pl-3 pr-1.5">
               <span className="flex-1 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</span>
               <button type="button" onClick={copy} className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
+              <FanQrCode url={url} />
             </div>
             <a href={url} className="mt-3 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
               VIEW PAGE <ChevronRight className="w-3.5 h-3.5" />
