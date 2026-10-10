@@ -263,6 +263,17 @@ export default function FanEvent() {
           </div>
         )}
 
+        {ev.lineup?.length > 0 && (
+          <div className="mx-5 mt-4 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
+            <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>LINEUP</div>
+            <ul className="mt-1.5">
+              {ev.lineup.map((a) => (
+                <li key={a.id} className="text-[22px] font-bold leading-[1.15] text-white">{a.name}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {ev.note && (
           <div className="mx-5 mt-4 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
             <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FROM THE ARTIST</div>
@@ -288,7 +299,7 @@ export default function FanEvent() {
         )}
 
         {/* RSVP events (pay at the door) replace the email box and ticket button. */}
-        {ev.rsvp && <RsvpCard token={token} color={color} doorPrice={ev.door_price} />}
+        {ev.rsvp && <RsvpCard token={token} color={color} doorPrice={ev.door_price} lineup={ev.lineup || []} />}
 
         {!ev.rsvp && (ev.emails_buyers ? (
           ticketUrl && (

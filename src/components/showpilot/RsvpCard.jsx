@@ -16,12 +16,14 @@ const remember = (token, v) => { try { localStorage.setItem(memKey(token), JSON.
 // name, email and party size; the send-fan-event-email function saves the
 // RSVP and emails them the event info once. RSVPing again with the same email
 // updates the party size instead of adding a second RSVP.
-export default function RsvpCard({ token, color, doorPrice }) {
+export default function RsvpCard({ token, color, doorPrice, lineup = [] }) {
   const saved = recall(token);
   const [done, setDone] = useState(saved); // { name, guests, email, note }
   const [name, setName] = useState(saved?.name || "");
   const [email, setEmail] = useState(saved?.email || "");
   const [guests, setGuests] = useState(saved?.guests || 1);
+  // With a lineup, the fan picks the one artist they're coming to see.
+  const [artistId, setArtistId] = useState(lineup.some((a) => a.id === saved?.artistId) ? saved.artistId : (lineup.length === 1 ? lineup[0].id : ""));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -32,8 +34,9 @@ export default function RsvpCard({ token, color, doorPrice }) {
     const addr = email.trim();
     if (!n) { setErr("Add your name so the door has you on the list."); return; }
     if (!EMAIL_RE.test(addr)) { setErr("Enter a full email address, like you@example.com."); return; }
+    if (lineup.length && !artistId) { setErr("Pick who you're coming to see."); return; }
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke("send-fan-event-email", { body: { token, email: addr, name: n, guests } });
+    const { data, error } = await supabase.functions.invoke("send-fan-event-email", { body: { token, email: addr, name: n, guests, artist_id: artistId || undefined } });
     setBusy(false);
     if (error) {
       let message = "Couldn't save your RSVP. Try again.";
@@ -46,7 +49,8 @@ export default function RsvpCard({ token, color, doorPrice }) {
       : data?.already_emailed
         ? (data?.status === "rsvp_updated" ? "Your RSVP is updated. The details are already in your inbox." : `The details are already in your inbox at ${addr}.`)
         : "We couldn't send the email just now, but your RSVP is saved.";
-    const v = { name: n, guests, email: addr, note, skyKey: data?.sky_key || saved?.skyKey || null };
+    const artistName = lineup.find((a) => a.id === artistId)?.name || null;
+    const v = { name: n, guests, email: addr, note, artistId: artistId || null, artistName, skyKey: data?.sky_key || saved?.skyKey || null };
     remember(token, v);
     setDone(v);
   };
@@ -71,7 +75,7 @@ export default function RsvpCard({ token, color, doorPrice }) {
               <div>
                 <p className="text-lg font-bold text-white leading-tight">You're on the list, {done.name}.</p>
                 <p className="mt-0.5 text-[14px] text-white/60 leading-snug">
-                  {done.guests} {done.guests === 1 ? "person" : "people"}{doorPrice ? `, ${doorPrice} each at the door` : ", pay at the door"}. {done.note}
+                  {done.guests} {done.guests === 1 ? "person" : "people"}{done.artistName ? ` for ${done.artistName}` : ""}{doorPrice ? `, ${doorPrice} each at the door` : ", pay at the door"}. {done.note}
                 </p>
               </div>
             </div>
@@ -86,7 +90,27 @@ export default function RsvpCard({ token, color, doorPrice }) {
           <form onSubmit={submit} noValidate>
             <input className={inputCls} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} maxLength={80} />
             <input className={`${inputCls} mt-2`} type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }} />
-            <div className="mt-2 flex gap-2">
+            {lineup.length > 0 && (
+              <fieldset className="mt-3">
+                <legend className="text-[15px] font-semibold text-white/80">Who are you coming to see?</legend>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {lineup.map((a) => {
+                    const on = a.id === artistId;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => { setArtistId(a.id); setErr(""); }}
+                        className="px-3.5 py-2 rounded-full text-[15px] font-semibold border transition-colors"
+                        style={on ? { background: color, borderColor: color, color: "#0d0d0d" } : { background: "rgba(0,0,0,0.35)", borderColor: "rgba(255,255,255,0.18)", color: "rgba(255,255,255,0.85)" }}
+                      >{a.name}</button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+            <div className="mt-3 flex gap-2">
               <label className="flex items-center gap-2 h-11 px-3 rounded-lg bg-black/40 border border-white/15 text-white/70 text-sm shrink-0">
                 <span className="text-[10px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO }}>PARTY</span>
                 <select value={guests} onChange={(e) => setGuests(Number(e.target.value))} className="bg-transparent text-white text-base focus:outline-none" aria-label="Party size">
@@ -98,7 +122,7 @@ export default function RsvpCard({ token, color, doorPrice }) {
               </button>
             </div>
             {err && <p className="mt-2 text-[13px] text-[#FF6B6B]">{err}</p>}
-            <p className="mt-2 text-[12px] leading-snug text-white/40">We'll email you the date, doors and address once. The host sees your name and party size. No mailing list.</p>
+            <p className="mt-2 text-[12px] leading-snug text-white/40">We'll email you the date, doors and address once. The host sees your name, party size{lineup.length ? " and who you're coming to see" : ""}. No mailing list.</p>
           </form>
         )}
       </div>

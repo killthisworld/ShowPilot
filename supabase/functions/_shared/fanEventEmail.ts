@@ -35,7 +35,7 @@ export type FanEvent = {
   date?: string; venue?: string; address?: string; city?: string; state?: string;
   door_time?: string; show_time?: string; ages?: string;
   ticket_link?: string; ticket_price?: string; note?: string; flyer_url?: string;
-  rsvp?: boolean; door_price?: string;
+  rsvp?: boolean; door_price?: string; lineup?: { id: string; name: string }[];
 };
 
 // Extra bits for one kind of email (e.g. an RSVP confirmation).

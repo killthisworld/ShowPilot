@@ -43,25 +43,34 @@ const RSVP_WINDOW_MIN = 10;
 const RSVP_MAX = 60; // new RSVPs per event per window
 
 // deno-lint-ignore no-explicit-any
-async function rsvp(admin: any, showId: string, token: string, email: string, body: any) {
+async function rsvp(admin: any, showId: string, token: string, email: string, body: any, ev: any) {
   const name = String(body?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
   const guests = Number(body?.guests ?? 1);
   if (!name) return json({ error: "Add your name so the door has you on the list" }, 400);
   if (!Number.isInteger(guests) || guests < 1 || guests > 10) return json({ error: "Party size must be between 1 and 10" }, 400);
 
+  // With a lineup, every RSVP names the one artist the fan is coming to see.
+  const lineup: { id: string; name: string }[] = Array.isArray(ev?.lineup) ? ev.lineup : [];
+  let artist: { id: string; name: string } | null = null;
+  if (lineup.length) {
+    artist = lineup.find((a) => a.id === String(body?.artist_id ?? "")) ?? null;
+    if (!artist) return json({ error: "Pick who you're coming to see" }, 400);
+  }
+  const artistCols = artist ? { artist_id: artist.id, artist_name: artist.name } : { artist_id: null, artist_name: null };
+
   const now = new Date().toISOString();
   const { data: existing } = await admin.from("fan_rsvps").select("id").eq("show_id", showId).eq("email", email).maybeSingle();
   let status: "rsvp_new" | "rsvp_updated" = "rsvp_updated";
   if (existing) {
-    await admin.from("fan_rsvps").update({ name, guests, updated_at: now }).eq("id", existing.id);
+    await admin.from("fan_rsvps").update({ name, guests, ...artistCols, updated_at: now }).eq("id", existing.id);
   } else {
     const since = new Date(Date.now() - RSVP_WINDOW_MIN * 60_000).toISOString();
     const { count } = await admin.from("fan_rsvps").select("id", { count: "exact", head: true })
       .eq("show_id", showId).gte("created_at", since);
     if ((count ?? 0) >= RSVP_MAX) return json({ error: "Lots of RSVPs right now. Try again in a few minutes." }, 429);
-    const { error: insErr } = await admin.from("fan_rsvps").insert({ show_id: showId, name, email, guests });
+    const { error: insErr } = await admin.from("fan_rsvps").insert({ show_id: showId, name, email, guests, ...artistCols });
     if (insErr && insErr.code === "23505") {
-      await admin.from("fan_rsvps").update({ name, guests, updated_at: now }).eq("show_id", showId).eq("email", email);
+      await admin.from("fan_rsvps").update({ name, guests, ...artistCols, updated_at: now }).eq("show_id", showId).eq("email", email);
     } else if (insErr) {
       console.error(insErr);
       return json({ error: "Couldn't save your RSVP. Try again." }, 500);
@@ -91,7 +100,10 @@ async function rsvp(admin: any, showId: string, token: string, email: string, bo
       subjectOverride: typeof cfg.email_subject === "string" ? cfg.email_subject : undefined,
       hostMessage: typeof cfg.rsvp_message === "string" && cfg.rsvp_message.trim() ? cfg.rsvp_message.trim().slice(0, 2000) : undefined,
       keyLink: appUrl && skyKey ? `${appUrl}/e/${token}/sky?k=${skyKey}` : undefined,
-      topRows: [["RSVP", `${name} · ${guests} ${guests === 1 ? "person" : "people"}`]],
+      topRows: [
+        ["RSVP", `${name} · ${guests} ${guests === 1 ? "person" : "people"}`],
+        ...(artist ? [["COMING FOR", artist.name] as [string, string]] : []),
+      ],
     },
   });
   return json({ ok: true, status, emailed: r.status === "sent", already_emailed: r.status === "already_sent", sky_key: skyKey ?? null });
@@ -123,7 +135,7 @@ Deno.serve(async (req) => {
     const { data: ev, error: evErr } = await admin.rpc("get_fan_event", { p_token: token });
     if (evErr) { console.error(evErr); return json({ error: "Couldn't load the event" }, 500); }
     if (!ev) return json({ error: "This event page isn't available" }, 404);
-    if (ev.rsvp) return await rsvp(admin, show.id, token, email, body);
+    if (ev.rsvp) return await rsvp(admin, show.id, token, email, body, ev);
 
     const r = await sendFanEventEmail(admin, {
       showId: show.id,
