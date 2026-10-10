@@ -84,14 +84,3 @@ export function uploadToDrive(uploadUrl, file, onProgress, signal) {
     throw new Error("The upload kept stopping. Check your connection and try that file again.");
   })();
 }
-
-export const GEAR_OPTIONS = [
-  { key: "cdj", label: "CDJs" },
-  { key: "turntables", label: "Turntables" },
-  { key: "mixer", label: "DJ mixer" },
-  { key: "usb", label: "Playing from USB" },
-  { key: "laptop", label: "Bringing a laptop" },
-  { key: "controller", label: "Bringing a controller" },
-  { key: "mic", label: "Microphone" },
-  { key: "monitors", label: "Booth monitors" },
-];

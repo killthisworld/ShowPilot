@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, FileAudio, Loader2, Plus, Trash2, Upload, Al
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { inspectWav, describeWav, qualityWarning, formatBytes, formatDuration } from "@/lib/wav";
-import { setUploadCall, uploadToDrive, GEAR_OPTIONS } from "@/lib/djTools";
+import { setUploadCall, uploadToDrive } from "@/lib/djTools";
 
 const G = "#8CFF3D";
 const AMBER = "#F59E0B";
@@ -21,16 +21,14 @@ const newTrack = (t = {}) => ({
 const titleFromFile = (name) => name.replace(/\.wav$/i, "").replace(/^\d+[\s._-]+/, "").replace(/_/g, " ").trim();
 
 // The page an artist opens from the DJ's link: their set in play order,
-// WAV files (checked to be real WAVs, quality shown), gear needs and how to
-// announce them. WAVs go straight into the DJ's Google Drive.
+// WAV files (checked to be real WAVs, quality shown) and a way to reach them.
+// WAVs go straight into the DJ's Google Drive.
 export default function DjSetUpload() {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null); // { event, slot, files, lineup }
   const [artistName, setArtistName] = useState("");
   const [tracks, setTracks] = useState([]);
-  const [gear, setGear] = useState({});
-  const [announce, setAnnounce] = useState("");
   const [contact, setContact] = useState("");
   const [files, setFiles] = useState({}); // drive file id -> meta
   const [saving, setSaving] = useState(false);
@@ -39,7 +37,7 @@ export default function DjSetUpload() {
   const [submitted, setSubmitted] = useState(false);
   const queue = useRef(Promise.resolve()); // uploads run one at a time
   const stateRef = useRef({});
-  stateRef.current = { artistName, tracks, gear, announce, contact };
+  stateRef.current = { artistName, tracks, contact };
 
   const applyServer = useCallback((d) => {
     setData(d);
@@ -54,8 +52,6 @@ export default function DjSetUpload() {
       applyServer(d);
       setArtistName(d.slot.artist_name || "");
       setTracks((d.slot.tracks || []).length ? d.slot.tracks.map(newTrack) : [newTrack()]);
-      setGear(d.slot.gear || {});
-      setAnnounce(d.slot.announce || "");
       setContact(d.slot.contact || "");
       setSubmitted(d.slot.status === "submitted");
       setLoading(false);
@@ -73,8 +69,8 @@ export default function DjSetUpload() {
         p_token: token,
         p_artist_name: s.artistName,
         p_tracks: s.tracks.map(({ title, artist, bpm, key, notes, file_id }) => ({ title, artist, bpm, key, notes, file_id })),
-        p_gear: s.gear,
-        p_announce: s.announce,
+        p_gear: {},
+        p_announce: "",
         p_contact: s.contact,
         p_submit: submit,
       });
@@ -272,39 +268,10 @@ export default function DjSetUpload() {
             </div>
           </div>
 
-          <div>
-            <h2 className="text-xl font-bold">What you need in the booth</h2>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {GEAR_OPTIONS.map((g) => {
-                const on = !!gear[g.key];
-                return (
-                  <button key={g.key} type="button" aria-pressed={on}
-                    onClick={() => {
-                      const next = { ...stateRef.current.gear, [g.key]: !on };
-                      stateRef.current = { ...stateRef.current, gear: next };
-                      setGear(next);
-                      save(false).catch(() => {});
-                    }}
-                    className="px-3 py-1.5 rounded-full text-sm font-semibold transition-colors"
-                    style={{ background: on ? G : "transparent", color: on ? "#0d0d0d" : "rgba(255,255,255,0.7)", border: `1px solid ${on ? G : "#2a2a2a"}` }}>
-                    {g.label}
-                  </button>
-                );
-              })}
-            </div>
-            <input id="gear-other" className={`${field} mt-2`} maxLength={300} value={gear.other || ""} onChange={(e) => setGear((x) => ({ ...x, other: e.target.value }))} onBlur={() => save(false).catch(() => {})} placeholder="Anything else (e.g. 2 x CDJ-3000, a stand for my laptop)" />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="block text-[11px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>HOW TO ANNOUNCE YOU</span>
-              <textarea id="announce" rows={3} maxLength={1000} className={field} value={announce} onChange={(e) => setAnnounce(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="How to say your name, a one-line intro, shout-outs" />
-            </label>
-            <label className="block">
-              <span className="block text-[11px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>BEST WAY TO REACH YOU</span>
-              <textarea id="contact" rows={3} maxLength={200} className={field} value={contact} onChange={(e) => setContact(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="Phone or email, only the DJ sees this" />
-            </label>
-          </div>
+          <label className="block max-w-md">
+            <span className="block text-[11px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>BEST WAY TO REACH YOU</span>
+            <input id="contact" maxLength={200} className={field} value={contact} onChange={(e) => setContact(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="Phone or email, only the DJ sees this" />
+          </label>
 
           {error && <p className="text-sm" style={{ color: RED }}>{error}</p>}
 

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { driveCall, slotLink, GEAR_OPTIONS } from "@/lib/djTools";
+import { driveCall, slotLink } from "@/lib/djTools";
 import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 
 const G = "#8CFF3D";
@@ -330,7 +330,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         </div>
         <label className="grid gap-1"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FOR EVERY ARTIST</span>
           <textarea id="req-note" rows={2} maxLength={2000} className={input} value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== (request.note || "") && onUpdate({ note: note.trim() || null })}
-            placeholder="e.g. 48 kHz / 24-bit please, tracks named in play order, no limiting on the master" /></label>
+            placeholder="e.g. 48 kHz / 24-bit please, tracks named in play order" /></label>
         {!driveConnected && (
           <p className="text-sm" style={{ color: AMBER }}>Connect Google Drive (top right) so artists can send WAVs. Until then they can only fill in track lists.</p>
         )}
@@ -386,7 +386,6 @@ function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
   const withFiles = tracks.filter((t) => t.file_id && files[t.file_id]);
   const total = withFiles.reduce((sum, t) => sum + (Number(files[t.file_id].duration_sec) || 0), 0);
-  const gearOn = GEAR_OPTIONS.filter((g) => s.gear?.[g.key]).map((g) => g.label);
   const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[76px] tabular-nums outline-none focus:border-[#8CFF3D]/60";
 
   return (
@@ -446,10 +445,6 @@ function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
             )}
           </div>
           <div className="grid gap-3 content-start text-sm">
-            <div><div className="text-[10px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>BOOTH NEEDS</div>
-              <div className="mt-1 text-white/80">{[...gearOn, s.gear?.other].filter(Boolean).join(", ") || <span className="text-white/35">Nothing yet</span>}</div></div>
-            <div><div className="text-[10px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ANNOUNCE</div>
-              <div className="mt-1 text-white/80 whitespace-pre-wrap">{s.announce || <span className="text-white/35">Nothing yet</span>}</div></div>
             <div><div className="text-[10px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>CONTACT</div>
               <div className="mt-1 text-white/80 select-text">{s.contact || <span className="text-white/35">Nothing yet</span>}</div></div>
             {s.submitted_at && <div className="text-xs text-white/45" style={{ fontFamily: SCENE_MONO }}>SUBMITTED {new Date(s.submitted_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).toUpperCase()}</div>}
