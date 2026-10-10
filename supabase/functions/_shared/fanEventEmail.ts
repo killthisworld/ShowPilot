@@ -142,6 +142,18 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
   return { subject, html, text };
 }
 
+// Where the links in the email point: the APP_URL secret, or Show Pilot's
+// live site if that secret is missing or blank, so a mistyped secret never
+// strips the links out. (Deliberately not taken from the request: a caller
+// could fake it and get Show Pilot to email someone links to another site.)
+export const DEFAULT_SITE = "https://show-pilot.vercel.app";
+export function siteUrl(): string {
+  const fromEnv = (Deno.env.get("APP_URL") || "").trim().replace(/\/+$/, "");
+  if (/^https?:\/\/[^\s/]+$/i.test(fromEnv)) return fromEnv;
+  if (fromEnv) console.error(`APP_URL secret isn't a site address ("${fromEnv.slice(0, 60)}"); using ${DEFAULT_SITE}`);
+  return DEFAULT_SITE;
+}
+
 // New signups one event may take per window before the public opt-in starts
 // refusing. Not applied to Eventbrite orders (those are proven sales).
 const RATE_WINDOW_MIN = 10;
@@ -174,7 +186,7 @@ export async function sendFanEventEmail(
     console.error("Missing RESEND_API_KEY or FAN_EMAIL_FROM");
     return { status: "not_configured", error: "Email isn't set up yet" };
   }
-  const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/+$/, "");
+  const appUrl = siteUrl();
 
   const { data: ev, error: evErr } = await admin.rpc("get_fan_event", { p_token: opts.fanToken });
   if (evErr) { console.error(evErr); return { status: "error", error: "Couldn't load the event" }; }

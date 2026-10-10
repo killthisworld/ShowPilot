@@ -18,7 +18,7 @@
 // Secrets: RESEND_API_KEY, FAN_EMAIL_FROM, APP_URL (see _shared/fanEventEmail.ts).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendFanEventEmail } from "../_shared/fanEventEmail.ts";
+import { sendFanEventEmail, siteUrl } from "../_shared/fanEventEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,7 +85,7 @@ async function rsvp(admin: any, showId: string, token: string, email: string, bo
   const { data: mine } = await admin.from("fan_rsvps").select("sky_key").eq("show_id", showId).eq("email", email).maybeSingle();
   const { data: showRow } = await admin.from("shows").select("fan_page").eq("id", showId).maybeSingle();
   const cfg = showRow?.fan_page ?? {};
-  const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/+$/, "");
+  const appUrl = siteUrl();
   const skyKey = mine?.sky_key as string | undefined;
 
   // The RSVP is saved either way; the email is a bonus that shouldn't lose it.
