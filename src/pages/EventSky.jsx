@@ -209,7 +209,7 @@ export default function EventSky() {
         <>
           <div className="absolute left-0 right-0 top-0 px-5 pt-5 pb-10 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(3,4,12,0.75), transparent)" }}>
             <h1 className="text-[34px] font-bold leading-[0.95]">{ev?.event_name || ev?.band_name || "Tonight"}</h1>
-            <p className="mt-1.5 text-[15px] text-white/65">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>
+            {(dateLabel || ev?.venue) && <p className="mt-1.5 text-[15px] text-white/65">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>}
           </div>
 
           {/* Stars live in a padded area so they stay clear of the header and footer. */}

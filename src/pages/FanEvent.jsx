@@ -243,7 +243,7 @@ export default function FanEvent() {
           {ev.band_name && ev.event_name && ev.band_name !== ev.event_name && (
             <p className="mt-2 text-xl font-semibold text-white/80">{ev.band_name}</p>
           )}
-          <p className="mt-3 text-xs tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_MONO, color }}>{[dateLabel, ev.venue].filter(Boolean).join(" · ")}</p>
+          {(dateLabel || ev.venue) && <p className="mt-3 text-xs tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_MONO, color }}>{[dateLabel, ev.venue].filter(Boolean).join(" · ")}</p>}
           {place && <p className="mt-1 text-[11px] tracking-[0.08em] uppercase text-white/50" style={{ fontFamily: SCENE_MONO }}>{place}</p>}
           {ev.flyer_url && (
             <button type="button" onClick={openFlyer} className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] tracking-[0.1em] text-white/80 bg-black/35 border border-white/20 hover:bg-black/50" style={{ fontFamily: SCENE_MONO }}>

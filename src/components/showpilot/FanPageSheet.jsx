@@ -26,9 +26,12 @@ function useIsDesktop() {
 
 const newArtistId = () => Math.random().toString(36).slice(2, 10);
 
-// What the owner can switch on or off. Name, icon, date and venue are the
-// page itself and are always shown.
+// What the owner can switch on or off. Only the name and icon are always
+// shown: date and venue are optional too, so private events, speakeasies and
+// small business events can keep them off the public page.
 const FIELDS = [
+  { key: "date", label: "Date" },
+  { key: "venue", label: "Venue and address" },
   { key: "times", label: "Doors and show time" },
   { key: "tickets", label: "Ticket link and price" },
   { key: "band", label: "Band / artist name" },
@@ -211,7 +214,7 @@ function OwnerSheet({ showId, onClose }) {
       <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
         <div className="flex items-center gap-2.5 px-3 py-[9px] border-b border-[#1c1c1c]">
           <span className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center shrink-0" style={{ background: G, border: `1px solid ${G}` }}><Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3.2} /></span>
-          <span className="flex-1 text-base font-semibold text-white">Name, icon, date, venue</span>
+          <span className="flex-1 text-base font-semibold text-white">Name and icon</span>
           <span className="text-[9.5px] tracking-[0.08em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ALWAYS</span>
         </div>
         {FIELDS.map((f, i) => {
