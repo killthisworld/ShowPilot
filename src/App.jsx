@@ -14,6 +14,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import Home from '@/pages/Home';
 import HomeRouter from '@/pages/HomeRouter';
 import EventbriteCallback from '@/pages/EventbriteCallback';
+import EventSky from '@/pages/EventSky';
 import BandCalendar from '@/pages/BandCalendar';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/shared" element={<SharedGig />} />
       <Route path="/gig/web" element={<GigWeb />} />
       <Route path="/e/:token" element={<FanEvent />} />
+      <Route path="/e/:token/sky" element={<EventSky />} />
       <Route path="/gig/venue" element={<VenueProfile />} />
       <Route path="/gig/role" element={<RoleFullProfile />} />
       <Route path="/gig/rooms" element={<GigRooms />} />

@@ -42,6 +42,9 @@ export type FanEvent = {
 export type EmailExtras = {
   topRows?: [string, string][]; // shown first in the details table
   subjectPrefix?: string;       // e.g. "You're on the list: "
+  subjectOverride?: string;     // host-written subject; replaces the default
+  hostMessage?: string;         // host-written note just for this email (e.g. RSVPs)
+  keyLink?: string;             // RSVP sky key: link to /e/<token>/sky?k=<key>
 };
 
 export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string, extras: EmailExtras = {}) {
@@ -95,8 +98,15 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
   const html = `<!doctype html><html><body style="margin:0;background:#0d0d0d;">
 <div style="max-width:520px;margin:0 auto;padding:28px 20px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#ffffff;">
   <div style="font-family:${mono};font-size:11px;letter-spacing:.14em;color:#8a8a8a;">SHOWPILOT · EVENT INFO</div>
+  ${ev.flyer_url ? `<img src="${esc(ev.flyer_url)}" alt="Event flyer" width="480" style="display:block;width:100%;max-width:480px;height:auto;margin:16px 0 4px;border-radius:12px;border:1px solid #262626;">` : ""}
   <h1 style="margin:14px 0 4px;font-size:30px;line-height:1.05;">${esc(title)}</h1>
   ${ev.band_name && ev.event_name && ev.band_name !== ev.event_name ? `<div style="font-size:18px;color:#cfcfcf;font-weight:600;">${esc(ev.band_name)}</div>` : ""}
+  ${extras.keyLink ? `<div style="margin:22px 0 0;padding:20px 18px;background:#0b0e24;border:1px solid #2b2f5a;border-radius:14px;text-align:center;">
+    <div style="font-size:19px;font-weight:700;color:#ffffff;">Your star is in the sky</div>
+    <div style="margin:6px auto 14px;max-width:340px;font-size:14px;line-height:1.45;color:#b9bce0;">Every RSVP lights a star over this show. Unlock your key to see yours.</div>
+    <a href="${esc(extras.keyLink)}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#8CFF3D;color:#0d0d0d;font-weight:700;letter-spacing:.04em;text-decoration:none;font-size:15px;">Unlock your key</a>
+  </div>` : ""}
+  ${extras.hostMessage ? `<div style="margin:20px 0 0;padding:14px;background:#141414;border:1px solid #262626;border-radius:12px;"><div style="font-family:${mono};font-size:11px;letter-spacing:.12em;color:#8a8a8a;">FROM THE HOST</div><div style="margin-top:6px;font-size:15px;line-height:1.45;white-space:pre-line;">${esc(extras.hostMessage)}</div></div>` : ""}
   <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0;background:#141414;border:1px solid #262626;border-radius:12px;">
     ${rows.map(([k, v], i) => `<tr><td style="padding:10px 14px;${i ? "border-top:1px solid #222;" : ""}font-family:${mono};font-size:11px;letter-spacing:.12em;color:#8a8a8a;width:90px;vertical-align:top;">${k}</td><td style="padding:10px 14px;${i ? "border-top:1px solid #222;" : ""}font-size:15px;color:#ffffff;">${esc(v)}</td></tr>`).join("")}
   </table>
@@ -114,6 +124,8 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
     title,
     ev.band_name && ev.event_name && ev.band_name !== ev.event_name ? ev.band_name : null,
     "",
+    extras.keyLink ? `Your star is in the sky. Unlock your key: ${extras.keyLink}\n` : null,
+    extras.hostMessage ? `From the host:\n${extras.hostMessage}\n` : null,
     ...rows.map(([k, v]) => `${k}: ${v}`),
     ev.note ? `\nNote from the artist:\n${ev.note}` : null,
     "",
@@ -125,7 +137,8 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
     footer,
   ].filter((l) => l !== null).join("\n");
 
-  const subject = (extras.subjectPrefix ?? "") + [title, dateLong].filter(Boolean).join(" · ");
+  const custom = (extras.subjectOverride ?? "").trim().slice(0, 150);
+  const subject = custom || (extras.subjectPrefix ?? "") + [title, dateLong].filter(Boolean).join(" · ");
   return { subject, html, text };
 }
 

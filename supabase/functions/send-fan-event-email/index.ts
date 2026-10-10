@@ -70,6 +70,15 @@ async function rsvp(admin: any, showId: string, token: string, email: string, bo
     }
   }
 
+  // This fan's sky key (for the email link and the "See the sky" button), and
+  // the host's RSVP email settings. Read with the service role so the RSVP
+  // message never appears on the public fan page.
+  const { data: mine } = await admin.from("fan_rsvps").select("sky_key").eq("show_id", showId).eq("email", email).maybeSingle();
+  const { data: showRow } = await admin.from("shows").select("fan_page").eq("id", showId).maybeSingle();
+  const cfg = showRow?.fan_page ?? {};
+  const appUrl = (Deno.env.get("APP_URL") || "").replace(/\/+$/, "");
+  const skyKey = mine?.sky_key as string | undefined;
+
   // The RSVP is saved either way; the email is a bonus that shouldn't lose it.
   const r = await sendFanEventEmail(admin, {
     showId,
@@ -79,10 +88,13 @@ async function rsvp(admin: any, showId: string, token: string, email: string, bo
     footer: "You RSVP'd on the event page, and you pay at the door. This is a one-time email about this show. The host can see your RSVP; you haven't been added to any mailing list.",
     extras: {
       subjectPrefix: "You're on the list: ",
+      subjectOverride: typeof cfg.email_subject === "string" ? cfg.email_subject : undefined,
+      hostMessage: typeof cfg.rsvp_message === "string" && cfg.rsvp_message.trim() ? cfg.rsvp_message.trim().slice(0, 2000) : undefined,
+      keyLink: appUrl && skyKey ? `${appUrl}/e/${token}/sky?k=${skyKey}` : undefined,
       topRows: [["RSVP", `${name} · ${guests} ${guests === 1 ? "person" : "people"}`]],
     },
   });
-  return json({ ok: true, status, emailed: r.status === "sent", already_emailed: r.status === "already_sent" });
+  return json({ ok: true, status, emailed: r.status === "sent", already_emailed: r.status === "already_sent", sky_key: skyKey ?? null });
 }
 
 Deno.serve(async (req) => {

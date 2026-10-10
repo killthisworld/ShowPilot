@@ -46,6 +46,8 @@ function OwnerSheet({ showId, onClose }) {
       ticketLink: data.promoter_info?.ticket_link || "",
       ticketPrice: data.promoter_info?.ticket_price || "",
       entry: cfg.entry === "rsvp" ? "rsvp" : "tickets",
+      emailSubject: cfg.email_subject || "",
+      rsvpMessage: cfg.rsvp_message || "",
     };
   };
 
@@ -113,6 +115,8 @@ function OwnerSheet({ showId, onClose }) {
           address: draft.address.trim(),
           flyer_url: draft.flyer,
           entry: draft.entry,
+          email_subject: draft.emailSubject.trim(),
+          rsvp_message: draft.rsvpMessage.trim(),
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
@@ -227,6 +231,15 @@ function OwnerSheet({ showId, onClose }) {
                   <input className={inputCls} placeholder="Ages, e.g. 18+" value={draft.ages} onChange={(e) => set({ ages: e.target.value })} />
                 </div>
                 <textarea className={`${inputCls} mt-2 min-h-[70px]`} placeholder="A short note for fans (set list teaser, anything to know before the night)" value={draft.note} onChange={(e) => set({ note: e.target.value })} />
+
+                {rsvp && (
+                  <>
+                    <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>RSVP EMAIL</div>
+                    <input className={`${inputCls} mt-1.5`} maxLength={150} placeholder="Subject (default: You're on the list: event name and date)" value={draft.emailSubject} onChange={(e) => set({ emailSubject: e.target.value })} />
+                    <textarea className={`${inputCls} mt-2 min-h-[70px]`} maxLength={2000} placeholder="A message only people who RSVP get (where to enter, what to bring, parking)" value={draft.rsvpMessage} onChange={(e) => set({ rsvpMessage: e.target.value })} />
+                    <p className="mt-1.5 text-[12px] leading-snug text-white/40">Every RSVP email also has the flyer, the event details and the fan's key to the event sky, where each RSVP is a star.</p>
+                  </>
+                )}
 
                 <div className="mt-2 flex items-center gap-2">
                   <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickFlyer} />

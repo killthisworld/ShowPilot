@@ -46,7 +46,7 @@ export default function RsvpCard({ token, color, doorPrice }) {
       : data?.already_emailed
         ? (data?.status === "rsvp_updated" ? "Your RSVP is updated. The details are already in your inbox." : `The details are already in your inbox at ${addr}.`)
         : "We couldn't send the email just now, but your RSVP is saved.";
-    const v = { name: n, guests, email: addr, note };
+    const v = { name: n, guests, email: addr, note, skyKey: data?.sky_key || saved?.skyKey || null };
     remember(token, v);
     setDone(v);
   };
@@ -75,7 +75,12 @@ export default function RsvpCard({ token, color, doorPrice }) {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={() => setDone(null)} className="mt-3 text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
+            <div className="mt-3 flex items-center gap-4">
+              {done.skyKey && (
+                <a href={`/e/${token}/sky?k=${done.skyKey}`} className="px-4 py-2 rounded-full text-[15px] font-bold text-[#0d0d0d]" style={{ background: color }}>See your star</a>
+              )}
+              <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
+            </div>
           </>
         ) : (
           <form onSubmit={submit} noValidate>
