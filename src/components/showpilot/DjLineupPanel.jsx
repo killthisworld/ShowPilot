@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, ExternalLink, FolderOpen, Link2, Loader2, Share2, Trash2 } from "lucide-react";
+import { Check, ChevronRight, Copy, ExternalLink, FolderOpen, Link2, Loader2, Share2, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { driveCall, slotLink } from "@/lib/djTools";
@@ -7,7 +7,6 @@ import { formatDuration } from "@/lib/wav";
 
 const G = "#8CFF3D";
 const BLUE = "#60A5FA";
-const AMBER = "#F59E0B";
 const STATUS = {
   none: { label: "NO LINK YET", color: "#6b6b6b" },
   waiting: { label: "NOT STARTED", color: "#9A9A9A" },
@@ -59,6 +58,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
   const [busy, setBusy] = useState(null);
   const [copied, setCopied] = useState(null);
   const [error, setError] = useState("");
+  const [showOld, setShowOld] = useState(false);
 
   const acts = useMemo(
     () => (gig.bands || []).map((b, i) => ({ name: (b.band_name || "").trim(), minutes: b.set_length_minutes, index: i })).filter((a) => a.name),
@@ -189,46 +189,59 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
   };
 
   const orphans = slots.filter((s) => !acts.some((a) => norm(a.name) === norm(s.artist_name)));
+  const unusedOrphans = orphans.filter((s) => s.status === "waiting" && !(Array.isArray(s.tracks) && s.tracks.length));
+  const clearUnused = async () => {
+    setBusy("__clear");
+    const ids = unusedOrphans.map((s) => s.id);
+    const { error: e } = await supabase.from("dj_set_slots").delete().in("id", ids);
+    if (e) setError("Couldn't clear those links. Try again.");
+    else setSlots((ss) => ss.filter((s) => !ids.includes(s.id)));
+    setBusy(null);
+  };
   const linked = acts.filter((a) => slotFor(a.name)).length;
   const submitted = acts.filter((a) => slotFor(a.name)?.status === "submitted").length;
   const label = "text-[11px] tracking-[0.12em] text-white/45";
 
+  const smallBtn = "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap";
+
   return (
     <section className="mt-2 rounded-xl border border-[#262626] bg-[#111] p-4 flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-0">
-          <h3 className="text-[19px] font-bold leading-tight flex items-center gap-2"><Link2 className="w-4 h-4" style={{ color }} /> Set uploads</h3>
-          <p className="text-[14px] text-white/50">Send each act their own link. They list their set in play order and send WAVs straight to your Google Drive.</p>
-        </div>
-        <span className="text-[11px] text-white/50 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{linked}/{acts.length} LINKED · {submitted} SUBMITTED</span>
+      {/* One line: what this is + where it stands. */}
+      <div className="flex items-center gap-3 min-w-0">
+        <h3 className="text-[17px] font-bold leading-tight flex items-center gap-2 shrink-0"
+          title="Each act gets their own link to list their set in play order and send WAVs to your Google Drive.">
+          <Link2 className="w-4 h-4" style={{ color }} /> Set uploads
+        </h3>
+        <span className="ml-auto text-[11px] text-white/50 tabular-nums whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>
+          {submitted}/{acts.length} IN{linked < acts.length ? ` · ${acts.length - linked} NO LINK` : ""}
+        </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2">
-          <span className={label} style={{ fontFamily: SCENE_MONO }}>SETS DUE BY</span>
+      {/* One toolbar: due date, then the actions. Drive status is a single quiet line under it. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 mr-auto">
+          <span className={label} style={{ fontFamily: SCENE_MONO }}>DUE</span>
           <input id="dj-due" type="datetime-local" disabled={!canEdit} value={toLocalInput(request?.due_at)} onChange={(e) => setDue(e.target.value)}
-            className="bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm outline-none focus:border-[#8CFF3D]/60" />
+            className="bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1 text-white text-[13px] outline-none focus:border-[#8CFF3D]/60" />
         </label>
-        {drive && drive.configured && !drive.connected && (
-          <button type="button" onClick={connectDrive} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold" style={{ color: BLUE, border: `1px solid ${BLUE}66`, background: BLUE + "14" }}>
-            <FolderOpen className="w-4 h-4" /> Connect Google Drive
+        {linked > 0 && (
+          <button type="button" onClick={copyAll} className={smallBtn} style={{ color: G, border: `1px solid ${G}55` }}>
+            {copied === "__all" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied === "__all" ? "Copied" : "Copy all"}
           </button>
         )}
-        {drive && drive.connected && <span className="text-[11px] tracking-[0.08em] text-[#8CFF3D]" style={{ fontFamily: SCENE_MONO }}>WAVS GO TO {String(drive.email || "YOUR DRIVE").toUpperCase()}</span>}
-        {drive && drive.configured === false && <span className="text-[13px] text-white/40">WAV uploads switch on once Google Drive is set up. Track lists work now.</span>}
-        <div className="flex flex-wrap gap-2">
-          {linked > 0 && (
-            <button type="button" onClick={copyAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold" style={{ color: G, border: `1px solid ${G}55` }}>
-              {copied === "__all" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied === "__all" ? "Copied" : "Copy all links"}
-            </button>
-          )}
-          {request && (
-            <a href={`/dj?event=${request.id}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold border border-[#2a2a2a] text-white/75 hover:text-white">
-              <ExternalLink className="w-4 h-4" /> Track lists
-            </a>
-          )}
-        </div>
+        {request && (
+          <a href={`/dj?event=${request.id}`} className={`${smallBtn} border border-[#2a2a2a] text-white/70 hover:text-white`}>
+            <ExternalLink className="w-3.5 h-3.5" /> Track lists
+          </a>
+        )}
+        {drive && drive.configured && !drive.connected && (
+          <button type="button" onClick={connectDrive} className={smallBtn} style={{ color: BLUE, border: `1px solid ${BLUE}66`, background: BLUE + "14" }}>
+            <FolderOpen className="w-3.5 h-3.5" /> Connect Drive
+          </button>
+        )}
       </div>
+      {drive && drive.connected && <span className="-mt-1 text-[10px] tracking-[0.08em] text-[#8CFF3D]/80" style={{ fontFamily: SCENE_MONO }}>WAVS GO TO {String(drive.email || "YOUR DRIVE").toUpperCase()}</span>}
+      {drive && drive.configured === false && <span className="-mt-1 text-[10px] tracking-[0.08em] text-white/35" style={{ fontFamily: SCENE_MONO }}>TRACK LISTS ONLY · WAV UPLOADS ON ONCE DRIVE IS SET UP</span>}
 
       {loading ? (
         <div className="py-4 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-white/40" /></div>
@@ -276,16 +289,33 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
         </ol>
       )}
 
+      {/* Links whose act was renamed or taken off the lineup: folded into one
+          line. Unused ones (never opened) can be cleared in one go; ones an
+          artist has started stay until removed by hand. */}
       {orphans.length > 0 && (
-        <div className="rounded-lg px-3 py-2 text-[13px]" style={{ background: AMBER + "10", border: `1px solid ${AMBER}44` }}>
-          <div className="text-white/70 mb-1">Links for acts no longer in the lineup (renamed or removed):</div>
-          {orphans.map((s) => (
-            <div key={s.id} className="flex items-center gap-2 py-0.5">
-              <span className="flex-1 truncate">{s.artist_name || "Unnamed"} · {STATUS[s.status]?.label.toLowerCase()}</span>
-              <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) flash(s.id); }} className="text-xs text-white/60 hover:text-white">{copied === s.id ? "Copied" : "Copy link"}</button>
-              <button type="button" onClick={() => removeSlot(s.id)} aria-label="Remove link" className="p-1 text-white/40 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>
+        <div className="text-[13px]">
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setShowOld((v) => !v)} className="flex items-center gap-1 text-white/45 hover:text-white/80">
+              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showOld ? "rotate-90" : ""}`} />
+              {orphans.length} old link{orphans.length === 1 ? "" : "s"} (act renamed or removed)
+            </button>
+            {canEdit && unusedOrphans.length > 0 && (
+              <button type="button" onClick={clearUnused} disabled={busy === "__clear"} className="ml-auto text-xs text-white/45 hover:text-red-300 disabled:opacity-50">
+                Clear {unusedOrphans.length === orphans.length ? "all" : `${unusedOrphans.length} unused`}
+              </button>
+            )}
+          </div>
+          {showOld && (
+            <div className="mt-1.5 pl-5 flex flex-col">
+              {orphans.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 py-0.5 text-white/60">
+                  <span className="flex-1 truncate">{s.artist_name || "Unnamed"} <span className="text-white/35">· {STATUS[s.status]?.label.toLowerCase()}</span></span>
+                  <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) flash(s.id); }} className="text-xs text-white/50 hover:text-white">{copied === s.id ? "Copied" : "Copy"}</button>
+                  {canEdit && <button type="button" onClick={() => removeSlot(s.id)} aria-label="Remove link" className="p-1 text-white/35 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 

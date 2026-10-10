@@ -119,7 +119,7 @@ function AddButton({ color, onClick, children, disabled }) {
   );
 }
 function TableBox({ children }) {
-  return <div className="bg-[#111] border border-[#1f1f1f] rounded-xl overflow-hidden divide-y divide-[#1a1a1a]">{children}</div>;
+  return <div className="bg-[#111] border border-[#1f1f1f] rounded-xl overflow-hidden shrink-0 divide-y divide-[#1a1a1a]">{children}</div>;
 }
 function SideLabel({ children, className = "" }) {
   return <div className={`text-[11px] tracking-[0.12em] text-white/45 ${className}`} style={{ fontFamily: SCENE_MONO }}>{children}</div>;
@@ -723,7 +723,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
-            <p className="text-[15px] text-white/55 -mt-2">Put the acts in playing order. Set times go on the venue's day sheet, your run of show and each artist's set upload page.</p>
+            <p className="text-[14px] text-white/50 -mt-2">Acts in playing order. Times flow to the day sheet, run of show and each set upload page. Press Save after reordering.</p>
             <TableBox>
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
@@ -765,7 +765,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
             </TableBox>
             <AddButton color={color} disabled={!p.canEdit} onClick={p.addBand}>Add an act</AddButton>
-            <p className="text-[13px] text-white/40">Members, stage plots and FX notes for each act stay on the phone lineup view and the act's own intake link. Press Save to keep a new order.</p>
             {gig.id && <DjLineupPanel gig={gig} setTimes={setTimes} color={color} canEdit={p.canEdit} />}
           </>
         ),
@@ -855,12 +854,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     const waiting = {};
     (mi.checklist || []).filter((c) => !c.done && c.label).forEach((c) => { const w = c.who || "Unassigned"; waiting[w] = (waiting[w] || 0) + 1; });
     const text = [`${gig.event_name || gig.band_name || "Show"} · ${gig.date ? shortDate(gig.date) : ""} · ${gig.venue || ""}`, ...run.map((r) => `${r.time || "--"}  ${r.label}`)].join("\n");
+    // Acts in the lineup that don't have a start time yet still show, in
+    // playing order, so the run of show is never just a blank box.
+    const untimed = (gig.bands || []).filter((b) => b.band_name && !has((mi.set_times || {})[b.band_name]));
+    const sideBtn = "self-start mt-1 text-[13px] font-semibold px-3 py-1.5 rounded-md border";
     return {
       body: (
         <>
           <SideLabel>RUN OF SHOW{gig.date ? ` · ${shortDate(gig.date).toUpperCase()}` : ""}</SideLabel>
-          <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4">
-            {run.length ? (
+          <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4 flex flex-col gap-2">
+            {run.length > 0 && (
               <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-y-2 text-[16px]">
                 {run.map((r, i) => (
                   <React.Fragment key={i}>
@@ -869,12 +872,43 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   </React.Fragment>
                 ))}
               </div>
-            ) : (
-              <p className="text-[14px] text-white/40">Set times, your arrival and the venue's schedule show up here as they're filled in.</p>
+            )}
+            {untimed.length > 0 && (
+              <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-y-2 text-[16px]">
+                {untimed.map((b, i) => (
+                  <React.Fragment key={b.band_name + i}>
+                    <span className="text-[13px] text-white/30" style={{ fontFamily: SCENE_MONO }}>--:--</span>
+                    <span className="min-w-0">
+                      <span className="font-semibold text-white/75">{b.band_name}</span>
+                      <span className="ml-2 text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>TIME NEEDED</span>
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+            {!run.length && !untimed.length && (
+              <p className="text-[14px] text-white/40">Add acts and set times in Lineup & set times. The venue's schedule and your arrival join them here.</p>
+            )}
+            {(untimed.length > 0 || !run.length) && active !== "lineup" && (
+              <button type="button" onClick={() => setActive("lineup")} className={sideBtn} style={{ color, borderColor: color + "66" }}>
+                {untimed.length ? "Add set times" : "Open lineup"}
+              </button>
             )}
           </div>
           <SideLabel className="mt-1">STILL WAITING ON</SideLabel>
-          {Object.keys(waiting).length ? Object.entries(waiting).map(([w, n]) => <SideRow key={w} left={`${w} · ${n} item${n === 1 ? "" : "s"}`} right="OPEN" rightColor={AMBER} />) : <p className="text-[14px] text-white/35">{(mi.checklist || []).length ? "Everything on the checklist is confirmed." : "Start the advance checklist to track who you're waiting on."}</p>}
+          {Object.keys(waiting).length ? (
+            Object.entries(waiting).map(([w, n]) => <SideRow key={w} left={`${w} · ${n} item${n === 1 ? "" : "s"}`} right="OPEN" rightColor={AMBER} />)
+          ) : (mi.checklist || []).length ? (
+            <p className="text-[14px] text-white/35">Everything on the checklist is confirmed.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] text-white/40">Nothing tracked yet. The advance checklist shows who still owes you an answer.</p>
+              {ed ? (
+                <button type="button" onClick={() => { setMi("checklist", DEFAULT_CHECKLIST.map(([label, who]) => ({ id: uid(), label, who, done: false }))); setActive("advance"); }}
+                  className={`${sideBtn} border-[#2a2a2a] text-white/75 hover:text-white`}>Start the usual advance</button>
+              ) : null}
+            </div>
+          )}
         </>
       ),
       action: run.length ? { label: copied === "run" ? "COPIED" : "COPY RUN OF SHOW", onClick: () => copy(text, "run") } : null,
