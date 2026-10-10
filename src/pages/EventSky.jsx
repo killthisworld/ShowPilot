@@ -28,7 +28,7 @@ function skyLayout(stars, w, h) {
   if (!w || !h || stars.length === 0) return { positions: [], lines: [] };
   const sorted = [...stars].sort((a, b) => String(a.at).localeCompare(String(b.at)));
   const n = sorted.length;
-  const rx = w * 0.47, ry = h * 0.47;
+  const rx = w * 0.47, ry = h * 0.44;
   const positions = sorted.map((s, i) => {
     const seed = hashString(s.id);
     const frac = Math.min(1, Math.sqrt((i + 0.6) / Math.max(n, 6)) + (seededRandom(seed) - 0.5) * 0.12);
@@ -165,11 +165,21 @@ export default function EventSky() {
   const revealing = phase === "unlocking" || open;
 
   const onKeyDone = useCallback(() => setPhase("open"), []);
+  // The key is drawn at 280px; on narrow or short screens (and in-app
+  // browsers) shrink it so it and its message always fit.
+  const [keyScale, setKeyScale] = useState(1);
+  useEffect(() => {
+    const fit = () => setKeyScale(Math.min(1, (window.innerWidth * 0.78) / 280, (window.innerHeight * 0.46) / 280));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
   useEffect(() => { if (open) firstOpen.current = false; }, [open]);
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#03040c] text-white" style={{ fontFamily: SCENE_FONT }}>
+    <div className="sky-root fixed inset-x-0 top-0 overflow-hidden bg-[#03040c] text-white" style={{ fontFamily: SCENE_FONT }}>
       <style>{`
+        .sky-root { height: 100vh; height: 100dvh; }
         @keyframes skyMePulse { 0%,100% { transform: scale(1); opacity: .85 } 50% { transform: scale(1.45); opacity: 1 } }
         @keyframes skyStarIn { from { opacity: 0; transform: translate(-50%,-50%) scale(.2) } to { opacity: 1; transform: translate(-50%,-50%) scale(1) } }
         .sky-star { animation: skyStarIn 900ms cubic-bezier(.2,.8,.2,1) both }
@@ -192,7 +202,11 @@ export default function EventSky() {
       {/* Key overlay */}
       {phase !== "open" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-          <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} />
+          <div style={{ width: 280 * keyScale, height: 280 * keyScale }}>
+            <div style={{ transform: `scale(${keyScale})`, transformOrigin: "top left" }}>
+              <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} />
+            </div>
+          </div>
           {phase === "verifying" && <p className="mt-6 text-lg text-white/60">Checking your key…</p>}
           {phase === "failed" && (
             <div className="mt-6 max-w-xs">
@@ -206,15 +220,18 @@ export default function EventSky() {
 
       {/* The sky itself */}
       {open && sky && (
-        <>
-          <div className="absolute left-0 right-0 top-0 px-5 pt-5 pb-10 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(3,4,12,0.75), transparent)" }}>
-            <h1 className="text-[34px] font-bold leading-[0.95]">{ev?.event_name || ev?.band_name || "Tonight"}</h1>
-            {(dateLabel || ev?.venue) && <p className="mt-1.5 text-[15px] text-white/65">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>}
+        // Title, stars and footer stack top to bottom, so on any screen
+        // height (short phones, in-app browsers, long event names) the text
+        // takes what it needs and the stars fill only the space left.
+        <div className="absolute inset-0 flex flex-col">
+          <div className="shrink-0 px-5 pt-5 pb-3" style={{ background: "linear-gradient(180deg, rgba(3,4,12,0.75), rgba(3,4,12,0))" }}>
+            <h1 className="font-bold leading-[0.95] line-clamp-2" style={{ fontSize: "clamp(26px, 8.5vw, 34px)" }}>{ev?.event_name || ev?.band_name || "Tonight"}</h1>
+            {(dateLabel || ev?.venue) && <p className="mt-1.5 text-[15px] text-white/65 truncate">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>}
           </div>
 
-          {/* Stars live in a padded area so they stay clear of the header and footer. */}
-          <div ref={fieldRef} className="absolute left-6 right-6 top-[120px] bottom-[130px]" onClick={() => setSelected(null)}>
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
+          {/* Stars fill the space between the title and the footer. */}
+          <div ref={fieldRef} className="relative flex-1 min-h-[160px] mx-7 my-3" onClick={() => setSelected(null)}>
+            <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" aria-hidden="true">
               {layout.lines.map(([a, b]) => (
                 <line key={`${a.star.id}-${b.star.id}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(200,210,255,0.13)" strokeWidth="1" />
               ))}
@@ -237,16 +254,16 @@ export default function EventSky() {
             })}
           </div>
 
-          <div className="absolute left-0 right-0 bottom-0 px-5 pb-6 pt-12" style={{ background: "linear-gradient(0deg, rgba(3,4,12,0.85), transparent)" }}>
-            <p className="text-xl font-bold">
+          <div className="shrink-0 px-5 pt-3 pb-5" style={{ background: "linear-gradient(0deg, rgba(3,4,12,0.85), rgba(3,4,12,0))" }}>
+            <p className="font-bold leading-tight" style={{ fontSize: "clamp(17px, 5.2vw, 20px)" }}>
               {stars.length} {stars.length === 1 ? "star" : "stars"} in the sky, {sky.people} {sky.people === 1 ? "person" : "people"} coming
             </p>
-            <p className="mt-0.5 text-[15px] text-white/60">
+            <p className="mt-0.5 text-[15px] leading-snug text-white/60">
               {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
             </p>
-            <a href={`/e/${token}`} className="inline-block mt-3 text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
+            <a href={`/e/${token}`} className="inline-block mt-2 text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

@@ -315,15 +315,13 @@ export default function FanEvent() {
           </div>
         )}
 
-        <div className="mx-5 mt-6 pt-4 pb-10 border-t border-[#1a1a1a]">
-          <div className="flex items-center gap-2.5">
-            <span className="w-[26px] h-[26px] rounded-md flex items-center justify-center" style={{ background: "#8CFF3D24", border: "1px solid #8CFF3D8c", color: "#8CFF3D" }}>
-              <Navigation className="w-3.5 h-3.5" />
-            </span>
+        <div className="mx-5 mt-6 pt-5 pb-10 border-t border-[#1a1a1a] flex flex-col items-center text-center">
+          <div className="flex items-center justify-center gap-2.5">
+            <img src="/icon-192.png" alt="" width={28} height={28} className="w-7 h-7 rounded-[7px]" style={{ boxShadow: "0 0 0 1px rgba(140,255,61,0.45), 0 0 14px rgba(140,255,61,0.25)" }} />
             <span className="text-base font-bold tracking-[0.06em] text-white/80">THIS SHOW RUNS ON SHOWPILOT</span>
           </div>
-          <p className="mt-2 text-[15px] font-medium leading-tight text-white/50">The artist, venue, promoter and crew all work from one shared event.</p>
-          <a href="/register" className="inline-flex mt-3 px-3.5 py-[9px] rounded-lg text-[15px] font-bold tracking-[0.06em]" style={{ background: "#8CFF3D1a", border: "1px solid #8CFF3D66", color: "#8CFF3D" }}>
+          <p className="mt-2 max-w-[320px] text-[15px] font-medium leading-tight text-white/50">The artist, venue, promoter and crew all work from one shared event.</p>
+          <a href="/register" className="inline-flex mt-3.5 px-3.5 py-[9px] rounded-lg text-[15px] font-bold tracking-[0.06em]" style={{ background: "#8CFF3D1a", border: "1px solid #8CFF3D66", color: "#8CFF3D" }}>
             CREW OR VENUE? JOIN SHOWPILOT
           </a>
         </div>
