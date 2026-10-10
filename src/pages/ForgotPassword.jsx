@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthFoot } from "@/components/showpilot/AuthShell";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -20,55 +18,40 @@ export default function ForgotPassword() {
       await sendPasswordReset(email);
       setSubmitted(true);
     } catch (err) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Couldn't send the reset link", description: err.message, variant: "destructive" });
     }
     setLoading(false);
   };
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
-          <p className="text-white/50 text-sm mb-6">
-            If an account exists for <span className="text-white">{email}</span>, we sent a link to reset your password.
-          </p>
-          <Link to="/login" className="text-[#8CFF3D] hover:underline text-sm font-medium">
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const back = (
+    <AuthFoot>
+      <Link to="/login" className="text-[#8CFF3D] font-semibold hover:underline">Back to sign in</Link>
+    </AuthFoot>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-white text-center mb-1">Reset your password</h1>
-        <p className="text-white/40 text-center text-sm mb-8">We'll email you a reset link</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label className="text-white/50 text-xs">Email</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 bg-[#161616] border-[#2a2a2a] text-white"
-            />
-          </div>
-          <Button type="submit" disabled={loading} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e]">
-            {loading ? "Sending..." : "Send Reset Link"}
-          </Button>
-        </form>
-
-        <p className="text-center text-sm text-white/40 mt-6">
-          <Link to="/login" className="text-[#8CFF3D] hover:underline">
-            Back to sign in
-          </Link>
-        </p>
-      </div>
-    </div>
+    <AuthShell>
+      <AuthPanel>
+        {submitted ? (
+          <>
+            <AuthHead title="Check your email" />
+            <p className="px-6 pt-4 pb-6 text-white/70 text-base leading-snug">
+              If there's an account for <span className="text-white font-semibold break-all">{email}</span>, a link to set a new password is on its way.
+            </p>
+          </>
+        ) : (
+          <>
+            <AuthHead title="Reset your password" sub="We'll email you a link to set a new one." />
+            <form onSubmit={handleSubmit} className="px-6 pt-5 pb-6 space-y-4">
+              <AuthField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+              <div className="pt-1">
+                <AuthButton type="submit" disabled={loading}>{loading ? "Sending..." : "Send reset link"}</AuthButton>
+              </div>
+            </form>
+          </>
+        )}
+        {back}
+      </AuthPanel>
+    </AuthShell>
   );
 }
