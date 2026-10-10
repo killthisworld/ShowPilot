@@ -1592,31 +1592,28 @@ export default function Cockpit() {
 
               return (
                 <>
-                  <div className={`w-[320px] shrink-0 ${panel}`} style={panelShadow} onPointerDownCapture={() => setLogbookPreview("cover")} onFocusCapture={() => setLogbookPreview("cover")}>
-                    {panelLabel("Cover page", "The first thing people see in your Logbook")}
-                    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
-                      <div>
-                        <div className={lbLabel}>Bio</div>
-                        <Textarea value={logbookBio} onChange={(e) => setLogbookBio(e.target.value)} placeholder="A short bio about you and what you do..." className="mt-1 bg-[#111] border-[#222] text-white h-[96px] min-h-0 resize-none" />
-                      </div>
-                      {photoRow(coverSettings, setCoverSettings, "cover", "Upload cover photo")}
-                      {lookControls(coverSettings, setCoverSettings)}
-                    </div>
-                    <div className="px-4 pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveBtn(saveCoverSettings, savingCover, "Save Cover Page")}</div>
-                  </div>
-
                   <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
-                    <div className="px-4 pt-3.5 pb-3 shrink-0 flex items-center justify-between gap-3 border-b border-dashed border-[#2a2a2a]">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-[11px] tracking-[0.12em] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>PREVIEW</span>
-                        <div className="flex gap-1 bg-[#111] rounded-lg p-1 min-w-0">
-                          <button onClick={() => setLogbookPreview("cover")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${!showingMonth ? "bg-[#F59E0B] text-black" : "text-white/45 hover:text-white/70"}`}>Cover</button>
-                          <button onClick={() => selectedLogbookMonth && setLogbookPreview("month")} disabled={!selectedLogbookMonth} className={`px-3 py-1.5 rounded text-xs font-medium transition-all truncate disabled:opacity-40 ${showingMonth ? "bg-[#F59E0B] text-black" : "text-white/45 hover:text-white/70"}`}>{selectedLogbookMonth ? new Date(selectedLogbookMonth + "-01T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Month"}</button>
-                        </div>
+                    <div className="px-4 pt-3 pb-3 shrink-0 flex items-center gap-3 border-b border-dashed border-[#2a2a2a]">
+                      <span className="text-[11px] tracking-[0.12em] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>PREVIEW</span>
+                      <div className="flex gap-1 bg-[#111] border border-[#222] rounded-[10px] p-1">
+                        {[["cover", "Cover"], ["month", "Month"]].map(([id, label]) => {
+                          const on = id === "month" ? showingMonth : !showingMonth;
+                          const off = id === "month" && !selectedLogbookMonth;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              disabled={off}
+                              onClick={() => { setLogbookPreview(id); setPreviewShow(null); }}
+                              title={off ? "Mark a show as Done to get month pages" : undefined}
+                              className={`h-8 px-4 rounded-md text-sm font-semibold transition-all disabled:opacity-35 disabled:cursor-not-allowed ${on ? "bg-[#F59E0B] text-black shadow-[0_0_12px_#F59E0B55]" : "text-white/55 hover:text-white hover:bg-white/5"}`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <button onClick={() => navigate("/logbook")} className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white shrink-0">
-                        Open full Logbook <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
+                      {showingMonth && <span className="text-sm text-white/55 truncate">{monthName(selectedLogbookMonth)}</span>}
                     </div>
                     <div className="flex-1 min-h-0 p-3.5">
                       <div className="relative w-full h-full rounded-xl overflow-hidden border border-[#222] bg-[#0a0a0a]" onClick={() => setPreviewShow(null)}>
@@ -1683,16 +1680,17 @@ export default function Cockpit() {
                     </div>
                   </div>
 
-                  <div className={`w-[320px] shrink-0 ${panel}`} style={panelShadow} onPointerDownCapture={() => selectedLogbookMonth && setLogbookPreview("month")} onFocusCapture={() => selectedLogbookMonth && setLogbookPreview("month")}>
-                    {panelLabel("Month pages", "Each month of shows gets its own page")}
-                    {logbookMonths.length === 0 ? (
-                      <p className="text-center text-white/40 py-10 px-6 text-sm">Mark a show as Done to start customizing month pages</p>
-                    ) : (
+                  {/* One editor, for whichever tab is selected above the preview. */}
+                  <div className={`w-[360px] shrink-0 ${panel}`} style={panelShadow}>
+                    {showingMonth
+                      ? panelLabel("Month page", `Customize ${monthName(selectedLogbookMonth)}`)
+                      : panelLabel("Cover page", "The first thing people see in your Logbook")}
+                    {showingMonth ? (
                       <>
                         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
                           <div>
                             <div className={lbLabel}>Month</div>
-                            <Select value={selectedLogbookMonth} onValueChange={(v) => { setSelectedLogbookMonth(v); setLogbookPreview("month"); setPreviewShow(null); }}>
+                            <Select value={selectedLogbookMonth} onValueChange={(v) => { setSelectedLogbookMonth(v); setPreviewShow(null); }}>
                               <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white"><SelectValue /></SelectTrigger>
                               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
                                 {logbookMonths.map((m) => <SelectItem key={m} value={m}>{monthName(m)}</SelectItem>)}
@@ -1703,6 +1701,18 @@ export default function Cockpit() {
                           {lookControls(monthSettings, setMonthSettings)}
                         </div>
                         <div className="px-4 pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveBtn(saveMonthSettings, savingMonthSettings, "Save Month Page")}</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+                          <div>
+                            <div className={lbLabel}>Bio</div>
+                            <Textarea value={logbookBio} onChange={(e) => setLogbookBio(e.target.value)} placeholder="A short bio about you and what you do..." className="mt-1 bg-[#111] border-[#222] text-white h-[110px] min-h-0 resize-none" />
+                          </div>
+                          {photoRow(coverSettings, setCoverSettings, "cover", "Upload cover photo")}
+                          {lookControls(coverSettings, setCoverSettings)}
+                        </div>
+                        <div className="px-4 pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveBtn(saveCoverSettings, savingCover, "Save Cover Page")}</div>
                       </>
                     )}
                   </div>
