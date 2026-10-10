@@ -54,7 +54,8 @@ export default function DjTools() {
     const { data, error: e } = await supabase.from("dj_set_requests").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at");
     if (e) { setError("Couldn't load your set links."); return; }
     setRequests(data || []);
-    setSelectedId((cur) => cur && data?.some((r) => r.id === cur) ? cur : data?.[0]?.id ?? null);
+    const wanted = new URLSearchParams(window.location.search).get("event");
+    setSelectedId((cur) => cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
   }, []);
 
   const loadSlots = useCallback(async (requestId) => {

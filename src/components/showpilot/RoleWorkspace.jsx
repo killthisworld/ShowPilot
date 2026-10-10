@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
+import DjLineupPanel from "@/components/showpilot/DjLineupPanel";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // Desktop workspace for one company role's section of an event (venue,
@@ -722,11 +723,20 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
-            <p className="text-[15px] text-white/55 -mt-2">Set times go on the venue's day sheet and your run of show.</p>
+            <p className="text-[15px] text-white/55 -mt-2">Put the acts in playing order. Set times go on the venue's day sheet, your run of show and each artist's set upload page.</p>
             <TableBox>
-              <div className="grid grid-cols-[minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>ACT</span><span>BILLING</span><span>MINUTES</span><span>ON AT</span><span /></div>
+              <div className="grid grid-cols-[64px_minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>ORDER</span><span>ACT</span><span>BILLING</span><span>MINUTES</span><span>ON AT</span><span /></div>
               {(gig.bands || []).map((b, i) => (
-                <div key={i} className="grid grid-cols-[minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 items-center">
+                <div key={i} className="grid grid-cols-[64px_minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 items-center">
+                  <div className="flex items-center gap-0.5">
+                    <span className="w-5 text-right font-bold tabular-nums" style={{ color }}>{i + 1}</span>
+                    {p.canEdit && (
+                      <span className="flex flex-col">
+                        <button type="button" aria-label="Move earlier" disabled={i === 0} onClick={() => { const list = [...gig.bands]; [list[i - 1], list[i]] = [list[i], list[i - 1]]; p.update("bands", list); }} className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
+                        <button type="button" aria-label="Move later" disabled={i === gig.bands.length - 1} onClick={() => { const list = [...gig.bands]; [list[i + 1], list[i]] = [list[i], list[i + 1]]; p.update("bands", list); }} className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5" /></button>
+                      </span>
+                    )}
+                  </div>
                   <input value={b.band_name || ""} onChange={(e) => {
                     const old = b.band_name;
                     p.updateBand(i, "band_name", e.target.value);
@@ -743,7 +753,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
             </TableBox>
             <AddButton color={color} disabled={!p.canEdit} onClick={p.addBand}>Add an act</AddButton>
-            <p className="text-[13px] text-white/40">Members, stage plots and FX notes for each act stay on the phone lineup view and the act's own intake link.</p>
+            <p className="text-[13px] text-white/40">Members, stage plots and FX notes for each act stay on the phone lineup view and the act's own intake link. Press Save to keep a new order.</p>
+            {gig.id && <DjLineupPanel gig={gig} setTimes={setTimes} color={color} canEdit={p.canEdit} />}
           </>
         ),
       },
