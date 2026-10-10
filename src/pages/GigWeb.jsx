@@ -1426,15 +1426,10 @@ function DesktopGigWeb({
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
-  // Clicking a company profile on the web pops its workspace up over the
-  // board (like the Fan page editor). Closing it leaves that profile
-  // selected, so you land on its bulletin board. Audio / Lighting is a
-  // tech profile and just selects, as before.
+  // Clicking a profile on the web opens its bulletin board here. Its
+  // workspace pops up over the board (like the Fan page editor) only from
+  // the board's "Open workspace" button; closing it lands back on that board.
   const [workspaceRole, setWorkspaceRole] = useState(null);
-  const openFromWeb = (role) => {
-    selectRole(role);
-    if (role && role !== "engineer") setWorkspaceRole(role);
-  };
   const switchWorkspace = (role) => {
     selectRole(role);
     setWorkspaceRole(role === "engineer" ? null : role);
@@ -1485,7 +1480,7 @@ function DesktopGigWeb({
         <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
           <div className="min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
-              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={openFromWeb} gig={gig} title={title} myIcon={myIcon} />
+              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} />
             </div>
             {isOwner && gig?.id && (
               <InviteSheet
