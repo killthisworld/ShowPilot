@@ -3,8 +3,8 @@
 -- A DJ (Manager / Artist profile) connects their own Google Drive once, makes
 -- a "set request" for an event, adds the lineup as ordered slots, and sends
 -- each artist their slot's link. The artist (no account needed) opens
--- /dj/set/<token>, fills in their track list in play order, gear needs and
--- announce notes, and attaches WAV files. The WAVs go straight from the
+-- /dj/set/<token>, fills in their track list in play order and a contact,
+-- and attaches WAV files. (gear / announce columns are kept but unused.) The WAVs go straight from the
 -- artist's browser into the DJ's Drive (Show Pilot never stores the audio);
 -- only the track list, settings and file references live here.
 --
@@ -19,8 +19,7 @@
 -- * Uploaded-file rows are written only by the edge function after it has
 --   checked the file really landed in that slot's Drive folder, and a track
 --   can only point at a file recorded for its own slot.
--- * Nothing is added to public.shows (see work board job 2: that table is
---   currently readable by anyone).
+-- * Nothing is added to public.shows.
 
 -- ---------------------------------------------------------------------------
 -- Drive connection (one per user) and short-lived OAuth states
