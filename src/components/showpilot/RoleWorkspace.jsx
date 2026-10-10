@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
@@ -133,7 +133,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 }
 
 // ---------- the workspace ----------
-export default function RoleWorkspace({ role, p, onClose, onOpenRole }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false }) {
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -903,7 +903,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole }) {
   const header = (
     <header className="h-[72px] shrink-0 flex items-center gap-4 px-7 border-b border-[#1a1a1a]">
       <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-[15px] font-semibold text-white/55 hover:text-white">
-        <ArrowLeft className="w-4 h-4" /> Event board
+        <ArrowLeft className="w-4 h-4" /> {modal ? "Back to board" : "Event board"}
       </button>
       <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
       <h1 className="text-[32px] font-bold tracking-wide leading-none whitespace-nowrap">{ROLE_TITLE[role]}</h1>
@@ -943,7 +943,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole }) {
     const sectionTasks = (gig.tasks || []).filter((t) => t.section === role);
     const theirOpenReqs = reqs(role).filter((q) => q.status !== "confirmed");
     return (
-      <div className="h-screen flex flex-col bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
+      <Shell modal={modal} onClose={onClose}>
         {header}
         <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)]">
           <div className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
@@ -1002,12 +1002,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole }) {
             </div>
           </div>
         </div>
-      </div>
+      </Shell>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
+    <Shell modal={modal} onClose={onClose}>
       {header}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
@@ -1063,6 +1063,28 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole }) {
             </button>
           </div>
         </aside>
+      </div>
+    </Shell>
+  );
+}
+
+// Full page (its own window) or a pop-up over Gig Web, like the Fan page
+// editor: dimmed backdrop, rounded panel, click outside or Esc to go back.
+function Shell({ modal, onClose, children }) {
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal, onClose]);
+  if (!modal) {
+    return <div className="h-screen flex flex-col bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>{children}</div>;
+  }
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ fontFamily: SCENE_FONT }}>
+      <div className="absolute inset-0 bg-black/65" onClick={onClose} />
+      <div role="dialog" aria-modal="true" className="relative w-full max-w-[1320px] h-[min(94vh,880px)] flex flex-col bg-[#0d0d0d] text-white border border-[#2a2a2a] rounded-[18px] shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
+        {children}
       </div>
     </div>
   );

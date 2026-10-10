@@ -4,6 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
+import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal, Field } from "@/pages/SharedGig";
@@ -610,7 +611,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // web's rings and the overview board never sit stale after a save made
 // right here. That role's open tasks live on their own Tasks tab now,
 // not here - see TasksTabPanel below.
-function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded }) {
+function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded, onOpenWorkspace }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -699,11 +700,11 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
         // in a separate window, so this board stays the bulletin overview.
         <button
           type="button"
-          onClick={() => window.open(`/gig/role?token=${token}&role=${role}`, `showpilot-${token}-${role}`)}
+          onClick={() => (onOpenWorkspace ? onOpenWorkspace(role) : window.open(`/gig/role?token=${token}&role=${role}`, `showpilot-${token}-${role}`))}
           className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold rounded-2xl px-4 py-3 border transition-colors hover:brightness-125"
           style={{ borderColor: `${color}73`, background: `${color}14`, color }}
         >
-          {p.editable ? `Open ${SECTION_LABELS[role]} workspace` : `See where ${SECTION_LABELS[role]} is at`} <ExternalLink className="w-4 h-4" />
+          {p.editable ? `Open ${SECTION_LABELS[role]} workspace` : `See where ${SECTION_LABELS[role]} is at`} {onOpenWorkspace ? <ChevronRight className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
         </button>
       ) : (
         <button
@@ -1354,6 +1355,19 @@ function DesktopGigWeb({
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
+  // Clicking a company profile on the web pops its workspace up over the
+  // board (like the Fan page editor). Closing it leaves that profile
+  // selected, so you land on its bulletin board. Audio / Lighting is a
+  // tech profile and just selects, as before.
+  const [workspaceRole, setWorkspaceRole] = useState(null);
+  const openFromWeb = (role) => {
+    selectRole(role);
+    if (role && role !== "engineer") setWorkspaceRole(role);
+  };
+  const switchWorkspace = (role) => {
+    selectRole(role);
+    setWorkspaceRole(role === "engineer" ? null : role);
+  };
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
   const roleTasks = selectedRole ? openTasks.filter((t) => t.section === selectedRole) : openTasks;
   const canDo = selectedRole && roleEditable(selectedRole, permissions);
@@ -1400,7 +1414,7 @@ function DesktopGigWeb({
         <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(380px, 1fr) minmax(360px, 1.05fr) minmax(340px, 0.95fr)" }}>
           <div className="min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
-              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} />
+              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={openFromWeb} gig={gig} title={title} myIcon={myIcon} />
             </div>
             {isOwner && gig?.id && (
               <InviteSheet
@@ -1438,7 +1452,7 @@ function DesktopGigWeb({
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
               {selectedRole ? (
-                <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} />
+                <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
               ) : (
                 <OverviewBoard hideInvite nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
               )}
@@ -1485,6 +1499,37 @@ function DesktopGigWeb({
         </div>
       </div>
       {overlays}
+      {workspaceRole && (
+        <RoleWorkspaceModal
+          key={workspaceRole}
+          role={workspaceRole}
+          token={token}
+          onChanged={loadGig}
+          onClose={() => setWorkspaceRole(null)}
+          onOpenRole={switchWorkspace}
+        />
+      )}
     </div>
   );
+}
+
+// The role workspace as a pop-up over the desktop board - its own copy
+// of the section's data (useRoleProfile), refreshing the board on save.
+function RoleWorkspaceModal({ role, token, onChanged, onClose, onOpenRole }) {
+  const p = useRoleProfile({ role, token, onChanged });
+  if (p.loading || p.checkingAuth || p.notFound || !p.gig) {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/65" onClick={onClose} />
+        <div className="relative w-full max-w-[1320px] h-[min(94vh,880px)] flex items-center justify-center bg-[#0d0d0d] border border-[#2a2a2a] rounded-[18px]">
+          {p.loading || p.checkingAuth ? (
+            <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+          ) : (
+            <p className="text-white/40 text-sm">Couldn't load this section.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return <RoleWorkspace modal role={role} p={p} onClose={onClose} onOpenRole={onOpenRole} />;
 }
