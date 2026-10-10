@@ -17,6 +17,21 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
+// True at laptop/desktop widths. Gig Web renders a separate one-screen
+// "bulletin board" layout there, and the phone layout below it is untouched.
+function useIsDesktop() {
+  const q = "(min-width: 1024px)";
+  const [on, setOn] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q);
+    const h = (e) => setOn(e.matches);
+    m.addEventListener("change", h);
+    setOn(m.matches);
+    return () => m.removeEventListener("change", h);
+  }, []);
+  return on;
+}
+
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/BND", engineer: "AUD/LTG" };
 
@@ -84,6 +99,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const token = tokenProp || params.get("token");
   const goBack = () => (onClose ? onClose() : navigate("/"));
   const { preferences } = usePreferences();
+  const isDesktop = useIsDesktop();
   const isTechProductionAccount = TECHNICAL_PRODUCTION_TYPES.includes(preferences?.account_type || "engineer");
 
   const [user, setUser] = useState(null);
@@ -171,13 +187,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // Rooms tab is actually open on a specific role, so it's fetched lazily
   // per room and cached rather than pulled for every role up front.
   useEffect(() => {
-    if (activeTab !== "rooms" || !selectedRole || !user) return;
+    if ((activeTab !== "rooms" && !isDesktop) || !selectedRole || !user) return;
     const room = rooms.find((r) => r.section === selectedRole);
     if (!room || roomMembers[room.id]) return;
     supabase.rpc("get_conversation_member_profiles", { p_conversation_id: room.id }).then(({ data, error }) => {
       if (!error) setRoomMembers((prev) => ({ ...prev, [room.id]: data || [] }));
     });
-  }, [activeTab, selectedRole, rooms, user, roomMembers]);
+  }, [activeTab, selectedRole, rooms, user, roomMembers, isDesktop]);
 
   const selectRole = (role) => {
     setSelectedRole(role);
@@ -305,6 +321,108 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     rooms: null,
   };
 
+  const actionButtons = (() => {
+    // Each action is an icon with a word under it, so none of them
+    // has to be guessed at. Fan page is the public page for fans;
+    // Archive hides the event (reversible); Delete removes it.
+    const act = "flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors";
+    const cap = "text-[8px] tracking-[0.08em] leading-none";
+    return (
+      <div className="flex items-center gap-1 shrink-0 ml-auto">
+        {(permissions?.is_owner || token) && (
+          <button type="button" onClick={() => setShowFanSheet(true)} aria-label={permissions?.is_owner ? "Edit fan page" : "View fan page"} className={`${act} text-[#8CFF3D]/70 hover:text-[#8CFF3D]`}>
+            <Ticket className="w-4 h-4" />
+            <span className={cap} style={{ fontFamily: SCENE_MONO }}>FAN PAGE</span>
+          </button>
+        )}
+        {permissions?.is_owner && (
+          <>
+            <button type="button" onClick={() => setShowArchiveConfirm(true)} disabled={archiving} aria-label="Archive gig" className={`${act} text-white/45 hover:text-white disabled:opacity-40`}>
+              <Archive className="w-4 h-4" />
+              <span className={cap} style={{ fontFamily: SCENE_MONO }}>ARCHIVE</span>
+            </button>
+            <button type="button" onClick={() => setShowDeleteConfirm(true)} aria-label="Delete gig" className={`${act} text-red-400/60 hover:text-red-400`}>
+              <Trash2 className="w-4 h-4" />
+              <span className={cap} style={{ fontFamily: SCENE_MONO }}>DELETE</span>
+            </button>
+          </>
+        )}
+      </div>
+    );
+  })();
+
+  const overlays = (
+    <>
+      {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => !archiving && setShowArchiveConfirm(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Archive this gig?</h3>
+              <button onClick={() => setShowArchiveConfirm(false)} className="text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-white/40 text-xs mb-4">
+              {title} will disappear from your home screen and its fan page will go offline. Nothing is deleted. You can bring it back any time from Settings, then Archived.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowArchiveConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 text-sm font-semibold hover:bg-white/5">Cancel</button>
+              <button type="button" onClick={archiveShow} disabled={archiving} className="flex-1 py-2.5 rounded-xl bg-[#8CFF3D] text-black text-sm font-bold disabled:opacity-50">{archiving ? "Archiving..." : "Archive"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
+          onClick={() => !deleting && setShowDeleteConfirm(false)}
+        >
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Delete this gig?</h3>
+              <button onClick={() => setShowDeleteConfirm(false)} className="text-white/40 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-white/40 text-xs mb-4">
+              This permanently deletes {title} — profiles, tasks, requirements, invites and every room's chat history. Anyone linked to it loses access. This can't be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteShow}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500/90 hover:bg-red-500 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "Deleting..." : "Delete Forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <DesktopGigWeb
+        gig={gig} title={title} dateLabel={dateLabel} myIcon={myIcon} nodes={nodes}
+        selectedRole={selectedRole} selectedNode={selectedNode} selectRole={selectRole}
+        stripCells={stripCells} goBack={goBack} actionButtons={actionButtons} overlays={overlays}
+        token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
+        setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
+        addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
@@ -317,35 +435,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
             <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
-          {(() => {
-            // Each action is an icon with a word under it, so none of them
-            // has to be guessed at. Fan page is the public page for fans;
-            // Archive hides the event (reversible); Delete removes it.
-            const act = "flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors";
-            const cap = "text-[8px] tracking-[0.08em] leading-none";
-            return (
-              <div className="flex items-center gap-1 shrink-0 ml-auto">
-                {(permissions?.is_owner || token) && (
-                  <button type="button" onClick={() => setShowFanSheet(true)} aria-label={permissions?.is_owner ? "Edit fan page" : "View fan page"} className={`${act} text-[#8CFF3D]/70 hover:text-[#8CFF3D]`}>
-                    <Ticket className="w-4 h-4" />
-                    <span className={cap} style={{ fontFamily: SCENE_MONO }}>FAN PAGE</span>
-                  </button>
-                )}
-                {permissions?.is_owner && (
-                  <>
-                    <button type="button" onClick={() => setShowArchiveConfirm(true)} disabled={archiving} aria-label="Archive gig" className={`${act} text-white/45 hover:text-white disabled:opacity-40`}>
-                      <Archive className="w-4 h-4" />
-                      <span className={cap} style={{ fontFamily: SCENE_MONO }}>ARCHIVE</span>
-                    </button>
-                    <button type="button" onClick={() => setShowDeleteConfirm(true)} aria-label="Delete gig" className={`${act} text-red-400/60 hover:text-red-400`}>
-                      <Trash2 className="w-4 h-4" />
-                      <span className={cap} style={{ fontFamily: SCENE_MONO }}>DELETE</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            );
-          })()}
+          {actionButtons}
         </div>
       </div>
 
@@ -511,60 +601,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
 
-      {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}
-      {showArchiveConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => !archiving && setShowArchiveConfirm(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-white font-bold text-base">Archive this gig?</h3>
-              <button onClick={() => setShowArchiveConfirm(false)} className="text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
-            </div>
-            <p className="text-white/40 text-xs mb-4">
-              {title} will disappear from your home screen and its fan page will go offline. Nothing is deleted. You can bring it back any time from Settings, then Archived.
-            </p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowArchiveConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 text-sm font-semibold hover:bg-white/5">Cancel</button>
-              <button type="button" onClick={archiveShow} disabled={archiving} className="flex-1 py-2.5 rounded-xl bg-[#8CFF3D] text-black text-sm font-bold disabled:opacity-50">{archiving ? "Archiving..." : "Archive"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showDeleteConfirm && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4"
-          onClick={() => !deleting && setShowDeleteConfirm(false)}
-        >
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-white font-bold text-base">Delete this gig?</h3>
-              <button onClick={() => setShowDeleteConfirm(false)} className="text-white/40 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-white/40 text-xs mb-4">
-              This permanently deletes {title} — profiles, tasks, requirements, invites and every room's chat history. Anyone linked to it loses access. This can't be undone.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={deleteShow}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500/90 hover:bg-red-500 disabled:opacity-50 transition-colors"
-              >
-                {deleting ? "Deleting..." : "Delete Forever"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {overlays}
     </div>
   );
 }
@@ -857,7 +894,7 @@ function MyIconControl({ gig, myIcon, onChanged }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite }) {
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -908,7 +945,7 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
         })}
       </div>
 
-      {permissions?.is_owner && gig?.id && (
+      {permissions?.is_owner && gig?.id && !hideInvite && (
         <div className="mt-3 pt-3 border-t border-[#1f1f1f]">
           <InviteSheet
             showId={gig.id}
@@ -953,7 +990,7 @@ function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAdd
 // role's Profile tab (RoleTaskList below renders it there with a Mark
 // done button), so the board itself stays a scannable list of what's
 // still outstanding rather than a form.
-function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole }) {
+function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [section, setSection] = useState(nodes[0]?.role || "");
@@ -1028,7 +1065,14 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole }) {
         </div>
       )}
 
-      {tasks.length > 0 ? (
+      {tasks.length > 0 && notes ? (
+        <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
+          {tasks.map((t, i) => {
+            const node = nodes.find((n) => n.role === t.section);
+            return <TaskNote key={t.id} i={i} title={t.title} color={node?.style.color || "#8CFF3D"} label={node?.style.label || t.section} onClick={() => onSelectRole(t.section)} />;
+          })}
+        </div>
+      ) : tasks.length > 0 ? (
         <div className="space-y-1.5">
           {tasks.map((t) => {
             const node = nodes.find((n) => n.role === t.section);
@@ -1190,3 +1234,232 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
   );
 }
 
+
+// ---------------------------------------------------------------------
+// Desktop layout. One screen, no page scroll: a pinned-up "bulletin
+// board" - the patch-bay hub sits straight on the board, the Board/Profile
+// is a paper card in the middle, and Tasks (pinned, slightly crooked
+// sticky notes) plus Rooms live down the right so nothing hides behind a
+// tab. Only Tasks get the thumbtack and tilt; everything else is straight.
+// ---------------------------------------------------------------------
+const NOTE_TILT = [-2.2, 1.6, -1, 2.1, -1.7, 1.2];
+
+function TaskNote({ i, title, color, label, onClick, onDone, doneBusy }) {
+  return (
+    <div
+      className="relative box-border w-[calc(50%-7px)] min-h-[104px] pt-4 pb-2.5 px-3 rounded-[3px] flex flex-col justify-between cursor-pointer"
+      onClick={onClick}
+      style={{
+        background: "#241c0a",
+        border: "1px solid rgba(245,158,11,0.4)",
+        transform: `rotate(${NOTE_TILT[i % NOTE_TILT.length]}deg)`,
+        boxShadow: "0 10px 18px rgba(0,0,0,0.5)",
+      }}
+    >
+      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-[11px] h-[11px] rounded-full" style={{ background: `radial-gradient(circle at 35% 30%, #fff, ${color} 50%, #222)`, boxShadow: "0 2px 4px rgba(0,0,0,0.6)" }} />
+      <div className="text-white text-base font-semibold leading-tight line-clamp-3">{title}</div>
+      <div className="flex items-center justify-between gap-1 mt-2">
+        <span className="text-[9px] tracking-[0.06em] uppercase truncate" style={{ fontFamily: SCENE_MONO, color: "rgba(255,255,255,0.5)" }}>{label}</span>
+        {onDone ? (
+          <button type="button" disabled={doneBusy} onClick={(e) => { e.stopPropagation(); onDone(); }} className="flex items-center gap-1 text-[10px] font-semibold text-[#8CFF3D] hover:bg-[#8CFF3D]/10 px-1.5 py-0.5 rounded-full shrink-0 disabled:opacity-50">
+            <Check className="w-3 h-3" /> Done
+          </button>
+        ) : (
+          <span className="text-[10px] font-semibold" style={{ fontFamily: SCENE_MONO, color }}>OPEN</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
+  const iconUrl = myIcon || gig.icon_url;
+  const typeColor = eventTypeColor(gig.event_type);
+  const n = nodes.length || 1;
+  const pts = nodes.map((nd, i) => {
+    const a = (-90 + i * (360 / n)) * (Math.PI / 180);
+    return { ...nd, px: 50 + 37 * Math.cos(a), py: 50 + 37 * Math.sin(a) };
+  });
+  return (
+    <div className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+        {pts.map((nd) => (
+          <line
+            key={nd.role} x1="50" y1="50" x2={nd.px} y2={nd.py}
+            stroke={nd.claimed ? "#4a4a4a" : "#383838"} strokeWidth={nd.claimed ? 1.5 : 2.5}
+            strokeLinecap="round" strokeDasharray={nd.claimed ? undefined : "0.1 7"} vectorEffect="non-scaling-stroke"
+          />
+        ))}
+      </svg>
+      <button
+        type="button"
+        onClick={() => selectRole(null)}
+        className="absolute flex flex-col items-center justify-center rounded-[18px] bg-[#161616] border px-3 overflow-hidden"
+        style={{
+          left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 168, height: 104, zIndex: 1,
+          borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
+          boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
+        }}
+      >
+        {iconUrl ? (
+          <>
+            <img src={iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
+            <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
+          </>
+        ) : typeColor ? (
+          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: -10, bottom: -12, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
+        ) : null}
+        <div className="relative text-xl font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+      </button>
+      {pts.map((nd) => {
+        const active = nd.role === selectedRole;
+        return (
+          <button
+            key={nd.role}
+            type="button"
+            onClick={() => selectRole(nd.role)}
+            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-[14px] cursor-pointer px-1"
+            style={{
+              left: `${nd.px}%`, top: `${nd.py}%`, transform: "translate(-50%, -50%)", width: 96, height: 76, zIndex: 1,
+              backgroundColor: "#161616",
+              backgroundImage: active ? `linear-gradient(${nd.style.color}33, ${nd.style.color}33)` : undefined,
+              border: `1.5px solid ${active ? nd.style.color : "#2a2a2a"}`,
+              boxShadow: active ? `0 0 0 3px ${nd.style.color}40, 0 0 16px ${nd.style.color}66` : undefined,
+            }}
+          >
+            <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: nd.style.color, opacity: active ? 1 : 0.6, fontSize: ROLE_CODES[nd.role].length > 5 ? 12 : 14 }}>{ROLE_CODES[nd.role]}</span>
+            <span className="w-[54px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
+              <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color, opacity: active ? 1 : 0.5 }} />
+            </span>
+            <span className={`text-[10px] leading-none ${active ? "text-white/80" : "text-white/40"}`} style={{ fontFamily: SCENE_MONO }}>{nd.percent}%</span>
+            {nd.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: nd.style.color, opacity: active ? 1 : 0.5 }} />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function DesktopGigWeb({
+  gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
+  token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
+  profileExpanded, setProfileExpanded,
+}) {
+  const isOwner = !!permissions?.is_owner;
+  const [completingId, setCompletingId] = useState(null);
+  const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
+  const roleTasks = selectedRole ? openTasks.filter((t) => t.section === selectedRole) : openTasks;
+  const canDo = selectedRole && roleEditable(selectedRole, permissions);
+  const done = async (id) => {
+    if (completingId) return;
+    setCompletingId(id);
+    try { await completeTask(id, true); } catch (e) { console.error(e); }
+    setCompletingId(null);
+  };
+  const dots = { backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px" };
+
+  return (
+    <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
+      <div className="flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
+        <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+        <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={42} />
+        <div className="min-w-0">
+          <h1 className="text-white font-bold text-3xl leading-tight truncate tracking-wide">{title}</h1>
+          <p className="text-white/50 text-[11px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Select a role to see its status"}</p>
+        </div>
+        <div className="flex-1 max-w-[560px] ml-6 min-w-[300px]"><StatusStrip cells={stripCells} /></div>
+        <div className="ml-auto [&_svg]:!w-5 [&_svg]:!h-5 [&_span]:!text-[10px]">{actionButtons}</div>
+      </div>
+
+      <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
+        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(380px, 1fr) minmax(360px, 1.05fr) minmax(340px, 0.95fr)" }}>
+          <div className="min-h-0 flex flex-col items-center justify-center gap-4">
+            <div className="w-full flex-1 min-h-0 flex items-center">
+              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} />
+            </div>
+            {isOwner && gig?.id && (
+              <InviteSheet
+                showId={gig.id}
+                elevated
+                trigger={
+                  <button type="button" className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-md text-base font-bold tracking-[0.04em]" style={{ color: "#8CFF3D", background: "rgba(140,255,61,0.08)", border: "1.5px dashed rgba(140,255,61,0.55)" }}>
+                    <UserPlus className="w-4 h-4" /> Invite profiles & users
+                  </button>
+                }
+              />
+            )}
+          </div>
+
+          <div className="min-h-0 flex flex-col rounded-md bg-[#151515] border border-[#262626]" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
+            <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 shrink-0">
+              {selectedNode ? (
+                <>
+                  <button type="button" onClick={() => selectRole(null)} className="flex items-center gap-1 text-white/40 hover:text-white text-xs font-semibold shrink-0 -ml-1 pl-1 pr-2 py-1 rounded-full hover:bg-white/5">
+                    <ArrowLeft className="w-3.5 h-3.5" /> Overview
+                  </button>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
+                  <span className="text-white font-bold text-2xl truncate">{SECTION_LABELS[selectedRole]}</span>
+                  <span className="ml-auto text-white/40 text-[11px] uppercase tracking-[0.08em] shrink-0" style={{ fontFamily: SCENE_MONO }}>
+                    {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#60A5FA]" />
+                  <span className="text-white font-bold text-2xl">Board</span>
+                  <span className="ml-auto text-white/40 text-[11px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>{nodes.length} roles</span>
+                </>
+              )}
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
+              {selectedRole ? (
+                <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} />
+              ) : (
+                <OverviewBoard hideInvite nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+              )}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex flex-col gap-5">
+            <div className="flex-1 min-h-0 flex flex-col">
+              {selectedRole ? (
+                <>
+                  <div className="flex items-center gap-2 px-1.5 pb-1.5 shrink-0">
+                    <span className="text-[#F59E0B] font-bold tracking-[0.08em] text-lg">TASKS</span>
+                    <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length}</span>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                    {roleTasks.length === 0 ? (
+                      <p className="text-white/25 text-xs px-1.5">Nothing outstanding for this section right now.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
+                        {roleTasks.map((t, i) => (
+                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} onClick={() => {}} onDone={canDo ? () => done(t.id) : undefined} doneBusy={!!completingId} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                  <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-h-0 flex flex-col rounded-[3px] bg-[#19141a] border border-[#F472B6]/30 border-l-4 border-l-[#F472B6]" style={{ boxShadow: "0 10px 18px rgba(0,0,0,0.5)" }}>
+              <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
+                <span className="text-[#F472B6] font-bold tracking-[0.08em] text-lg">ROOMS</span>
+                <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+                <RoomsTabPanel selectedRole={selectedRole} roleLabel={selectedNode?.style.label} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {overlays}
+    </div>
+  );
+}
