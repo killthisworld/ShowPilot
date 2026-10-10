@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
@@ -147,6 +147,14 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     setLoading(false);
   };
   useEffect(() => { loadGig(); }, [token]);
+  // A role workspace opened in its own window posts back after it saves.
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.origin === window.location.origin && e.data?.type === "showpilot:gig-changed" && e.data.token === token) loadGig();
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [token]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -610,6 +618,8 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
+  const isDesktop = useIsDesktop();
+  const opensOwnWindow = isDesktop && role !== "engineer";
 
   const goSignIn = (toRegister) => {
     const currentPath = window.location.pathname + window.location.search;
@@ -684,6 +694,17 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded 
             Show summary only
           </button>
         </div>
+      ) : opensOwnWindow ? (
+        // Desktop company roles: the section opens as its own workspace
+        // in a separate window, so this board stays the bulletin overview.
+        <button
+          type="button"
+          onClick={() => window.open(`/gig/role?token=${token}&role=${role}`, `showpilot-${token}-${role}`)}
+          className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold rounded-2xl px-4 py-3 border transition-colors hover:brightness-125"
+          style={{ borderColor: `${color}73`, background: `${color}14`, color }}
+        >
+          {p.editable ? `Open ${SECTION_LABELS[role]} workspace` : `See where ${SECTION_LABELS[role]} is at`} <ExternalLink className="w-4 h-4" />
+        </button>
       ) : (
         <button
           type="button"

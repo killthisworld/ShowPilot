@@ -8,6 +8,8 @@ import { ArrowLeft, LogIn, UserPlus, Plus, Trash2, ChevronDown, ChevronRight } f
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { Field, RequirementsList, BandDetails, ROLE_COLORS, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // The real, full-page editor for one role's section on one gig - reached
@@ -141,6 +143,7 @@ export function useRoleProfile({ role, token, onChanged }) {
         venue: gig.venue, city: gig.city, state: gig.state,
         wifi_network: gig.wifi_network, wifi_password: gig.wifi_password,
         console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
+        venue_documents: gig.venue_documents, venue_info: gig.venue_info || {},
       });
     } else if (role === "promoter") {
       await saveSection("promoter", gig.promoter_info || {});
@@ -195,11 +198,24 @@ export function useRoleProfile({ role, token, onChanged }) {
     }
   };
 
+  // Marks one of the owner's tasks for a section done (or reopens it) -
+  // same RPC and permission check Gig Web's Tasks tab uses.
+  const setTaskDone = async (taskId, done = true) => {
+    try {
+      const { data, error } = await supabase.rpc("set_gig_task_status", { p_token: token, p_task_id: taskId, p_done: done });
+      if (error) throw error;
+      setGig((g) => ({ ...g, tasks: (g.tasks || []).map((t) => (t.id === taskId ? data : t)) }));
+      onChanged?.();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return {
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
-    expandedBands, toggleExpanded, canEdit, editable,
+    expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,
-    handleSave, addRequirement, updateRequirementStatus, deleteRequirement,
+    handleSave, addRequirement, updateRequirementStatus, deleteRequirement, setTaskDone,
     iemMonitorColors,
   };
 }
@@ -433,7 +449,13 @@ export default function RoleFullProfile() {
   const role = params.get("role");
   const currentPath = window.location.pathname + window.location.search;
 
-  const p = useRoleProfile({ role, token });
+  // Opened from Gig Web in its own window: tell the board to refresh
+  // after a save here so its progress never sits stale.
+  const notifyOpener = () => {
+    try { window.opener?.postMessage({ type: "showpilot:gig-changed", token }, window.location.origin); } catch {}
+  };
+  const p = useRoleProfile({ role, token, onChanged: notifyOpener });
+  const isDesktop = useIsDesktop();
 
   const goSignIn = (toRegister) => {
     try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
@@ -456,6 +478,24 @@ export default function RoleFullProfile() {
           <p className="text-white/30 text-sm">This link may be invalid.</p>
         </div>
       </div>
+    );
+  }
+
+  // Company roles get the desktop workspace (their section of the event
+  // as tabs, editor and a role-specific summary). Audio / lighting is a
+  // tech profile and stays on the phone layout below.
+  if (isDesktop && role !== "engineer") {
+    const backToBoard = () => {
+      if (window.opener && !window.opener.closed) { window.close(); return; }
+      navigate(`/gig/web?token=${token}`);
+    };
+    return (
+      <RoleWorkspace
+        role={role}
+        p={p}
+        onClose={backToBoard}
+        onOpenRole={(r) => navigate(`/gig/role?token=${token}&role=${r}`)}
+      />
     );
   }
 
