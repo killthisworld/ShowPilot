@@ -45,6 +45,7 @@ export type EmailExtras = {
   subjectOverride?: string;     // host-written subject; replaces the default
   hostMessage?: string;         // host-written note just for this email (e.g. RSVPs)
   keyLink?: string;             // RSVP sky key: link to /e/<token>/sky?k=<key>
+  attachedNames?: string[];     // files attached to this email (filled in by sendFanEventEmail)
 };
 
 export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string, extras: EmailExtras = {}) {
@@ -88,6 +89,7 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
   if (fullAddress) rows.push(["ADDRESS", fullAddress]);
   if (ev.ticket_price) rows.push(["TICKETS", ev.ticket_price]);
   if (ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
+  if (extras.attachedNames?.length) rows.push(["ATTACHED", extras.attachedNames.join(", ")]);
 
   const mono = "'SFMono-Regular',Menlo,Consolas,monospace";
   const btn = (href: string, label: string, primary = false) =>
@@ -151,6 +153,55 @@ export function siteUrl(): string {
   if (/^https?:\/\/[^\s/]+$/i.test(fromEnv)) return fromEnv;
   if (fromEnv) console.error(`APP_URL secret isn't a site address ("${fromEnv.slice(0, 60)}"); using ${DEFAULT_SITE}`);
   return DEFAULT_SITE;
+}
+
+// ---- Attachments ----
+// Hosts upload up to 3 files (parking PDF, map, ...) in Fan page settings. They
+// live in the private fan-files bucket and are listed in shows.fan_page.files.
+// Only files in the show owner's own folder are attached, and a file that
+// can't be read is skipped so the email still goes out.
+const FAN_FILES_BUCKET = "fan-files";
+const MAX_FILES = 3;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+const EXT: Record<string, string> = {
+  "application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
+};
+
+export function safeFileName(name: unknown, type: string): string {
+  const ext = EXT[type] || "";
+  let base = String(name ?? "").replace(/\.[A-Za-z0-9]{1,5}$/, "")
+    .replace(/[^\w .()\-]+/g, "").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!base) base = "attachment";
+  return ext ? `${base}.${ext}` : base;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
+export async function loadAttachments(admin: any, showId: string): Promise<{ filename: string; content: string }[]> {
+  const { data: show, error } = await admin.from("shows").select("owner_id, fan_page").eq("id", showId).maybeSingle();
+  if (error || !show) { if (error) console.error(error); return []; }
+  const list = Array.isArray(show.fan_page?.files) ? show.fan_page.files.slice(0, MAX_FILES) : [];
+  const out: { filename: string; content: string }[] = [];
+  let total = 0;
+  for (const f of list) {
+    const path = String(f?.path ?? "");
+    const type = String(f?.type ?? "");
+    if (!path.startsWith(`${show.owner_id}/`) || path.includes("..") || !EXT[type]) continue;
+    const { data: blob, error: dlErr } = await admin.storage.from(FAN_FILES_BUCKET).download(path);
+    if (dlErr || !blob) { console.error("Attachment download failed:", path, dlErr); continue; }
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if (bytes.length > MAX_FILE_BYTES || total + bytes.length > MAX_TOTAL_BYTES) continue;
+    total += bytes.length;
+    out.push({ filename: safeFileName(f?.name, type), content: toBase64(bytes) });
+  }
+  return out;
 }
 
 // New signups one event may take per window before the public opt-in starts
@@ -220,7 +271,11 @@ export async function sendFanEventEmail(
   }
 
   const pageUrl = appUrl ? `${appUrl}/e/${opts.fanToken}` : null;
-  const { subject, html, text } = buildEmail(ev as FanEvent, pageUrl, opts.footer, opts.extras);
+  const attachments = await loadAttachments(admin, opts.showId);
+  const { subject, html, text } = buildEmail(ev as FanEvent, pageUrl, opts.footer, {
+    ...(opts.extras ?? {}),
+    attachedNames: attachments.map((a) => a.filename),
+  });
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -230,7 +285,7 @@ export async function sendFanEventEmail(
       // Resend drops a repeat with the same key, so a retry can't double-send.
       "Idempotency-Key": `fan-event-${signupId}`,
     },
-    body: JSON.stringify({ from, to: [email], subject, html, text }),
+    body: JSON.stringify({ from, to: [email], subject, html, text, ...(attachments.length ? { attachments } : {}) }),
   });
 
   if (!res.ok) {

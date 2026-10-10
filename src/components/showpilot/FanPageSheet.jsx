@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, ImagePlus, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, FileText, ImagePlus, Paperclip, Plus, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
@@ -9,6 +9,13 @@ import RsvpList from "@/components/showpilot/RsvpList";
 
 const G = "#8CFF3D";
 const MAX_LINEUP = 12;
+// Email attachments (parking PDF, map, ...): private fan-files bucket, see
+// supabase/fan_files_migration.sql. The bucket enforces the size and types too.
+const FAN_FILES = "fan-files";
+const MAX_FILES = 3;
+const MAX_FILE_MB = 5;
+const FILE_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+const fileSize = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 // Desktop gets a wide two-column panel; phones keep the bottom sheet.
 function useIsDesktop() {
@@ -52,6 +59,8 @@ function OwnerSheet({ showId, onClose }) {
   const [saving, setSaving] = useState(false);
   const [updated, setUpdated] = useState(false);
   const fileRef = useRef(null);
+  const attachRef = useRef(null);
+  const [attaching, setAttaching] = useState(false);
   const desktop = useIsDesktop();
   // Which "What fans can see" / setup tab is open. One at a time.
   const [tab, setTab] = useState("tickets");
@@ -72,6 +81,7 @@ function OwnerSheet({ showId, onClose }) {
       emailSubject: cfg.email_subject || "",
       rsvpMessage: cfg.rsvp_message || "",
       lineup: Array.isArray(cfg.lineup) ? cfg.lineup.map((a) => ({ id: String(a.id), name: String(a.name || "") })) : [],
+      files: Array.isArray(cfg.files) ? cfg.files : [],
     };
   };
 
@@ -108,6 +118,33 @@ function OwnerSheet({ showId, onClose }) {
     setBusy(false);
   };
 
+  // Uploads right away (so the name and size show), but the file only goes
+  // into emails once the owner presses Update.
+  const pickAttachments = async (e) => {
+    const picked = [...(e.target.files || [])];
+    e.target.value = "";
+    if (!picked.length) return;
+    const room = MAX_FILES - draft.files.length;
+    if (picked.length > room) { setErr(`Up to ${MAX_FILES} files per event.`); return; }
+    const bad = picked.find((f) => !FILE_TYPES.includes(f.type));
+    if (bad) { setErr(`"${bad.name}" isn't a PDF or image. Attach PDFs, JPGs or PNGs.`); return; }
+    const big = picked.find((f) => f.size > MAX_FILE_MB * 1024 * 1024);
+    if (big) { setErr(`"${big.name}" is over ${MAX_FILE_MB} MB. Try a smaller version.`); return; }
+    setAttaching(true);
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    const added = [];
+    for (const f of picked) {
+      const safe = f.name.replace(/[^\w.\-]+/g, "_").slice(-60);
+      const path = `${uid}/${showId}/${Math.random().toString(36).slice(2, 10)}-${safe}`;
+      const { error } = uid ? await supabase.storage.from(FAN_FILES).upload(path, f, { contentType: f.type }) : { error: true };
+      if (error) { setErr(`Couldn't upload "${f.name}". Try again.`); break; }
+      added.push({ path, name: f.name.slice(0, 80), size: f.size, type: f.type });
+    }
+    setAttaching(false);
+    if (added.length) set({ files: [...draft.files, ...added] });
+  };
+
   const update = async () => {
     setErr("");
     let ticketLink = draft.ticketLink.trim();
@@ -141,6 +178,7 @@ function OwnerSheet({ showId, onClose }) {
           email_subject: draft.emailSubject.trim(),
           rsvp_message: draft.rsvpMessage.trim(),
           lineup: draft.lineup.map((a) => ({ id: a.id, name: a.name.trim().slice(0, 80) })).filter((a) => a.name),
+          files: draft.files,
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
@@ -149,6 +187,10 @@ function OwnerSheet({ showId, onClose }) {
       .single();
     setSaving(false);
     if (error || !data) { setErr("Couldn't update. Try again."); return; }
+    // Clean up attachments the owner removed (best effort).
+    const kept = new Set(draft.files.map((f) => f.path));
+    const gone = (row.fan_page?.files || []).map((f) => f.path).filter((p) => p && !kept.has(p));
+    if (gone.length) supabase.storage.from(FAN_FILES).remove(gone).catch(() => {});
     setRow(data);
     setDraft(toDraft(data));
     setUpdated(true);
@@ -200,6 +242,7 @@ function OwnerSheet({ showId, onClose }) {
       { key: "lineup", label: "Lineup", summary: draft.lineup.filter((a) => a.name.trim()).length ? `${draft.lineup.filter((a) => a.name.trim()).length} artists` : "No artists" },
       { key: "email", label: "RSVP email", summary: draft.emailSubject ? clip(draft.emailSubject) : "Default subject" },
     ] : []),
+    { key: "files", label: "Email attachments", summary: draft.files.length ? `${draft.files.length} ${draft.files.length === 1 ? "file" : "files"}` : "None" },
     ...(!rsvp && !savedRsvp && row?.fan_page_enabled ? [{ key: "eventbrite", label: "Ticket buyer emails", summary: "Eventbrite" }] : []),
   ] : [];
   const allTabs = [...shownTabs, ...setupTabs];
@@ -315,6 +358,27 @@ function OwnerSheet({ showId, onClose }) {
         <input className={`${inputCls} mt-2`} maxLength={150} placeholder="Subject (optional)" value={draft?.emailSubject || ""} onChange={(e) => set({ emailSubject: e.target.value })} />
         <textarea className={`${inputCls} mt-2 min-h-[80px]`} maxLength={2000} placeholder="A message only people who RSVP get (where to enter, what to bring, parking)" value={draft?.rsvpMessage || ""} onChange={(e) => set({ rsvpMessage: e.target.value })} />
         {note(`Leave the subject empty to use "You're on the list: event name and date". Every RSVP email also has the flyer, the event details and the fan's key to the event sky.`)}
+      </>
+    ),
+    files: draft && (
+      <>
+        <input ref={attachRef} type="file" multiple accept={FILE_TYPES.join(",")} className="hidden" onChange={pickAttachments} />
+        <div className="mt-2 space-y-1.5">
+          {draft.files.map((f, i) => (
+            <div key={f.path} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#111] border border-[#1f1f1f]">
+              <FileText className="w-4 h-4 text-white/50 shrink-0" />
+              <span className="min-w-0 flex-1 truncate text-sm text-white">{f.name}</span>
+              <span className="text-[11px] text-white/40 shrink-0">{fileSize(f.size || 0)}</span>
+              <button type="button" onClick={() => set({ files: draft.files.filter((_, j) => j !== i) })} aria-label={`Remove ${f.name}`} className="p-1 text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
+            </div>
+          ))}
+          {draft.files.length < MAX_FILES && (
+            <button type="button" onClick={() => attachRef.current?.click()} disabled={attaching} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111] border border-dashed border-[#2a2a2a] text-white/70 text-sm font-semibold hover:text-white disabled:opacity-50">
+              <Paperclip className="w-4 h-4" /> {attaching ? "Uploading..." : "Attach a file"}
+            </button>
+          )}
+        </div>
+        {note(`Parking instructions, a map, anything fans need. PDFs or images, up to ${MAX_FILES} files, ${MAX_FILE_MB} MB each. Sent with every ${rsvp ? "RSVP confirmation" : "fan"} email, never shown on the public page.`)}
       </>
     ),
     eventbrite: (
