@@ -500,7 +500,6 @@ export default function BandHome() {
         <div className="px-6 pt-2.5 flex items-center gap-1.5 flex-wrap shrink-0">
           {roleBanks.length > 1 && (
             <>
-              <span className="text-[10px] tracking-[0.1em] text-white/40 mr-1" style={{ fontFamily: SCENE_MONO }}>SHOW</span>
               {roleBanks.map((bank) => {
                 const active = activeBankDef.id === bank.id;
                 return (
@@ -518,7 +517,6 @@ export default function BandHome() {
               <span className="w-px h-5 bg-[#2a2a2a] mx-2" />
             </>
           )}
-          <span className="text-[10px] tracking-[0.1em] text-white/40 mr-1" style={{ fontFamily: SCENE_MONO }}>EVENT TYPE</span>
           {[null, ...typeChips].map((t) => {
             const color = t ? eventTypeColor(t) : "#8CFF3D";
             const on = t ? eventTypeFilter === t : eventTypeFilter === "all";
@@ -526,10 +524,12 @@ export default function BandHome() {
               <button
                 key={t || "all"}
                 onClick={() => setEventTypeFilter(t && eventTypeFilter === t ? "all" : (t || "all"))}
-                className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors"
-                style={{ background: on ? color + "26" : "transparent", border: `1px solid ${on ? color : "#2a2a2a"}`, color: on ? "#fff" : "rgba(255,255,255,0.6)" }}
+                // Same chip as the ALL / ADVANCE / READY / LINKED row above:
+                // the type's own color carries it, no dot or label needed.
+                className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors uppercase"
+                style={{ background: on ? color : color + "20", border: `1px solid ${on ? color : color + "55"}`, color: on ? "#0d0d0d" : color }}
               >
-                <span className="w-2 h-2 rounded-full" style={{ background: color }} />{t || "All"}
+                {t || "All types"}
               </button>
             );
           })}
