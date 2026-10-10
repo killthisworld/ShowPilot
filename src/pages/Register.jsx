@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { setPendingAccountType } from "@/lib/pendingAccountType";
 import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, AuthFoot } from "@/components/showpilot/AuthShell";
 
 // Colors come from accountTypeStyle so a role looks the same here as it
@@ -71,6 +72,9 @@ export default function Register() {
 
   const handleGoogle = async () => {
     try {
+      // Google's redirect doesn't carry the role, so remember it until the
+      // new account's settings are created (see usePreferences).
+      if (accountType) setPendingAccountType(accountType);
       await signInWithGoogle();
     } catch (err) {
       toast({ title: "Google sign-in didn't work", description: err.message, variant: "destructive" });
