@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, Eye, ExternalLink } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, Star, LogOut, Users, Trash2, RotateCw, Share2, Wallet, Plus, Music, Building2, MapPin, CalendarDays, Pencil, ArrowLeft, Upload, X, ChevronLeft, ChevronRight, Eye, ExternalLink } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -120,6 +120,9 @@ export default function Cockpit() {
   // it, and the stamp a viewer clicked.
   const [logbookPreview, setLogbookPreview] = useState("cover");
   const [logbookShows, setLogbookShows] = useState([]);
+  // Desktop month strip: shows still ahead, and every month page already saved.
+  const [logbookBookedShows, setLogbookBookedShows] = useState([]);
+  const [logbookSettingsMap, setLogbookSettingsMap] = useState({});
   const [previewShow, setPreviewShow] = useState(null);
   const [showAddIdModal, setShowAddIdModal] = useState(false);
   const [addIdLink, setAddIdLink] = useState("");
@@ -282,7 +285,8 @@ export default function Cockpit() {
         supabase.from("linked_gigs").select("shows(*)").eq("user_id", user.id).eq("archived", false),
         supabase.from("user_preferences").select("logbook_bio").eq("user_id", user.id).maybeSingle(),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id).eq("month_key", "__cover__").maybeSingle(),
-      ]).then(([showsRes, linkedRes, bioRes, coverRes]) => {
+        supabase.from("logbook_month_settings").select("*").eq("user_id", user.id),
+      ]).then(([showsRes, linkedRes, bioRes, coverRes, allSettingsRes]) => {
         if (showsRes.error) console.error(showsRes.error);
         if (linkedRes.error) console.error(linkedRes.error);
         const owned = showsRes.data || [];
@@ -295,6 +299,10 @@ export default function Cockpit() {
         const allMonths = monthsOf([...owned, ...linked]);
         if (allMonths.length === 0) allMonths.push(new Date().toISOString().slice(0, 7));
         setLogbookShows(doneShows);
+        setLogbookBookedShows([...owned, ...linked].filter((s) => !s.done));
+        const settingsMap = {};
+        (allSettingsRes.data || []).forEach((m) => { if (m.month_key !== "__cover__") settingsMap[m.month_key] = m; });
+        setLogbookSettingsMap(settingsMap);
         setLogbookMonths(months);
         setLogbookAllMonths(allMonths);
         setSelectedLogbookMonth((prev) => prev || months[0] || allMonths[0] || "");
@@ -360,6 +368,7 @@ export default function Cockpit() {
         { onConflict: "user_id,month_key" }
       );
       if (error) throw error;
+      setLogbookSettingsMap((m) => ({ ...m, [selectedLogbookMonth]: { ...monthSettings, month_key: selectedLogbookMonth } }));
       showPill("Saved");
     } catch (err) {
       console.error(err);
@@ -1590,6 +1599,11 @@ export default function Cockpit() {
               const look = showingMonth ? monthSettings : coverSettings;
               const ink = look.text_color || "#ffffff";
               const monthShows = logbookShows.filter((s) => s.date?.startsWith(selectedLogbookMonth));
+              const countBy = (list) => list.reduce((m, s) => { const k = s.date?.slice(0, 7); if (k) m[k] = (m[k] || 0) + 1; return m; }, {});
+              const doneBy = countBy(logbookShows);
+              const bookedBy = countBy(logbookBookedShows);
+              const monthBooked = bookedBy[selectedLogbookMonth] || 0;
+              const pickMonth = (key) => { setSelectedLogbookMonth(key); setPreviewShow(null); };
               const uniq = (f) => new Set(logbookShows.map(f).filter(Boolean)).size;
               const { positions } = getConstellationLayout(monthShows);
               const peek = previewShow && monthShows.find((s) => s === previewShow);
@@ -1614,8 +1628,53 @@ export default function Cockpit() {
                           );
                         })}
                       </div>
-                      {showingMonth && <span className="text-sm text-white/55 truncate">{monthName(selectedLogbookMonth)}</span>}
                     </div>
+                    {showingMonth && (() => {
+                      const year = Number(selectedLogbookMonth.slice(0, 4));
+                      const mm = selectedLogbookMonth.slice(5, 7);
+                      const thisMonth = new Date().toISOString().slice(0, 7);
+                      const step = "w-8 h-8 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/5";
+                      return (
+                        <div className="px-4 py-2.5 shrink-0 flex items-center gap-3 border-b border-dashed border-[#2a2a2a]">
+                          <div className="flex items-center shrink-0">
+                            <button type="button" onClick={() => pickMonth(`${year - 1}-${mm}`)} className={step} aria-label="Previous year"><ChevronLeft className="w-4 h-4" /></button>
+                            <span className="w-[52px] text-center text-white text-base font-bold" style={{ fontFamily: SCENE_MONO }}>{year}</span>
+                            <button type="button" onClick={() => pickMonth(`${year + 1}-${mm}`)} className={step} aria-label="Next year"><ChevronRight className="w-4 h-4" /></button>
+                          </div>
+                          <div className="flex-1 min-w-0 grid grid-cols-12 gap-1">
+                            {["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].map((label, i) => {
+                              const key = `${year}-${String(i + 1).padStart(2, "0")}`;
+                              const done = doneBy[key] || 0;
+                              const booked = bookedBy[key] || 0;
+                              const designed = !!logbookSettingsMap[key];
+                              const on = key === selectedLogbookMonth;
+                              const tip = [monthName(key), done && `${done} finished`, booked && `${booked} booked`, designed && "page saved"].filter(Boolean).join(" · ");
+                              return (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  title={tip}
+                                  onClick={() => pickMonth(key)}
+                                  className="h-11 min-w-0 rounded-md flex flex-col items-center justify-center gap-1 transition-colors hover:brightness-125"
+                                  style={{
+                                    background: on ? "#F59E0B" : "#141414",
+                                    border: `1px solid ${on ? "#F59E0B" : key === thisMonth ? "#F59E0B88" : "#262626"}`,
+                                    color: on ? "#0d0d0d" : "rgba(255,255,255,0.75)",
+                                  }}
+                                >
+                                  <span className="text-[11px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_MONO }}>{label}</span>
+                                  <span className="flex items-center gap-[3px] h-[6px]">
+                                    {done > 0 && <span className="w-[6px] h-[6px] rounded-full" style={{ background: on ? "#0d0d0d" : "#8CFF3D" }} />}
+                                    {booked > 0 && <span className="w-[6px] h-[6px] rounded-full border" style={{ borderColor: on ? "#0d0d0d" : "#60A5FA" }} />}
+                                    {designed && <span className="w-[6px] h-[6px] rounded-[1px]" style={{ background: on ? "#0d0d0d" : "#F59E0B" }} />}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <div className="flex-1 min-h-0 p-3.5">
                       <div className="relative w-full h-full rounded-xl overflow-hidden border border-[#222] bg-[#0a0a0a]" onClick={() => setPreviewShow(null)}>
                         {look.background_url && (
@@ -1653,7 +1712,9 @@ export default function Cockpit() {
                             <div className="relative flex-1 min-h-0 mx-6 mb-6">
                               {monthShows.length === 0 && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-                                  <p className="text-lg font-semibold" style={{ color: ink, opacity: 0.85 }}>No finished shows this month yet</p>
+                                  <p className="text-lg font-semibold" style={{ color: ink, opacity: 0.85 }}>
+                                    {monthBooked > 0 ? `${monthBooked} booked show${monthBooked !== 1 ? "s" : ""} this month` : "No finished shows this month yet"}
+                                  </p>
                                   <p className="text-sm mt-1.5 max-w-sm" style={{ color: ink, opacity: 0.55 }}>Each show you mark Done becomes a star on this page. You can set up the page now.</p>
                                 </div>
                               )}
@@ -1695,14 +1756,14 @@ export default function Cockpit() {
                     {showingMonth ? (
                       <>
                         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
-                          <div>
-                            <div className={lbLabel}>Month</div>
-                            <Select value={selectedLogbookMonth} onValueChange={(v) => { setSelectedLogbookMonth(v); setPreviewShow(null); }}>
-                              <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white"><SelectValue /></SelectTrigger>
-                              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                                {logbookAllMonths.map((m) => <SelectItem key={m} value={m}>{monthName(m)}{logbookMonths.includes(m) ? "" : " · no finished shows yet"}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                          <div className="rounded-lg bg-[#111] border border-[#222] px-3.5 py-3">
+                            <div className="text-white text-lg font-semibold leading-tight">{monthName(selectedLogbookMonth)}</div>
+                            <div className="flex items-center gap-3 mt-1.5 text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
+                              <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full bg-[#8CFF3D]" />{monthShows.length} FINISHED</span>
+                              <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full border border-[#60A5FA]" />{monthBooked} BOOKED</span>
+                              <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-[1px] bg-[#F59E0B]" />{logbookSettingsMap[selectedLogbookMonth] ? "SAVED" : "NOT SAVED"}</span>
+                            </div>
+                            <p className="text-xs text-white/35 mt-2">Pick any month and year above the preview. Pages can be set up before the shows happen.</p>
                           </div>
                           {photoRow(monthSettings, setMonthSettings, "month", "Upload background photo")}
                           {lookControls(monthSettings, setMonthSettings)}
