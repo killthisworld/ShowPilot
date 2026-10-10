@@ -13,6 +13,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
+import FlightLog from "@/components/showpilot/FlightLog";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
@@ -611,7 +612,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // web's rings and the overview board never sit stale after a save made
 // right here. That role's open tasks live on their own Tasks tab now,
 // not here - see TasksTabPanel below.
-function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded, onOpenWorkspace }) {
+function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded, onOpenWorkspace, compact }) {
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
@@ -637,6 +638,49 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded,
   }
   if (p.notFound || !p.gig) {
     return <p className="text-white/40 text-sm text-center py-6">Couldn't load this section.</p>;
+  }
+
+  const inviteModal = (
+    <InviteModal
+      inviteFor={invite.inviteFor}
+      inviteRoleChoice={invite.inviteRoleChoice}
+      inviteUrl={invite.inviteUrl}
+      inviteCopied={invite.inviteCopied}
+      generatingInvite={invite.generatingInvite}
+      onClose={invite.closeInvite}
+      onChooseEngineerRole={invite.chooseEngineerRole}
+      onGenerate={invite.generateInvite}
+      onCopy={invite.copyInviteUrl}
+      onShare={invite.shareInviteUrl}
+    />
+  );
+
+  // Desktop board header: just two small buttons, so the board's space
+  // goes to the tasks instead of one big "open workspace" block.
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2">
+        {p.editable && (
+          <button type="button" onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
+            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
+            <UserPlus className="w-3.5 h-3.5" /> Invite
+          </button>
+        )}
+        {opensOwnWindow ? (
+          <button type="button" onClick={() => onOpenWorkspace?.(role)}
+            className="flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-full border hover:brightness-125"
+            style={{ borderColor: `${color}73`, background: `${color}14`, color }}>
+            {p.editable ? "Open workspace" : "See where they're at"} <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <button type="button" onClick={() => setExpanded(true)}
+            className="flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white">
+            Open full profile <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {inviteModal}
+      </div>
+    );
   }
 
   return (
@@ -902,7 +946,10 @@ function MyIconControl({ gig, myIcon, onChanged }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails }) {
+  // Desktop board: the event's name / date / icon editor folds into one line
+  // so the role tiles and tasks lead. Phones keep it open, as before.
+  const [detailsOpen, setDetailsOpen] = useState(!foldDetails);
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -911,9 +958,20 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
   const showHeadcount = claimedCount > 0 || invitedCount > 0;
   return (
     <div>
-      {permissions?.is_owner && gig && (
-        <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} />
-      )}
+      {permissions?.is_owner && gig && (detailsOpen ? (
+        <>
+          <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} />
+          {foldDetails && (
+            <button type="button" onClick={() => setDetailsOpen(false)} className="-mt-2 mb-3 text-white/40 hover:text-white text-xs font-semibold">Done editing details</button>
+          )}
+        </>
+      ) : (
+        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border border-[#262626] bg-[#111]">
+          <span className="text-[10px] tracking-[0.12em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>EVENT</span>
+          <span className="text-sm text-white/80 truncate">{[gig.event_name || gig.band_name, gig.date && new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ") || "Add a name and date"}</span>
+          <button type="button" onClick={() => setDetailsOpen(true)} className="ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border border-white/20 text-white/65 hover:text-white">Edit details</button>
+        </div>
+      ))}
       {canPersonalIcon && gig && (
         <MyIconControl gig={gig} myIcon={myIcon} onChanged={onMyIconChanged} />
       )}
@@ -1411,7 +1469,7 @@ function DesktopGigWeb({
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
-        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(380px, 1fr) minmax(360px, 1.05fr) minmax(340px, 0.95fr)" }}>
+        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(320px, 0.8fr) minmax(460px, 1.45fr) minmax(320px, 0.85fr)" }}>
           <div className="min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
               <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={openFromWeb} gig={gig} title={title} myIcon={myIcon} />
@@ -1437,9 +1495,14 @@ function DesktopGigWeb({
                     <ArrowLeft className="w-3.5 h-3.5" /> Overview
                   </button>
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
-                  <span className="text-white font-bold text-2xl truncate">{SECTION_LABELS[selectedRole]}</span>
-                  <span className="ml-auto text-white/40 text-[11px] uppercase tracking-[0.08em] shrink-0" style={{ fontFamily: SCENE_MONO }}>
-                    {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}%
+                  <span className="min-w-0 flex flex-col">
+                    <span className="text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
+                    <span className="text-white/40 text-[10px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>
+                      {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
+                    </span>
+                  </span>
+                  <span className="ml-auto shrink-0">
+                    <ProfileTabPanel compact role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
                   </span>
                 </>
               ) : (
@@ -1452,41 +1515,42 @@ function DesktopGigWeb({
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
               {selectedRole ? (
-                <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
+                profileExpanded ? (
+                  <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 pb-1.5">
+                      <span className="text-[#F59E0B] font-bold tracking-[0.08em] text-lg">TASKS</span>
+                      <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length} OPEN</span>
+                    </div>
+                    {roleTasks.length === 0 ? (
+                      <p className="text-white/30 text-sm px-0.5">Nothing outstanding for {SECTION_LABELS[selectedRole]} right now.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
+                        {roleTasks.map((t, i) => (
+                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} onClick={() => {}} onDone={canDo ? () => done(t.id) : undefined} doneBusy={completingId === t.id} />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
               ) : (
-                <OverviewBoard hideInvite nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                <>
+                  <OverviewBoard hideInvite foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                  <div className="mt-5 pt-4 border-t border-dashed border-[#2a2a2a]">
+                    <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} />
+                  </div>
+                </>
               )}
             </div>
           </div>
 
           <div className="min-h-0 flex flex-col gap-5">
-            <div className="flex-1 min-h-0 flex flex-col">
-              {selectedRole ? (
-                <>
-                  <div className="flex items-center gap-2 px-1.5 pb-1.5 shrink-0">
-                    <span className="text-[#F59E0B] font-bold tracking-[0.08em] text-lg">TASKS</span>
-                    <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length}</span>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                    {roleTasks.length === 0 ? (
-                      <p className="text-white/25 text-xs px-1.5">Nothing outstanding for this section right now.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
-                        {roleTasks.map((t, i) => (
-                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} onClick={() => {}} onDone={canDo ? () => done(t.id) : undefined} doneBusy={!!completingId} />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                  <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} />
-                </div>
-              )}
+            <div className="min-h-0" style={{ flex: "3 1 0" }}>
+              <FlightLog nodes={nodes} tasks={gig.tasks || []} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col rounded-[3px] bg-[#19141a] border border-[#F472B6]/30 border-l-4 border-l-[#F472B6]" style={{ boxShadow: "0 10px 18px rgba(0,0,0,0.5)" }}>
+            <div className="min-h-0 flex flex-col rounded-[3px] bg-[#19141a] border border-[#F472B6]/30 border-l-4 border-l-[#F472B6]" style={{ flex: "2 1 0", boxShadow: "0 10px 18px rgba(0,0,0,0.5)" }}>
               <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
                 <span className="text-[#F472B6] font-bold tracking-[0.08em] text-lg">ROOMS</span>
                 <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
