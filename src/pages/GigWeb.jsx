@@ -20,7 +20,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 
 // Short console-style codes for the role channel buttons.
-const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/BND", engineer: "AUD/LTG" };
+const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/ART", engineer: "AUD/LTG" };
 
 // Same account-type split every other main page uses to choose between the
 // two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
