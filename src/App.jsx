@@ -40,6 +40,9 @@ import GigRooms from '@/pages/GigRooms';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
 import About from '@/pages/About';
+import DjTools from '@/pages/DjTools';
+import DjSetUpload from '@/pages/DjSetUpload';
+import DjDriveCallback from '@/pages/DjDriveCallback';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -81,6 +84,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/messages" element={<GigDirectMessages />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />
+      <Route path="/dj/set/:token" element={<DjSetUpload />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
@@ -96,6 +100,8 @@ const AuthenticatedApp = () => {
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />
         <Route path="/eventbrite/callback" element={<EventbriteCallback />} />
+        <Route path="/dj" element={<DjTools />} />
+        <Route path="/dj/drive/callback" element={<DjDriveCallback />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
