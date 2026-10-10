@@ -105,6 +105,7 @@ export default function Cockpit() {
   const [walletForm, setWalletForm] = useState({ name: "", color: "#8CFF3D", icon: "wallet", icon_image_url: "", city: "", state: "" });
   const [savingWallet, setSavingWallet] = useState(false);
   const [logbookMonths, setLogbookMonths] = useState([]);
+  const [logbookAllMonths, setLogbookAllMonths] = useState([]);
   const [selectedLogbookMonth, setSelectedLogbookMonth] = useState("");
   const [monthSelectOpen, setMonthSelectOpen] = useState(false);
   const [monthSettings, setMonthSettings] = useState({ background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
@@ -271,7 +272,9 @@ export default function Cockpit() {
     if (activeTab === "logbook" && user) {
       setLoadingLogbookTab(true);
       Promise.all([
-        supabase.from("shows").select("*").eq("owner_id", user.id).eq("done", true),
+        // All owned shows: the Logbook itself only uses the done ones, but the
+        // desktop month editor also lets you set up months that are still ahead.
+        supabase.from("shows").select("*").eq("owner_id", user.id),
         // Linked gigs (shows someone else owns, shared with this account) also
         // belong in the logbook - important for account types whose logbook is
         // mostly or entirely gigs they were linked to rather than shows they
@@ -282,18 +285,19 @@ export default function Cockpit() {
       ]).then(([showsRes, linkedRes, bioRes, coverRes]) => {
         if (showsRes.error) console.error(showsRes.error);
         if (linkedRes.error) console.error(linkedRes.error);
-        const ownedDates = (showsRes.data || []).map((s) => s.date);
-        const linkedDates = (linkedRes.data || [])
-          .map((l) => l.shows)
-          .filter((s) => s && s.done)
-          .map((s) => s.date);
-        const months = [...new Set([...ownedDates, ...linkedDates].map((d) => d?.slice(0, 7)).filter(Boolean))].sort().reverse();
-        setLogbookShows([
-          ...(showsRes.data || []),
-          ...(linkedRes.data || []).map((l) => l.shows).filter((s) => s && s.done).map((s) => ({ ...s, is_linked: true })),
-        ]);
+        const owned = showsRes.data || [];
+        const linked = (linkedRes.data || []).map((l) => l.shows).filter(Boolean).map((s) => ({ ...s, is_linked: true }));
+        const doneShows = [...owned, ...linked].filter((s) => s.done);
+        const monthsOf = (list) => [...new Set(list.map((s) => s.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
+        const months = monthsOf(doneShows);
+        // Desktop month editor: every month with a show, done or not; with no
+        // shows at all, at least this month so the Month tab still opens.
+        const allMonths = monthsOf([...owned, ...linked]);
+        if (allMonths.length === 0) allMonths.push(new Date().toISOString().slice(0, 7));
+        setLogbookShows(doneShows);
         setLogbookMonths(months);
-        setSelectedLogbookMonth((prev) => prev || months[0] || "");
+        setLogbookAllMonths(allMonths);
+        setSelectedLogbookMonth((prev) => prev || months[0] || allMonths[0] || "");
         setLogbookBio(bioRes.data?.logbook_bio || "");
         setCoverSettings(coverRes.data || { background_url: "", blur: 0, overlay_darkness: 0.5, text_color: "#ffffff" });
         setLoadingLogbookTab(false);
@@ -1598,15 +1602,12 @@ export default function Cockpit() {
                       <div className="flex gap-1 bg-[#111] border border-[#222] rounded-[10px] p-1">
                         {[["cover", "Cover"], ["month", "Month"]].map(([id, label]) => {
                           const on = id === "month" ? showingMonth : !showingMonth;
-                          const off = id === "month" && !selectedLogbookMonth;
                           return (
                             <button
                               key={id}
                               type="button"
-                              disabled={off}
                               onClick={() => { setLogbookPreview(id); setPreviewShow(null); }}
-                              title={off ? "Mark a show as Done to get month pages" : undefined}
-                              className={`h-8 px-4 rounded-md text-sm font-semibold transition-all disabled:opacity-35 disabled:cursor-not-allowed ${on ? "bg-[#F59E0B] text-black shadow-[0_0_12px_#F59E0B55]" : "text-white/55 hover:text-white hover:bg-white/5"}`}
+                              className={`h-8 px-4 rounded-md text-sm font-semibold transition-all ${on ? "bg-[#F59E0B] text-black shadow-[0_0_12px_#F59E0B55]" : "text-white/55 hover:text-white hover:bg-white/5"}`}
                             >
                               {label}
                             </button>
@@ -1650,6 +1651,12 @@ export default function Cockpit() {
                               <p className="text-xs mt-1" style={{ color: ink, opacity: 0.5, fontFamily: SCENE_MONO }}>{monthShows.length} SHOW{monthShows.length !== 1 ? "S" : ""}</p>
                             </div>
                             <div className="relative flex-1 min-h-0 mx-6 mb-6">
+                              {monthShows.length === 0 && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+                                  <p className="text-lg font-semibold" style={{ color: ink, opacity: 0.85 }}>No finished shows this month yet</p>
+                                  <p className="text-sm mt-1.5 max-w-sm" style={{ color: ink, opacity: 0.55 }}>Each show you mark Done becomes a star on this page. You can set up the page now.</p>
+                                </div>
+                              )}
                               <svg className="absolute inset-0 w-full h-full pointer-events-none">
                                 {positions.slice(1).map((pos, i) => (
                                   <line key={i} x1={`${positions[i].xPct}%`} y1={`${positions[i].yPct}%`} x2={`${pos.xPct}%`} y2={`${pos.yPct}%`} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
@@ -1693,7 +1700,7 @@ export default function Cockpit() {
                             <Select value={selectedLogbookMonth} onValueChange={(v) => { setSelectedLogbookMonth(v); setPreviewShow(null); }}>
                               <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white"><SelectValue /></SelectTrigger>
                               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                                {logbookMonths.map((m) => <SelectItem key={m} value={m}>{monthName(m)}</SelectItem>)}
+                                {logbookAllMonths.map((m) => <SelectItem key={m} value={m}>{monthName(m)}{logbookMonths.includes(m) ? "" : " · no finished shows yet"}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>
