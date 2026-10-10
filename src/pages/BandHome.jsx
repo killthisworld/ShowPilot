@@ -496,7 +496,7 @@ export default function BandHome() {
           </button>
         </div>
 
-        <div className="px-6 pt-2.5 flex items-center gap-1.5 flex-wrap shrink-0">
+        <div className="px-6 pt-3 flex items-center gap-2 flex-wrap shrink-0">
           {roleBanks.length > 1 && (
             <>
               {roleBanks.map((bank) => {
@@ -505,11 +505,11 @@ export default function BandHome() {
                   <button
                     key={bank.id}
                     onClick={() => setActiveBank(bank.id)}
-                    className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors"
-                    style={{ background: active ? bank.color : bank.color + "20", border: `1px solid ${active ? bank.color : bank.color + "55"}`, color: active ? "#0d0d0d" : bank.color }}
+                    className="h-10 px-4 rounded-[20px] text-lg font-bold tracking-[0.04em] flex items-center gap-2 transition-colors"
+                    style={{ background: active ? bank.color : bank.color + "20", border: `1.5px solid ${active ? bank.color : bank.color + "55"}`, color: active ? "#0d0d0d" : bank.color }}
                   >
                     {bank.label}
-                    <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, opacity: 0.75 }}>{bankCounts[bank.id] || 0}</span>
+                    <span className="text-xs" style={{ fontFamily: SCENE_MONO, opacity: 0.75 }}>{bankCounts[bank.id] || 0}</span>
                   </button>
                 );
               })}
