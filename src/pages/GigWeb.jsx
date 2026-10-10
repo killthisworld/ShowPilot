@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
@@ -1342,12 +1342,25 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
   const iconUrl = myIcon || gig.icon_url;
   const typeColor = eventTypeColor(gig.event_type);
   const n = nodes.length || 1;
+  // The boxes scale with the space the web actually gets (full size at 520px
+  // across), and the roles sit a little further out, so they never crowd the
+  // center box on a narrower window.
+  const boxRef = useRef(null);
+  const [size, setSize] = useState(520);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(([e]) => setSize(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const k = Math.max(0.62, Math.min(1, size / 520));
   const pts = nodes.map((nd, i) => {
     const a = (-90 + i * (360 / n)) * (Math.PI / 180);
-    return { ...nd, px: 50 + 37 * Math.cos(a), py: 50 + 37 * Math.sin(a) };
+    return { ...nd, px: 50 + 39 * Math.cos(a), py: 50 + 39 * Math.sin(a) };
   });
   return (
-    <div className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto">
+    <div ref={boxRef} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
         {pts.map((nd) => (
           <line
@@ -1362,7 +1375,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
         onClick={() => selectRole(null)}
         className="absolute flex flex-col items-center justify-center rounded-[18px] bg-[#161616] border px-3 overflow-hidden"
         style={{
-          left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 168, height: 104, zIndex: 1,
+          left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: Math.round(160 * k), height: Math.round(100 * k), zIndex: 1,
           borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
           boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
         }}
@@ -1375,7 +1388,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
         ) : typeColor ? (
           <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: -10, bottom: -12, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
         ) : null}
-        <div className="relative text-xl font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
       </button>
       {pts.map((nd) => {
         const active = nd.role === selectedRole;
@@ -1386,15 +1399,15 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
             onClick={() => selectRole(nd.role)}
             className="absolute flex flex-col items-center justify-center gap-1.5 rounded-[14px] cursor-pointer px-1"
             style={{
-              left: `${nd.px}%`, top: `${nd.py}%`, transform: "translate(-50%, -50%)", width: 96, height: 76, zIndex: 1,
+              left: `${nd.px}%`, top: `${nd.py}%`, transform: "translate(-50%, -50%)", width: Math.round(92 * k), height: Math.round(72 * k), zIndex: 1,
               backgroundColor: "#161616",
               backgroundImage: active ? `linear-gradient(${nd.style.color}33, ${nd.style.color}33)` : undefined,
               border: `1.5px solid ${active ? nd.style.color : "#2a2a2a"}`,
               boxShadow: active ? `0 0 0 3px ${nd.style.color}40, 0 0 16px ${nd.style.color}66` : undefined,
             }}
           >
-            <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: nd.style.color, opacity: active ? 1 : 0.6, fontSize: ROLE_CODES[nd.role].length > 5 ? 12 : 14 }}>{ROLE_CODES[nd.role]}</span>
-            <span className="w-[54px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
+            <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: nd.style.color, opacity: active ? 1 : 0.6, fontSize: Math.max(10, Math.round((ROLE_CODES[nd.role].length > 5 ? 12 : 14) * k)) }}>{ROLE_CODES[nd.role]}</span>
+            <span className="h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden" style={{ width: Math.round(54 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color, opacity: active ? 1 : 0.5 }} />
             </span>
             <span className={`text-[10px] leading-none ${active ? "text-white/80" : "text-white/40"}`} style={{ fontFamily: SCENE_MONO }}>{nd.percent}%</span>
@@ -1469,7 +1482,7 @@ function DesktopGigWeb({
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
-        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(320px, 0.8fr) minmax(460px, 1.45fr) minmax(320px, 0.85fr)" }}>
+        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
           <div className="min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
               <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={openFromWeb} gig={gig} title={title} myIcon={myIcon} />
