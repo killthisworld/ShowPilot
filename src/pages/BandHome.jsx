@@ -13,7 +13,8 @@ import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
-import { SCENE_MONO } from "@/lib/sceneStyle";
+import { SCENE_MONO, SCENE_FONT } from "@/lib/sceneStyle";
+import useIsDesktop from "@/hooks/useIsDesktop";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import { fetchMyIcons } from "@/lib/eventIcons";
@@ -34,6 +35,7 @@ export default function BandHome() {
   const navigate = useNavigate();
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
+  const isDesktop = useIsDesktop();
   const [gigs, setGigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -340,55 +342,7 @@ export default function BandHome() {
     return `${fmt(monday)} – ${fmt(sunday)}`;
   }, []);
 
-  return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
-          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
-          <h1 className="text-white font-bold text-lg">
-            Show<span style={{ color: accountStyle.color }}>Pilot</span>
-          </h1>
-          <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Search row - same as the tech Home */}
-        <div className="px-4 pb-3 max-w-lg mx-auto">
-          <div className="flex gap-2">
-            <div className="relative flex-1" ref={searchRef}>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-              <Input
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Search shows, venues..."
-                className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
-              />
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl z-50 overflow-hidden">
-                  {suggestions.map((sg, i) => (
-                    <button key={i} onMouseDown={() => { setSearch(sg); setShowSuggestions(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-[#222] flex items-center gap-2">
-                      <Search className="w-3 h-3 text-white/30" />
-                      <span>{sg}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFilterOpen(!filterOpen)}
-              className={`h-10 w-10 p-0 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#161616] text-white/50"}`}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {filterOpen && (
+  const filterSelects = (
             <div className="flex gap-2 mt-2 flex-wrap">
               <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
@@ -461,7 +415,264 @@ export default function BandHome() {
                 </Button>
               )}
             </div>
+  );
+
+  const overlays = (
+    <>
+      {webToken && (
+        // The transform (translate-y, for the slide-up entrance) lives on
+        // this outer layer only - never combined with overflow-y-auto on
+        // the same element. A transform makes its box the containing
+        // block for any position:fixed descendant, so pairing it with
+        // overflow here would drag Gig Web's own fixed bottom tab bar
+        // along with the scroll instead of leaving it pinned to the
+        // viewport. The inner div below owns the scrolling instead, and
+        // has no transform of its own, so it doesn't hijack anything.
+        <div
+          className={`fixed inset-0 z-[60] bg-[#0d0d0d] transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+        >
+          <div className="h-full overflow-y-auto">
+            <GigWeb token={webToken} onClose={closeGig} onGigChanged={loadGigs} />
+          </div>
+        </div>
+      )}
+
+      {/* The post-show celebration, one at a time from the queue. Sits
+          above the Gig Web overlay (z-80 vs z-60) since it should never
+          be possible for both to be visible at once in practice, but if
+          it ever were, the celebration is the one that should win. */}
+      {wrapQueue.length > 0 && (
+        <GigWrapCelebration
+          key={wrapQueue[0].id}
+          wrap={wrapQueue[0]}
+          onDone={() => finishWrap(wrapQueue[0])}
+        />
+      )}
+
+      <BandBottomTabs />
+    </>
+  );
+
+  if (isDesktop) {
+    const MONTH_COLORS = ["#8CFF3D", "#60A5FA", "#F472B6", "#F59E0B"];
+    const typeChips = eventTypes.filter((t) => eventTypeColor(t));
+    const open = sortedGigs.filter((g) => !g.date || g.date >= new Date().toISOString().slice(0, 10)).length;
+    // Past stays tucked at the end as its own column, closed unless asked
+    // for - same rule as the phone list.
+    const columns = monthGroups.filter(([k]) => k !== "past" || pastOpen);
+    const pastGroup = monthGroups.find(([k]) => k === "past");
+    return (
+      <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
+        <div className="flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
+          <h1 className="text-white font-bold text-3xl tracking-wide shrink-0">
+            Show<span style={{ color: accountStyle.color }}>Pilot</span>
+          </h1>
+          <div className="relative w-[340px] ml-3" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Search events, venues, bands"
+              className="pl-9 h-10 bg-[#111] border-[#222] text-white text-base placeholder:text-white/30 rounded-xl"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl z-50 overflow-hidden">
+                {suggestions.map((sg, i) => (
+                  <button key={i} onMouseDown={() => { setSearch(sg); setShowSuggestions(false); }} className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-[#222] flex items-center gap-2">
+                    <Search className="w-3 h-3 text-white/30" /><span>{sg}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setFilterOpen(!filterOpen)} className={`h-10 px-3 gap-2 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#111] text-white/60"}`}>
+            <SlidersHorizontal className="w-4 h-4" /> Filters
+          </Button>
+          {!loading && gigs.length > 0 && <div className="flex-1 max-w-[480px] ml-auto min-w-[300px]"><StatusStrip cells={stripCells} /></div>}
+          <button onClick={handleCreateEvent} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
+            <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New event
+          </button>
+        </div>
+
+        <div className="px-6 pt-2.5 flex items-center gap-1.5 flex-wrap shrink-0">
+          {roleBanks.length > 1 && (
+            <>
+              <span className="text-[10px] tracking-[0.1em] text-white/40 mr-1" style={{ fontFamily: SCENE_MONO }}>SHOW</span>
+              {roleBanks.map((bank) => {
+                const active = activeBankDef.id === bank.id;
+                return (
+                  <button
+                    key={bank.id}
+                    onClick={() => setActiveBank(bank.id)}
+                    className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors"
+                    style={{ background: active ? bank.color : bank.color + "20", border: `1px solid ${active ? bank.color : bank.color + "55"}`, color: active ? "#0d0d0d" : bank.color }}
+                  >
+                    {bank.label}
+                    <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, opacity: 0.75 }}>{bankCounts[bank.id] || 0}</span>
+                  </button>
+                );
+              })}
+              <span className="w-px h-5 bg-[#2a2a2a] mx-2" />
+            </>
           )}
+          <span className="text-[10px] tracking-[0.1em] text-white/40 mr-1" style={{ fontFamily: SCENE_MONO }}>EVENT TYPE</span>
+          {[null, ...typeChips].map((t) => {
+            const color = t ? eventTypeColor(t) : "#8CFF3D";
+            const on = t ? eventTypeFilter === t : eventTypeFilter === "all";
+            return (
+              <button
+                key={t || "all"}
+                onClick={() => setEventTypeFilter(t && eventTypeFilter === t ? "all" : (t || "all"))}
+                className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors"
+                style={{ background: on ? color + "26" : "transparent", border: `1px solid ${on ? color : "#2a2a2a"}`, color: on ? "#fff" : "rgba(255,255,255,0.6)" }}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ background: color }} />{t || "All"}
+              </button>
+            );
+          })}
+        </div>
+        {filterOpen && <div className="px-6 pt-2 shrink-0">{filterSelects}</div>}
+
+        <div className="flex-1 min-h-0 mx-5 mt-3 mb-[18px] rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px", boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
+          {loading ? (
+            <div className="h-full flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></div>
+          ) : sortedGigs.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center">
+              <button onClick={handleCreateEvent} className="w-16 h-16 rounded-2xl bg-[#161616] hover:bg-[#1e1e1e] border border-[#222] hover:border-[#8CFF3D]/40 flex items-center justify-center mb-4 transition-all group">
+                <Plus className="w-7 h-7 text-white/20 group-hover:text-[#8CFF3D] transition-colors" />
+              </button>
+              <p className="text-white/40 text-lg">No shows yet</p>
+            </div>
+          ) : columns.length === 0 ? (
+            <p className="h-full flex items-center justify-center text-white/30 text-lg">No shows match your search or filters</p>
+          ) : (
+            <div className="h-full flex gap-[22px] p-[18px] pb-3.5 overflow-x-auto">
+              {columns.map(([monthKey, monthGigs], ci) => {
+                const accent = monthKey === "past" ? "#9A9A9A" : monthKey === "undated" ? "#9A9A9A" : MONTH_COLORS[ci % MONTH_COLORS.length];
+                return (
+                  <div key={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 44px) / 3)", minWidth: 340 }}>
+                    <div className="flex items-baseline gap-2 px-1 pb-2.5 shrink-0">
+                      <span className="text-[19px] font-bold tracking-[0.08em] uppercase" style={{ color: accent }}>{monthLabel(monthKey)}</span>
+                      <span className="text-[11px] text-white/50" style={{ fontFamily: SCENE_MONO }}>· {monthGigs.length}</span>
+                      {monthKey === "past" && (
+                        <button onClick={() => setShowPast(false)} className="ml-auto text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-1">
+                      {monthGigs.map((g) => {
+                        const typeColor = eventTypeColor(g.event_type);
+                        const color = typeColor || (g.is_owned ? "#8CFF3D" : "#F472B6");
+                        const d = g.date ? new Date(g.date + "T00:00:00") : null;
+                        const pr = progressByShow[g.id];
+                        const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : null;
+                        const tasksOpen = pr?.open_tasks;
+                        return (
+                          <div
+                            key={gigKey(g)}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openGig(g)}
+                            onKeyDown={(e) => { if (e.key === "Enter") openGig(g); }}
+                            className="flex items-stretch gap-3 px-3.5 py-3 bg-[#151515] hover:bg-[#1a1a1a] border border-[#262626] rounded-md cursor-pointer transition-colors"
+                            style={{ boxShadow: "0 8px 16px rgba(0,0,0,0.4)", opacity: monthKey === "past" ? 0.7 : 1 }}
+                          >
+                            <span className="w-1 rounded-sm shrink-0" style={{ background: color }} />
+                            <div className="w-[46px] shrink-0 text-center">
+                              <div className="text-[10px] tracking-[0.1em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{d ? d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase() : "—"}</div>
+                              <div className="text-[28px] font-bold leading-none text-white">{d ? d.getDate() : ""}</div>
+                            </div>
+                            <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
+                            <div className="min-w-0 flex-1 flex flex-col justify-center gap-[3px]">
+                              <div className="text-xl font-semibold leading-[1.1] text-white truncate">{g.event_name || g.band_name || "Untitled Gig"}</div>
+                              <div className="text-[10.5px] tracking-[0.04em] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
+                                {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
+                                {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
+                              </div>
+                              <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5 mt-1">
+                                {pct != null && (
+                                  <>
+                                    <span className="relative w-[56px] h-1 rounded-sm bg-[#222] overflow-hidden shrink-0"><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
+                                    <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#F59E0B" : "#8CFF3D" }}>
+                                      {tasksOpen ? `${tasksOpen} TASK${tasksOpen === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
+                                    </span>
+                                  </>
+                                )}
+                                <span className="ml-auto shrink-0"><FanPageButton show={g} /></span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {pastGroup && !pastOpen && (
+                <button onClick={() => setShowPast(true)} className="shrink-0 self-start px-4 py-2 rounded-xl border border-[#2a2a2a] text-white/50 hover:text-white text-sm font-semibold">
+                  Past · {pastGroup[1].length}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <BandBottomTabs />
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+        <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
+          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
+          <h1 className="text-white font-bold text-lg">
+            Show<span style={{ color: accountStyle.color }}>Pilot</span>
+          </h1>
+          <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search row - same as the tech Home */}
+        <div className="px-4 pb-3 max-w-lg mx-auto">
+          <div className="flex gap-2">
+            <div className="relative flex-1" ref={searchRef}>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <Input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                placeholder="Search shows, venues..."
+                className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl z-50 overflow-hidden">
+                  {suggestions.map((sg, i) => (
+                    <button key={i} onMouseDown={() => { setSearch(sg); setShowSuggestions(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-[#222] flex items-center gap-2">
+                      <Search className="w-3 h-3 text-white/30" />
+                      <span>{sg}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterOpen(!filterOpen)}
+              className={`h-10 w-10 p-0 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#161616] text-white/50"}`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {filterOpen && filterSelects}
         </div>
 
         {/* Role banks - colored buttons for the buckets this profile works through */}
@@ -628,37 +839,7 @@ export default function BandHome() {
         )}
       </div>
 
-      {webToken && (
-        // The transform (translate-y, for the slide-up entrance) lives on
-        // this outer layer only - never combined with overflow-y-auto on
-        // the same element. A transform makes its box the containing
-        // block for any position:fixed descendant, so pairing it with
-        // overflow here would drag Gig Web's own fixed bottom tab bar
-        // along with the scroll instead of leaving it pinned to the
-        // viewport. The inner div below owns the scrolling instead, and
-        // has no transform of its own, so it doesn't hijack anything.
-        <div
-          className={`fixed inset-0 z-[60] bg-[#0d0d0d] transition-all duration-300 ease-out ${webVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-        >
-          <div className="h-full overflow-y-auto">
-            <GigWeb token={webToken} onClose={closeGig} onGigChanged={loadGigs} />
-          </div>
-        </div>
-      )}
-
-      {/* The post-show celebration, one at a time from the queue. Sits
-          above the Gig Web overlay (z-80 vs z-60) since it should never
-          be possible for both to be visible at once in practice, but if
-          it ever were, the celebration is the one that should win. */}
-      {wrapQueue.length > 0 && (
-        <GigWrapCelebration
-          key={wrapQueue[0].id}
-          wrap={wrapQueue[0]}
-          onDone={() => finishWrap(wrapQueue[0])}
-        />
-      )}
-
-      <BandBottomTabs />
+      {overlays}
     </div>
   );
 }

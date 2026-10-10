@@ -91,3 +91,9 @@
     font-size: 93.75%; /* 15px base instead of the default 16px */
   }
 }
+
+/* Desktop nav rail (BandBottomTabs renders it at 1024px+ and tags <body>);
+   everything else shifts right to make room for it. */
+@media (min-width: 1024px) {
+  body.has-rail #root { padding-left: 84px; }
+}

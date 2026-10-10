@@ -16,21 +16,7 @@ import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeI
 import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-
-// True at laptop/desktop widths. Gig Web renders a separate one-screen
-// "bulletin board" layout there, and the phone layout below it is untouched.
-function useIsDesktop() {
-  const q = "(min-width: 1024px)";
-  const [on, setOn] = useState(() => typeof window !== "undefined" && window.matchMedia(q).matches);
-  useEffect(() => {
-    const m = window.matchMedia(q);
-    const h = (e) => setOn(e.matches);
-    m.addEventListener("change", h);
-    setOn(m.matches);
-    return () => m.removeEventListener("change", h);
-  }, []);
-  return on;
-}
+import useIsDesktop from "@/hooks/useIsDesktop";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/BND", engineer: "AUD/LTG" };
