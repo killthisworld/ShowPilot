@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import StatusStrip from "@/components/showpilot/StatusStrip";
+import useIsDesktop from "@/hooks/useIsDesktop";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
@@ -49,6 +50,8 @@ const TABS = [
   { id: "logbook", label: "Logbook", color: "#F59E0B" },
 ];
 
+const NON_RAIL_TYPES = ["engineer", "lighting"];
+
 const formatPhoneNumber = (value) => {
   const digits = value.replace(/\D/g, "").slice(0, 10);
   if (digits.length <= 3) return digits;
@@ -63,6 +66,9 @@ export default function Cockpit() {
   const PILOT_TAB_LABELS = { band: "My Band", venue: "My Venue", promoter: "My Promoter", booking_agent: "My Booking", manager: "My Manager" };
   const pilotTabLabel = PILOT_TAB_LABELS[preferences?.account_type] || "My Pilot";
   const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
+  // The desktop layout goes with the left rail, which only the band side has.
+  const isBandSide = !NON_RAIL_TYPES.includes(preferences?.account_type || "engineer");
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
@@ -681,52 +687,9 @@ export default function Cockpit() {
 
   const textColor = draft.card_text_color || "#FFFFFF";
 
-  return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
-      {savedToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
-          {savedToast}
-        </div>
-      )}
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex gap-1.5 px-4 pt-4 pb-3 max-w-lg mx-auto">
-          {TABS.map((t) => {
-            const on = activeTab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => {
-                  setActiveTab(t.id);
-                  if (t.id === "fellow") {
-                    setOpenWalletId(null);
-                    setActiveWalletId(null);
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase transition-all"
-                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "1A", border: `1px solid ${on ? t.color : t.color + "44"}`, boxShadow: on ? `0 0 12px ${t.color}55` : undefined }}
-              >
-                {t.id === "pilot" ? pilotTabLabel : t.label}
-              </button>
-            );
-          })}
-        </div>
-        {activeTab === "fellow" && !openWalletId && (
-          <div className="px-4 pb-3 max-w-lg mx-auto">
-            <StatusStrip
-              cells={[
-                { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
-                { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
-                { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
-              ]}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-4">
-        {activeTab === "pilot" && (
-          <>
-            {showBack ? (
+  // Pieces shared by the phone layout and the desktop layout below.
+  const cardFace = (
+            showBack ? (
               <div
                 onClick={() => navigate("/logbook")}
                 className="w-full rounded-3xl overflow-hidden shadow-xl border border-[#222] aspect-[16/10] flex items-center justify-center cursor-pointer p-8"
@@ -813,14 +776,23 @@ export default function Cockpit() {
                   )}
                 </div>
               </div>
-            )}
+            )
+  );
+
+  const cardInputs = (
+<>
             <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "photo")} />
             <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "background")} />
+</>
+  );
 
+  const flipButton = (
             <Button onClick={() => setShowBack(!showBack)} variant="outline" size="sm" className="w-full bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
               <RotateCw className="w-3.5 h-3.5 mr-2" /> Flip Card
             </Button>
+  );
 
+  const shareButton = (
             <Button
               onClick={() => setShowShareMenu(true)}
               className={`w-full transition-colors ${shareCopied ? "bg-[#8CFF3D] text-black hover:bg-[#7ae62e]" : "bg-transparent border bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]"}`}
@@ -828,8 +800,10 @@ export default function Cockpit() {
               {shareCopied ? <Check className="w-4 h-4 mr-2" /> : <Share2 className="w-4 h-4 mr-2" />}
               {shareCopied ? "Link Copied!" : "Share ID"}
             </Button>
+  );
 
-            {showBack ? (
+  const cardSettings = (
+            showBack ? (
               <div className="bg-[#111111] rounded-xl border border-[#1f1f1f] p-4 space-y-3">
                 <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] block mb-1">Soundwave Style</Label>
                 <div className="grid grid-cols-3 gap-2">
@@ -910,11 +884,732 @@ export default function Cockpit() {
                   />
                 </div>
               </div>
-            )}
+            )
+  );
 
+  const saveCardButton = (
             <Button onClick={savePilotCard} disabled={saving} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
               {saving ? "Saving..." : "Save Pilot Card"}
             </Button>
+  );
+
+  const coverSection = (
+                <div>
+                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-1">Cover Page</h3>
+                  <p className="text-white/30 text-xs mb-3">The first thing people see when they open your Logbook</p>
+
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Bio</Label>
+                  <Textarea
+                    value={logbookBio}
+                    onChange={(e) => setLogbookBio(e.target.value)}
+                    placeholder="A short bio about you and what you do..."
+                    className="mt-1 bg-[#111] border-[#222] text-white min-h-[90px] mb-3"
+                  />
+
+                  <div
+                    className="relative rounded-2xl overflow-hidden aspect-video border border-[#222] flex items-center justify-center bg-[#111]"
+                    style={{
+                      backgroundImage: coverSettings.background_url ? `url(${coverSettings.background_url})` : undefined,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                      filter: coverSettings.background_url ? `blur(${coverSettings.blur || 0}px)` : undefined,
+                    }}
+                  >
+                    {coverSettings.background_url && (
+                      <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${coverSettings.overlay_darkness ?? 0.5})` }} />
+                    )}
+                  </div>
+                  {!coverSettings.background_url && (
+                    <p className="text-white/30 text-xs text-center mt-2">No cover background set yet</p>
+                  )}
+
+                  <label className="flex items-center justify-center gap-2 py-3 mt-3 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors">
+                    <Upload className="w-4 h-4 text-white/40" />
+                    <span className="text-sm text-white/40">Upload Cover Photo</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "cover")} />
+                  </label>
+                  {coverSettings.background_url && (
+                    <button
+                      onClick={() => setCoverSettings((s) => ({ ...s, background_url: "" }))}
+                      className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
+                    >
+                      Remove Cover Background
+                    </button>
+                  )}
+
+                  <div className="mt-3">
+                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({coverSettings.blur || 0}px)</Label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      value={coverSettings.blur || 0}
+                      onChange={(e) => setCoverSettings((s) => ({ ...s, blur: parseInt(e.target.value) }))}
+                      className="w-full mt-2 accent-[#8CFF3D]"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}
+                      onChange={(e) => setCoverSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
+                      className="w-full mt-2 accent-[#8CFF3D]"
+                    />
+                  </div>
+                  <div className="mt-3">
+                    <ColorPicker value={coverSettings.text_color || "#ffffff"} onChange={(c) => setCoverSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
+                  </div>
+
+                  <Button onClick={saveCoverSettings} disabled={savingCover} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                    {savingCover ? "Saving..." : "Save Cover Page"}
+                  </Button>
+                </div>
+  );
+
+  const monthSection = (
+                <div className="border-t border-[#222] pt-6">
+                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-3">Month Pages</h3>
+                  {logbookMonths.length === 0 ? (
+                    <p className="text-center text-white/40 py-10 text-sm">Mark a show as Done to start customizing month pages</p>
+                  ) : (
+                    <>
+                      <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Month</Label>
+                      <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth} open={monthSelectOpen} onOpenChange={setMonthSelectOpen}>
+                        <SelectTrigger
+                          className="mt-1 h-10 bg-[#111] border-[#222] text-white"
+                          onPointerDown={(e) => {
+                            if (monthSelectOpen) {
+                              e.preventDefault();
+                              setMonthSelectOpen(false);
+                            }
+                          }}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                          {logbookMonths.map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {new Date(m + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div
+                        className="relative rounded-2xl overflow-hidden aspect-video border border-[#222] flex items-center justify-center bg-[#111] mt-3"
+                        style={{
+                          backgroundImage: monthSettings.background_url ? `url(${monthSettings.background_url})` : undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          filter: monthSettings.background_url ? `blur(${monthSettings.blur || 0}px)` : undefined,
+                        }}
+                      >
+                        {monthSettings.background_url && (
+                          <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${monthSettings.overlay_darkness ?? 0.5})` }} />
+                        )}
+                      </div>
+                      {!monthSettings.background_url && (
+                        <p className="text-white/30 text-xs text-center mt-2">No background set for this month yet</p>
+                      )}
+
+                      <label className="flex items-center justify-center gap-2 py-3 mt-3 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors">
+                        <Upload className="w-4 h-4 text-white/40" />
+                        <span className="text-sm text-white/40">Upload Background Photo</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "month")} />
+                      </label>
+                      {monthSettings.background_url && (
+                        <button
+                          onClick={() => setMonthSettings((s) => ({ ...s, background_url: "" }))}
+                          className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
+                        >
+                          Remove Month Background
+                        </button>
+                      )}
+
+                      <div className="mt-3">
+                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({monthSettings.blur || 0}px)</Label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          value={monthSettings.blur || 0}
+                          onChange={(e) => setMonthSettings((s) => ({ ...s, blur: parseInt(e.target.value) }))}
+                          className="w-full mt-2 accent-[#8CFF3D]"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}
+                          onChange={(e) => setMonthSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
+                          className="w-full mt-2 accent-[#8CFF3D]"
+                        />
+                      </div>
+                      <div className="mt-3">
+                        <ColorPicker value={monthSettings.text_color || "#ffffff"} onChange={(c) => setMonthSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
+                      </div>
+
+                      <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                        {savingMonthSettings ? "Saving..." : "Save Month Page"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+  );
+
+  const overlays = (
+<>
+      {logbookCropFile && (
+        <ImageCropModal
+          file={logbookCropFile}
+          shape="rect"
+          aspectW={3}
+          aspectH={4}
+          onCancel={() => { setLogbookCropFile(null); setLogbookCropTarget(null); }}
+          onCropped={handleLogbookCropped}
+        />
+      )}
+
+      {showShareMenu && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShowShareMenu(false)}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <button onClick={copyShareLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+              <Share2 className="w-4 h-4 text-[#8CFF3D]" />
+              <span className="text-white text-sm font-medium">Copy Link</span>
+            </button>
+            {typeof navigator !== "undefined" && navigator.share && (
+              <button onClick={shareViaSheet} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
+                <Share2 className="w-4 h-4 text-white/60" />
+                <span className="text-white text-sm font-medium">More Options...</span>
+              </button>
+            )}
+            <button onClick={() => setShowShareMenu(false)} className="w-full text-center py-3 mt-1 text-white/40 hover:text-white text-sm border-t border-[#2a2a2a]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showWalletModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Name</Label>
+                <Input value={walletForm.name} onChange={(e) => setWalletForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Coachella" className="mt-1 bg-[#111] border-[#222] text-white" />
+              </div>
+              <div>
+                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2 block">Photo</Label>
+                {walletForm.icon_image_url ? (
+                  <div className="flex items-center gap-3">
+                    <img src={walletForm.icon_image_url} alt="" className="w-24 h-12 rounded-lg object-cover border border-[#2a2a2a]" />
+                    <button onClick={() => setWalletForm((f) => ({ ...f, icon_image_url: "" }))} className="text-xs text-red-400 hover:underline flex items-center gap-1">
+                      <X className="w-3 h-3" /> Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-5 gap-2">
+                    {Object.entries(WALLET_ICONS).map(([key, Icon]) => (
+                      <button
+                        key={key}
+                        onClick={() => setWalletForm((f) => ({ ...f, icon: key }))}
+                        className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all ${walletForm.icon === key ? "border-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] bg-[#111]"}`}
+                      >
+                        <Icon className={`w-5 h-5 ${walletForm.icon === key ? "text-[#8CFF3D]" : "text-white/40"}`} />
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => walletIconInputRef.current?.click()}
+                      className="aspect-square rounded-xl flex items-center justify-center border-2 border-dashed border-[#2a2a2a] hover:border-[#8CFF3D]/40 text-white/30 hover:text-[#8CFF3D]"
+                    >
+                      <Upload className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <input ref={walletIconInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "wallet-icon")} />
+              </div>
+              <div className="flex items-center gap-2">
+                <ColorPicker value={walletForm.color} onChange={(c) => setWalletForm((f) => ({ ...f, color: c }))} label="Color" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">City</Label>
+                  <Input value={walletForm.city} onChange={(e) => setWalletForm((f) => ({ ...f, city: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
+                </div>
+                <div>
+                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">State</Label>
+                  <Select value={walletForm.state} onValueChange={(v) => setWalletForm((f) => ({ ...f, state: v }))}>
+                    <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
+                      <SelectValue placeholder="State" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64 z-[10000]">
+                      {US_STATES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowWalletModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                Cancel
+              </Button>
+              <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                {savingWallet ? "Saving..." : editingWalletId ? "Save Changes" : "Create Wallet"}
+              </Button>
+            </div>
+            {editingWalletId && (
+              <button onClick={() => setConfirmDeleteWalletId(editingWalletId)} className="w-full text-center mt-3 text-red-400/70 hover:text-red-400 text-xs font-medium">
+                Delete Wallet
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteWalletId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteWalletId(null)}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white font-semibold text-base mb-1">Delete this wallet?</p>
+            <p className="text-white/40 text-sm mb-4">Any saved IDs inside it won't be deleted — they'll just no longer be assigned to a wallet.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmDeleteWalletId(null)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                Cancel
+              </Button>
+              <Button onClick={deleteWallet} disabled={deletingWallet} className="flex-1 bg-red-500 text-white hover:bg-red-600">
+                {deletingWallet ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddIdModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
+          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2">Add ID</h3>
+            <p className="text-white/40 text-xs mb-3">Paste the Pilot ID link they shared with you.</p>
+            <Input
+              value={addIdLink}
+              onChange={(e) => setAddIdLink(e.target.value)}
+              placeholder="https://show-pilot.vercel.app/pilot/..."
+              className="bg-[#111] border-[#222] text-white"
+            />
+            {addIdError && <p className="text-red-400 text-xs mt-2">{addIdError}</p>}
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                Cancel
+              </Button>
+              <Button onClick={addIdFromLink} disabled={savingId || !addIdLink.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                {savingId ? "Adding..." : "Add"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingCard && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4" onClick={() => setViewingCard(null)}>
+          <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            {viewingCardBack ? (
+              <div
+                onClick={() => viewingCard.card_share_token && navigate(`/logbook/public?token=${viewingCard.card_share_token}`)}
+                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8 cursor-pointer"
+                style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
+                title={viewingCard.card_share_token ? "View Logbook" : ""}
+              >
+                <div className="w-2/3 max-w-[220px] h-14">
+                  <Soundwave
+                    seed={viewingCard.pilot_user_id || viewingCard.id || "pilot"}
+                    color={(SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div
+                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
+                style={{
+                  backgroundColor: viewingCard.card_bg_color || "#111111",
+                  backgroundImage: viewingCard.card_bg_image_url ? `url(${viewingCard.card_bg_image_url})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+                <div className="relative z-10 flex items-center gap-3 mb-3">
+                  <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
+                    {viewingCard.profile_photo_url ? (
+                      <img src={viewingCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6" style={{ color: viewingCard.card_text_color || "#FFFFFF" }} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-xl tracking-wide truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{viewingCard.display_name || "Pilot"}</p>
+                    {viewingCard.job_title && (
+                      <p className="text-base font-medium tracking-wide truncate flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                        <Briefcase className="w-4 h-4 shrink-0" /> {viewingCard.job_title}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="relative z-10 space-y-1.5">
+                  {viewingCard.contact_email && (
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Mail className="w-4 h-4 shrink-0" /> {viewingCard.contact_email}
+                    </p>
+                  )}
+                  {viewingCard.contact_phone && (
+                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
+                      <Phone className="w-4 h-4 shrink-0" /> {viewingCard.contact_phone}
+                    </p>
+                  )}
+                  {viewingCard.custom_link_url && (
+                    <a
+                      href={viewingCard.custom_link_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-sm font-medium tracking-wide flex items-center gap-2 hover:underline"
+                      style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
+                    >
+                      <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+            <button onClick={() => setViewingCardBack(!viewingCardBack)} className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm flex items-center justify-center gap-2">
+              <RotateCw className="w-3.5 h-3.5" /> Flip Card
+            </button>
+            <button onClick={() => setViewingCard(null)} className="w-full mt-2 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cropFile && (
+        <div className="fixed inset-0 z-[999999]">
+          <ImageCropModal
+            file={cropFile}
+            shape={cropTarget === "background" || cropTarget === "wallet-icon" ? "rect" : "circle"}
+            aspectW={cropTarget === "background" ? 16 : cropTarget === "wallet-icon" ? 2 : 1}
+            aspectH={cropTarget === "background" ? 10 : cropTarget === "wallet-icon" ? 1 : 1}
+            onCancel={() => { setCropFile(null); setCropTarget(null); }}
+            onCropped={handleCropped}
+          />
+        </div>
+      )}
+</>
+  );
+
+
+  // Desktop (1024px+, band side with the left rail): one screen, the same
+  // three tabs across the top, each laid out in side-by-side panels instead
+  // of one long scroll. Phones keep the layout below.
+  if (isDesktop && isBandSide) {
+    const tabColor = (TABS.find((t) => t.id === activeTab) || TABS[0]).color;
+    const board = { backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px", boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" };
+    const panel = "min-h-0 flex flex-col bg-[#151515] border border-[#262626] rounded-md";
+    const panelShadow = { boxShadow: "0 16px 36px rgba(0,0,0,0.6)" };
+    const panelLabel = (text, sub) => (
+      <div className="px-[18px] pt-4 pb-3 shrink-0 border-b border-dashed border-[#2a2a2a]">
+        <div className="text-[11px] tracking-[0.12em] text-white/45 uppercase" style={{ fontFamily: SCENE_MONO }}>{text}</div>
+        {sub && <div className="text-sm text-white/40 mt-1">{sub}</div>}
+      </div>
+    );
+    const spinner = (
+      <div className="flex-1 flex items-center justify-center py-16">
+        <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+      </div>
+    );
+    const pilotTile = (p) => (
+      <div key={p.id} className="bg-[#1a1a1a] rounded-lg border border-[#262626] p-3.5 flex items-center gap-3 min-w-0">
+        <button type="button" onClick={() => openViewingCard(p)} className="w-12 h-12 rounded-full bg-[#222] flex items-center justify-center overflow-hidden shrink-0 border-2" style={{ borderColor: p.card_text_color || "#8CFF3D" }} title="View card">
+          {p.profile_photo_url ? <img src={p.profile_photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-white/30" />}
+        </button>
+        <button type="button" onClick={() => openViewingCard(p)} className="flex-1 min-w-0 text-left">
+          <p className="text-white font-semibold text-base truncate">{p.display_name || "Pilot"}</p>
+          {p.job_title && <p className="text-white/45 text-sm truncate">{p.job_title}</p>}
+        </button>
+        <button onClick={() => toggleStarPilot(p)} className="p-1.5 shrink-0" style={{ color: p.starred ? "#8CFF3D" : "rgba(255,255,255,0.25)" }} title={p.starred ? "Unstar" : "Star"}>
+          <Star className="w-4 h-4" fill={p.starred ? "#8CFF3D" : "none"} />
+        </button>
+        <button onClick={() => openViewingCard(p)} className="p-1.5 text-white/25 hover:text-[#8CFF3D] shrink-0" title="View card">
+          <Eye className="w-4 h-4" />
+        </button>
+        <button onClick={() => removeFellowPilot(p.id)} className="p-1.5 text-white/25 hover:text-red-400 shrink-0" title="Remove">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    );
+
+    // Fellow Pilots: wallets down the left, the chosen wallet's IDs on the
+    // right. Nothing chosen shows every saved ID; "Starred ID cards" shows
+    // the starred ones.
+    const rightPilots = openWalletId ? openedWalletPilots : walletView === "starred_pilots" ? starredPilots : fellowPilots;
+    const rightTitle = openWalletId ? (openedWallet?.name || "Wallet") : walletView === "starred_pilots" ? "Starred ID cards" : "All saved IDs";
+    const pickWallet = (id) => { setOpenWalletId(id); setActiveWalletId(null); };
+
+    return (
+      <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
+        {savedToast && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            {savedToast}
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 px-6 h-[84px] border-b border-[#1a1a1a] shrink-0">
+          <h1 className="text-white font-bold text-3xl tracking-wide shrink-0">Cockpit</h1>
+          <div className="flex items-center gap-2 ml-3">
+            {TABS.map((t) => {
+              const on = activeTab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setActiveTab(t.id);
+                    if (t.id === "fellow") { setOpenWalletId(null); setActiveWalletId(null); }
+                  }}
+                  className="h-10 px-4 rounded-[20px] text-lg font-bold tracking-[0.04em] flex items-center transition-colors"
+                  style={{ color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "20", border: `1.5px solid ${on ? t.color : t.color + "55"}`, boxShadow: on ? `0 0 14px ${t.color}55` : undefined }}
+                >
+                  {t.id === "pilot" ? pilotTabLabel : t.label}
+                </button>
+              );
+            })}
+          </div>
+          {activeTab === "fellow" && (
+            <div className="flex-1 max-w-[440px] ml-auto min-w-[300px]">
+              <StatusStrip
+                cells={[
+                  { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
+                  { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
+                  { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
+                ]}
+              />
+            </div>
+          )}
+          {activeTab === "logbook" && (
+            <p className="ml-auto text-sm text-[#F59E0B]/80" style={{ fontFamily: SCENE_MONO }}>Logbook opens from the soundwave on the back of your card</p>
+          )}
+        </div>
+
+        <div className="flex-1 min-h-0 mx-5 mt-3.5 mb-[18px] p-4 flex gap-5 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={board}>
+          {activeTab === "pilot" && (
+            <>
+              <div className="flex-1 min-w-0 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-4 py-2">
+                <div className="w-full max-w-[640px] space-y-4">
+                  {cardFace}
+                  {cardInputs}
+                  <div className="grid grid-cols-2 gap-3 [&>button]:h-10">
+                    {flipButton}
+                    {shareButton}
+                  </div>
+                  <p className="text-center text-xs text-white/35" style={{ fontFamily: SCENE_MONO }}>
+                    {showBack ? "CLICK THE SOUNDWAVE TO OPEN YOUR LOGBOOK" : "CLICK THE CARD TO CHANGE ITS BACKGROUND · CLICK THE PHOTO TO CHANGE IT"}
+                  </p>
+                </div>
+              </div>
+              <div className={`w-[400px] shrink-0 ${panel}`} style={panelShadow}>
+                {panelLabel(showBack ? "Card back" : "Card details")}
+                <div className="flex-1 min-h-0 overflow-y-auto p-3.5">{cardSettings}</div>
+                <div className="px-[18px] pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveCardButton}</div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "fellow" && (
+            <>
+              <div className={`w-[340px] shrink-0 ${panel}`} style={panelShadow}>
+                <div className="px-3.5 pt-3.5 pb-3 shrink-0 flex items-center justify-between gap-2 border-b border-dashed border-[#2a2a2a]">
+                  <div className="flex gap-1 bg-[#111] rounded-lg p-1">
+                    <button onClick={() => { setWalletView("all"); setOpenWalletId(null); }} className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${walletView !== "starred_wallets" ? "bg-[#8CFF3D] text-black" : "text-white/45 hover:text-white/70"}`}>All</button>
+                    <button onClick={() => setWalletView("starred_wallets")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1 ${walletView === "starred_wallets" ? "bg-[#8CFF3D] text-black" : "text-white/45 hover:text-white/70"}`}>
+                      <Star className="w-3 h-3" fill={walletView === "starred_wallets" ? "currentColor" : "none"} /> Starred
+                    </button>
+                  </div>
+                  <button onClick={openCreateWalletModal} className="h-9 px-3 rounded-lg bg-[#8CFF3D]/15 text-[#8CFF3D] text-sm font-semibold flex items-center gap-1.5 hover:bg-[#8CFF3D]/25 transition-colors" title="New wallet">
+                    <Plus className="w-4 h-4" /> Wallet
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                  <button
+                    onClick={() => { setOpenWalletId(null); setWalletView(walletView === "starred_pilots" ? "all" : walletView); }}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-left transition-colors"
+                    style={{ borderColor: !openWalletId && walletView !== "starred_pilots" ? "#F472B6" : "#262626", background: !openWalletId && walletView !== "starred_pilots" ? "#F472B61f" : "#1a1a1a" }}
+                  >
+                    <span className="text-white font-semibold text-sm flex items-center gap-2"><Users className="w-4 h-4 text-[#F472B6]" /> All saved IDs</span>
+                    <span className="text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>{fellowPilots.length}</span>
+                  </button>
+                  <button
+                    onClick={() => { setOpenWalletId(null); setWalletView("starred_pilots"); }}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-left transition-colors"
+                    style={{ borderColor: !openWalletId && walletView === "starred_pilots" ? "#F59E0B" : "#262626", background: !openWalletId && walletView === "starred_pilots" ? "#F59E0B1f" : "#1a1a1a" }}
+                  >
+                    <span className="text-white font-semibold text-sm flex items-center gap-2"><Star className="w-4 h-4 text-[#F59E0B]" /> Starred ID cards</span>
+                    <span className="text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>{starredPilots.length}</span>
+                  </button>
+                  <div className="text-[10px] tracking-[0.12em] text-white/40 pt-2 pb-0.5 px-1" style={{ fontFamily: SCENE_MONO }}>WALLETS</div>
+                  {loadingFellows ? spinner : visibleWallets.length === 0 ? (
+                    <div className="text-center py-10">
+                      <Wallet className="w-8 h-8 text-white/15 mx-auto mb-2" />
+                      <p className="text-white/40 text-sm">{walletView === "starred_wallets" ? "No starred wallets" : "No wallets yet"}</p>
+                    </div>
+                  ) : visibleWallets.map((w) => {
+                    const Icon = WALLET_ICONS[w.icon] || Wallet;
+                    const hasPhoto = !!w.icon_image_url;
+                    const idCount = fellowPilots.filter((p) => p.wallet_id === w.id).length;
+                    const on = openWalletId === w.id;
+                    return (
+                      <div
+                        key={w.id}
+                        onClick={() => pickWallet(w.id)}
+                        className="relative rounded-xl px-4 py-3 cursor-pointer overflow-hidden transition-all"
+                        style={{
+                          height: 92,
+                          background: hasPhoto ? `#111 url(${w.icon_image_url}) center / cover no-repeat` : `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
+                          outline: on ? "2px solid #fff" : "none",
+                          outlineOffset: 2,
+                          boxShadow: on ? `0 0 18px ${w.color}88` : "0 6px 16px rgba(0,0,0,0.4)",
+                        }}
+                      >
+                        {hasPhoto && <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.7))" }} />}
+                        <div className="relative z-10 flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex items-center gap-2">
+                            {!hasPhoto && <Icon className="w-5 h-5 text-black shrink-0" />}
+                            <p className={`font-bold text-base truncate ${hasPhoto ? "text-white" : "text-black"}`}>{w.name}</p>
+                          </div>
+                          <div className="flex items-center shrink-0 -mr-1.5 -mt-1">
+                            <button onClick={(e) => { e.stopPropagation(); openEditWalletModal(w); }} className={`p-1.5 ${hasPhoto ? "text-white/70 hover:text-white" : "text-black/50 hover:text-black"}`} title="Edit wallet">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); toggleStarWallet(w); }} className={`p-1.5 ${hasPhoto ? "text-white/70 hover:text-white" : "text-black/50 hover:text-black"}`} title={w.starred ? "Unstar" : "Star"}>
+                              <Star className="w-4 h-4" fill={w.starred ? (hasPhoto ? "#fff" : "#000") : "none"} />
+                            </button>
+                          </div>
+                        </div>
+                        {(w.city || w.state) && <p className={`relative z-10 text-xs truncate mt-0.5 ${hasPhoto ? "text-white/80" : "text-black/70"}`}>{[w.city, w.state].filter(Boolean).join(", ")}</p>}
+                        <p className={`relative z-10 text-xs mt-0.5 ${hasPhoto ? "text-white/70" : "text-black/60"}`}>{idCount} ID{idCount !== 1 ? "s" : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
+                <div className="px-[18px] pt-4 pb-3 shrink-0 border-b border-dashed border-[#2a2a2a] flex items-end justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{openWalletId ? "WALLET" : "FELLOW PILOTS"}</div>
+                    <div className="text-[28px] font-bold leading-[1.1] mt-0.5 text-white truncate">{rightTitle}</div>
+                    <div className="text-[11px] text-white/50 mt-[3px]" style={{ fontFamily: SCENE_MONO }}>
+                      {openWalletId && (openedWallet?.city || openedWallet?.state) ? `${[openedWallet.city, openedWallet.state].filter(Boolean).join(", ").toUpperCase()} · ` : ""}
+                      {rightPilots.length} ID{rightPilots.length !== 1 ? "S" : ""}
+                    </div>
+                  </div>
+                  {openWalletId && (
+                    <Button onClick={openAddIdModal} variant="outline" className="shrink-0 bg-[#8CFF3D]/10 border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/20 hover:text-[#8CFF3D] rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                      <Plus className="w-4 h-4 mr-2" /> Add ID
+                    </Button>
+                  )}
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-3.5">
+                  {loadingFellows ? spinner : rightPilots.length === 0 ? (
+                    <p className="text-center text-white/40 py-16 text-base">
+                      {openWalletId ? "No pilots saved in this wallet yet" : walletView === "starred_pilots" ? "No starred ID cards yet" : "No saved IDs yet. Open a wallet and use Add ID to save one."}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2.5">{rightPilots.map(pilotTile)}</div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "logbook" && (
+            loadingLogbookTab ? spinner : (
+              <>
+                <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 [&_.aspect-video]:aspect-auto [&_.aspect-video]:h-[220px]">{coverSection}</div>
+                </div>
+                <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-4 [&>div]:border-t-0 [&>div]:pt-0 [&_.aspect-video]:aspect-auto [&_.aspect-video]:h-[220px]">{monthSection}</div>
+                </div>
+              </>
+            )
+          )}
+        </div>
+
+        {overlays}
+        <BandBottomTabs />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+      {savedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          {savedToast}
+        </div>
+      )}
+      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+        <div className="flex gap-1.5 px-4 pt-4 pb-3 max-w-lg mx-auto">
+          {TABS.map((t) => {
+            const on = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => {
+                  setActiveTab(t.id);
+                  if (t.id === "fellow") {
+                    setOpenWalletId(null);
+                    setActiveWalletId(null);
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase transition-all"
+                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "1A", border: `1px solid ${on ? t.color : t.color + "44"}`, boxShadow: on ? `0 0 12px ${t.color}55` : undefined }}
+              >
+                {t.id === "pilot" ? pilotTabLabel : t.label}
+              </button>
+            );
+          })}
+        </div>
+        {activeTab === "fellow" && !openWalletId && (
+          <div className="px-4 pb-3 max-w-lg mx-auto">
+            <StatusStrip
+              cells={[
+                { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
+                { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
+                { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 pt-4 max-w-lg mx-auto space-y-4">
+        {activeTab === "pilot" && (
+          <>
+            {cardFace}
+            {cardInputs}
+
+            {flipButton}
+
+            {shareButton}
+
+            {cardSettings}
+
+            {saveCardButton}
           </>
         )}
 
@@ -1187,171 +1882,9 @@ export default function Cockpit() {
                   </p>
                 </div>
 
-                <div>
-                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-1">Cover Page</h3>
-                  <p className="text-white/30 text-xs mb-3">The first thing people see when they open your Logbook</p>
+                {coverSection}
 
-                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Bio</Label>
-                  <Textarea
-                    value={logbookBio}
-                    onChange={(e) => setLogbookBio(e.target.value)}
-                    placeholder="A short bio about you and what you do..."
-                    className="mt-1 bg-[#111] border-[#222] text-white min-h-[90px] mb-3"
-                  />
-
-                  <div
-                    className="relative rounded-2xl overflow-hidden aspect-video border border-[#222] flex items-center justify-center bg-[#111]"
-                    style={{
-                      backgroundImage: coverSettings.background_url ? `url(${coverSettings.background_url})` : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                      filter: coverSettings.background_url ? `blur(${coverSettings.blur || 0}px)` : undefined,
-                    }}
-                  >
-                    {coverSettings.background_url && (
-                      <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${coverSettings.overlay_darkness ?? 0.5})` }} />
-                    )}
-                  </div>
-                  {!coverSettings.background_url && (
-                    <p className="text-white/30 text-xs text-center mt-2">No cover background set yet</p>
-                  )}
-
-                  <label className="flex items-center justify-center gap-2 py-3 mt-3 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors">
-                    <Upload className="w-4 h-4 text-white/40" />
-                    <span className="text-sm text-white/40">Upload Cover Photo</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "cover")} />
-                  </label>
-                  {coverSettings.background_url && (
-                    <button
-                      onClick={() => setCoverSettings((s) => ({ ...s, background_url: "" }))}
-                      className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
-                    >
-                      Remove Cover Background
-                    </button>
-                  )}
-
-                  <div className="mt-3">
-                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({coverSettings.blur || 0}px)</Label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="20"
-                      value={coverSettings.blur || 0}
-                      onChange={(e) => setCoverSettings((s) => ({ ...s, blur: parseInt(e.target.value) }))}
-                      className="w-full mt-2 accent-[#8CFF3D]"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={Math.round((coverSettings.overlay_darkness ?? 0.5) * 100)}
-                      onChange={(e) => setCoverSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
-                      className="w-full mt-2 accent-[#8CFF3D]"
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <ColorPicker value={coverSettings.text_color || "#ffffff"} onChange={(c) => setCoverSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
-                  </div>
-
-                  <Button onClick={saveCoverSettings} disabled={savingCover} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                    {savingCover ? "Saving..." : "Save Cover Page"}
-                  </Button>
-                </div>
-
-                <div className="border-t border-[#222] pt-6">
-                  <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-3">Month Pages</h3>
-                  {logbookMonths.length === 0 ? (
-                    <p className="text-center text-white/40 py-10 text-sm">Mark a show as Done to start customizing month pages</p>
-                  ) : (
-                    <>
-                      <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Month</Label>
-                      <Select value={selectedLogbookMonth} onValueChange={setSelectedLogbookMonth} open={monthSelectOpen} onOpenChange={setMonthSelectOpen}>
-                        <SelectTrigger
-                          className="mt-1 h-10 bg-[#111] border-[#222] text-white"
-                          onPointerDown={(e) => {
-                            if (monthSelectOpen) {
-                              e.preventDefault();
-                              setMonthSelectOpen(false);
-                            }
-                          }}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                          {logbookMonths.map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {new Date(m + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <div
-                        className="relative rounded-2xl overflow-hidden aspect-video border border-[#222] flex items-center justify-center bg-[#111] mt-3"
-                        style={{
-                          backgroundImage: monthSettings.background_url ? `url(${monthSettings.background_url})` : undefined,
-                          backgroundSize: "cover",
-                          backgroundPosition: "center",
-                          filter: monthSettings.background_url ? `blur(${monthSettings.blur || 0}px)` : undefined,
-                        }}
-                      >
-                        {monthSettings.background_url && (
-                          <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${monthSettings.overlay_darkness ?? 0.5})` }} />
-                        )}
-                      </div>
-                      {!monthSettings.background_url && (
-                        <p className="text-white/30 text-xs text-center mt-2">No background set for this month yet</p>
-                      )}
-
-                      <label className="flex items-center justify-center gap-2 py-3 mt-3 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors">
-                        <Upload className="w-4 h-4 text-white/40" />
-                        <span className="text-sm text-white/40">Upload Background Photo</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, "month")} />
-                      </label>
-                      {monthSettings.background_url && (
-                        <button
-                          onClick={() => setMonthSettings((s) => ({ ...s, background_url: "" }))}
-                          className="w-full text-center mt-2 text-red-400/70 hover:text-red-400 text-xs font-medium"
-                        >
-                          Remove Month Background
-                        </button>
-                      )}
-
-                      <div className="mt-3">
-                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Blur ({monthSettings.blur || 0}px)</Label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          value={monthSettings.blur || 0}
-                          onChange={(e) => setMonthSettings((s) => ({ ...s, blur: parseInt(e.target.value) }))}
-                          className="w-full mt-2 accent-[#8CFF3D]"
-                        />
-                      </div>
-                      <div className="mt-3">
-                        <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Overlay Darkness ({Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}%)</Label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={Math.round((monthSettings.overlay_darkness ?? 0.5) * 100)}
-                          onChange={(e) => setMonthSettings((s) => ({ ...s, overlay_darkness: parseInt(e.target.value) / 100 }))}
-                          className="w-full mt-2 accent-[#8CFF3D]"
-                        />
-                      </div>
-                      <div className="mt-3">
-                        <ColorPicker value={monthSettings.text_color || "#ffffff"} onChange={(c) => setMonthSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
-                      </div>
-
-                      <Button onClick={saveMonthSettings} disabled={savingMonthSettings} className="w-full mt-3 bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                        {savingMonthSettings ? "Saving..." : "Save Month Page"}
-                      </Button>
-                    </>
-                  )}
-                </div>
+                {monthSection}
               </>
             )}
           </div>
@@ -1359,250 +1892,7 @@ export default function Cockpit() {
 
       </div>
 
-      {logbookCropFile && (
-        <ImageCropModal
-          file={logbookCropFile}
-          shape="rect"
-          aspectW={3}
-          aspectH={4}
-          onCancel={() => { setLogbookCropFile(null); setLogbookCropTarget(null); }}
-          onCropped={handleLogbookCropped}
-        />
-      )}
-
-      {showShareMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShowShareMenu(false)}>
-          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <button onClick={copyShareLink} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
-              <Share2 className="w-4 h-4 text-[#8CFF3D]" />
-              <span className="text-white text-sm font-medium">Copy Link</span>
-            </button>
-            {typeof navigator !== "undefined" && navigator.share && (
-              <button onClick={shareViaSheet} className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-white/5 text-left">
-                <Share2 className="w-4 h-4 text-white/60" />
-                <span className="text-white text-sm font-medium">More Options...</span>
-              </button>
-            )}
-            <button onClick={() => setShowShareMenu(false)} className="w-full text-center py-3 mt-1 text-white/40 hover:text-white text-sm border-t border-[#2a2a2a]">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showWalletModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowWalletModal(false)}>
-          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-4">{editingWalletId ? "Edit Wallet" : "New Wallet"}</h3>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">Name</Label>
-                <Input value={walletForm.name} onChange={(e) => setWalletForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Coachella" className="mt-1 bg-[#111] border-[#222] text-white" />
-              </div>
-              <div>
-                <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2 block">Photo</Label>
-                {walletForm.icon_image_url ? (
-                  <div className="flex items-center gap-3">
-                    <img src={walletForm.icon_image_url} alt="" className="w-24 h-12 rounded-lg object-cover border border-[#2a2a2a]" />
-                    <button onClick={() => setWalletForm((f) => ({ ...f, icon_image_url: "" }))} className="text-xs text-red-400 hover:underline flex items-center gap-1">
-                      <X className="w-3 h-3" /> Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-5 gap-2">
-                    {Object.entries(WALLET_ICONS).map(([key, Icon]) => (
-                      <button
-                        key={key}
-                        onClick={() => setWalletForm((f) => ({ ...f, icon: key }))}
-                        className={`aspect-square rounded-xl flex items-center justify-center border-2 transition-all ${walletForm.icon === key ? "border-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] bg-[#111]"}`}
-                      >
-                        <Icon className={`w-5 h-5 ${walletForm.icon === key ? "text-[#8CFF3D]" : "text-white/40"}`} />
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => walletIconInputRef.current?.click()}
-                      className="aspect-square rounded-xl flex items-center justify-center border-2 border-dashed border-[#2a2a2a] hover:border-[#8CFF3D]/40 text-white/30 hover:text-[#8CFF3D]"
-                    >
-                      <Upload className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <input ref={walletIconInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFileSelected(e, "wallet-icon")} />
-              </div>
-              <div className="flex items-center gap-2">
-                <ColorPicker value={walletForm.color} onChange={(c) => setWalletForm((f) => ({ ...f, color: c }))} label="Color" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">City</Label>
-                  <Input value={walletForm.city} onChange={(e) => setWalletForm((f) => ({ ...f, city: e.target.value }))} className="mt-1 bg-[#111] border-[#222] text-white" />
-                </div>
-                <div>
-                  <Label className="text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]">State</Label>
-                  <Select value={walletForm.state} onValueChange={(v) => setWalletForm((f) => ({ ...f, state: v }))}>
-                    <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
-                      <SelectValue placeholder="State" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64 z-[10000]">
-                      {US_STATES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowWalletModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                Cancel
-              </Button>
-              <Button onClick={saveWallet} disabled={savingWallet || !walletForm.name.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                {savingWallet ? "Saving..." : editingWalletId ? "Save Changes" : "Create Wallet"}
-              </Button>
-            </div>
-            {editingWalletId && (
-              <button onClick={() => setConfirmDeleteWalletId(editingWalletId)} className="w-full text-center mt-3 text-red-400/70 hover:text-red-400 text-xs font-medium">
-                Delete Wallet
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {confirmDeleteWalletId && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteWalletId(null)}>
-          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
-            <p className="text-white font-semibold text-base mb-1">Delete this wallet?</p>
-            <p className="text-white/40 text-sm mb-4">Any saved IDs inside it won't be deleted — they'll just no longer be assigned to a wallet.</p>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setConfirmDeleteWalletId(null)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                Cancel
-              </Button>
-              <Button onClick={deleteWallet} disabled={deletingWallet} className="flex-1 bg-red-500 text-white hover:bg-red-600">
-                {deletingWallet ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAddIdModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowAddIdModal(false)}>
-          <div className="bg-[#0d0d0d] border border-[#1f1f1f] rounded-xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white text-[12px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace] mb-2">Add ID</h3>
-            <p className="text-white/40 text-xs mb-3">Paste the Pilot ID link they shared with you.</p>
-            <Input
-              value={addIdLink}
-              onChange={(e) => setAddIdLink(e.target.value)}
-              placeholder="https://show-pilot.vercel.app/pilot/..."
-              className="bg-[#111] border-[#222] text-white"
-            />
-            {addIdError && <p className="text-red-400 text-xs mt-2">{addIdError}</p>}
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={() => setShowAddIdModal(false)} className="flex-1 border-[#1f1f1f] text-white/60 hover:bg-white/5 rounded-lg font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                Cancel
-              </Button>
-              <Button onClick={addIdFromLink} disabled={savingId || !addIdLink.trim()} className="flex-1 bg-[#8CFF3D] text-black hover:bg-[#9dff5c] font-semibold rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
-                {savingId ? "Adding..." : "Add"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewingCard && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 px-4" onClick={() => setViewingCard(null)}>
-          <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            {viewingCardBack ? (
-              <div
-                onClick={() => viewingCard.card_share_token && navigate(`/logbook/public?token=${viewingCard.card_share_token}`)}
-                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center p-8 cursor-pointer"
-                style={{ backgroundColor: (SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).bg }}
-                title={viewingCard.card_share_token ? "View Logbook" : ""}
-              >
-                <div className="w-2/3 max-w-[220px] h-14">
-                  <Soundwave
-                    seed={viewingCard.pilot_user_id || viewingCard.id || "pilot"}
-                    color={(SOUNDWAVE_TEMPLATES[viewingCard.soundwave_template] || SOUNDWAVE_TEMPLATES.black).wave}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div
-                className="w-full rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] relative flex flex-col justify-end p-6"
-                style={{
-                  backgroundColor: viewingCard.card_bg_color || "#111111",
-                  backgroundImage: viewingCard.card_bg_image_url ? `url(${viewingCard.card_bg_image_url})` : undefined,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-                <div className="relative z-10 flex items-center gap-3 mb-3">
-                  <div className="w-14 h-14 rounded-full bg-white/10 border-2 flex items-center justify-center overflow-hidden shrink-0" style={{ borderColor: viewingCard.card_text_color || "#FFFFFF" }}>
-                    {viewingCard.profile_photo_url ? (
-                      <img src={viewingCard.profile_photo_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-6 h-6" style={{ color: viewingCard.card_text_color || "#FFFFFF" }} />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold text-xl tracking-wide truncate" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>{viewingCard.display_name || "Pilot"}</p>
-                    {viewingCard.job_title && (
-                      <p className="text-base font-medium tracking-wide truncate flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
-                        <Briefcase className="w-4 h-4 shrink-0" /> {viewingCard.job_title}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="relative z-10 space-y-1.5">
-                  {viewingCard.contact_email && (
-                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
-                      <Mail className="w-4 h-4 shrink-0" /> {viewingCard.contact_email}
-                    </p>
-                  )}
-                  {viewingCard.contact_phone && (
-                    <p className="text-sm font-medium tracking-wide flex items-center gap-2" style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}>
-                      <Phone className="w-4 h-4 shrink-0" /> {viewingCard.contact_phone}
-                    </p>
-                  )}
-                  {viewingCard.custom_link_url && (
-                    <a
-                      href={viewingCard.custom_link_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-sm font-medium tracking-wide flex items-center gap-2 hover:underline"
-                      style={{ color: viewingCard.card_text_color || "#FFFFFF", textShadow: "0 1px 3px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.45)" }}
-                    >
-                      <ExternalLink className="w-4 h-4 shrink-0" /> Visit Link
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-            <button onClick={() => setViewingCardBack(!viewingCardBack)} className="w-full mt-3 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm flex items-center justify-center gap-2">
-              <RotateCw className="w-3.5 h-3.5" /> Flip Card
-            </button>
-            <button onClick={() => setViewingCard(null)} className="w-full mt-2 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 hover:bg-[#161616] text-sm">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {cropFile && (
-        <div className="fixed inset-0 z-[999999]">
-          <ImageCropModal
-            file={cropFile}
-            shape={cropTarget === "background" || cropTarget === "wallet-icon" ? "rect" : "circle"}
-            aspectW={cropTarget === "background" ? 16 : cropTarget === "wallet-icon" ? 2 : 1}
-            aspectH={cropTarget === "background" ? 10 : cropTarget === "wallet-icon" ? 1 : 1}
-            onCancel={() => { setCropFile(null); setCropTarget(null); }}
-            onCropped={handleCropped}
-          />
-        </div>
-      )}
+      {overlays}
 
       {["engineer", "lighting"].includes(preferences?.account_type || "engineer") ? <BottomTabs /> : <BandBottomTabs />}
     </div>
