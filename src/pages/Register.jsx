@@ -13,23 +13,23 @@ const ROLE_GROUPS = [
   {
     label: "Event hosts",
     roles: [
-      { value: "venue", label: "Venue", line: "Host shows in your room", icon: MapPin },
-      { value: "promoter", label: "Promoter", line: "Put on shows across venues", icon: Ticket },
+      { value: "venue", label: "Venue", icon: MapPin },
+      { value: "promoter", label: "Promoter", icon: Ticket },
     ],
   },
   {
     label: "Artist side",
     roles: [
-      { value: "band", label: "Artist", line: "Play the shows", icon: Music },
-      { value: "manager", label: "Manager", line: "Run things for your artists", icon: Briefcase },
-      { value: "booking_agent", label: "Booking Agent", line: "Book dates for your roster", icon: FileSignature },
+      { value: "band", label: "Artist", icon: Music },
+      { value: "manager", label: "Manager", icon: Briefcase },
+      { value: "booking_agent", label: "Booking Agent", icon: FileSignature },
     ],
   },
   {
     label: "Technical production",
     roles: [
-      { value: "engineer", label: "Audio Engineer", line: "Mix front of house or monitors", icon: Headphones },
-      { value: "lighting", label: "Lighting Tech", line: "Run lights for the show", icon: Lightbulb },
+      { value: "engineer", label: "Audio Engineer", icon: Headphones },
+      { value: "lighting", label: "Lighting Tech", icon: Lightbulb },
     ],
   },
 ];
@@ -112,7 +112,6 @@ export default function Register() {
                         </span>
                         <span className="min-w-0">
                           <span className="block text-lg font-bold leading-tight" style={{ color: on ? "#fff" : "rgba(255,255,255,0.85)" }}>{r.label}</span>
-                          <span className="block text-sm text-white/45 leading-snug">{r.line}</span>
                         </span>
                       </button>
                     );
