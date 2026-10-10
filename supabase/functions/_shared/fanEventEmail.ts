@@ -35,9 +35,16 @@ export type FanEvent = {
   date?: string; venue?: string; address?: string; city?: string; state?: string;
   door_time?: string; show_time?: string; ages?: string;
   ticket_link?: string; ticket_price?: string; note?: string; flyer_url?: string;
+  rsvp?: boolean; door_price?: string;
 };
 
-export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string) {
+// Extra bits for one kind of email (e.g. an RSVP confirmation).
+export type EmailExtras = {
+  topRows?: [string, string][]; // shown first in the details table
+  subjectPrefix?: string;       // e.g. "You're on the list: "
+};
+
+export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string, extras: EmailExtras = {}) {
   const title = ev.event_name || ev.band_name || "Your event";
   const dateLong = ev.date
     ? new Date(ev.date + "T00:00:00Z").toLocaleDateString("en-US", {
@@ -69,7 +76,7 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string)
     calUrl = `https://calendar.google.com/calendar/render?${p.toString()}`;
   }
 
-  const rows: [string, string][] = [];
+  const rows: [string, string][] = [...(extras.topRows ?? [])];
   if (dateLong) rows.push(["DATE", dateLong]);
   if (ev.door_time) rows.push(["DOORS", ev.door_time]);
   if (ev.show_time) rows.push(["SHOW", ev.show_time]);
@@ -77,6 +84,7 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string)
   if (ev.venue) rows.push(["VENUE", ev.venue]);
   if (fullAddress) rows.push(["ADDRESS", fullAddress]);
   if (ev.ticket_price) rows.push(["TICKETS", ev.ticket_price]);
+  if (ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
 
   const mono = "'SFMono-Regular',Menlo,Consolas,monospace";
   const btn = (href: string, label: string, primary = false) =>
@@ -117,7 +125,7 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string)
     footer,
   ].filter((l) => l !== null).join("\n");
 
-  const subject = [title, dateLong].filter(Boolean).join(" · ");
+  const subject = (extras.subjectPrefix ?? "") + [title, dateLong].filter(Boolean).join(" · ");
   return { subject, html, text };
 }
 
@@ -139,10 +147,11 @@ export async function sendFanEventEmail(
     showId: string;
     fanToken: string;
     email: string;
-    source: "fan_page" | "eventbrite";
+    source: "fan_page" | "eventbrite" | "rsvp";
     ebOrderId?: string;
     footer: string;
     rateLimit?: boolean;
+    extras?: EmailExtras;
   },
 ): Promise<SendResult> {
   const email = opts.email.trim().toLowerCase();
@@ -187,7 +196,7 @@ export async function sendFanEventEmail(
   }
 
   const pageUrl = appUrl ? `${appUrl}/e/${opts.fanToken}` : null;
-  const { subject, html, text } = buildEmail(ev as FanEvent, pageUrl, opts.footer);
+  const { subject, html, text } = buildEmail(ev as FanEvent, pageUrl, opts.footer, opts.extras);
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

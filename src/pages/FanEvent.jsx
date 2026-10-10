@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import RsvpCard from "@/components/showpilot/RsvpCard";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { normalizeLink } from "@/lib/links";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -286,16 +287,19 @@ export default function FanEvent() {
           </div>
         )}
 
-        {ev.emails_buyers ? (
+        {/* RSVP events (pay at the door) replace the email box and ticket button. */}
+        {ev.rsvp && <RsvpCard token={token} color={color} doorPrice={ev.door_price} />}
+
+        {!ev.rsvp && (ev.emails_buyers ? (
           ticketUrl && (
             <p className="mx-5 mt-3.5 flex items-center gap-2 text-[14px] leading-snug text-white/60">
               <Mail className="w-4 h-4 shrink-0" style={{ color }} />
               Buy your tickets and the event info lands in your inbox automatically.
             </p>
           )
-        ) : emailOptIn}
+        ) : emailOptIn)}
 
-        {ticketUrl && (
+        {!ev.rsvp && ticketUrl && (
           <div className="px-5 mt-3.5">
             <a
               href={ticketUrl}

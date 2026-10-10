@@ -5,6 +5,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
+import RsvpList from "@/components/showpilot/RsvpList";
 
 const G = "#8CFF3D";
 
@@ -44,6 +45,7 @@ function OwnerSheet({ showId, onClose }) {
       flyer: cfg.flyer_url || "",
       ticketLink: data.promoter_info?.ticket_link || "",
       ticketPrice: data.promoter_info?.ticket_price || "",
+      entry: cfg.entry === "rsvp" ? "rsvp" : "tickets",
     };
   };
 
@@ -84,7 +86,8 @@ function OwnerSheet({ showId, onClose }) {
   const update = async () => {
     setErr("");
     let ticketLink = draft.ticketLink.trim();
-    if (ticketLink) {
+    // RSVP events don't show the ticket link, so don't block saving on it.
+    if (ticketLink && draft.entry !== "rsvp") {
       const ok = normalizeLink(ticketLink);
       if (!ok) {
         setErr(isTruncatedLink(ticketLink)
@@ -109,6 +112,7 @@ function OwnerSheet({ showId, onClose }) {
           note: draft.note.trim(),
           address: draft.address.trim(),
           flyer_url: draft.flyer,
+          entry: draft.entry,
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
@@ -123,6 +127,8 @@ function OwnerSheet({ showId, onClose }) {
   };
 
   const on = !!draft?.enabled;
+  const rsvp = draft?.entry === "rsvp";
+  const savedRsvp = row?.fan_page?.entry === "rsvp";
   const inputCls = "w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#8CFF3D]/60";
 
   return (
@@ -170,6 +176,8 @@ function OwnerSheet({ showId, onClose }) {
                   >{copied ? "COPIED" : "COPY"}</button>
                 </div>
 
+                {row.fan_page_enabled && savedRsvp && <RsvpList showId={showId} />}
+
                 <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>WHAT FANS CAN SEE</div>
                 <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
                   <div className="flex items-center gap-2.5 px-3 py-[9px] border-b border-[#1c1c1c]">
@@ -184,17 +192,35 @@ function OwnerSheet({ showId, onClose }) {
                         <span className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center shrink-0" style={{ background: shown ? G : "transparent", border: `1px solid ${shown ? G : "#3a3a3a"}` }}>
                           {shown && <Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3.2} />}
                         </span>
-                        <span className="flex-1 text-base font-semibold" style={{ color: shown ? "#fff" : "rgba(255,255,255,0.45)" }}>{f.label}</span>
+                        <span className="flex-1 text-base font-semibold" style={{ color: shown ? "#fff" : "rgba(255,255,255,0.45)" }}>{f.key === "tickets" && rsvp ? "Door price" : f.label}</span>
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>FAN PAGE DETAILS</div>
-                <div className="mt-1.5 grid grid-cols-[1fr_88px] gap-2">
-                  <input className={inputCls} placeholder="Ticket link (where fans buy)" inputMode="url" value={draft.ticketLink} onChange={(e) => set({ ticketLink: e.target.value })} />
-                  <input className={inputCls} placeholder="Price" value={draft.ticketPrice} onChange={(e) => set({ ticketPrice: e.target.value })} />
+                <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>HOW FANS GET IN</div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1 p-1 bg-[#111] border border-[#1f1f1f] rounded-[10px]">
+                  {[["tickets", "Ticket link"], ["rsvp", "RSVP, pay at door"]].map(([k, label]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => set({ entry: k })}
+                      className="py-2 rounded-lg text-sm font-bold tracking-[0.04em]"
+                      style={draft.entry === k ? { background: G, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.6)" }}
+                    >{label}</button>
+                  ))}
                 </div>
+                {rsvp && <p className="mt-1.5 text-[13px] leading-snug text-white/45">Fans RSVP on the fan page with their name, email and party size, and get the event info by email. You'll see the list here.</p>}
+
+                <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>FAN PAGE DETAILS</div>
+                {rsvp ? (
+                  <input className={`${inputCls} mt-1.5`} placeholder="Door price, e.g. $10 (optional)" value={draft.ticketPrice} onChange={(e) => set({ ticketPrice: e.target.value })} />
+                ) : (
+                  <div className="mt-1.5 grid grid-cols-[1fr_88px] gap-2">
+                    <input className={inputCls} placeholder="Ticket link (where fans buy)" inputMode="url" value={draft.ticketLink} onChange={(e) => set({ ticketLink: e.target.value })} />
+                    <input className={inputCls} placeholder="Price" value={draft.ticketPrice} onChange={(e) => set({ ticketPrice: e.target.value })} />
+                  </div>
+                )}
                 <input className={`${inputCls} mt-2`} placeholder="Venue street address (used for the map link)" value={draft.address} onChange={(e) => set({ address: e.target.value })} />
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <input className={inputCls} placeholder="Show time, e.g. 8:00 PM" value={draft.showTime} onChange={(e) => set({ showTime: e.target.value })} />
@@ -216,7 +242,7 @@ function OwnerSheet({ showId, onClose }) {
                 </div>
 
                 {/* Only once the page is live: the buyer email is built from it. */}
-                {row.fan_page_enabled && (
+                {row.fan_page_enabled && !savedRsvp && !rsvp && (
                   <EventbriteLink
                     showId={showId}
                     onLinked={(link) => { if (!draft.ticketLink.trim() && link?.eb_event_url) set({ ticketLink: link.eb_event_url }); }}
