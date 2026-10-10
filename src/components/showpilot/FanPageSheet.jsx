@@ -243,7 +243,9 @@ function OwnerSheet({ showId, onClose }) {
     </>
   );
 
-  const lineupBlock = on && draft && (
+  // The lineup is only used by the RSVP form ("who are you coming to see"),
+  // so it's only edited in RSVP mode and never shown on the fan page itself.
+  const lineupBlock = on && draft && rsvp && (
     <>
       {label("LINEUP")}
       <div className="mt-1.5 space-y-1.5">
@@ -262,7 +264,7 @@ function OwnerSheet({ showId, onClose }) {
         )}
       </div>
       <p className="mt-1.5 text-[12px] leading-snug text-white/40">
-        {rsvp ? "Shown on the fan page. Fans pick who they're coming to see when they RSVP, and you'll see the count for each artist." : "Shown on the fan page, top billing first."}
+        Only shown in the RSVP form, where fans pick who they're coming to see. You'll see the count for each artist.
       </p>
     </>
   );
