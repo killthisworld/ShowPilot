@@ -16,6 +16,7 @@ import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
 import { SCENE_MONO, SCENE_FONT } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
@@ -575,9 +576,10 @@ export default function BandHome() {
                             tabIndex={0}
                             onClick={() => openGig(g)}
                             onKeyDown={(e) => { if (e.key === "Enter") openGig(g); }}
-                            className="flex items-stretch gap-3 px-3.5 py-3 bg-[#151515] hover:bg-[#1a1a1a] border border-[#262626] rounded-md cursor-pointer transition-colors"
+                            className="relative isolate overflow-hidden flex items-stretch gap-3 px-3.5 py-3 bg-[#151515] hover:bg-[#1a1a1a] border border-[#262626] rounded-md cursor-pointer transition-colors"
                             style={{ boxShadow: "0 8px 16px rgba(0,0,0,0.4)", opacity: monthKey === "past" ? 0.7 : 1 }}
                           >
+                            <EventBarPhoto url={g.icon_url} />
                             <span className="w-1 rounded-sm shrink-0" style={{ background: color }} />
                             <div className="w-[46px] shrink-0 text-center">
                               <div className="text-[10px] tracking-[0.1em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{d ? d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase() : "—"}</div>
@@ -793,9 +795,10 @@ export default function BandHome() {
                         tabIndex={0}
                         onClick={() => openGig(g)}
                         onKeyDown={(e) => { if (e.key === "Enter") openGig(g); }}
-                        className="relative w-full flex items-center gap-3 px-3.5 py-3 text-left hover:brightness-110 transition-all cursor-pointer"
+                        className="relative isolate overflow-hidden w-full flex items-center gap-3 px-3.5 py-3 text-left hover:brightness-110 transition-all cursor-pointer"
                         style={{ background: typeBarBackground(typeColor) }}
                       >
+                        <EventBarPhoto url={g.icon_url} />
                         {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: typeColor || color }} />
                         <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
