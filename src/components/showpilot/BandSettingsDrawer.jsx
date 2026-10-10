@@ -12,7 +12,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
-export default function BandSettingsDrawer({ preferences, onPreferencesUpdate }) {
+// `avatar`: the trigger is the person's profile photo (desktop rail) instead
+// of the menu bars (phone header).
+export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, avatar = false }) {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(preferences || { display_name: "" });
   const [saving, setSaving] = useState(false);
@@ -119,9 +121,17 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate })
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-          <Menu className="w-6 h-6 text-white/70" />
-        </button>
+        {avatar ? (
+          <button aria-label="Settings" className="w-11 h-11 rounded-full overflow-hidden bg-[#1a1a1a] flex items-center justify-center ring-1 ring-white/15 hover:ring-[#8CFF3D] transition-shadow">
+            {prefs.profile_photo_url
+              ? <img src={prefs.profile_photo_url} alt="" className="w-full h-full object-cover" />
+              : <User className="w-5 h-5 text-white/40" />}
+          </button>
+        ) : (
+          <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+            <Menu className="w-6 h-6 text-white/70" />
+          </button>
+        )}
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-[#0d0d0d] border-[#1f1f1f] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <SettingsPanel

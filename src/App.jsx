@@ -39,6 +39,7 @@ import RoleFullProfile from '@/pages/RoleFullProfile';
 import GigRooms from '@/pages/GigRooms';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
+import About from '@/pages/About';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -79,6 +80,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/rooms" element={<GigRooms />} />
       <Route path="/gig/messages" element={<GigDirectMessages />} />
       <Route path="/linked" element={<LinkedGigs />} />
+      <Route path="/about" element={<About />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>

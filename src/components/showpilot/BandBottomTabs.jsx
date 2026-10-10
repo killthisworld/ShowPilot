@@ -47,10 +47,10 @@ export default function BandBottomTabs() {
       </div>
 
       <nav className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[84px] z-50 flex-col items-center py-[18px] gap-1.5 bg-[#0d0d0d] border-r border-[#1a1a1a]" style={{ fontFamily: SCENE_FONT }}>
-        {/* The Show Pilot logo (same art as the app icon); tapping it goes Home. */}
-        <Link to="/" aria-label="Show Pilot home" className="w-11 h-11 rounded-[11px] overflow-hidden mb-3.5 shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
-          <img src="/icon-192.png" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
-        </Link>
+        {/* Settings, shown as the person's own profile photo. */}
+        <div className="mb-3.5 flex flex-col items-center gap-1">
+          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} avatar />
+        </div>
         {TABS.map((tab) => {
           const active = isActive(tab);
           return (
@@ -66,10 +66,10 @@ export default function BandBottomTabs() {
             </Link>
           );
         })}
-        <div className="mt-auto flex flex-col items-center gap-1">
-          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
-          <span className="text-xs font-semibold tracking-[0.04em] text-white/50">Settings</span>
-        </div>
+        {/* The Show Pilot logo (same art as the app icon) opens About. */}
+        <Link to="/about" aria-label="About Show Pilot" className="mt-auto w-11 h-11 rounded-[11px] overflow-hidden shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
+          <img src="/icon-192.png" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
+        </Link>
       </nav>
     </>
   );
