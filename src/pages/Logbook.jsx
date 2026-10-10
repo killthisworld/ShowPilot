@@ -522,7 +522,7 @@ export default function Logbook() {
                     {collaborators.pending_invites.map((inv) => {
                       const roleLabels = {
                         venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent",
-                        manager: "Manager", band: "Band", engineer: "Audio Engineer", lighting: "Lighting Tech",
+                        manager: "Manager", band: "Artist", engineer: "Audio Engineer", lighting: "Lighting Tech",
                       };
                       return (
                         <div key={inv.invite_id} className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-3 py-2.5 opacity-60">

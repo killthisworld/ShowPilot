@@ -18,7 +18,7 @@ import { Field, RequirementsList, BandDetails, ROLE_COLORS, ROLE_OPTIONS } from 
 // accordion sections already use, so this works identically for the
 // show's owner and for whichever invited promoter/agent/manager/engineer
 // actually holds that section.
-export const ROLE_SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Band", engineer: "Audio / Lighting" };
+export const ROLE_SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // All of the data-loading, editing and saving logic for one role's
 // section, lifted out of the page component so it can be mounted twice

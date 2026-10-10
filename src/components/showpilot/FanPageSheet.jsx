@@ -34,7 +34,7 @@ const FIELDS = [
   { key: "venue", label: "Venue and address" },
   { key: "times", label: "Doors and show time" },
   { key: "tickets", label: "Ticket link and price" },
-  { key: "band", label: "Band / artist name" },
+  { key: "band", label: "Artist name" },
   { key: "note", label: "Note from the artist" },
   { key: "flyer", label: "Flyer image" },
 ];

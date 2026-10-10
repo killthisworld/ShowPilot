@@ -965,7 +965,7 @@ export default function ShowDetail() {
                         onClick={() => update("frequency_scope", show.frequency_scope === "artist" ? null : "artist")}
                         className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#333] text-white/30 hover:text-white/60 transition-all"
                         style={btnStyle(show.frequency_scope === "artist")}
-                        title="Artist / Band"
+                        title="Artist"
                       >
                         <Mic2 className="w-4 h-4" />
                       </button>
@@ -1244,7 +1244,7 @@ export default function ShowDetail() {
               <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
               {isTechProductionAccount && <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} />}
             </div>
-            <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Band / Artist" />
+            <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Artist" />
           </div>
           {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email || activeBand.submitter_card_user_id) && (
             <div className="bg-[#111] border border-[#222] rounded-xl p-3">

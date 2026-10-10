@@ -114,7 +114,7 @@ export default function SharedShow() {
         <CollapsibleSection title="Header Info" icon={Info} defaultOpen={true}>
           <div className="space-y-3 pt-3">
             <div>
-              <Label className="text-white/50 text-xs">Band Name</Label>
+              <Label className="text-white/50 text-xs">Artist Name</Label>
               <Input value={show.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -153,7 +153,7 @@ export default function SharedShow() {
           </div>
         </CollapsibleSection>
 
-        <CollapsibleSection title="Band Members" icon={Music} badge={show.band_members?.length || 0}>
+        <CollapsibleSection title="Members" icon={Music} badge={show.band_members?.length || 0}>
           <div className="space-y-3 pt-3">
             {(show.band_members || []).map((m, i) => (
               <div key={i} className="bg-[#111] rounded-xl p-3 flex items-center gap-2">

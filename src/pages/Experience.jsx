@@ -64,7 +64,7 @@ export default function Cockpit() {
   const { preferences, reload } = usePreferences();
   // "My Pilot" is the engineer/lighting framing; other profile types get a
   // more natural label for the same underlying digital-card feature.
-  const PILOT_TAB_LABELS = { band: "My Band", venue: "My Venue", promoter: "My Promoter", booking_agent: "My Booking", manager: "My Manager" };
+  const PILOT_TAB_LABELS = { band: "My Artist", venue: "My Venue", promoter: "My Promoter", booking_agent: "My Booking", manager: "My Manager" };
   const pilotTabLabel = PILOT_TAB_LABELS[preferences?.account_type] || "My Pilot";
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();

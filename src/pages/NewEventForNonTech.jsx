@@ -15,7 +15,7 @@ const SECTION_OPTIONS = [
   { key: "venue", label: "Venue", color: "#FB923C" },
   { key: "promoter", label: "Promoter", color: "#60A5FA" },
   { key: "booking_agent", label: "Booking Agent", color: "#C026D3" },
-  { key: "manager", label: "Manager / Band", color: "#EF4444" },
+  { key: "manager", label: "Manager / Artist", color: "#EF4444" },
   { key: "engineer", label: "Audio / Lighting", color: "#8CFF3D" },
 ];
 

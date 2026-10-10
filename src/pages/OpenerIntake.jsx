@@ -63,7 +63,7 @@ export default function OpenerIntake() {
         .maybeSingle();
       const t = data?.band_template;
       if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
-        toast({ title: "No saved band profile yet", description: "Set one up in Settings > My Templates." });
+        toast({ title: "No saved artist profile yet", description: "Set one up in Settings > My Templates." });
       } else {
         setForm((prev) => ({
           ...prev,
@@ -74,7 +74,7 @@ export default function OpenerIntake() {
           stage_plot_files: t.stage_plot_files || [],
           general_notes: t.general_notes || "",
         }));
-        toast({ title: "Loaded your band profile" });
+        toast({ title: "Loaded your artist profile" });
       }
     } catch (e) {
       console.error(e);
@@ -329,7 +329,7 @@ export default function OpenerIntake() {
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-[#8CFF3D]/30 text-[#8CFF3D]/80 hover:bg-[#8CFF3D]/10 hover:text-[#8CFF3D] text-xs font-medium transition-colors"
         >
           <Music className="w-3.5 h-3.5" />
-          {loadingTemplate ? "Loading..." : "Load my band profile"}
+          {loadingTemplate ? "Loading..." : "Load my artist profile"}
         </button>
 
         <div className="bg-[#111] rounded-2xl p-4 space-y-3">
@@ -363,7 +363,7 @@ export default function OpenerIntake() {
           </div>
           <div>
             <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
-            <Input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Band / Artist" />
+            <Input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Artist" />
           </div>
           <div>
             <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
@@ -395,7 +395,7 @@ export default function OpenerIntake() {
           </div>
         </div>
 
-        <CollapsibleSection title="Band Members" icon={Music} badge={form.band_members.length} defaultOpen={true}>
+        <CollapsibleSection title="Members" icon={Music} badge={form.band_members.length} defaultOpen={true}>
           <div className="space-y-3 pt-3">
             {form.band_members.map((m, i) => {
               const collapsed = collapsedMembers[i];

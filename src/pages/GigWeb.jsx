@@ -33,12 +33,12 @@ const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 // visual language to learn.
 const ROLE_ORDER = ["venue", "promoter", "booking_agent", "manager", "engineer"];
 
-// get_gigs_progress keys the combined Manager/Band section "manager_band";
+// get_gigs_progress keys the combined Manager/Artist section "manager_band";
 // everywhere else in this file (permissions, invited_role, routing) it's
 // just "manager" - this is the one place that mismatch has to be bridged.
 const PROGRESS_KEY = { venue: "venue", promoter: "promoter", booking_agent: "booking_agent", manager: "manager_band", engineer: "engineer" };
 
-const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Band", engineer: "Audio / Lighting" };
+const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 function roleClaimed(role, permissions) {
   if (role === "engineer") return !!(permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting"));

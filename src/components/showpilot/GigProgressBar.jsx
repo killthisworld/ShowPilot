@@ -8,7 +8,7 @@ const SEGMENTS = [
   { key: "venue", color: "#FB923C", label: "Venue" },
   { key: "promoter", color: "#60A5FA", label: "Promoter" },
   { key: "booking_agent", color: "#C026D3", label: "Booking" },
-  { key: "manager_band", color: "#EF4444", label: "Manager/Band" },
+  { key: "manager_band", color: "#EF4444", label: "Manager/Artist" },
 ];
 
 // Home's progress bar key differs slightly from the included_sections key

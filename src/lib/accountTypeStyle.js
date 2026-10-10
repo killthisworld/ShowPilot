@@ -9,7 +9,7 @@ export const ACCOUNT_TYPE_STYLES = {
   promoter: { label: "Promoter", color: "#60A5FA", icon: Ticket },
   booking_agent: { label: "Booking Agent", color: "#C026D3", icon: FileSignature },
   manager: { label: "Manager", color: "#EF4444", icon: Briefcase },
-  band: { label: "Band", color: "#EF4444", icon: Music },
+  band: { label: "Artist", color: "#EF4444", icon: Music },
   engineer: { label: "Audio Engineer", color: "#8CFF3D", icon: Headphones },
   lighting: { label: "Lighting Tech", color: "#8CFF3D", icon: Lightbulb },
 };

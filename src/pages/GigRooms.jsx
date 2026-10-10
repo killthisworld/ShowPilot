@@ -12,7 +12,7 @@ export const ROOM_META = {
   venue: { label: "Venue", icon: MapPin, color: "#FB923C" },
   promoter: { label: "Promoter", icon: Ticket, color: "#60A5FA" },
   booking_agent: { label: "Booking", icon: FileSignature, color: "#C026D3" },
-  manager: { label: "Manager/Band", icon: User, color: "#EF4444" },
+  manager: { label: "Manager/Artist", icon: User, color: "#EF4444" },
   engineer: { label: "Audio/Lighting", icon: Headphones, color: "#8CFF3D" },
 };
 export const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];

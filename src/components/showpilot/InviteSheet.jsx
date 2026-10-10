@@ -11,7 +11,7 @@ const ROLE_OPTIONS = [
   { value: "promoter", label: "Promoter" },
   { value: "booking_agent", label: "Booking Agent" },
   { value: "manager", label: "Manager" },
-  { value: "band", label: "Band" },
+  { value: "band", label: "Artist" },
   { value: "engineer", label: "Audio Engineer" },
   { value: "lighting", label: "Lighting Tech" },
 ];
@@ -24,7 +24,7 @@ const SECTION_OPTIONS = [
   { value: "venue", label: "Venue" },
   { value: "promoter", label: "Promoter" },
   { value: "booking_agent", label: "Booking Agent" },
-  { value: "manager", label: "Manager / Band" },
+  { value: "manager", label: "Manager / Artist" },
   { value: "engineer", label: "Engineer / Lighting" },
 ];
 const ROLE_HOME_SECTION = {

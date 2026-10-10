@@ -60,7 +60,7 @@ export default function BandSettings() {
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your band or name"
+              placeholder="Your artist name"
               className="mt-1 bg-[#111] border-[#222] text-white"
             />
           </div>
@@ -75,7 +75,7 @@ export default function BandSettings() {
         >
           <Music className="w-5 h-5 text-white/30 shrink-0" />
           <div className="text-left">
-            <p className="text-white/50 text-sm font-medium">Band Profile</p>
+            <p className="text-white/50 text-sm font-medium">Artist Profile</p>
             <p className="text-white/25 text-xs">Reusable tech rider & stage plot — coming soon</p>
           </div>
         </button>

@@ -278,7 +278,7 @@ export default function MyTemplates() {
                 <p className="text-white/25 text-xs px-1">
                   {category === "venue"
                     ? "No venue templates yet. Save one for a room you work often, even if it doesn't use ShowPilot."
-                    : "No artist templates yet. Save one for a band you work with repeatedly."}
+                    : "No artist templates yet. Save one for an artist you work with repeatedly."}
                 </p>
               )}
 
@@ -375,7 +375,7 @@ export default function MyTemplates() {
 
                             <div>
                               <div className="flex items-center justify-between mb-1.5">
-                                <Label className="text-white/50 text-xs">Band Members</Label>
+                                <Label className="text-white/50 text-xs">Members</Label>
                                 <button type="button" onClick={() => addMember(t.key)} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
                                   <Plus className="w-3.5 h-3.5" /> Add Member
                                 </button>

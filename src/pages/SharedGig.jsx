@@ -245,7 +245,7 @@ export function Field({ label, value, onChange, editable, placeholder, type = "t
   );
 }
 
-const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking", manager: "Manager/Band", engineer: "Audio/Lighting" };
+const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking", manager: "Manager/Artist", engineer: "Audio/Lighting" };
 const REQUIREMENT_STATUS_STYLES = {
   requested: { label: "Requested", color: "#EAB308" },
   confirmed: { label: "Confirmed", color: "#8CFF3D" },
@@ -472,7 +472,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
         {members.length > 0 && (
           <div>
             <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
-              <Users className="w-3 h-3" /> Band Members
+              <Users className="w-3 h-3" /> Members
             </p>
             <div className="space-y-1.5">
               {members.map((m, mi) => {
@@ -566,7 +566,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
-            <Users className="w-3 h-3" /> Band Members
+            <Users className="w-3 h-3" /> Members
           </p>
           <button onClick={addMember} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg">+ Add Member</button>
         </div>
@@ -944,7 +944,7 @@ export default function SharedGig() {
     const t = data?.band_template || {};
     update("bands", [...(gig.bands || []), {
       role: "N/A",
-      band_name: t.band_name || preferences?.display_name || "My Band",
+      band_name: t.band_name || preferences?.display_name || "My Artist",
       genre_tags: t.genre_tags || [],
       band_members: t.band_members || [],
       stage_plot_url: t.stage_plot_url || "",
@@ -1419,7 +1419,7 @@ export default function SharedGig() {
 
         {isSectionIncluded("manager") && (
         <div id="section-manager">
-        <GigSection title={`Manager / Band${(permissions?.my_roles?.includes("manager") || isMyOwnerSection("manager")) ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Band")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
+        <GigSection title={`Manager / Artist${(permissions?.my_roles?.includes("manager") || isMyOwnerSection("manager")) ? " (You)" : ""}`} icon={User} color={SECTION_COLORS.manager} locked={isLocked("manager")} editable={canEditSection("manager")} isOwner={permissions?.is_owner} onInvite={() => openInvite("manager", "Manager / Artist")} onSave={saveManagerSection} saving={sectionSaving.manager} saved={sectionSaved.manager}>
           {myAccountType === "manager" && canEditSection("manager") && (
             <div className="flex justify-end -mb-1">
               <button onClick={loadOwnManagerTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
@@ -1463,7 +1463,7 @@ export default function SharedGig() {
                 )}
                 {myAccountType === "band" && canEdit && (
                   <button onClick={loadOwnBandAsNewAct} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
-                    <FolderOpen className="w-3 h-3" /> Load My Band
+                    <FolderOpen className="w-3 h-3" /> Load My Artist
                   </button>
                 )}
                 {canEdit && (
