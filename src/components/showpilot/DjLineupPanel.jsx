@@ -200,7 +200,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
           <h3 className="text-[19px] font-bold leading-tight flex items-center gap-2"><Link2 className="w-4 h-4" style={{ color }} /> Set uploads</h3>
           <p className="text-[14px] text-white/50">Send each act their own link. They list their set in play order and send WAVs straight to your Google Drive.</p>
         </div>
-        <span className="ml-auto text-[11px] text-white/50 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{linked}/{acts.length} LINKED · {submitted} SUBMITTED</span>
+        <span className="text-[11px] text-white/50 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{linked}/{acts.length} LINKED · {submitted} SUBMITTED</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -216,7 +216,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
         )}
         {drive && drive.connected && <span className="text-[11px] tracking-[0.08em] text-[#8CFF3D]" style={{ fontFamily: SCENE_MONO }}>WAVS GO TO {String(drive.email || "YOUR DRIVE").toUpperCase()}</span>}
         {drive && drive.configured === false && <span className="text-[13px] text-white/40">WAV uploads switch on once Google Drive is set up. Track lists work now.</span>}
-        <div className="ml-auto flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {linked > 0 && (
             <button type="button" onClick={copyAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold" style={{ color: G, border: `1px solid ${G}55` }}>
               {copied === "__all" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied === "__all" ? "Copied" : "Copy all links"}
@@ -243,17 +243,21 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
             const wavs = tracks.filter((t) => t.file_id && files[t.file_id]);
             const total = wavs.reduce((sum, t) => sum + (Number(files[t.file_id].duration_sec) || 0), 0);
             return (
-              <li key={a.name + i} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 md:grid md:grid-cols-[24px_minmax(0,1fr)_72px_118px_150px_190px]">
-                <span className="w-6 text-right font-bold tabular-nums" style={{ color }}>{i + 1}</span>
-                <span className="font-semibold text-[16px] min-w-0 flex-1 truncate">{a.name}</span>
-                <span className="text-[12px] text-white/50 tabular-nums w-[72px]" style={{ fontFamily: SCENE_MONO }}>{setTimes[a.name] || "—"}</span>
-                <span className="text-[10px] font-bold tracking-[0.08em] px-2 py-1 rounded-full justify-self-start" style={{ fontFamily: SCENE_MONO, color: st.color, background: st.color + "1A" }}>{st.label}</span>
-                <span className="text-[11px] text-white/50 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{s ? `${tracks.length} TRK · ${wavs.length} WAV${total ? ` · ${formatDuration(total)}` : ""}` : ""}</span>
-                <span className="ml-auto flex items-center gap-1.5 justify-self-end">
+              <li key={a.name + i} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2.5">
+                <span className="text-right font-bold tabular-nums" style={{ color }}>{i + 1}</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-[16px] truncate">{a.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                    {setTimes[a.name] && <span className="text-[11px] text-white/55 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{setTimes[a.name]}</span>}
+                    <span className="text-[10px] font-bold tracking-[0.08em] px-1.5 py-0.5 rounded-full" style={{ fontFamily: SCENE_MONO, color: st.color, background: st.color + "1A" }}>{st.label}</span>
+                    {s && <span className="text-[11px] text-white/45 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{tracks.length} TRK · {wavs.length} WAV{total ? ` · ${formatDuration(total)}` : ""}</span>}
+                  </div>
+                </div>
+                <span className="flex items-center gap-1.5">
                   {s ? (
                     <>
                       <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) flash(a.name); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border" style={{ borderColor: G + "55", color: G }}>
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border whitespace-nowrap" style={{ borderColor: G + "55", color: G }}>
                         {copied === a.name ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied === a.name ? "Copied" : "Copy link"}
                       </button>
                       <button type="button" onClick={() => share(a, s)} aria-label={`Send ${a.name} their link`} className="p-1.5 rounded-md border border-[#2a2a2a] text-white/60 hover:text-white"><Share2 className="w-3.5 h-3.5" /></button>
@@ -261,8 +265,8 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
                     </>
                   ) : (
                     <button type="button" disabled={!canEdit || busy === a.name} onClick={() => generate(a, i)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-[0.04em] disabled:opacity-50" style={{ background: G, color: "#0d0d0d" }}>
-                      {busy === a.name ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />} Generate set link
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-[0.04em] whitespace-nowrap disabled:opacity-50" style={{ background: G, color: "#0d0d0d" }}>
+                      {busy === a.name ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />} Generate link
                     </button>
                   )}
                 </span>

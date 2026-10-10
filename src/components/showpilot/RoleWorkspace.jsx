@@ -725,11 +725,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <>
             <p className="text-[15px] text-white/55 -mt-2">Put the acts in playing order. Set times go on the venue's day sheet, your run of show and each artist's set upload page.</p>
             <TableBox>
-              <div className="grid grid-cols-[64px_minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>ORDER</span><span>ACT</span><span>BILLING</span><span>MINUTES</span><span>ON AT</span><span /></div>
               {(gig.bands || []).map((b, i) => (
-                <div key={i} className="grid grid-cols-[64px_minmax(0,1fr)_150px_100px_110px_40px] gap-3 px-4 py-2 items-center">
-                  <div className="flex items-center gap-0.5">
-                    <span className="w-5 text-right font-bold tabular-nums" style={{ color }}>{i + 1}</span>
+                // Two lines per act so it fits the workspace column at any width:
+                // order + name on top, billing / length / start time underneath.
+                <div key={i} className="grid grid-cols-[52px_minmax(0,1fr)_36px] gap-x-2 gap-y-2 px-3 py-3 items-center">
+                  <div className="flex items-center gap-0.5 row-span-2 self-start pt-1.5">
+                    <span className="w-6 text-right text-[18px] font-bold tabular-nums" style={{ color }}>{i + 1}</span>
                     {p.canEdit && (
                       <span className="flex flex-col">
                         <button type="button" aria-label="Move earlier" disabled={i === 0} onClick={() => { const list = [...gig.bands]; [list[i - 1], list[i]] = [list[i], list[i - 1]]; p.update("bands", list); }} className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
@@ -741,13 +742,24 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                     const old = b.band_name;
                     p.updateBand(i, "band_name", e.target.value);
                     if (old && has(setTimes[old])) { const t = { ...setTimes, [e.target.value]: setTimes[old] }; delete t[old]; setMi("set_times", t); }
-                  }} disabled={!p.canEdit} placeholder="Act name" className={inputCls} aria-label="Act name" />
-                  <select value={b.role || "N/A"} onChange={(e) => p.updateBand(i, "role", e.target.value)} disabled={!p.canEdit} className={inputCls} aria-label="Billing">
-                    {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <input value={b.set_length_minutes || ""} onChange={(e) => p.updateBand(i, "set_length_minutes", e.target.value.replace(/[^0-9]/g, ""))} disabled={!p.canEdit} placeholder="45" className={inputCls} aria-label="Set length in minutes" />
-                  <input value={setTimes[b.band_name] || ""} onChange={(e) => setMi("set_times", { ...setTimes, [b.band_name]: e.target.value })} disabled={off || !b.band_name} placeholder="9:00 PM" className={inputCls} aria-label="Set time" />
-                  {p.canEdit && <button type="button" onClick={() => p.removeBand(i)} aria-label="Remove act" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
+                  }} disabled={!p.canEdit} placeholder="Act name" className={`${inputCls} font-semibold`} aria-label="Act name" />
+                  {p.canEdit ? <button type="button" onClick={() => p.removeBand(i)} aria-label="Remove act" className="p-2 text-white/30 hover:text-red-400 justify-self-center"><Trash2 className="w-4 h-4" /></button> : <span />}
+                  <div className="col-start-2 col-span-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2">
+                    <label className="grid gap-1 min-w-0">
+                      <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>BILLING</span>
+                      <select value={b.role || "N/A"} onChange={(e) => p.updateBand(i, "role", e.target.value)} disabled={!p.canEdit} className={inputCls} aria-label="Billing">
+                        {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid gap-1 min-w-0">
+                      <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>MINUTES</span>
+                      <input value={b.set_length_minutes || ""} onChange={(e) => p.updateBand(i, "set_length_minutes", e.target.value.replace(/[^0-9]/g, ""))} disabled={!p.canEdit} placeholder="45" inputMode="numeric" className={inputCls} aria-label="Set length in minutes" />
+                    </label>
+                    <label className="grid gap-1 min-w-0">
+                      <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ON AT</span>
+                      <input value={setTimes[b.band_name] || ""} onChange={(e) => setMi("set_times", { ...setTimes, [b.band_name]: e.target.value })} disabled={off || !b.band_name} placeholder="9:00 PM" className={inputCls} aria-label="Set time" />
+                    </label>
+                  </div>
                 </div>
               ))}
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
