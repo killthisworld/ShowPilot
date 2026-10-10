@@ -35,3 +35,13 @@ Jay runs several Claude chats on Show Pilot at once, each on its own task, and m
 4. **Mention what moved.** If `main` changed under you, say so when you report the push, including whether your change had to be adapted to fit.
 5. **Jay's local folder is not the source of truth.** It can be behind GitHub. After pushing from the cloud, remind Jay to `git pull` locally. Never overwrite a local file with an older or newer version of it without saying so.
 6. **Big features can use a branch.** For large or risky work, offer a feature branch (`feature/<name>`) instead of pushing straight to `main`, and let Jay decide.
+
+## Work board
+
+All Show Pilot work is tracked on the Show Pilot Work Board: https://claude.ai/artifact/MsEVVRv2X4zJjvDmEmxjwv. Jobs are in its database (collection `jobs`, docs `job-<number>`), read and written with the ArtifactData tool.
+
+- **Started with `/showpilot-task <n>`:** follow that skill. It claims the job, works it, and hands it back.
+- **Asked for code work directly, with no job number:** check the board first. If an `in_progress` job covers the same files or page, tell Jay before starting. Otherwise add a job for the work (next free number) and claim it, so other chats can see it.
+- **One job per chat.** Keep the job's `status`, `files` and `summary` current: `in_progress` while working, `waiting_push` when committed and waiting for approval, `done` after the push.
+- **Found something else broken along the way?** Add it to the board as a new `open` job instead of fixing it on the side.
+- **Push rules still apply.** Moving a job to `waiting_push` does not count as approval. Only Jay's explicit "push it" does.
