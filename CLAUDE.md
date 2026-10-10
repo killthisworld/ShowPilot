@@ -24,3 +24,14 @@ Never ship Show Pilot code without Jay's go-ahead. "Shipping" means any of:
 - Read-only work (answering questions, reviewing files, explaining code) needs no notification. Don't ping the phone for it.
 - One notification per batch of work, not per file.
 - If a push is rejected or needs a rebase, report it — don't force-push.
+
+## Parallel chats
+
+Jay runs several Claude chats on Show Pilot at once, each on its own task, and more than one may push to `main`. Assume someone else changed the code since you last looked.
+
+1. **Start fresh.** Before editing, get the latest `main` from GitHub (`git fetch` + rebase or pull, or a fresh clone). Don't build on an old copy or on files from Jay's local folder without checking they match `main`.
+2. **Stay in your lane.** Touch only the files your task needs. If you need a file another chat is likely working on (the same page or a shared component), say so to Jay before making big changes to it.
+3. **Re-check right before pushing.** Once you have approval, `git fetch origin main` again. If `main` moved, rebase your commit onto it, read the incoming changes to any file you touched, and rebuild (`npx vite build`). If the build fails, or someone else changed the same lines, stop and tell Jay. Don't force-push and don't quietly drop anyone's work.
+4. **Mention what moved.** If `main` changed under you, say so when you report the push, including whether your change had to be adapted to fit.
+5. **Jay's local folder is not the source of truth.** It can be behind GitHub. After pushing from the cloud, remind Jay to `git pull` locally. Never overwrite a local file with an older or newer version of it without saying so.
+6. **Big features can use a branch.** For large or risky work, offer a feature branch (`feature/<name>`) instead of pushing straight to `main`, and let Jay decide.
