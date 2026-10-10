@@ -16,6 +16,7 @@ import ColorPicker from "@/components/showpilot/ColorPicker";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import Soundwave from "@/components/showpilot/Soundwave";
 import { usePreferences } from "@/hooks/usePreferences";
+import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
 
 const SOUNDWAVE_TEMPLATES = {
   black: { bg: "#000000", wave: "#FFFFFF", label: "Black / White" },
@@ -114,6 +115,11 @@ export default function Cockpit() {
   const [savingCover, setSavingCover] = useState(false);
   const [logbookCropFile, setLogbookCropFile] = useState(null);
   const [logbookCropTarget, setLogbookCropTarget] = useState(null);
+  // Desktop Logbook preview: which page it shows, the full show rows behind
+  // it, and the stamp a viewer clicked.
+  const [logbookPreview, setLogbookPreview] = useState("cover");
+  const [logbookShows, setLogbookShows] = useState([]);
+  const [previewShow, setPreviewShow] = useState(null);
   const [showAddIdModal, setShowAddIdModal] = useState(false);
   const [addIdLink, setAddIdLink] = useState("");
   const [addIdError, setAddIdError] = useState("");
@@ -265,12 +271,12 @@ export default function Cockpit() {
     if (activeTab === "logbook" && user) {
       setLoadingLogbookTab(true);
       Promise.all([
-        supabase.from("shows").select("date").eq("owner_id", user.id).eq("done", true),
+        supabase.from("shows").select("*").eq("owner_id", user.id).eq("done", true),
         // Linked gigs (shows someone else owns, shared with this account) also
         // belong in the logbook - important for account types whose logbook is
         // mostly or entirely gigs they were linked to rather than shows they
         // own outright.
-        supabase.from("linked_gigs").select("shows(date, done)").eq("user_id", user.id).eq("archived", false),
+        supabase.from("linked_gigs").select("shows(*)").eq("user_id", user.id).eq("archived", false),
         supabase.from("user_preferences").select("logbook_bio").eq("user_id", user.id).maybeSingle(),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id).eq("month_key", "__cover__").maybeSingle(),
       ]).then(([showsRes, linkedRes, bioRes, coverRes]) => {
@@ -282,6 +288,10 @@ export default function Cockpit() {
           .filter((s) => s && s.done)
           .map((s) => s.date);
         const months = [...new Set([...ownedDates, ...linkedDates].map((d) => d?.slice(0, 7)).filter(Boolean))].sort().reverse();
+        setLogbookShows([
+          ...(showsRes.data || []),
+          ...(linkedRes.data || []).map((l) => l.shows).filter((s) => s && s.done).map((s) => ({ ...s, is_linked: true })),
+        ]);
         setLogbookMonths(months);
         setSelectedLogbookMonth((prev) => prev || months[0] || "");
         setLogbookBio(bioRes.data?.logbook_bio || "");
@@ -1536,16 +1546,169 @@ export default function Cockpit() {
           )}
 
           {activeTab === "logbook" && (
-            loadingLogbookTab ? spinner : (
-              <>
-                <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
-                  <div className="flex-1 min-h-0 overflow-y-auto p-4 [&_.aspect-video]:aspect-auto [&_.aspect-video]:h-[220px]">{coverSection}</div>
+            loadingLogbookTab ? spinner : (() => {
+              const lbLabel = "text-white/45 text-[9px] tracking-[0.14em] uppercase font-['IBM_Plex_Mono',monospace]";
+              const slider = (label, value, max, onChange) => (
+                <div>
+                  <div className={lbLabel}>{label}</div>
+                  <input type="range" min="0" max={max} value={value} onChange={(e) => onChange(parseInt(e.target.value))} className="w-full mt-1.5 accent-[#8CFF3D]" />
                 </div>
-                <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
-                  <div className="flex-1 min-h-0 overflow-y-auto p-4 [&>div]:border-t-0 [&>div]:pt-0 [&_.aspect-video]:aspect-auto [&_.aspect-video]:h-[220px]">{monthSection}</div>
+              );
+              const photoRow = (settings, setSettings, target, label) => (
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 h-10 border border-dashed border-[#2a2a2a] rounded-lg cursor-pointer hover:border-[#8CFF3D]/40 transition-colors">
+                    <Upload className="w-4 h-4 text-white/40" />
+                    <span className="text-sm text-white/55">{settings.background_url ? "Change photo" : label}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogbookFileSelected(e, target)} />
+                  </label>
+                  {settings.background_url && (
+                    <button onClick={() => setSettings((s) => ({ ...s, background_url: "" }))} className="h-10 px-3 rounded-lg text-sm text-red-400/80 hover:text-red-400 hover:bg-red-500/10">Remove</button>
+                  )}
                 </div>
-              </>
-            )
+              );
+              const lookControls = (settings, setSettings) => (
+                <>
+                  {slider(`Blur (${settings.blur || 0}px)`, settings.blur || 0, 20, (v) => setSettings((s) => ({ ...s, blur: v })))}
+                  {slider(`Overlay darkness (${Math.round((settings.overlay_darkness ?? 0.5) * 100)}%)`, Math.round((settings.overlay_darkness ?? 0.5) * 100), 100, (v) => setSettings((s) => ({ ...s, overlay_darkness: v / 100 })))}
+                  <ColorPicker value={settings.text_color || "#ffffff"} onChange={(c) => setSettings((s) => ({ ...s, text_color: c }))} label="Text Color" />
+                </>
+              );
+              const saveBtn = (onClick, busy, text) => (
+                <Button onClick={onClick} disabled={busy} className="w-full bg-[#8CFF3D] text-black font-semibold hover:bg-[#9dff5c] rounded-lg shadow-[0_0_14px_#8CFF3D44] font-['IBM_Plex_Mono',monospace] tracking-[0.12em] uppercase text-[12px]">
+                  {busy ? "Saving..." : text}
+                </Button>
+              );
+              const monthName = (key, withYear = true) => key ? new Date(key + "-01T00:00:00").toLocaleDateString("en-US", withYear ? { month: "long", year: "numeric" } : { month: "long" }) : "";
+
+              // The middle panel draws the logbook the way visitors see it,
+              // from the settings being edited (saved or not).
+              const showingMonth = logbookPreview === "month" && !!selectedLogbookMonth;
+              const look = showingMonth ? monthSettings : coverSettings;
+              const ink = look.text_color || "#ffffff";
+              const monthShows = logbookShows.filter((s) => s.date?.startsWith(selectedLogbookMonth));
+              const uniq = (f) => new Set(logbookShows.map(f).filter(Boolean)).size;
+              const { positions } = getConstellationLayout(monthShows);
+              const peek = previewShow && monthShows.find((s) => s === previewShow);
+
+              return (
+                <>
+                  <div className={`w-[320px] shrink-0 ${panel}`} style={panelShadow} onPointerDownCapture={() => setLogbookPreview("cover")} onFocusCapture={() => setLogbookPreview("cover")}>
+                    {panelLabel("Cover page", "The first thing people see in your Logbook")}
+                    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+                      <div>
+                        <div className={lbLabel}>Bio</div>
+                        <Textarea value={logbookBio} onChange={(e) => setLogbookBio(e.target.value)} placeholder="A short bio about you and what you do..." className="mt-1 bg-[#111] border-[#222] text-white h-[96px] min-h-0 resize-none" />
+                      </div>
+                      {photoRow(coverSettings, setCoverSettings, "cover", "Upload cover photo")}
+                      {lookControls(coverSettings, setCoverSettings)}
+                    </div>
+                    <div className="px-4 pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveBtn(saveCoverSettings, savingCover, "Save Cover Page")}</div>
+                  </div>
+
+                  <div className={`flex-1 min-w-0 ${panel}`} style={panelShadow}>
+                    <div className="px-4 pt-3.5 pb-3 shrink-0 flex items-center justify-between gap-3 border-b border-dashed border-[#2a2a2a]">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-[11px] tracking-[0.12em] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>PREVIEW</span>
+                        <div className="flex gap-1 bg-[#111] rounded-lg p-1 min-w-0">
+                          <button onClick={() => setLogbookPreview("cover")} className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${!showingMonth ? "bg-[#F59E0B] text-black" : "text-white/45 hover:text-white/70"}`}>Cover</button>
+                          <button onClick={() => selectedLogbookMonth && setLogbookPreview("month")} disabled={!selectedLogbookMonth} className={`px-3 py-1.5 rounded text-xs font-medium transition-all truncate disabled:opacity-40 ${showingMonth ? "bg-[#F59E0B] text-black" : "text-white/45 hover:text-white/70"}`}>{selectedLogbookMonth ? new Date(selectedLogbookMonth + "-01T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Month"}</button>
+                        </div>
+                      </div>
+                      <button onClick={() => navigate("/logbook")} className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white shrink-0">
+                        Open full Logbook <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 p-3.5">
+                      <div className="relative w-full h-full rounded-xl overflow-hidden border border-[#222] bg-[#0a0a0a]" onClick={() => setPreviewShow(null)}>
+                        {look.background_url && (
+                          <>
+                            <div className="absolute -inset-6" style={{ backgroundImage: `url("${look.background_url}")`, backgroundSize: "cover", backgroundPosition: "center", filter: `blur(${look.blur || 0}px)` }} />
+                            <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${look.overlay_darkness ?? 0.5})` }} />
+                          </>
+                        )}
+                        {!showingMonth ? (
+                          <div className="relative h-full flex flex-col items-center justify-center text-center px-8">
+                            <div className="max-w-md w-full">
+                              <h2 className="font-bold text-4xl tracking-tight mb-3" style={{ color: ink }}>Logbook</h2>
+                              {logbookBio && <p className="text-base leading-relaxed whitespace-pre-wrap mb-8 opacity-80 line-clamp-5" style={{ color: ink }}>{logbookBio}</p>}
+                              <div className="grid grid-cols-4 gap-2 mb-9">
+                                {[["Shows", logbookShows.length], ["Venues", uniq((s) => s.venue)], ["Artists", uniq((s) => s.band_name)], ["Cities", uniq((s) => s.city)]].map(([k, v]) => (
+                                  <div key={k} className="text-center">
+                                    <p className="text-2xl font-bold" style={{ color: ink }}>{v}</p>
+                                    <p className="text-white/40 text-[10px] uppercase tracking-wide">{k}</p>
+                                  </div>
+                                ))}
+                              </div>
+                              {logbookShows.length === 0 ? (
+                                <p className="text-white/30 text-sm">Mark a show as Done to start your Logbook</p>
+                              ) : (
+                                <button onClick={(e) => { e.stopPropagation(); setLogbookPreview("month"); }} className="px-6 py-3 rounded-full bg-[#8CFF3D] text-black font-semibold text-sm hover:bg-[#7ae62e] transition-colors">Enter Logbook</button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="relative h-full flex flex-col">
+                            <div className="pt-6 pb-2 text-center shrink-0">
+                              <p className="font-bold text-3xl" style={{ color: ink }}>{monthName(selectedLogbookMonth)}</p>
+                              <p className="text-xs mt-1" style={{ color: ink, opacity: 0.5, fontFamily: SCENE_MONO }}>{monthShows.length} SHOW{monthShows.length !== 1 ? "S" : ""}</p>
+                            </div>
+                            <div className="relative flex-1 min-h-0 mx-6 mb-6">
+                              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                                {positions.slice(1).map((pos, i) => (
+                                  <line key={i} x1={`${positions[i].xPct}%`} y1={`${positions[i].yPct}%`} x2={`${pos.xPct}%`} y2={`${pos.yPct}%`} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+                                ))}
+                              </svg>
+                              {positions.map((pos, i) => (
+                                <div key={pos.show.id || i} className="absolute z-10" style={{ left: `${pos.xPct}%`, top: `${pos.yPct}%`, transform: "translate(-50%, -50%)" }}>
+                                  <ShowStamp
+                                    color={pos.show.is_linked ? "#F472B6" : hashColor(pos.show.venue || pos.show.band_name || "show")}
+                                    onClick={(e) => { e.stopPropagation(); setPreviewShow(peek === pos.show ? null : pos.show); }}
+                                    isNewest={i === positions.length - 1}
+                                    ariaLabel={pos.show.band_name || pos.show.venue}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            {peek && (
+                              <div className="absolute left-1/2 bottom-4 -translate-x-1/2 z-20 bg-[#111]/95 border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-center min-w-[240px] max-w-[90%]">
+                                <p className="text-white font-semibold truncate">{peek.event_name || peek.band_name || "Untitled"}</p>
+                                <p className="text-[11px] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
+                                  {[peek.date ? new Date(peek.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null, peek.venue, peek.city].filter(Boolean).join(" · ")}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`w-[320px] shrink-0 ${panel}`} style={panelShadow} onPointerDownCapture={() => selectedLogbookMonth && setLogbookPreview("month")} onFocusCapture={() => selectedLogbookMonth && setLogbookPreview("month")}>
+                    {panelLabel("Month pages", "Each month of shows gets its own page")}
+                    {logbookMonths.length === 0 ? (
+                      <p className="text-center text-white/40 py-10 px-6 text-sm">Mark a show as Done to start customizing month pages</p>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+                          <div>
+                            <div className={lbLabel}>Month</div>
+                            <Select value={selectedLogbookMonth} onValueChange={(v) => { setSelectedLogbookMonth(v); setLogbookPreview("month"); setPreviewShow(null); }}>
+                              <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white"><SelectValue /></SelectTrigger>
+                              <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+                                {logbookMonths.map((m) => <SelectItem key={m} value={m}>{monthName(m)}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {photoRow(monthSettings, setMonthSettings, "month", "Upload background photo")}
+                          {lookControls(monthSettings, setMonthSettings)}
+                        </div>
+                        <div className="px-4 pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a]">{saveBtn(saveMonthSettings, savingMonthSettings, "Save Month Page")}</div>
+                      </>
+                    )}
+                  </div>
+                </>
+              );
+            })()
           )}
         </div>
 
