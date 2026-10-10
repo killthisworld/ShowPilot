@@ -474,7 +474,7 @@ export default function BandHome() {
               onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              placeholder="Search events, venues, bands"
+              placeholder="Search events, venues, artists"
               className="pl-9 h-10 bg-[#111] border-[#222] text-white text-base placeholder:text-white/30 rounded-xl"
             />
             {showSuggestions && suggestions.length > 0 && (

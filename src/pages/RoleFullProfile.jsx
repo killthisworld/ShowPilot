@@ -334,7 +334,7 @@ export function RoleProfileBody({
       {role === "manager" && (
         <>
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={editable} placeholder="Name" />
-          <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={editable} placeholder="e.g. Manager, Band Member" />
+          <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={editable} placeholder="e.g. Manager, Tour Manager" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={editable} placeholder="Phone" />
             <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={editable} placeholder="Email" />

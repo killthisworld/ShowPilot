@@ -429,7 +429,7 @@ export default function Home() {
                 onChange={(e) => { setSearch(e.target.value); setShowSuggestions(true); }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                placeholder="Search bands, venues..."
+                placeholder="Search artists, venues..."
                 className="pl-9 h-10 bg-[#161616] border-[#222] text-white placeholder:text-white/25 rounded-xl"
               />
               {showSuggestions && suggestions.length > 0 && (

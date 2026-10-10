@@ -188,7 +188,7 @@ export default function BandProfile() {
             <div className="bg-[#111] rounded-2xl p-4 space-y-3">
               <div>
                 <Label className="text-white/50 text-xs">Artist / Group Name</Label>
-                <Input value={template.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Band / Artist" />
+                <Input value={template.band_name} onChange={(e) => update("band_name", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Artist" />
               </div>
               <div>
                 <Label className="text-white/50 text-xs">Genre / Style</Label>
@@ -226,7 +226,7 @@ export default function BandProfile() {
               </div>
             </div>
 
-            <CollapsibleSection title="Band Members" icon={Music} badge={template.band_members.length} defaultOpen={true}>
+            <CollapsibleSection title="Members" icon={Music} badge={template.band_members.length} defaultOpen={true}>
               <div className="space-y-3 pt-3">
                 {template.band_members.map((m, i) => {
                   const collapsed = collapsedMembers[i];
@@ -405,7 +405,7 @@ export default function BandProfile() {
                 {accountType === "manager" && (
                   <div>
                     <Label className="text-white/50 text-xs">Title</Label>
-                    <Input value={template.contact_title || ""} onChange={(e) => update("contact_title", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="e.g. Manager, Band Member" />
+                    <Input value={template.contact_title || ""} onChange={(e) => update("contact_title", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="e.g. Manager, Tour Manager" />
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-3">

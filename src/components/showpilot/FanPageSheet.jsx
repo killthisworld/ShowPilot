@@ -305,7 +305,7 @@ function OwnerSheet({ showId, onClose }) {
     ),
     band: (
       <>
-        {readOnly(row?.band_name, "No band or artist set on the event")}
+        {readOnly(row?.band_name, "No artist set on the event")}
         {note("Shown under the event name. Change it in the event itself.")}
       </>
     ),

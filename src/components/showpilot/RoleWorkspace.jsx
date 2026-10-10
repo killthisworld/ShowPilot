@@ -205,7 +205,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <>
             <In label="Load-in point" value={vi.load_in_location} onChange={(v) => setVi("load_in_location", v)} disabled={off} placeholder="Back dock on 8th Ave" />
             <Area label="Parking" value={vi.parking} onChange={(v) => setVi("parking", v)} disabled={off} placeholder="One van spot at the dock, trailers on the street after 6" />
-            <Area label="Load-in notes" value={vi.load_in_notes} onChange={(v) => setVi("load_in_notes", v)} disabled={off} placeholder="Stairs, elevator, push distance, who meets the band" />
+            <Area label="Load-in notes" value={vi.load_in_notes} onChange={(v) => setVi("load_in_notes", v)} disabled={off} placeholder="Stairs, elevator, push distance, who meets the artist" />
           </>
         ),
       },
@@ -271,7 +271,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         render: () => (
           <>
             <In label="Green room" value={vi.green_room} onChange={(v) => setVi("green_room", v)} disabled={off} placeholder="Upstairs, one room, shower" />
-            <Grid><In label="Meals" value={vi.meals} onChange={(v) => setVi("meals", v)} disabled={off} placeholder="Dinner buyout $15 per person" /><In label="Drink tickets" value={vi.drink_tickets} onChange={(v) => setVi("drink_tickets", v)} disabled={off} placeholder="2 per band member" /></Grid>
+            <Grid><In label="Meals" value={vi.meals} onChange={(v) => setVi("meals", v)} disabled={off} placeholder="Dinner buyout $15 per person" /><In label="Drink tickets" value={vi.drink_tickets} onChange={(v) => setVi("drink_tickets", v)} disabled={off} placeholder="2 per member" /></Grid>
             <Area label="Notes" value={vi.hospitality_notes} onChange={(v) => setVi("hospitality_notes", v)} disabled={off} placeholder="Towels, water on stage, guest wristbands at the box office" />
           </>
         ),
@@ -712,7 +712,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([mi.contact_name, mi.contact_phone, mi.contact_email]), 3),
         render: () => (
           <>
-            <Grid><In label="Name" value={mi.contact_name} onChange={(v) => setMi("contact_name", v)} disabled={off} /><In label="Title" value={mi.contact_title} onChange={(v) => setMi("contact_title", v)} disabled={off} placeholder="Manager, tour manager, band member" /></Grid>
+            <Grid><In label="Name" value={mi.contact_name} onChange={(v) => setMi("contact_name", v)} disabled={off} /><In label="Title" value={mi.contact_title} onChange={(v) => setMi("contact_title", v)} disabled={off} placeholder="Manager, tour manager, member" /></Grid>
             <Grid><In label="Phone" value={mi.contact_phone} onChange={(v) => setMi("contact_phone", v)} disabled={off} /><In label="Email" value={mi.contact_email} onChange={(v) => setMi("contact_email", v)} disabled={off} /></Grid>
           </>
         ),
@@ -827,7 +827,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([mi.merch_table, mi.merch_seller, mi.merch_split]), 3),
         render: () => (
           <>
-            <Grid><In label="Table" value={mi.merch_table} onChange={(v) => setMi("merch_table", v)} disabled={off} placeholder="By the bar, 6ft table + power" /><In label="Seller" value={mi.merch_seller} onChange={(v) => setMi("merch_seller", v)} disabled={off} placeholder="Band sells / venue seller" /></Grid>
+            <Grid><In label="Table" value={mi.merch_table} onChange={(v) => setMi("merch_table", v)} disabled={off} placeholder="By the bar, 6ft table + power" /><In label="Seller" value={mi.merch_seller} onChange={(v) => setMi("merch_seller", v)} disabled={off} placeholder="Artist sells / venue seller" /></Grid>
             <Grid><In label="Split" value={mi.merch_split} onChange={(v) => setMi("merch_split", v)} disabled={off} placeholder="85 / 15 soft goods" /></Grid>
             <Area label="Merch notes" value={mi.merch_notes} onChange={(v) => setMi("merch_notes", v)} disabled={off} placeholder="Card reader, count-in and count-out times" />
           </>

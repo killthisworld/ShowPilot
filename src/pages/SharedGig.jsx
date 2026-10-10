@@ -1428,7 +1428,7 @@ export default function SharedGig() {
             </div>
           )}
           <Field label="Contact Name" value={managerInfo.contact_name} onChange={(v) => updateSection("manager_info", "contact_name", v)} editable={canEditSection("manager")} placeholder="Name" />
-          <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={canEditSection("manager")} placeholder="e.g. Manager, Band Member" />
+          <Field label="Title" value={managerInfo.contact_title} onChange={(v) => updateSection("manager_info", "contact_title", v)} editable={canEditSection("manager")} placeholder="e.g. Manager, Tour Manager" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone" value={managerInfo.contact_phone} onChange={(v) => updateSection("manager_info", "contact_phone", v)} editable={canEditSection("manager")} placeholder="Phone" />
             <Field label="Email" value={managerInfo.contact_email} onChange={(v) => updateSection("manager_info", "contact_email", v)} editable={canEditSection("manager")} placeholder="Email" />
