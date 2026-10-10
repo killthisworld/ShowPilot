@@ -21,15 +21,12 @@ export default function SharedShow() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // The lookup only returns the show when the link's token matches it, so
+    // a wrong or missing token looks the same as a missing show.
     supabase
-      .from("shows")
-      .select("*")
-      .eq("id", id)
-      .single()
+      .rpc("get_shared_show", { p_show_id: id, p_token: token })
       .then(({ data, error: fetchError }) => {
         if (fetchError || !data) {
-          setError("Show not found");
-        } else if (data.share_token !== token) {
           setError("Invalid share link");
         } else {
           setShow(data);

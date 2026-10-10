@@ -282,15 +282,23 @@ export default function Cockpit() {
         // belong in the logbook - important for account types whose logbook is
         // mostly or entirely gigs they were linked to rather than shows they
         // own outright.
-        supabase.from("linked_gigs").select("shows(*)").eq("user_id", user.id).eq("archived", false),
+        supabase.from("linked_gigs").select("share_token").eq("user_id", user.id).eq("archived", false),
         supabase.from("user_preferences").select("logbook_bio").eq("user_id", user.id).maybeSingle(),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id).eq("month_key", "__cover__").maybeSingle(),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id),
-      ]).then(([showsRes, linkedRes, bioRes, coverRes, allSettingsRes]) => {
+      ]).then(async ([showsRes, linkedRes, bioRes, coverRes, allSettingsRes]) => {
         if (showsRes.error) console.error(showsRes.error);
         if (linkedRes.error) console.error(linkedRes.error);
         const owned = showsRes.data || [];
-        const linked = (linkedRes.data || []).map((l) => l.shows).filter(Boolean).map((s) => ({ ...s, is_linked: true }));
+        // Other people's shows come through the crew-link lookup, never
+        // straight from the shows table.
+        const linkedDetails = await Promise.all(
+          (linkedRes.data || []).map(async (l) => {
+            const { data } = await supabase.rpc("get_shared_gig", { p_token: l.share_token });
+            return data ? { ...data, share_token: l.share_token, is_linked: true } : null;
+          })
+        );
+        const linked = linkedDetails.filter(Boolean);
         const doneShows = [...owned, ...linked].filter((s) => s.done);
         const monthsOf = (list) => [...new Set(list.map((s) => s.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
         const months = monthsOf(doneShows);

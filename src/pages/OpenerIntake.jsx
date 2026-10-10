@@ -90,11 +90,8 @@ export default function OpenerIntake() {
     const init = async () => {
       if (!token) { setLoadingView(false); return; }
       try {
-        const { data } = await supabase
-          .from("opener_requests")
-          .select("*, tour_manager_requests(band_name, event_name, venue, date, location, engineer_user_id)")
-          .eq("invite_token", token)
-          .maybeSingle();
+        // Token lookup: this opener's status plus the show they're joining.
+        const { data } = await supabase.rpc("get_opener_request", { p_token: token });
         if (data) setContext(data);
       } catch (e) {
         console.error(e);

@@ -112,11 +112,9 @@ export default function TourManagerIntake() {
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
         if (token) {
-          const { data } = await supabase
-            .from("tour_manager_requests")
-            .select("*")
-            .eq("invite_token", token)
-            .maybeSingle();
+          // Token lookup: the engineer who made the link gets the full
+          // request, anyone else just the event name / date / status.
+          const { data } = await supabase.rpc("get_tour_manager_request", { p_token: token });
           if (data) setTmRequest(data);
         }
       } catch {}
