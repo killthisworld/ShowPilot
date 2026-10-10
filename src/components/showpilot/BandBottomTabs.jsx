@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff, Navigation } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff } from "lucide-react";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_FONT } from "@/lib/sceneStyle";
@@ -47,9 +47,10 @@ export default function BandBottomTabs() {
       </div>
 
       <nav className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[84px] z-50 flex-col items-center py-[18px] gap-1.5 bg-[#0d0d0d] border-r border-[#1a1a1a]" style={{ fontFamily: SCENE_FONT }}>
-        <div className="w-10 h-10 rounded-[10px] flex items-center justify-center mb-3.5" style={{ background: "rgba(140,255,61,0.12)", border: "1px solid rgba(140,255,61,0.5)" }}>
-          <Navigation className="w-5 h-5 text-[#8CFF3D]" />
-        </div>
+        {/* The Show Pilot logo (same art as the app icon); tapping it goes Home. */}
+        <Link to="/" aria-label="Show Pilot home" className="w-11 h-11 rounded-[11px] overflow-hidden mb-3.5 shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
+          <img src="/icon-192.png" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
+        </Link>
         {TABS.map((tab) => {
           const active = isActive(tab);
           return (
