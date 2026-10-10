@@ -13,6 +13,7 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import Home from '@/pages/Home';
 import HomeRouter from '@/pages/HomeRouter';
+import EventbriteCallback from '@/pages/EventbriteCallback';
 import BandCalendar from '@/pages/BandCalendar';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
@@ -90,6 +91,7 @@ const AuthenticatedApp = () => {
         <Route path="/my-templates" element={<MyTemplates />} />
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />
+        <Route path="/eventbrite/callback" element={<EventbriteCallback />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

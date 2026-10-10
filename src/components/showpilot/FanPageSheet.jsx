@@ -4,6 +4,7 @@ import { Check, ChevronRight, ImagePlus, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
+import EventbriteLink from "@/components/showpilot/EventbriteLink";
 
 const G = "#8CFF3D";
 
@@ -213,6 +214,14 @@ function OwnerSheet({ showId, onClose }) {
                     </>
                   )}
                 </div>
+
+                {/* Only once the page is live: the buyer email is built from it. */}
+                {row.fan_page_enabled && (
+                  <EventbriteLink
+                    showId={showId}
+                    onLinked={(link) => { if (!draft.ticketLink.trim() && link?.eb_event_url) set({ ticketLink: link.eb_event_url }); }}
+                  />
+                )}
               </>
             )}
 

@@ -286,7 +286,14 @@ export default function FanEvent() {
           </div>
         )}
 
-        {emailOptIn}
+        {ev.emails_buyers ? (
+          ticketUrl && (
+            <p className="mx-5 mt-3.5 flex items-center gap-2 text-[14px] leading-snug text-white/60">
+              <Mail className="w-4 h-4 shrink-0" style={{ color }} />
+              Buy your tickets and the event info lands in your inbox automatically.
+            </p>
+          )
+        ) : emailOptIn}
 
         {ticketUrl && (
           <div className="px-5 mt-3.5">
