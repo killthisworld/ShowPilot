@@ -456,7 +456,6 @@ export default function BandHome() {
 
   if (isDesktop) {
     const MONTH_COLORS = ["#8CFF3D", "#60A5FA", "#F472B6", "#F59E0B"];
-    const typeChips = eventTypes.filter((t) => eventTypeColor(t));
     const open = sortedGigs.filter((g) => !g.date || g.date >= new Date().toISOString().slice(0, 10)).length;
     // Past stays tucked at the end as its own column, closed unless asked
     // for - same rule as the phone list.
@@ -514,25 +513,8 @@ export default function BandHome() {
                   </button>
                 );
               })}
-              <span className="w-px h-5 bg-[#2a2a2a] mx-2" />
             </>
           )}
-          {[null, ...typeChips].map((t) => {
-            const color = t ? eventTypeColor(t) : "#8CFF3D";
-            const on = t ? eventTypeFilter === t : eventTypeFilter === "all";
-            return (
-              <button
-                key={t || "all"}
-                onClick={() => setEventTypeFilter(t && eventTypeFilter === t ? "all" : (t || "all"))}
-                // Same chip as the ALL / ADVANCE / READY / LINKED row above:
-                // the type's own color carries it, no dot or label needed.
-                className="h-[28px] px-2.5 rounded-[14px] text-sm font-semibold flex items-center gap-1.5 transition-colors uppercase"
-                style={{ background: on ? color : color + "20", border: `1px solid ${on ? color : color + "55"}`, color: on ? "#0d0d0d" : color }}
-              >
-                {t || "All types"}
-              </button>
-            );
-          })}
         </div>
         {filterOpen && <div className="px-6 pt-2 shrink-0">{filterSelects}</div>}
 
