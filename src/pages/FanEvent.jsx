@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft } from "lucide-react";
+import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { normalizeLink } from "@/lib/links";
@@ -11,6 +11,22 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 // get_fan_event, which only returns what the owner chose to show - crew
 // details never reach this page.
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Asks the send-fan-event-email edge function to email this fan the event
+// info once. Returns { ok, message }.
+async function requestEventEmail(token, email) {
+  const { data, error } = await supabase.functions.invoke("send-fan-event-email", { body: { token, email } });
+  if (!error) {
+    return { ok: true, message: data?.status === "already_sent" ? `Already sent to ${email}. Check your inbox.` : `Sent to ${email}. Check your inbox.` };
+  }
+  let message = "Couldn't send the email. Try again in a minute.";
+  try {
+    const body = await error.context?.json?.();
+    if (body?.error) message = body.error;
+  } catch { /* keep the default */ }
+  return { ok: false, message };
+}
 
 export default function FanEvent() {
   const { token } = useParams();
@@ -24,6 +40,10 @@ export default function FanEvent() {
   const hasHistory = typeof window !== "undefined" && window.history.length > 1;
   const goBack = () => (hasHistory ? navigate(-1) : navigate("/"));
   const [state, setState] = useState("loading");
+  // "Email me the event info" opt-in. One email per fan per event.
+  const [wantEmail, setWantEmail] = useState(false);
+  const [fanEmail, setFanEmail] = useState("");
+  const [emailState, setEmailState] = useState({ status: "idle", message: "" }); // idle | sending | sent | error
   // Flyer viewing mode: the page info dissolves and the flyer comes forward.
   // It lives in the router's history state, so the phone's back gesture, the
   // browser Back button and the on-screen buttons all return to the info side
@@ -87,6 +107,86 @@ export default function FanEvent() {
   // on the right spot; otherwise fall back to the venue name and city.
   const mapQuery = ev.address ? [ev.address, place].filter(Boolean).join(", ") : [ev.venue, place].filter(Boolean).join(" ");
   const mapsUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
+
+  const emailSent = emailState.status === "sent";
+  const sendEmail = async () => {
+    const addr = fanEmail.trim();
+    if (!EMAIL_RE.test(addr)) {
+      setEmailState({ status: "error", message: "Enter a full email address, like you@example.com." });
+      return false;
+    }
+    setEmailState({ status: "sending", message: "" });
+    const r = await requestEventEmail(token, addr);
+    setEmailState({ status: r.ok ? "sent" : "error", message: r.message });
+    return true;
+  };
+  // With the box ticked, GET TICKETS also sends the email. A bad address stops
+  // the tap so the fan can fix it instead of losing the request.
+  const onTicketsClick = (e) => {
+    if (!wantEmail || emailSent || emailState.status === "sending") return;
+    if (!EMAIL_RE.test(fanEmail.trim())) {
+      e.preventDefault();
+      setEmailState({ status: "error", message: "Enter a full email address, or untick the box to skip." });
+      return;
+    }
+    sendEmail();
+  };
+
+  const emailOptIn = (
+    <div className="mx-5 mt-3.5 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5">
+      {emailSent ? (
+        <div className="flex items-center gap-2.5 text-base font-semibold text-white/90">
+          <span className="w-[26px] h-[26px] rounded-md flex items-center justify-center shrink-0" style={{ background: color + "24", border: `1px solid ${color}8c`, color }}><Check className="w-3.5 h-3.5" /></span>
+          {emailState.message}
+        </div>
+      ) : (
+        <>
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={wantEmail}
+              onChange={(e) => { setWantEmail(e.target.checked); setEmailState({ status: "idle", message: "" }); }}
+              className="w-5 h-5 shrink-0"
+              style={{ accentColor: color }}
+            />
+            <span className="flex items-center gap-2 text-base font-bold tracking-[0.06em] text-white/90"><Mail className="w-4 h-4" /> EMAIL ME THE EVENT INFO</span>
+          </label>
+          {wantEmail && (
+            <div className="mt-3">
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={fanEmail}
+                  onChange={(e) => { setFanEmail(e.target.value); if (emailState.status === "error") setEmailState({ status: "idle", message: "" }); }}
+                  className="flex-1 min-w-0 h-11 px-3 rounded-lg bg-black/40 border border-white/15 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-white/40"
+                />
+                {!ticketUrl && (
+                  <button
+                    type="button"
+                    onClick={sendEmail}
+                    disabled={emailState.status === "sending"}
+                    className="h-11 px-4 rounded-lg text-[15px] font-bold tracking-[0.06em] text-[#0d0d0d] disabled:opacity-60"
+                    style={{ background: color }}
+                  >
+                    {emailState.status === "sending" ? "SENDING" : "SEND"}
+                  </button>
+                )}
+              </div>
+              <p className="mt-2 text-[13px] leading-snug text-white/45">
+                {ticketUrl ? "We'll send it when you tap Get Tickets: date, doors, address and your ticket link. " : "Date, doors and address in one email. "}
+                One email for this show, no mailing list.
+              </p>
+            </div>
+          )}
+          {emailState.status === "sending" && ticketUrl && <p className="mt-2 text-[13px] text-white/60">Sending your email…</p>}
+          {emailState.status === "error" && <p className="mt-2 text-[13px] text-[#FF6B6B]">{emailState.message}</p>}
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white relative" style={{ fontFamily: SCENE_FONT }}>
@@ -186,12 +286,15 @@ export default function FanEvent() {
           </div>
         )}
 
+        {emailOptIn}
+
         {ticketUrl && (
           <div className="px-5 mt-3.5">
             <a
               href={ticketUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={onTicketsClick}
               className="flex items-center justify-between gap-3 px-5 py-4 rounded-xl text-[#0d0d0d]"
               style={{ background: color, boxShadow: `0 0 22px ${color}66` }}
             >
