@@ -1342,11 +1342,29 @@ function DesktopGigWeb({
     try { await completeTask(id, true); } catch (e) { console.error(e); }
     setCompletingId(null);
   };
-  const dots = { backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px" };
+  // The event's photo (the same one in the hub's center box) is the
+  // backdrop for the whole page. With a photo, the board surface turns
+  // translucent so the photo reads through it as the cork behind the
+  // pins; without one, the board stays the solid dotted surface.
+  const bgUrl = myIcon || gig.icon_url;
+  const dots = {
+    backgroundColor: bgUrl ? "rgba(15,15,15,0.55)" : "#0f0f0f",
+    backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)",
+    backgroundSize: "22px 22px",
+    ...(bgUrl ? { backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" } : {}),
+  };
 
   return (
-    <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
-      <div className="flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
+    <div className="relative isolate h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
+      {/* `isolate` keeps this -z-10 layer above the root's own background but
+          under everything else. Darkened and softened so cards stay readable. */}
+      {bgUrl && (
+        <div aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
+          <img src={bgUrl} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: "blur(6px) saturate(1.1)", transform: "scale(1.05)", opacity: 0.6 }} />
+          <span className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(13,13,13,0.35), rgba(13,13,13,0.8) 80%)" }} />
+        </div>
+      )}
+      <div className={`flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0 ${bgUrl ? "bg-[#0d0d0d]/70 backdrop-blur-lg" : ""}`}>
         <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></button>
         <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={42} />
         <div className="min-w-0">
