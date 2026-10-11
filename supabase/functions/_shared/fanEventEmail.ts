@@ -216,6 +216,7 @@ export type SendResult =
 // Sends the event-info email for one show to one address, once. Uses the
 // show's public fan page view (get_fan_event), so anything the host hid on
 // the page stays out of the email, and nothing is sent while the page is off.
+// The venue block and attachments follow the confirmation rules below.
 export async function sendFanEventEmail(
   admin: any,
   opts: {
@@ -271,8 +272,31 @@ export async function sendFanEventEmail(
   }
 
   const pageUrl = appUrl ? `${appUrl}/e/${opts.fanToken}` : null;
-  const attachments = await loadAttachments(admin, opts.showId);
-  const { subject, html, text } = buildEmail(ev as FanEvent, pageUrl, opts.footer, {
+
+  // The confirmation email (an RSVP, or an Eventbrite ticket purchase) is
+  // the one that can carry the venue, address and map, plus the parking
+  // PDFs and other attachments. The host picks where the venue shows
+  // (fan_page.venue_where: page, email or both); the "email me the info"
+  // opt-in only ever gets what's on the public page and no attachments.
+  const confirmation = opts.source === "rsvp" || opts.source === "eventbrite";
+  const event = { ...(ev as FanEvent) };
+  const { data: show } = await admin
+    .from("shows").select("venue, city, state, fan_page").eq("id", opts.showId).maybeSingle();
+  const cfg = show?.fan_page ?? {};
+  const venueHidden = Array.isArray(cfg.hidden) && cfg.hidden.includes("venue");
+  const where = cfg.venue_where === "page" || cfg.venue_where === "email" ? cfg.venue_where : "both";
+  const venueInEmail = !venueHidden && (confirmation ? where !== "page" : where !== "email");
+  if (venueInEmail) {
+    event.venue = show?.venue ?? undefined;
+    event.address = typeof cfg.address === "string" && cfg.address.trim() ? cfg.address.trim() : undefined;
+    event.city = show?.city ?? undefined;
+    event.state = show?.state ?? undefined;
+  } else {
+    delete event.venue; delete event.address; delete event.city; delete event.state;
+  }
+
+  const attachments = confirmation ? await loadAttachments(admin, opts.showId) : [];
+  const { subject, html, text } = buildEmail(event, pageUrl, opts.footer, {
     ...(opts.extras ?? {}),
     attachedNames: attachments.map((a) => a.filename),
   });

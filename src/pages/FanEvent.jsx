@@ -177,7 +177,7 @@ export default function FanEvent() {
                 )}
               </div>
               <p className="mt-2 text-[13px] leading-snug text-white/45">
-                {ticketUrl ? "We'll send it when you tap Get Tickets: date, doors, address and your ticket link. " : "Date, doors and address in one email. "}
+                {ticketUrl ? `We'll send it when you tap Get Tickets: date, doors${ev.venue ? ", address" : ""} and your ticket link. ` : `Date, doors${ev.venue ? " and address" : ""} in one email. `}
                 One email for this show, no mailing list.
               </p>
             </div>
@@ -284,6 +284,21 @@ export default function FanEvent() {
                 MAP <Navigation className="w-3 h-3" />
               </a>
             )}
+          </div>
+        )}
+
+        {/* Venue kept for the confirmation email: say where it'll come from. */}
+        {!ev.venue && ev.venue_by_email && (
+          <div className="mx-5 mt-3.5 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5 flex items-center gap-3">
+            <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#FB923C24", border: "1px solid #FB923C8c", color: "#FB923C" }}>
+              <MapPin className="w-[18px] h-[18px]" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-lg font-bold leading-tight">Location in your confirmation</div>
+              <div className="text-[10px] tracking-[0.06em] uppercase text-white/50 mt-0.5" style={{ fontFamily: SCENE_MONO }}>
+                {ev.rsvp ? "Sent by email when you RSVP" : "Sent by email when you get your ticket"}
+              </div>
+            </div>
           </div>
         )}
 

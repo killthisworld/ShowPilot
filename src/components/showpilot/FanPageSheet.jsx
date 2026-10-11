@@ -75,6 +75,7 @@ function OwnerSheet({ showId, onClose }) {
       ages: cfg.ages || "",
       note: cfg.note || "",
       address: cfg.address || "",
+      venueWhere: cfg.venue_where === "page" || cfg.venue_where === "email" ? cfg.venue_where : "both",
       flyer: cfg.flyer_url || "",
       ticketLink: data.promoter_info?.ticket_link || "",
       ticketPrice: data.promoter_info?.ticket_price || "",
@@ -174,6 +175,7 @@ function OwnerSheet({ showId, onClose }) {
           ages: draft.ages.trim(),
           note: draft.note.trim(),
           address: draft.address.trim(),
+          venue_where: draft.venueWhere,
           flyer_url: draft.flyer,
           entry: draft.entry,
           email_subject: draft.emailSubject.trim(),
@@ -230,7 +232,7 @@ function OwnerSheet({ showId, onClose }) {
   const shownTabs = draft ? [
     { key: "name", label: "Name and icon", always: true, summary: row?.event_name || row?.band_name || "Untitled event" },
     { key: "date", label: "Date", summary: dateText || "No date set" },
-    { key: "venue", label: "Venue and address", summary: [row?.venue, draft.address].filter(Boolean).join(", ") || "No venue set" },
+    { key: "venue", label: "Venue and address", summary: draft.venueWhere === "email" ? `Confirmation email only${row?.venue ? ` · ${row.venue}` : ""}` : draft.venueWhere === "page" ? `Fan page only${row?.venue ? ` · ${row.venue}` : ""}` : [row?.venue, draft.address].filter(Boolean).join(", ") || "No venue set" },
     { key: "times", label: "Doors, show time, ages", summary: [doors && `Doors ${doors}`, draft.showTime, draft.ages].filter(Boolean).join(" · ") || "Nothing added" },
     { key: "tickets", label: rsvp ? "Door price" : "Ticket link and price", summary: rsvp ? (draft.ticketPrice ? `${draft.ticketPrice} at the door` : "No price") : (draft.ticketLink ? clip(draft.ticketLink.replace(/^https?:\/\//, "")) : "No link yet") },
     { key: "band", label: "Artist name", summary: row?.band_name || "Not set" },
@@ -276,7 +278,22 @@ function OwnerSheet({ showId, onClose }) {
       <>
         {readOnly([row?.venue, placeText].filter(Boolean).join(", "), "No venue set on the event")}
         <input className={`${inputCls} mt-2`} placeholder="Street address (used for the map link)" value={draft?.address || ""} onChange={(e) => set({ address: e.target.value })} />
-        {note("Untick it for private events and speakeasies: the venue, address and map link stay off the page and out of emails.")}
+        <div className="mt-3 text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>WHERE FANS SEE IT</div>
+        <div role="radiogroup" aria-label="Where fans see the venue" className="mt-1.5 grid grid-cols-3 gap-1 p-1 rounded-[10px] bg-[#111] border border-[#1f1f1f]">
+          {[["page", "Fan page"], ["email", "Confirmation email"], ["both", "Both"]].map(([k, l]) => {
+            const on = draft?.venueWhere === k;
+            return (
+              <button key={k} type="button" role="radio" aria-checked={on} onClick={() => set({ venueWhere: k })} className="py-2 rounded-[7px] text-[13px] font-semibold transition-colors" style={on ? { background: "rgba(140,255,61,0.14)", color: "#8CFF3D", boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>
+                {l}
+              </button>
+            );
+          })}
+        </div>
+        {note(draft?.venueWhere === "email"
+          ? `Only people who ${rsvp ? "RSVP" : "buy a ticket through Eventbrite"} get the venue, address and a map button, in their confirmation email. The fan page doesn't show where it is.`
+          : draft?.venueWhere === "page"
+            ? "The fan page shows the venue, address and map link. Confirmation emails leave them out."
+            : `The fan page and the confirmation email both show the venue, address and map button. Untick it for private events: it stays off the page and out of emails.`)}
       </>
     ),
     times: (
@@ -379,7 +396,7 @@ function OwnerSheet({ showId, onClose }) {
             </button>
           )}
         </div>
-        {note(`Parking instructions, a map, anything fans need. PDFs or images, up to ${MAX_FILES} files, ${MAX_FILE_MB} MB each. Sent with every ${rsvp ? "RSVP confirmation" : "fan"} email, never shown on the public page.`)}
+        {note(`Parking instructions, a map, anything fans need. PDFs or images, up to ${MAX_FILES} files, ${MAX_FILE_MB} MB each. Only sent with the confirmation email ${rsvp ? "to people who RSVP" : "to Eventbrite ticket buyers"}, never shown on the public page or sent to people who just ask for the info.`)}
       </>
     ),
     eventbrite: (
