@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -9,10 +10,25 @@ const G = "#8CFF3D";
 // signed-in user owns. With a lineup, it also shows how many people are
 // coming for each artist. "Copy list" gives a plain door list (name and
 // party size, alphabetical, grouped by artist when there's a lineup).
+// The host can remove an RSVP (e.g. a test one); that also lets the same
+// address get the confirmation email again if they RSVP for real.
 export default function RsvpList({ showId, tall = false }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
+  // Remove: the row asks "Remove?" inline first, so one tap can't lose an RSVP.
+  const [confirmId, setConfirmId] = useState(null);
+  const [removing, setRemoving] = useState(null);
+
+  const remove = async (r) => {
+    setRemoving(r.id);
+    setErr("");
+    const { data, error } = await supabase.rpc("remove_fan_rsvp", { p_rsvp_id: r.id });
+    setRemoving(null);
+    setConfirmId(null);
+    if (error || !data) { setErr("Couldn't remove that RSVP. Try again."); return; }
+    setRows((rs) => (rs || []).filter((x) => x.id !== r.id));
+  };
 
   const load = () => {
     setErr("");
@@ -98,8 +114,19 @@ export default function RsvpList({ showId, tall = false }) {
                     <div className="text-[15px] font-semibold text-white truncate">{r.name}</div>
                     <div className="text-[11px] text-white/40 truncate">{[r.artist_name, r.email].filter(Boolean).join(" · ")}</div>
                   </div>
-                  <span className="text-[11px] text-white/35 shrink-0">{when(r.created_at)}</span>
-                  <span className="w-8 text-right text-base font-bold shrink-0" style={{ fontFamily: SCENE_MONO, color: "#fff" }}>×{r.guests}</span>
+                  {confirmId === r.id ? (
+                    <>
+                      <span className="text-[12px] text-white/60 shrink-0">Remove?</span>
+                      <button type="button" disabled={removing === r.id} onClick={() => remove(r)} className="px-2.5 py-1 rounded-md text-[12px] font-bold shrink-0 disabled:opacity-50" style={{ background: "rgba(255,107,107,0.15)", border: "1px solid rgba(255,107,107,0.5)", color: "#FF8A8A" }}>{removing === r.id ? "..." : "Remove"}</button>
+                      <button type="button" onClick={() => setConfirmId(null)} className="px-2 py-1 text-[12px] text-white/50 hover:text-white shrink-0">Keep</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[11px] text-white/35 shrink-0">{when(r.created_at)}</span>
+                      <span className="w-8 text-right text-base font-bold shrink-0" style={{ fontFamily: SCENE_MONO, color: "#fff" }}>×{r.guests}</span>
+                      <button type="button" onClick={() => setConfirmId(r.id)} aria-label={`Remove ${r.name}'s RSVP`} title="Remove RSVP" className="p-1 -mr-1 text-white/30 hover:text-[#FF8A8A] shrink-0"><X className="w-4 h-4" /></button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
