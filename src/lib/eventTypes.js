@@ -102,20 +102,30 @@ export async function addGenreTag(preferences, rawName) {
 
 // ---- Colors -------------------------------------------------------------
 // Each event type has its own color so a mixed calendar reads at a glance
-// (a stripe + tag on every row). Built-ins are fixed; a custom type gets a
-// stable color derived from its name, so it looks the same everywhere
-// without needing any extra storage.
+// (a stripe + tag on every row). None of the defaults reuse a Home filter
+// color (NEW gray, FREQ blue, WORKED green, STAR amber, LINK pink), so a
+// concert never looks like a "frequent" show. A custom type gets a stable
+// color derived from its name. On top of that, each person can pick their
+// own color per type (user_preferences.event_type_colors), which applies
+// on their screens only - linked events included.
 export const EVENT_TYPE_COLORS = {
-  "concert": "#38BDF8",
-  "comedy show": "#FACC15",
-  "festival": "#34D399",
-  "theatre play": "#A78BFA",
-  "corporate event": "#94A3B8",
-  "private party": "#F472B6",
-  "open mic": "#FB923C",
-  "other": "#9A9A9A",
+  "concert": "#A78BFA",
+  "comedy show": "#F87171",
+  "festival": "#2DD4BF",
+  "theatre play": "#D946EF",
+  "corporate event": "#22D3EE",
+  "private party": "#FF7A45",
+  "open mic": "#E8D5A6",
+  "other": "#CBD5E1",
 };
-const CUSTOM_TYPE_PALETTE = ["#F87171", "#2DD4BF", "#C084FC", "#FBBF24", "#818CF8", "#4ADE80", "#F472B6", "#22D3EE"];
+const CUSTOM_TYPE_PALETTE = ["#F87171", "#2DD4BF", "#A78BFA", "#22D3EE", "#D946EF", "#FF7A45", "#E8D5A6"];
+
+// What the color picker offers: the defaults plus a few more, still none of
+// the filter colors.
+export const EVENT_COLOR_CHOICES = [
+  "#A78BFA", "#8B5CF6", "#D946EF", "#F87171", "#DC2626", "#FF7A45",
+  "#E8D5A6", "#2DD4BF", "#22D3EE", "#CBD5E1", "#F5F5F5", "#A16207",
+];
 
 // Fill for a whole event bar: a wash of the type's color fading to the
 // normal dark surface, so rows read as color-coded at a glance.
@@ -124,11 +134,70 @@ export function typeBarBackground(color, base = "#111111") {
   return `linear-gradient(90deg, ${color}2e 0%, ${color}12 45%, ${base} 100%), ${base}`;
 }
 
-export function eventTypeColor(type) {
-  const t = (type || "").trim().toLowerCase();
+const typeKey = (type) => (type || "").trim().toLowerCase();
+const HEX = /^#[0-9a-f]{6}$/i;
+
+// The signed-in person's own picks, keyed by lowercased type. Kept in
+// memory for every component and mirrored to this browser so pages that
+// don't load preferences themselves (an event board opened from a link)
+// still show the same colors.
+const CACHE_KEY = "showpilot_event_type_colors";
+function cleanColors(map) {
+  const out = {};
+  if (map && typeof map === "object") {
+    for (const [k, v] of Object.entries(map)) {
+      const key = typeKey(k);
+      if (key && typeof v === "string" && HEX.test(v)) out[key] = v;
+    }
+  }
+  return out;
+}
+let myColors = (() => {
+  try { return cleanColors(JSON.parse(localStorage.getItem(CACHE_KEY) || "{}")); } catch { return {}; }
+})();
+
+export const EVENT_COLORS_EVENT = "showpilot:event-type-colors";
+export function setMyEventTypeColors(map, { announce = false } = {}) {
+  myColors = cleanColors(map);
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(myColors)); } catch {}
+  // After a save, tell every mounted screen so it repaints with the new
+  // colors (the settings drawer and the page behind it don't share state).
+  if (announce && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(EVENT_COLORS_EVENT, { detail: myColors }));
+}
+export function getMyEventTypeColors() {
+  return myColors;
+}
+
+// The built-in or name-derived color, ignoring anyone's own picks - for
+// public pages (fan page, event sky) that every visitor sees the same.
+export function defaultEventTypeColor(type) {
+  const t = typeKey(type);
   if (!t) return null;
   if (EVENT_TYPE_COLORS[t]) return EVENT_TYPE_COLORS[t];
   let h = 0;
   for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
   return CUSTOM_TYPE_PALETTE[h % CUSTOM_TYPE_PALETTE.length];
+}
+
+export function eventTypeColor(type) {
+  const t = typeKey(type);
+  if (!t) return null;
+  return myColors[t] || defaultEventTypeColor(t);
+}
+
+// Saves one type's color for the signed-in person (null resets it to the
+// default). Returns the saved map.
+export async function saveMyEventTypeColor(preferences, type, color) {
+  const t = typeKey(type);
+  if (!t) return getMyEventTypeColors();
+  const next = { ...cleanColors(preferences?.event_type_colors) };
+  if (color && HEX.test(color)) next[t] = color; else delete next[t];
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+  const { error } = await supabase
+    .from("user_preferences")
+    .upsert({ user_id: user.id, event_type_colors: next }, { onConflict: "user_id" });
+  if (error) throw error;
+  setMyEventTypeColors(next, { announce: true });
+  return next;
 }

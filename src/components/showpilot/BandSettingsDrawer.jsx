@@ -148,6 +148,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
           onSave={save} saving={saving}
           canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}
           ratingComment={ratingComment} setRatingComment={setRatingComment} ratingSubmitting={ratingSubmitting} onSubmitRating={submitRating}
+          onColorsSaved={() => onPreferencesUpdate?.()}
           onSignOut={handleSignOut}
         />
       </SheetContent>

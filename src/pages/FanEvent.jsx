@@ -4,7 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import RsvpCard from "@/components/showpilot/RsvpCard";
-import { eventTypeColor } from "@/lib/eventTypes";
+import { defaultEventTypeColor } from "@/lib/eventTypes";
 import { normalizeLink } from "@/lib/links";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -92,7 +92,7 @@ export default function FanEvent() {
     );
   }
 
-  const color = eventTypeColor(ev.event_type) || "#8CFF3D";
+  const color = defaultEventTypeColor(ev.event_type) || "#8CFF3D";
   const dateLabel = ev.date
     ? new Date(ev.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()
     : "";

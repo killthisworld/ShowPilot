@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { readPendingAccountType, clearPendingAccountType } from "@/lib/pendingAccountType";
+import { setMyEventTypeColors, EVENT_COLORS_EVENT } from "@/lib/eventTypes";
 
 // Several components load preferences at once; only one of them needs to
 // copy a Google sign-up's role onto the account.
@@ -27,6 +28,7 @@ export function usePreferences() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        setMyEventTypeColors({});
         setPreferences(null);
         setLoading(false);
         return;
@@ -44,6 +46,9 @@ export function usePreferences() {
         // The account is set up; a role remembered for a Google sign-up is
         // no longer needed (and never changes an existing account).
         clearPendingAccountType();
+        // This person's own event-type colors, set before the state update so
+        // everything that re-renders with it already uses them.
+        setMyEventTypeColors(existing.event_type_colors);
         setPreferences(existing);
       } else {
         // Email sign-up stores the role on the account; Google sign-up
@@ -73,6 +78,7 @@ export function usePreferences() {
           accountTypeSynced = true;
           supabase.auth.updateUser({ data: { account_type: accountType } }).then(({ error }) => { if (error) console.error(error); });
         }
+        setMyEventTypeColors(created?.event_type_colors);
         setPreferences(created);
       }
     } catch (e) {
@@ -82,6 +88,14 @@ export function usePreferences() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Event colors saved anywhere (e.g. the drawer in the side rail) repaint
+  // this screen too.
+  useEffect(() => {
+    const onColors = (e) => setPreferences((p) => (p ? { ...p, event_type_colors: e.detail } : p));
+    window.addEventListener(EVENT_COLORS_EVENT, onColors);
+    return () => window.removeEventListener(EVENT_COLORS_EVENT, onColors);
+  }, []);
 
   return { preferences, loading, reload: load, setPreferences };
 }

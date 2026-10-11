@@ -2,6 +2,7 @@ import React from "react";
 import { User, LogOut, Star } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import EventTypeColors from "@/components/showpilot/EventTypeColors";
 
 // The body of the Settings drawer, in the same console language as the
 // homes: a profile readout card, mono field labels, bank-style navigation
@@ -14,7 +15,7 @@ export default function SettingsPanel({
   prefs, setPrefs, user, accountStyle, onPhoto,
   navItems, onSave, saving,
   canRate, daysSinceRating, rating, setRating, ratingComment, setRatingComment, ratingSubmitting, onSubmitRating,
-  onSignOut,
+  onSignOut, onColorsSaved,
 }) {
   const color = accountStyle.color;
   const AccIcon = accountStyle.icon;
@@ -68,6 +69,8 @@ export default function SettingsPanel({
           </button>
         ))}
       </div>
+
+      <EventTypeColors preferences={prefs} onSaved={onColorsSaved} />
 
       <button
         type="button"

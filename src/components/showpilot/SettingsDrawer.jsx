@@ -145,6 +145,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
           onSave={save} saving={saving}
           canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}
           ratingComment={ratingComment} setRatingComment={setRatingComment} ratingSubmitting={ratingSubmitting} onSubmitRating={submitRating}
+          onColorsSaved={() => onPreferencesUpdate?.()}
           onSignOut={handleLogout}
         />
       </SheetContent>
