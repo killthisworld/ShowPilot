@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { motion } from "framer-motion";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar, Link2, Users, ExternalLink } from "lucide-react";
@@ -11,7 +12,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
 export default function Logbook() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   // A wrap-celebration ending on BandHome lands here with the show that
   // just wrapped, instead of this always opening on the cover page - this
@@ -213,7 +214,7 @@ export default function Logbook() {
               <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${coverSettings.overlay_darkness ?? 0.5})` }} />
             </>
           )}
-          <button onClick={() => navigate(-1)} className="absolute top-4 left-4 p-2 text-white/60 hover:text-white z-10">
+          <button onClick={() => goBack()} className="absolute top-4 left-4 p-2 text-white/60 hover:text-white z-10">
             <ArrowLeft className="w-5 h-5" />
           </button>
 

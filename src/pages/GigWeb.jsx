@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
@@ -85,7 +86,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const token = tokenProp || params.get("token");
-  const goBack = () => (onClose ? onClose() : navigate("/"));
+  const goBackInApp = useGoBack("/");
+  const goBack = () => (onClose ? onClose() : goBackInApp());
   const { preferences } = usePreferences();
   const isDesktop = useIsDesktop();
   const isTechProductionAccount = TECHNICAL_PRODUCTION_TYPES.includes(preferences?.account_type || "engineer");

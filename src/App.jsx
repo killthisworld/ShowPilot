@@ -43,6 +43,7 @@ import About from '@/pages/About';
 import DjTools from '@/pages/DjTools';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
+import { NavTracker } from '@/lib/navHistory';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -114,6 +115,7 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router>
           <ScrollToTop />
+          <NavTracker />
           <AuthenticatedApp />
         </Router>
         <Toaster />

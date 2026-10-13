@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { ArrowLeft } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
@@ -13,7 +14,7 @@ import SpaceDrift from "@/components/showpilot/SpaceDrift";
 // star every few seconds. Reduced motion: still sky only.
 export default function About() {
   const navigate = useNavigate();
-  const back = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
+  const back = useGoBack("/");
 
   return (
     <div

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
@@ -18,7 +19,7 @@ export const ROOM_META = {
 export const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
 
 export default function GigRooms() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const preselectRoom = params.get("room");
@@ -108,7 +109,7 @@ export default function GigRooms() {
     <div className="h-screen bg-[#0d0d0d] flex flex-col">
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(`/gig/web?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
+          <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="min-w-0">

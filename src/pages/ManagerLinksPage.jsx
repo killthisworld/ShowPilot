@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Copy, Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ManagerLinksPage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -205,7 +206,7 @@ export default function ManagerLinksPage() {
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-lg mx-auto">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-white/60 hover:text-white">
+            <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-bold text-white">Manage Links</h1>

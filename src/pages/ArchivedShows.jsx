@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Search, ArchiveRestore, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePreferences } from "@/hooks/usePreferences";
 
 export default function ArchivedShows() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const { preferences } = usePreferences();
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
   const [shows, setShows] = useState([]);
@@ -119,7 +120,7 @@ export default function ArchivedShows() {
     <div className="min-h-screen bg-[#0d0d0d] pb-10">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto">
-          <button onClick={() => navigate(-1)} className="p-1 -ml-1 text-white/60 hover:text-white">
+          <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold text-white">Archived Shows</h1>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import {
   ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronRight, Copy, Disc3, ExternalLink, FileAudio,
   FolderOpen, Loader2, Plus, RefreshCw, Trash2,
@@ -35,7 +36,7 @@ async function copyText(text) {
 // DJ Tools: connect Google Drive, make a set link per event, build the running
 // order, send each artist their own link, and see what's come in.
 export default function DjTools() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const [drive, setDrive] = useState({ loading: true });
   const [requests, setRequests] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -165,7 +166,7 @@ export default function DjTools() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
       <header className="flex flex-wrap items-center gap-4 px-6 py-3 border-b border-[#1a1a1a]">
-        <button type="button" onClick={() => navigate(-1)} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
+        <button type="button" onClick={() => goBack()} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
         <Disc3 className="w-7 h-7" style={{ color: PINK }} />
         <div>
           <h1 className="text-3xl font-bold leading-none tracking-wide">DJ Tools</h1>

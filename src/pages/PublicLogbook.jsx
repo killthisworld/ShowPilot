@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
 
 export default function PublicLogbook() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
 
@@ -115,7 +116,7 @@ export default function PublicLogbook() {
       {showingCover ? (
         <div className="relative min-h-screen flex flex-col items-center justify-center text-center px-6">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => goBack()}
             className="absolute top-5 left-5 z-20 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -176,7 +177,7 @@ export default function PublicLogbook() {
           <div className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-b border-white/5">
             <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-2xl mx-auto">
               <div className="flex items-center gap-3">
-                <button onClick={() => navigate(-1)} className="p-1.5 -ml-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5">
+                <button onClick={() => goBack()} className="p-1.5 -ml-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <button onClick={() => setShowingCover(true)} className="flex items-center gap-1.5 text-white/60 hover:text-white text-sm">

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -45,7 +45,15 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, user } = useAuth();
+  const navigate = useNavigate();
+  // Already signed in when this page opens (e.g. reached through browser
+  // back): go to the app. Not after signing up here, which shows its own
+  // "check your email" step.
+  const [arrivedSignedIn] = useState(() => !!user);
+  useEffect(() => {
+    if (arrivedSignedIn) navigate("/", { replace: true });
+  }, [arrivedSignedIn]); // eslint-disable-line react-hooks/exhaustive-deps
   const { toast } = useToast();
 
   const role = ROLES.find((r) => r.value === accountType);

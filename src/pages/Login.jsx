@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,6 +12,19 @@ export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Already signed in (e.g. landed here through browser back): go on to
+  // the app instead of showing a sign-in form that looks like a sign-out.
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    let redirectTo = new URLSearchParams(window.location.search).get("redirect");
+    if (!redirectTo) {
+      try { redirectTo = sessionStorage.getItem("post_auth_redirect"); } catch {}
+    }
+    try { sessionStorage.removeItem("post_auth_redirect"); } catch {}
+    navigate(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/", { replace: true });
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -23,7 +36,9 @@ export default function Login() {
         try { redirectTo = sessionStorage.getItem("post_auth_redirect"); } catch {}
       }
       try { sessionStorage.removeItem("post_auth_redirect"); } catch {}
-      navigate(redirectTo || "/");
+      // Replace, so back from the next screen never lands on Sign in. (The
+      // signed-in check above usually gets there first.)
+      if (window.location.pathname === "/login") navigate(redirectTo || "/", { replace: true });
     } catch (err) {
       toast({ title: "Couldn't sign you in", description: err.message, variant: "destructive" });
     }

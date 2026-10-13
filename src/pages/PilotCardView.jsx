@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft, ExternalLink } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
@@ -15,7 +16,7 @@ const SOUNDWAVE_TEMPLATES = {
 
 export default function PilotCardView() {
   const { token } = useParams();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   // Both this and the Rooms page's own back button navigate to a fixed,
   // known destination rather than browser history (-1) - relying on
@@ -148,7 +149,7 @@ export default function PilotCardView() {
       }}
     >
       <button
-        onClick={() => navigate(backTo)}
+        onClick={() => goBack(backTo)}
         className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
       >
         <ArrowLeft className="w-5 h-5" />

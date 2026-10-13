@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +65,7 @@ const emptyBand = (role, sortOrder) => ({
 
 export default function ShowDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
   const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
@@ -901,7 +902,7 @@ export default function ShowDetail() {
 
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <button onClick={() => navigate(backTo)} className="p-2 -ml-2 rounded-lg hover:bg-white/5">
+          <button onClick={() => goBack(backTo)} className="p-2 -ml-2 rounded-lg hover:bg-white/5">
             <ArrowLeft className="w-5 h-5 text-white/70" />
           </button>
           <div className="flex items-center gap-1">

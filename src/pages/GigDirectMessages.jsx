@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Send, Plus, User, X } from "lucide-react";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
@@ -33,7 +34,7 @@ function Avatar({ photoUrl, size = "w-7 h-7" }) {
 }
 
 export default function GigDirectMessages() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); const goBack = useGoBack();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const preselectThread = params.get("thread");
@@ -199,7 +200,7 @@ export default function GigDirectMessages() {
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button
-            onClick={() => (activeThread ? setActiveThread(null) : navigate(`/gig/web?token=${token}`))}
+            onClick={() => (activeThread ? setActiveThread(null) : goBack(`/gig/web?token=${token}`))}
             className="p-1 text-white/60 hover:text-white shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />

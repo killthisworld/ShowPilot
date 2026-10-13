@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useGoBack, previousScreen } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
@@ -38,8 +39,8 @@ export default function FanEvent() {
   // signed-in ShowPilot user (falls back to their home).
   const [signedIn, setSignedIn] = useState(false);
   useEffect(() => { supabase.auth.getSession().then(({ data }) => setSignedIn(!!data?.session)); }, []);
-  const hasHistory = typeof window !== "undefined" && window.history.length > 1;
-  const goBack = () => (hasHistory ? navigate(-1) : navigate("/"));
+  const hasHistory = !!previousScreen();
+  const goBack = useGoBack("/");
   const [state, setState] = useState("loading");
   // "Email me the event info" opt-in. One email per fan per event.
   const [wantEmail, setWantEmail] = useState(false);
