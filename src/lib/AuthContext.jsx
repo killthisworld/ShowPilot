@@ -71,7 +71,7 @@ export function AuthProvider({ children }) {
   const updateEmail = async (newEmail) => {
     const { data, error } = await supabase.auth.updateUser(
       { email: newEmail },
-      { emailRedirectTo: window.location.origin },
+      { emailRedirectTo: `${window.location.origin}/email-change` },
     );
     if (error) throw error;
     if (data?.user) setUser(data.user);

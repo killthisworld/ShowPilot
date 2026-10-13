@@ -11,6 +11,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
+import EmailChange from '@/pages/EmailChange';
 import Home from '@/pages/Home';
 import HomeRouter from '@/pages/HomeRouter';
 import EventbriteCallback from '@/pages/EventbriteCallback';
@@ -71,6 +72,7 @@ const AuthenticatedApp = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/email-change" element={<EmailChange />} />
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
