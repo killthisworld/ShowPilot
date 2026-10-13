@@ -9,6 +9,7 @@ import moment from "moment";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import CalendarHeader from "@/components/showpilot/CalendarHeader";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -280,6 +281,7 @@ export default function CalendarPage() {
                 const isCurrentMonth = day.isSame(currentMonth, "month");
                 const isToday = day.isSame(moment(), "day");
                 const hasShows = dayShows.length > 0;
+                const photos = isCurrentMonth && hasDayPhotos(dayShows);
 
                 return (
                   <div
@@ -296,12 +298,15 @@ export default function CalendarPage() {
                     className={`relative rounded-xl overflow-hidden transition-all duration-150 ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "!bg-[#1b2a0e] !border-[#D2FF85] ring-[3px] ring-[#D2FF85] shadow-[0_0_26px_6px_#C6FF6BAA] scale-[1.05] z-10" : ""}`}
                     style={{ minHeight: hasShows ? "92px" : "68px" }}
                   >
-                    <div className="px-1.5 pt-1.5">
-                      <span className={`text-[13px] font-medium ${selectedDate === key ? "text-[#D2FF85] font-bold" : isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
+                    {photos && (
+                      <DayPhotoBands events={dayShows} colorOf={getShowAccentColor} keyOf={(x) => x.id} max={2} titleClass="text-[10px]" showTitles={dayShows.length === 1} />
+                    )}
+                    <div className="relative z-10 px-1.5 pt-1.5">
+                      <span className={`text-[13px] font-medium ${selectedDate === key ? "text-[#D2FF85] font-bold" : isToday ? "text-[#8CFF3D] font-bold" : photos ? "text-white font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO, textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>
                         {day.date()}
                       </span>
                     </div>
-                    {dayShows.slice(0, 2).map((s) => {
+                    {!photos && dayShows.slice(0, 2).map((s) => {
                       const color = getShowAccentColor(s);
                       return (
                         <div key={s.id} className="w-full mt-1 px-1.5 pb-0.5">
@@ -314,7 +319,7 @@ export default function CalendarPage() {
                         </div>
                       );
                     })}
-                    {dayShows.length > 2 && (
+                    {!photos && dayShows.length > 2 && (
                       <p className="w-full px-1.5 pb-1 text-[10px] text-white/30 text-center">
                         +{dayShows.length - 2} more
                       </p>

@@ -12,6 +12,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import useIsDesktop from "@/hooks/useIsDesktop";
+import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -151,6 +152,7 @@ export default function BandCalendar() {
                     const dayGigs = inMonth ? (gigsByDate[key] || []) : [];
                     const isToday = key === todayKey;
                     const isSel = inMonth && activeKey === key;
+                    const photos = hasDayPhotos(dayGigs);
                     return (
                       <div
                         key={key}
@@ -162,11 +164,14 @@ export default function BandCalendar() {
                           boxShadow: isSel ? "0 0 22px 4px rgba(198,255,107,0.55)" : undefined,
                         }}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold" style={{ fontFamily: SCENE_MONO, color: isSel ? "#D2FF85" : isToday && inMonth ? "#8CFF3D" : inMonth ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.15)" }}>{day.date()}</span>
-                          {isToday && inMonth && <span className="text-[9px] tracking-[0.08em] text-[#8CFF3D]" style={{ fontFamily: SCENE_MONO }}>TODAY</span>}
+                        {photos && (
+                          <DayPhotoBands events={dayGigs} colorOf={getGigColor} keyOf={(g) => (g.is_owned ? g.id : g.share_token)} onOpen={openGig} max={3} titleClass="text-[13px]" />
+                        )}
+                        <div className="relative z-10 flex items-center justify-between pointer-events-none">
+                          <span className="text-sm font-semibold" style={{ fontFamily: SCENE_MONO, color: isSel ? "#D2FF85" : isToday && inMonth ? "#8CFF3D" : photos ? "#fff" : inMonth ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.15)", textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>{day.date()}</span>
+                          {isToday && inMonth && <span className="text-[9px] tracking-[0.08em] text-[#8CFF3D]" style={{ fontFamily: SCENE_MONO, textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>TODAY</span>}
                         </div>
-                        {dayGigs.slice(0, 3).map((g) => {
+                        {!photos && dayGigs.slice(0, 3).map((g) => {
                           const color = getGigColor(g);
                           return (
                             <button
@@ -180,7 +185,7 @@ export default function BandCalendar() {
                             </button>
                           );
                         })}
-                        {dayGigs.length > 3 && <span className="text-[10px] text-white/45" style={{ fontFamily: SCENE_MONO }}>+{dayGigs.length - 3} more</span>}
+                        {!photos && dayGigs.length > 3 && <span className="text-[10px] text-white/45" style={{ fontFamily: SCENE_MONO }}>+{dayGigs.length - 3} more</span>}
                       </div>
                     );
                   })}
@@ -269,6 +274,7 @@ export default function BandCalendar() {
               const isCurrentMonth = day.month() === currentMonth.month();
               const isToday = day.isSame(moment(), "day");
               const hasGigs = dayGigs.length > 0;
+              const photos = isCurrentMonth && hasDayPhotos(dayGigs);
               return (
                 <div
                   key={i}
@@ -284,12 +290,15 @@ export default function BandCalendar() {
                   className={`relative rounded-xl overflow-hidden transition-all duration-150 ${isCurrentMonth ? "bg-[#111111] border border-[#1f1f1f] cursor-pointer hover:bg-[#161616]" : "bg-transparent"} ${isToday && isCurrentMonth ? "!border-[#8CFF3D]/70" : ""} ${selectedDate === key ? "!bg-[#1b2a0e] !border-[#D2FF85] ring-[3px] ring-[#D2FF85] shadow-[0_0_26px_6px_#C6FF6BAA] scale-[1.05] z-10" : ""}`}
                   style={{ minHeight: hasGigs ? "70px" : "52px" }}
                 >
-                  <div className="px-1.5 pt-1.5">
-                    <span className={`text-[13px] font-medium ${selectedDate === key ? "text-[#D2FF85] font-bold" : isToday ? "text-[#8CFF3D] font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO }}>
+                  {photos && (
+                    <DayPhotoBands events={dayGigs} colorOf={getGigColor} keyOf={(g) => (g.is_owned ? g.id : g.share_token)} max={2} titleClass="text-[9px]" showTitles={dayGigs.length === 1} />
+                  )}
+                  <div className="relative z-10 px-1.5 pt-1.5">
+                    <span className={`text-[13px] font-medium ${selectedDate === key ? "text-[#D2FF85] font-bold" : isToday ? "text-[#8CFF3D] font-bold" : photos ? "text-white font-bold" : isCurrentMonth ? "text-white/60" : "text-white/15"}`} style={{ fontFamily: SCENE_MONO, textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>
                       {day.date()}
                     </span>
                   </div>
-                  {dayGigs.slice(0, 1).map((g) => {
+                  {!photos && dayGigs.slice(0, 1).map((g) => {
                     const color = getGigColor(g);
                     return (
                       <div key={g.is_owned ? g.id : g.share_token} className="w-full mt-1 px-1.5 pb-1">
@@ -301,7 +310,7 @@ export default function BandCalendar() {
                       </div>
                     );
                   })}
-                  {dayGigs.length > 1 && (
+                  {!photos && dayGigs.length > 1 && (
                     <p className="text-[9px] text-white/30 px-1.5 pb-1">+{dayGigs.length - 1} more</p>
                   )}
                 </div>
