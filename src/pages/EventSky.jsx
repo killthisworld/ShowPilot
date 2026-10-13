@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { hashColor, hashString, seededRandom } from "@/lib/constellation";
-import { defaultEventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import SkyKey from "@/components/showpilot/SkyKey";
 import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
@@ -151,7 +150,8 @@ export default function EventSky() {
     return () => clearInterval(id);
   }, [phase, load]);
 
-  const color = defaultEventTypeColor(sky?.event?.event_type) || "#8CFF3D";
+  // Fan-facing pages always use Show Pilot green, whatever the event type.
+  const color = "#8CFF3D";
   const stars = sky?.stars || [];
   const layout = useMemo(() => skyLayout(stars, field.w, field.h), [stars, field.w, field.h]);
 
