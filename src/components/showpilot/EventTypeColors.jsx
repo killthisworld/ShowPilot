@@ -9,31 +9,41 @@ import {
 
 // "Event colors" in the Settings drawer: every event type this person deals
 // with (the built-ins, ones they added, and any type on their own or linked
-// events), each with a swatch. Tap a swatch, pick a preset or any color from
-// the Custom picker, and it's saved straight away; it only changes this
-// person's screens. Default puts the type back to the built-in color.
+// events), each with a swatch. Tap a swatch and pick a preset (saved straight
+// away) or any color from the Custom picker (saved when you press Set); it
+// only changes this person's screens. Default puts the type back to the built-in color.
 // "Add an event type" at the bottom saves a new type (with its color) to the
 // same list the event forms and Home filters use, so it shows up there too.
 
-// The native color picker fires on every drag step; save once it settles.
-function useDebounced(fn, ms) {
-  const t = React.useRef(null);
-  React.useEffect(() => () => clearTimeout(t.current), []);
-  return (...args) => { clearTimeout(t.current); t.current = setTimeout(() => fn(...args), ms); };
-}
+// Readable text on top of any picked color.
+const inkOn = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+  return lum > 140 ? "#0d0d0d" : "#ffffff";
+};
 
+// Custom: the native picker only previews; nothing is saved until Set.
 function CustomSwatch({ value, onPick, label = "Custom" }) {
   const [v, setV] = useState(value || "#ffffff");
-  useEffect(() => { if (value) setV(value); }, [value]);
-  const save = useDebounced(onPick, 450);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => { if (value) { setV(value); setTouched(false); } }, [value]);
+  const pending = touched && v.toLowerCase() !== (value || "").toLowerCase();
   return (
-    <label className="relative h-7 pl-1.5 pr-2 rounded-md border border-[#2a2a2a] flex items-center gap-1.5 cursor-pointer hover:border-white/40 text-[10px] tracking-[0.08em] text-white/70" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
-      <span className="w-4 h-4 rounded-sm" style={{ background: "conic-gradient(#f87171, #fbbf24, #8cff3d, #22d3ee, #a78bfa, #f472b6, #f87171)" }} />
-      <Pipette className="w-3 h-3" /> {label.toUpperCase()}
-      <input type="color" value={v} onChange={(e) => { setV(e.target.value); save(e.target.value); }} className="absolute inset-0 opacity-0 cursor-pointer" aria-label={`${label} color`} />
-    </label>
+    <span className="flex items-center gap-1.5">
+      <label className="relative h-7 pl-1.5 pr-2 rounded-md border border-[#2a2a2a] flex items-center gap-1.5 cursor-pointer hover:border-white/40 text-[10px] tracking-[0.08em] text-white/70" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
+        <span className="w-4 h-4 rounded-sm" style={{ background: pending ? v : "conic-gradient(#f87171, #fbbf24, #8cff3d, #22d3ee, #a78bfa, #f472b6, #f87171)", boxShadow: pending ? "0 0 0 1px rgba(255,255,255,0.4)" : "none" }} />
+        <Pipette className="w-3 h-3" /> {pending ? v.toUpperCase() : label.toUpperCase()}
+        <input type="color" value={v} onChange={(e) => { setV(e.target.value); setTouched(true); }} className="absolute inset-0 opacity-0 cursor-pointer" aria-label={`${label} color`} />
+      </label>
+      {pending && (
+        <button type="button" onClick={() => onPick(v)} className="h-7 px-2.5 rounded-md text-[11px] font-bold tracking-[0.06em]" style={{ background: v, color: inkOn(v), boxShadow: "0 0 0 1px rgba(255,255,255,0.25)", fontFamily: SCENE_MONO }}>
+          SET
+        </button>
+      )}
+    </span>
   );
 }
+
 export default function EventTypeColors({ preferences, onSaved }) {
   const [open, setOpen] = useState(false);
   const [types, setTypes] = useState(() => buildEventTypeOptions([], preferences?.custom_event_types));
