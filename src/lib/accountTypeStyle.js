@@ -14,6 +14,23 @@ export const ACCOUNT_TYPE_STYLES = {
   lighting: { label: "Lighting Tech", color: "#8CFF3D", icon: Lightbulb },
 };
 
+// The account type is remembered on this device, so screens that draw before
+// preferences have loaded (the "Pilot" in the home header) start in the right
+// color instead of flashing the engineer green first.
+const TYPE_CACHE_KEY = "showpilot_account_type";
+let cachedType = (() => {
+  try { return localStorage.getItem(TYPE_CACHE_KEY) || null; } catch { return null; }
+})();
+
+export function rememberAccountType(accountType) {
+  const t = ACCOUNT_TYPE_STYLES[accountType] ? accountType : null;
+  if (t === cachedType) return;
+  cachedType = t;
+  try {
+    if (t) localStorage.setItem(TYPE_CACHE_KEY, t); else localStorage.removeItem(TYPE_CACHE_KEY);
+  } catch { /* private mode: the flash just comes back */ }
+}
+
 export function getAccountTypeStyle(accountType) {
-  return ACCOUNT_TYPE_STYLES[accountType] || ACCOUNT_TYPE_STYLES.engineer;
+  return ACCOUNT_TYPE_STYLES[accountType] || ACCOUNT_TYPE_STYLES[cachedType] || ACCOUNT_TYPE_STYLES.engineer;
 }

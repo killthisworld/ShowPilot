@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { readPendingAccountType, clearPendingAccountType } from "@/lib/pendingAccountType";
-import { setMyEventTypeColors, EVENT_COLORS_EVENT } from "@/lib/eventTypes";
+import { setMyEventTypeColors, EVENT_COLORS_EVENT, EVENT_TYPES_EVENT } from "@/lib/eventTypes";
+import { rememberAccountType } from "@/lib/accountTypeStyle";
 
 // Several components load preferences at once; only one of them needs to
 // copy a Google sign-up's role onto the account.
@@ -29,6 +30,7 @@ export function usePreferences() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setMyEventTypeColors({});
+        rememberAccountType(null);
         setPreferences(null);
         setLoading(false);
         return;
@@ -49,6 +51,7 @@ export function usePreferences() {
         // This person's own event-type colors, set before the state update so
         // everything that re-renders with it already uses them.
         setMyEventTypeColors(existing.event_type_colors);
+        rememberAccountType(existing.account_type || "engineer");
         setPreferences(existing);
       } else {
         // Email sign-up stores the role on the account; Google sign-up
@@ -79,6 +82,7 @@ export function usePreferences() {
           supabase.auth.updateUser({ data: { account_type: accountType } }).then(({ error }) => { if (error) console.error(error); });
         }
         setMyEventTypeColors(created?.event_type_colors);
+        rememberAccountType(created?.account_type || accountType);
         setPreferences(created);
       }
     } catch (e) {
@@ -94,7 +98,14 @@ export function usePreferences() {
   useEffect(() => {
     const onColors = (e) => setPreferences((p) => (p ? { ...p, event_type_colors: e.detail } : p));
     window.addEventListener(EVENT_COLORS_EVENT, onColors);
-    return () => window.removeEventListener(EVENT_COLORS_EVENT, onColors);
+    // A type added anywhere (e.g. Event colors in Settings) shows up in this
+    // screen's type lists and filters without a reload.
+    const onTypes = () => { load(); };
+    window.addEventListener(EVENT_TYPES_EVENT, onTypes);
+    return () => {
+      window.removeEventListener(EVENT_COLORS_EVENT, onColors);
+      window.removeEventListener(EVENT_TYPES_EVENT, onTypes);
+    };
   }, []);
 
   return { preferences, loading, reload: load, setPreferences };

@@ -17,6 +17,7 @@ import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { usePreferences } from "@/hooks/usePreferences";
+import { EVENT_TYPES_EVENT } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 const US_STATES = [
@@ -698,6 +699,7 @@ export default function ShowDetail() {
           .upsert({ user_id: user.id, custom_event_types: [...existing, trimmed] }, { onConflict: "user_id" });
         if (error) throw error;
         await reloadPreferences();
+        window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: trimmed }));
       }
     } catch (e) {
       console.error(e);
@@ -715,6 +717,7 @@ export default function ShowDetail() {
         .upsert({ user_id: user.id, custom_event_types: updated }, { onConflict: "user_id" });
       if (error) throw error;
       await reloadPreferences();
+      window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: type }));
     } catch (e) {
       console.error(e);
       showPill("Error removing event type");

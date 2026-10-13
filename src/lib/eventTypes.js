@@ -68,6 +68,9 @@ import { supabase } from "@/api/supabaseClient";
 
 export const ADD_NEW_VALUE = "__add_new__";
 
+// Fired after a new type is saved, so every screen's lists reload.
+export const EVENT_TYPES_EVENT = "showpilot:event-types";
+
 export async function addCustomEventType(preferences, rawName) {
   const name = (rawName || "").trim();
   if (!name) return null;
@@ -81,6 +84,7 @@ export async function addCustomEventType(preferences, rawName) {
     .from("user_preferences")
     .upsert({ user_id: user.id, custom_event_types: [...existing, name] }, { onConflict: "user_id" });
   if (error) throw error;
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: name }));
   return name;
 }
 

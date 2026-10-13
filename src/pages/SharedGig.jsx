@@ -13,6 +13,7 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
+import { buildEventTypeOptions } from "@/lib/eventTypes";
 
 export const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -21,7 +22,6 @@ export const ROLE_COLORS = {
   "N/A": { text: "text-white/50", bg: "bg-white/10", border: "border-white/20" },
 };
 export const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
-const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
 // One color per section, consistent everywhere this app shows section
 // progress (the Home page progress bar uses the same palette) so position
@@ -1246,7 +1246,7 @@ export default function SharedGig() {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                    {EVENT_TYPES.map((t) => (
+                    {[...buildEventTypeOptions(gig.event_type ? [{ event_type: gig.event_type }] : [], preferences?.custom_event_types), "Other"].map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>
