@@ -109,6 +109,9 @@ function OwnerSheet({ showId, onClose }) {
       rsvpMessage: cfg.rsvp_message || "",
       lineup: Array.isArray(cfg.lineup) ? cfg.lineup.map((a) => ({ id: String(a.id), name: String(a.name || "") })) : [],
       files: Array.isArray(cfg.files) ? cfg.files : [],
+      // RSVP capacity: no limit, or a max number of people.
+      capacityOn: typeof cfg.capacity === "number" && cfg.capacity >= 1,
+      capacity: typeof cfg.capacity === "number" && cfg.capacity >= 1 ? String(Math.floor(cfg.capacity)) : "",
     };
   };
 
@@ -186,6 +189,14 @@ function OwnerSheet({ showId, onClose }) {
       }
       ticketLink = ok;
     }
+    let capacity = null;
+    if (draft.capacityOn) {
+      capacity = Number(draft.capacity);
+      if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100000) {
+        setErr("Enter the RSVP limit as a whole number of people, like 150, or choose No limit.");
+        return;
+      }
+    }
     setSaving(true);
     // Ticket link and price live in the promoter section of the Gig Web, so
     // the promoter sees what's entered here and vice versa.
@@ -207,6 +218,7 @@ function OwnerSheet({ showId, onClose }) {
           rsvp_message: draft.rsvpMessage.trim(),
           lineup: draft.lineup.map((a) => ({ id: a.id, name: a.name.trim().slice(0, 80) })).filter((a) => a.name),
           files: draft.files,
+          capacity,
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
@@ -532,7 +544,44 @@ function OwnerSheet({ showId, onClose }) {
     </div>
   );
 
-  const rsvpBlock = on && row?.fan_page_enabled && savedRsvp && <RsvpList showId={showId} tall={desktop} />;
+  // RSVP limit, between the link and the RSVP list. Saved with Update.
+  const savedCap = typeof row?.fan_page?.capacity === "number" && row.fan_page.capacity >= 1 ? Math.floor(row.fan_page.capacity) : null;
+  const capacityBlock = on && rsvp && draft && (
+    <div className="mt-3.5">
+      <div className="text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>RSVP LIMIT</div>
+      <div className="mt-1.5 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
+        <div className="grid grid-cols-2 gap-1 flex-1 min-w-0" role="radiogroup" aria-label="RSVP limit">
+          {[[false, "No limit"], [true, "Limit"]].map(([k, text]) => {
+            const sel = !!draft.capacityOn === k;
+            return (
+              <button key={text} type="button" role="radio" aria-checked={sel} onClick={() => set({ capacityOn: k })} className="py-2 rounded-[7px] text-[15px] font-semibold" style={sel ? { background: "rgba(140,255,61,0.14)", color: G, boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
+            );
+          })}
+        </div>
+        {draft.capacityOn && (
+          <label className="flex items-center gap-1.5 shrink-0">
+            <input
+              type="number" inputMode="numeric" min={1} step={1}
+              value={draft.capacity}
+              onChange={(e) => set({ capacity: e.target.value.replace(/[^0-9]/g, "").slice(0, 6) })}
+              placeholder="150"
+              aria-label="Max people"
+              className="w-[84px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-2.5 py-2 text-white text-base text-right focus:outline-none focus:border-[#8CFF3D]/60"
+              style={{ fontFamily: SCENE_MONO }}
+            />
+            <span className="text-[14px] text-white/60">people</span>
+          </label>
+        )}
+      </div>
+      <p className="mt-1.5 text-[13px] leading-snug text-white/50">
+        {draft.capacityOn
+          ? "Counts everyone in each party. When it's full, the RSVP form tells fans RSVPs are full. Press Update to apply."
+          : "Anyone can RSVP. Pick Limit to cap the number of people."}
+      </p>
+    </div>
+  );
+
+  const rsvpBlock = on && row?.fan_page_enabled && savedRsvp && <RsvpList showId={showId} tall={desktop} capacity={savedCap} />;
 
   const actionsBlock = row && draft && (
     <>
@@ -598,6 +647,7 @@ function OwnerSheet({ showId, onClose }) {
               <div className="min-h-0 flex flex-col border-l border-[#1c1c1c] bg-[#0a0a0a] px-5 pb-5">
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {linkBlock}
+                  {capacityBlock}
                   {rsvpBlock}
                   {row.fan_page_enabled && !savedRsvp && (
                     <p className="mt-4 text-[15px] leading-relaxed text-white/60">Switch How fans get in to RSVP, pay at door and press Update to take RSVPs here.</p>
@@ -626,6 +676,7 @@ function OwnerSheet({ showId, onClose }) {
         {row && draft && (on ? (
           <>
             {linkBlock}
+            {capacityBlock}
             {rsvpBlock}
             <div role="tablist">
               {tabGroup("WHAT FANS CAN SEE", shownTabs, true)}

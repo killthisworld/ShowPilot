@@ -40,7 +40,7 @@ const STATUS_CODE: Record<string, number> = {
 };
 
 const RSVP_WINDOW_MIN = 10;
-const RSVP_MAX = 60; // new RSVPs per event per window
+const RSVP_MAX = 200; // new RSVPs per event per window (anti-spam; capacity is the host's own limit)
 
 // deno-lint-ignore no-explicit-any
 async function rsvp(admin: any, showId: string, token: string, email: string, body: any, ev: any) {
@@ -59,7 +59,27 @@ async function rsvp(admin: any, showId: string, token: string, email: string, bo
   const artistCols = artist ? { artist_id: artist.id, artist_name: artist.name } : { artist_id: null, artist_name: null };
 
   const now = new Date().toISOString();
-  const { data: existing } = await admin.from("fan_rsvps").select("id").eq("show_id", showId).eq("email", email).maybeSingle();
+  const { data: existing } = await admin.from("fan_rsvps").select("id, guests").eq("show_id", showId).eq("email", email).maybeSingle();
+
+  // Capacity: the host's max number of people (fan_page.capacity), or no
+  // limit. Counts everyone else's party plus this one. Someone already on
+  // the list can always keep or lower their party size.
+  const { data: capRow } = await admin.from("shows").select("fan_page").eq("id", showId).maybeSingle();
+  const capRaw = capRow?.fan_page?.capacity;
+  const cap = typeof capRaw === "number" && capRaw >= 1 ? Math.floor(capRaw) : null;
+  if (cap && !(existing && guests <= (existing.guests ?? 1))) {
+    const { data: all } = await admin.from("fan_rsvps").select("email, guests").eq("show_id", showId);
+    const others = (all ?? []).filter((r: { email: string }) => r.email.toLowerCase() !== email)
+      .reduce((n: number, r: { guests: number }) => n + (r.guests || 1), 0);
+    if (others + guests > cap) {
+      const left = Math.max(0, cap - others);
+      return json({
+        error: left === 0 ? "RSVPs are full for this event." : `Only ${left} ${left === 1 ? "spot" : "spots"} left. Lower your party size to ${left} or less.`,
+        full: left === 0,
+        spots_left: left,
+      }, 409);
+    }
+  }
   let status: "rsvp_new" | "rsvp_updated" = "rsvp_updated";
   if (existing) {
     await admin.from("fan_rsvps").update({ name, guests, ...artistCols, updated_at: now }).eq("id", existing.id);

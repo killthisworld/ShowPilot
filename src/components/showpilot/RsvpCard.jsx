@@ -16,7 +16,7 @@ const remember = (token, v) => { try { localStorage.setItem(memKey(token), JSON.
 // name, email and party size; the send-fan-event-email function saves the
 // RSVP and emails them the event info once. RSVPing again with the same email
 // updates the party size instead of adding a second RSVP.
-export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare }) {
+export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare, full = false }) {
   const saved = recall(token);
   const [done, setDone] = useState(saved); // { name, guests, email, note }
   const [name, setName] = useState(saved?.name || "");
@@ -97,6 +97,11 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
               <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
             </div>
           </>
+        ) : full && !saved ? (
+          <div className="py-1">
+            <p className="text-lg font-bold text-white leading-tight">RSVPs are full.</p>
+            <p className="mt-1 text-[14px] text-white/60 leading-snug">This event has reached its limit. Check back in case spots open up.</p>
+          </div>
         ) : (
           <form onSubmit={submit} noValidate>
             <input className={inputCls} placeholder="Your name" autoComplete="name" value={name} onChange={(e) => { setName(e.target.value); setErr(""); }} maxLength={80} />

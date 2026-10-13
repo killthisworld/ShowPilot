@@ -12,7 +12,7 @@ const G = "#8CFF3D";
 // party size, alphabetical, grouped by artist when there's a lineup).
 // The host can remove an RSVP (e.g. a test one); that also lets the same
 // address get the confirmation email again if they RSVP for real.
-export default function RsvpList({ showId, tall = false }) {
+export default function RsvpList({ showId, tall = false, capacity = null }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -91,8 +91,18 @@ export default function RsvpList({ showId, tall = false }) {
             <div className="flex items-baseline gap-2 px-3 py-2.5 border-b border-[#1c1c1c]">
               <span className="text-[28px] font-bold leading-none" style={{ fontFamily: SCENE_MONO, color: G }}>{people}</span>
               <span className="text-base font-semibold text-white/80">{people === 1 ? "person" : "people"} coming</span>
+              {capacity && <span className="text-[14px] text-white/55" style={{ fontFamily: SCENE_MONO }}>/ {capacity}</span>}
+              {capacity && people >= capacity && <span className="px-1.5 py-0.5 rounded text-[10.5px] font-bold tracking-[0.1em] text-[#0d0d0d]" style={{ fontFamily: SCENE_MONO, background: G }}>FULL</span>}
               <span className="ml-auto text-[13.5px] text-white/55">{rows.length} {rows.length === 1 ? "RSVP" : "RSVPs"}</span>
             </div>
+            {capacity && (
+              <div className="px-3 pb-2.5 -mt-0.5 border-b border-[#1c1c1c]">
+                <span className="block h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, (people / capacity) * 100)}%`, background: G }} />
+                </span>
+                <span className="mt-1 block text-[12.5px] text-white/50">{people >= capacity ? "Full. New RSVPs are turned away." : `${capacity - people} ${capacity - people === 1 ? "spot" : "spots"} left`}</span>
+              </div>
+            )}
             {hasArtists && (
               <div className="px-3 py-2.5 border-b border-[#1c1c1c] space-y-1.5">
                 {byArtist.map((g) => (
