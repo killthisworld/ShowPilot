@@ -25,9 +25,12 @@ export class GoogleError extends Error {
 }
 
 export function googleConfig() {
-  const clientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
-  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
-  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/+$/, "");
+  // Trimmed: a pasted secret easily picks up a trailing space or line break,
+  // which Google then rejects as "OAuth client was not found".
+  const env = (k: string) => (Deno.env.get(k) ?? "").trim();
+  const clientId = env("GOOGLE_CLIENT_ID");
+  const clientSecret = env("GOOGLE_CLIENT_SECRET");
+  const appUrl = env("APP_URL").replace(/\/+$/, "");
   return {
     clientId,
     clientSecret,

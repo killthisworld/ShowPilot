@@ -1,5 +1,8 @@
 import { supabase } from "@/api/supabaseClient";
 
+// DJ Tools' own accent (lemon): no role, event type, Linked or status color uses it.
+export const DJ_COLOR = "#FDE047";
+
 // Calls an edge function and returns its JSON, or throws an Error whose
 // message is the function's own readable error.
 async function call(fn, body, fallback) {

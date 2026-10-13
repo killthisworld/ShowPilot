@@ -7,13 +7,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { driveCall, slotLink } from "@/lib/djTools";
+import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
 import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 
 const G = "#8CFF3D";
 const BLUE = "#60A5FA";
 const AMBER = "#F59E0B";
-const PINK = "#F472B6";
 const RED = "#F87171";
 const STATUS = {
   waiting: { label: "NOT STARTED", color: "#9A9A9A" },
@@ -167,7 +166,7 @@ export default function DjTools() {
     <div className="min-h-screen bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
       <header className="flex flex-wrap items-center gap-4 px-6 py-3 border-b border-[#1a1a1a]">
         <button type="button" onClick={() => goBack()} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
-        <Disc3 className="w-7 h-7" style={{ color: PINK }} />
+        <Disc3 className="w-7 h-7" style={{ color: DJ_COLOR }} />
         <div>
           <h1 className="text-3xl font-bold leading-none tracking-wide">DJ Tools</h1>
           <p className="text-white/45 text-[11px] tracking-[0.1em] mt-1" style={{ fontFamily: SCENE_MONO }}>SET LINKS · RUNNING ORDER · WAVS TO YOUR DRIVE</p>
@@ -194,7 +193,7 @@ export default function DjTools() {
             return (
               <button key={r.id} type="button" onClick={() => { setCreating(false); setSelectedId(r.id); }}
                 className="text-left rounded-xl px-3 py-2.5 border transition-colors"
-                style={{ background: on ? PINK + "14" : "#131313", borderColor: on ? PINK + "88" : "#222" }}>
+                style={{ background: on ? DJ_COLOR + "14" : "#131313", borderColor: on ? DJ_COLOR + "88" : "#222" }}>
                 <div className="font-semibold text-lg leading-tight truncate">{r.title}</div>
                 <div className="text-[11px] text-white/45 mt-0.5 tracking-[0.06em]" style={{ fontFamily: SCENE_MONO }}>
                   {[r.event_date && new Date(r.event_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase(), r.venue?.toUpperCase()].filter(Boolean).join(" · ") || "NO DATE"}
@@ -346,7 +345,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
             <button type="button" onClick={onRefresh} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-white/70 hover:text-white text-sm"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
             {slots.length > 0 && (
               <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold" style={{ borderColor: PINK + "66", color: PINK }}>
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold" style={{ borderColor: DJ_COLOR + "66", color: DJ_COLOR }}>
                 {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
               </button>
             )}
@@ -397,7 +396,7 @@ function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
           <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => onMove(-1)} className="p-1 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
           <button type="button" aria-label="Move down" disabled={i === count - 1} onClick={() => onMove(1)} className="p-1 text-white/40 hover:text-white disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5" /></button>
         </div>
-        <span className="text-lg font-bold tabular-nums w-7" style={{ color: PINK }}>{String(i + 1).padStart(2, "0")}</span>
+        <span className="text-lg font-bold tabular-nums w-7" style={{ color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>
         <input id={`slot-name-${s.id}`} className="bg-[#0d0d0d] border border-[#262626] rounded-md px-2.5 py-1.5 text-white font-semibold flex-1 min-w-[160px] outline-none focus:border-[#8CFF3D]/60"
           placeholder="Artist name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== s.artist_name && onUpdate({ artist_name: name.trim() })} />
         <input id={`slot-start-${s.id}`} type="time" aria-label="Set starts" className={timeIn} value={s.set_start || ""} onChange={(e) => onUpdate({ set_start: e.target.value || null })} />
