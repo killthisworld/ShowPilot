@@ -16,7 +16,7 @@ const remember = (token, v) => { try { localStorage.setItem(memKey(token), JSON.
 // name, email and party size; the send-fan-event-email function saves the
 // RSVP and emails them the event info once. RSVPing again with the same email
 // updates the party size instead of adding a second RSVP.
-export default function RsvpCard({ token, color, doorPrice, lineup = [] }) {
+export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare }) {
   const saved = recall(token);
   const [done, setDone] = useState(saved); // { name, guests, email, note }
   const [name, setName] = useState(saved?.name || "");
@@ -79,9 +79,12 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [] }) {
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-4">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2.5">
               {done.skyKey && (
                 <a href={`/e/${token}/sky?k=${done.skyKey}`} className="px-4 py-2 rounded-full text-[15px] font-bold text-[#0d0d0d]" style={{ background: color }}>See your star</a>
+              )}
+              {onShare && (
+                <button type="button" onClick={onShare} className="px-4 py-2 rounded-full text-[15px] font-bold border" style={{ color, borderColor: color + "8c", background: color + "14" }}>Invite friends</button>
               )}
               <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
             </div>

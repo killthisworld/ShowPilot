@@ -22,8 +22,9 @@ export function EventTypeGlyph({ type, className, style }) {
 // the icon for its type.
 // Small colored tile showing the icon for an event's type. Custom types
 // (no built-in icon) get a calendar glyph in their own stable color.
-export default function EventTypeIcon({ type, imageUrl, size = 34 }) {
-  const color = eventTypeColor(type);
+// `color` (optional) overrides the type's color, e.g. fan pages use brand green.
+export default function EventTypeIcon({ type, imageUrl, size = 34, color: colorOverride }) {
+  const color = colorOverride || eventTypeColor(type);
   if (imageUrl) {
     return (
       <img
