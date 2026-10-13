@@ -87,6 +87,8 @@ function OwnerSheet({ showId, onClose }) {
   const fileRef = useRef(null);
   const attachRef = useRef(null);
   const [attaching, setAttaching] = useState(false);
+  const [capSaving, setCapSaving] = useState(false);
+  const [capErr, setCapErr] = useState("");
   const desktop = useIsDesktop();
   // Which "What fans can see" / setup tab is open. One at a time.
   const [tab, setTab] = useState("tickets");
@@ -544,39 +546,79 @@ function OwnerSheet({ showId, onClose }) {
     </div>
   );
 
-  // RSVP limit, between the link and the RSVP list. Saved with Update.
+  // RSVP limit, between the link and the RSVP list. SET saves just the
+  // limit straight away: it doesn't wait for Update, and it doesn't publish
+  // any other edits that are still in progress.
   const savedCap = typeof row?.fan_page?.capacity === "number" && row.fan_page.capacity >= 1 ? Math.floor(row.fan_page.capacity) : null;
+  const wantCap = draft?.capacityOn ? (draft.capacity === "" ? NaN : Number(draft.capacity)) : null;
+  const capChanged = draft && wantCap !== savedCap;
+  const setCapacity = async () => {
+    setCapErr("");
+    if (wantCap !== null && (!Number.isInteger(wantCap) || wantCap < 1 || wantCap > 100000)) {
+      setCapErr("Enter a whole number of people, like 150.");
+      return;
+    }
+    setCapSaving(true);
+    // Read the latest saved fan page so only the limit changes.
+    const { data: fresh, error: readErr } = await supabase.from("shows").select("fan_page").eq("id", showId).single();
+    if (readErr || !fresh) { setCapSaving(false); setCapErr("Couldn't save the limit. Try again."); return; }
+    const { data, error } = await supabase
+      .from("shows")
+      .update({ fan_page: { ...(fresh.fan_page || {}), capacity: wantCap } })
+      .eq("id", showId)
+      .select("fan_token, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
+      .single();
+    setCapSaving(false);
+    if (error || !data) { setCapErr("Couldn't save the limit. Try again."); return; }
+    setRow(data);
+    // Only the limit fields are normalised; other unsaved edits stay in the draft.
+    setDraft((d) => ({ ...d, capacityOn: wantCap !== null, capacity: wantCap !== null ? String(wantCap) : "" }));
+  };
   const capacityBlock = on && rsvp && draft && (
     <div className="mt-3.5">
       <div className="text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>RSVP LIMIT</div>
-      <div className="mt-1.5 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
-        <div className="grid grid-cols-2 gap-1 flex-1 min-w-0" role="radiogroup" aria-label="RSVP limit">
+      <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
+        <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label="RSVP limit">
           {[[false, "No limit"], [true, "Limit"]].map(([k, text]) => {
             const sel = !!draft.capacityOn === k;
             return (
-              <button key={text} type="button" role="radio" aria-checked={sel} onClick={() => set({ capacityOn: k })} className="py-2 rounded-[7px] text-[15px] font-semibold" style={sel ? { background: "rgba(140,255,61,0.14)", color: G, boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
+              <button key={text} type="button" role="radio" aria-checked={sel} onClick={() => { set({ capacityOn: k }); setCapErr(""); }} className="py-2 rounded-[7px] text-[15px] font-semibold" style={sel ? { background: "rgba(140,255,61,0.14)", color: G, boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
             );
           })}
         </div>
-        {draft.capacityOn && (
-          <label className="flex items-center gap-1.5 shrink-0">
-            <input
-              type="number" inputMode="numeric" min={1} step={1}
-              value={draft.capacity}
-              onChange={(e) => set({ capacity: e.target.value.replace(/[^0-9]/g, "").slice(0, 6) })}
-              placeholder="150"
-              aria-label="Max people"
-              className="w-[84px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-2.5 py-2 text-white text-base text-right focus:outline-none focus:border-[#8CFF3D]/60"
-              style={{ fontFamily: SCENE_MONO }}
-            />
-            <span className="text-[14px] text-white/60">people</span>
-          </label>
-        )}
+        <div className="mt-1.5 flex items-center gap-2 pl-1.5">
+          {draft.capacityOn ? (
+            <label className="flex items-center gap-1.5 min-w-0">
+              <input
+                type="number" inputMode="numeric" min={1} step={1}
+                value={draft.capacity}
+                onChange={(e) => { set({ capacity: e.target.value.replace(/[^0-9]/g, "").slice(0, 6) }); setCapErr(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && capChanged && !capSaving) setCapacity(); }}
+                placeholder="150"
+                aria-label="Max people"
+                className="w-[96px] bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-2.5 py-2 text-white text-base text-right focus:outline-none focus:border-[#8CFF3D]/60"
+                style={{ fontFamily: SCENE_MONO }}
+              />
+              <span className="text-[14px] text-white/60">people max</span>
+            </label>
+          ) : (
+            <span className="text-[14px] text-white/60">Anyone can RSVP</span>
+          )}
+          <button
+            type="button"
+            onClick={setCapacity}
+            disabled={!capChanged || capSaving}
+            className="ml-auto px-4 py-2 rounded-lg text-sm font-bold tracking-[0.08em] disabled:cursor-default"
+            style={capChanged ? { background: G, color: "#0d0d0d" } : { background: "rgba(140,255,61,0.08)", border: "1px solid rgba(140,255,61,0.3)", color: "rgba(140,255,61,0.75)" }}
+          >{capSaving ? "SETTING..." : capChanged ? "SET" : "SET ✓"}</button>
+        </div>
       </div>
-      <p className="mt-1.5 text-[13px] leading-snug text-white/50">
-        {draft.capacityOn
-          ? "Counts everyone in each party. When it's full, the RSVP form tells fans RSVPs are full. Press Update to apply."
-          : "Anyone can RSVP. Pick Limit to cap the number of people."}
+      <p className="mt-1.5 text-[13px] leading-snug" style={{ color: capErr ? "#f87171" : "rgba(255,255,255,0.5)" }}>
+        {capErr || (capChanged
+          ? "Press SET to apply the limit."
+          : savedCap
+            ? `Live: ${savedCap} people max. Counts everyone in each party; when it's full the RSVP form says RSVPs are full.`
+            : "Live: no limit. Pick Limit and press SET to cap the number of people.")}
       </p>
     </div>
   );
