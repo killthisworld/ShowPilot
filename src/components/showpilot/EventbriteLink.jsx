@@ -65,7 +65,7 @@ export default function EventbriteLink({ showId, onLinked }) {
 
   return (
     <>
-      <div className="mt-3.5 text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>TICKET BUYER EMAILS</div>
+      <div className="mt-3.5 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>TICKET BUYER EMAILS</div>
       <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-3">
         {!st.connected && (
           <>
@@ -82,7 +82,7 @@ export default function EventbriteLink({ showId, onLinked }) {
               <span className="w-[26px] h-[26px] rounded-md flex items-center justify-center shrink-0" style={{ background: "#8CFF3D24", border: "1px solid #8CFF3D8c", color: G }}><Mail className="w-3.5 h-3.5" /></span>
               <div className="min-w-0 flex-1">
                 <div className="text-base font-bold text-white truncate">{st.link.eb_event_name || "Eventbrite event"}</div>
-                <div className="text-[12px] text-white/50">Buyers get the event info by email. Keep the fan page on.</div>
+                <div className="text-[14px] text-white/60">Buyers get the event info by email. Keep the fan page on.</div>
               </div>
             </div>
             <div className="mt-2.5 flex gap-2">
@@ -100,7 +100,7 @@ export default function EventbriteLink({ showId, onLinked }) {
               <p className="mt-2 text-[13px] text-white/45">No upcoming events found in your Eventbrite account.</p>
             ) : (
               <div className="mt-2 flex gap-2">
-                <select value={pick} onChange={(e) => setPick(e.target.value)} className="flex-1 min-w-0 bg-[#0d0d0d] border border-[#222] rounded-lg px-2.5 py-2 text-white text-sm focus:outline-none focus:border-[#8CFF3D]/60">
+                <select value={pick} onChange={(e) => setPick(e.target.value)} className="flex-1 min-w-0 bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2.5 text-white text-[16px] focus:outline-none focus:border-[#8CFF3D]/60">
                   <option value="">Choose an event…</option>
                   {events.map((e) => (
                     <option key={e.id} value={e.id}>{[fmt(e.start), e.name, e.status === "draft" ? "(draft)" : ""].filter(Boolean).join(" · ")}</option>
@@ -114,7 +114,7 @@ export default function EventbriteLink({ showId, onLinked }) {
 
         {err && <p className="mt-2 text-[13px] text-red-400">{err}</p>}
         {st.connected && (
-          <button type="button" onClick={disconnect} disabled={busy} className="mt-2.5 text-[12px] text-white/35 hover:text-white/70 underline underline-offset-2">Disconnect Eventbrite</button>
+          <button type="button" onClick={disconnect} disabled={busy} className="mt-2.5 text-[14px] text-white/50 hover:text-white/80 underline underline-offset-2">Disconnect Eventbrite</button>
         )}
       </div>
     </>

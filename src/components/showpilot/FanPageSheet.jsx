@@ -227,7 +227,7 @@ function OwnerSheet({ showId, onClose }) {
   const on = !!draft?.enabled;
   const rsvp = draft?.entry === "rsvp";
   const savedRsvp = row?.fan_page?.entry === "rsvp";
-  const inputCls = "w-full bg-[#0d0d0d] border border-[#222] rounded-lg px-3 py-2 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#8CFF3D]/60";
+  const inputCls = "w-full bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3.5 py-3 text-white text-[16px] leading-snug placeholder:text-white/35 focus:outline-none focus:border-[#8CFF3D]/60";
 
   // Lineup editing (saved with Update like everything else).
   const setArtist = (i, name) => set({ lineup: draft.lineup.map((a, j) => (j === i ? { ...a, name } : a)) });
@@ -242,11 +242,11 @@ function OwnerSheet({ showId, onClose }) {
   };
 
   const label = (text, extra = "mt-3.5") => (
-    <div className={`${extra} text-[10px] tracking-[0.14em] text-white/45`} style={{ fontFamily: SCENE_MONO }}>{text}</div>
+    <div className={`${extra} text-[11.5px] tracking-[0.14em] text-white/55`} style={{ fontFamily: SCENE_MONO }}>{text}</div>
   );
-  const note = (text) => <p className="mt-2 text-[13px] leading-snug text-white/45">{text}</p>;
+  const note = (text) => <p className="mt-2.5 text-[15px] leading-relaxed text-white/60">{text}</p>;
   const readOnly = (value, fallback) => (
-    <div className="mt-2 px-3 py-2 rounded-lg bg-[#111] border border-[#1f1f1f] text-sm" style={{ color: value ? "#fff" : "rgba(255,255,255,0.4)" }}>{value || fallback}</div>
+    <div className="mt-2 px-3.5 py-3 rounded-lg bg-[#111] border border-[#1f1f1f] text-[16px]" style={{ color: value ? "#fff" : "rgba(255,255,255,0.4)" }}>{value || fallback}</div>
   );
 
   // ---- Tabs: what fans can see (tick = shown) + setup ----
@@ -303,12 +303,12 @@ function OwnerSheet({ showId, onClose }) {
       <>
         {readOnly([row?.venue, placeText].filter(Boolean).join(", "), "No venue set on the event")}
         <input className={`${inputCls} mt-2`} placeholder="Street address (used for the map link)" value={draft?.address || ""} onChange={(e) => set({ address: e.target.value })} />
-        <div className="mt-3 text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>WHERE FANS SEE IT</div>
+        <div className="mt-4 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>WHERE FANS SEE IT</div>
         <div role="radiogroup" aria-label="Where fans see the venue" className="mt-1.5 grid grid-cols-3 gap-1 p-1 rounded-[10px] bg-[#111] border border-[#1f1f1f]">
           {[["page", "Fan page"], ["email", "Confirmation email"], ["both", "Both"]].map(([k, l]) => {
             const on = draft?.venueWhere === k;
             return (
-              <button key={k} type="button" role="radio" aria-checked={on} onClick={() => set({ venueWhere: k })} className="py-2 rounded-[7px] text-[13px] font-semibold transition-colors" style={on ? { background: "rgba(140,255,61,0.14)", color: "#8CFF3D", boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>
+              <button key={k} type="button" role="radio" aria-checked={on} onClick={() => set({ venueWhere: k })} className="py-2.5 rounded-[7px] text-[15px] font-semibold transition-colors" style={on ? { background: "rgba(140,255,61,0.14)", color: "#8CFF3D", boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)" }}>
                 {l}
               </button>
             );
@@ -352,17 +352,17 @@ function OwnerSheet({ showId, onClose }) {
       </>
     ),
     note: (
-      <textarea className={`${inputCls} mt-2 min-h-[110px]`} placeholder="A short note for fans (set list teaser, anything to know before the night)" value={draft?.note || ""} onChange={(e) => set({ note: e.target.value })} />
+      <textarea className={`${inputCls} mt-2 min-h-[170px]`} placeholder="A short note for fans (set list teaser, anything to know before the night)" value={draft?.note || ""} onChange={(e) => set({ note: e.target.value })} />
     ),
     flyer: (
       <div className="mt-2 flex items-center gap-3">
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickFlyer} />
         {draft?.flyer && <img src={draft.flyer} alt="Flyer" className="w-20 h-20 rounded-lg object-cover border border-[#2a2a2a]" />}
         <div className="flex flex-col items-start gap-1.5">
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111] border border-[#2a2a2a] text-white/80 text-sm font-semibold disabled:opacity-50">
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111] border border-[#2a2a2a] text-white/85 text-[15px] font-semibold disabled:opacity-50">
             <ImagePlus className="w-4 h-4" /> {busy ? "Uploading..." : draft?.flyer ? "Replace flyer" : "Add flyer image"}
           </button>
-          {draft?.flyer && <button type="button" onClick={() => set({ flyer: "" })} className="text-white/40 hover:text-white text-xs">Remove</button>}
+          {draft?.flyer && <button type="button" onClick={() => set({ flyer: "" })} className="text-white/50 hover:text-white text-[14px]">Remove</button>}
         </div>
       </div>
     ),
@@ -370,7 +370,7 @@ function OwnerSheet({ showId, onClose }) {
       <>
         <div className="mt-2 grid grid-cols-2 gap-1 p-1 bg-[#111] border border-[#1f1f1f] rounded-[10px]">
           {[["tickets", "Ticket link"], ["rsvp", "RSVP, pay at door"]].map(([k, text]) => (
-            <button key={k} type="button" onClick={() => set({ entry: k })} className="py-2 rounded-lg text-sm font-bold tracking-[0.04em]" style={draft?.entry === k ? { background: G, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
+            <button key={k} type="button" onClick={() => set({ entry: k })} className="py-2.5 rounded-lg text-[15px] font-bold tracking-[0.04em]" style={draft?.entry === k ? { background: G, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
           ))}
         </div>
         {note(rsvp ? "Fans RSVP on the fan page with their name, email and party size, and get the event info by email. You'll see the list here." : "Fans tap Get Tickets and buy wherever your ticket link goes.")}
@@ -388,7 +388,7 @@ function OwnerSheet({ showId, onClose }) {
             </div>
           ))}
           {draft.lineup.length < MAX_LINEUP && (
-            <button type="button" onClick={addArtist} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#111] border border-dashed border-[#2a2a2a] text-white/70 text-sm font-semibold hover:text-white">
+            <button type="button" onClick={addArtist} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#111] border border-dashed border-[#2a2a2a] text-white/80 text-[15px] font-semibold hover:text-white">
               <Plus className="w-4 h-4" /> Add artist
             </button>
           )}
@@ -398,8 +398,10 @@ function OwnerSheet({ showId, onClose }) {
     ),
     email: (
       <>
-        <input className={`${inputCls} mt-2`} maxLength={150} placeholder="Subject (optional)" value={draft?.emailSubject || ""} onChange={(e) => set({ emailSubject: e.target.value })} />
-        <textarea className={`${inputCls} mt-2 min-h-[80px]`} maxLength={2000} placeholder="A message only people who RSVP get (where to enter, what to bring, parking)" value={draft?.rsvpMessage || ""} onChange={(e) => set({ rsvpMessage: e.target.value })} />
+        {label("EMAIL SUBJECT", "mt-3")}
+        <input className={`${inputCls} mt-1.5`} maxLength={150} placeholder="Subject (optional)" value={draft?.emailSubject || ""} onChange={(e) => set({ emailSubject: e.target.value })} />
+        {label("MESSAGE TO PEOPLE WHO RSVP", "mt-4")}
+        <textarea className={`${inputCls} mt-1.5 min-h-[240px]`} maxLength={2000} placeholder="A message only people who RSVP get (where to enter, what to bring, parking)" value={draft?.rsvpMessage || ""} onChange={(e) => set({ rsvpMessage: e.target.value })} />
         {note(`Leave the subject empty to use "You're on the list: event name and date". Every RSVP email also has the flyer, the event details and the fan's key to the event sky.`)}
       </>
     ),
@@ -410,13 +412,13 @@ function OwnerSheet({ showId, onClose }) {
           {draft.files.map((f, i) => (
             <div key={f.path} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#111] border border-[#1f1f1f]">
               <FileText className="w-4 h-4 text-white/50 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-sm text-white">{f.name}</span>
-              <span className="text-[11px] text-white/40 shrink-0">{fileSize(f.size || 0)}</span>
+              <span className="min-w-0 flex-1 truncate text-[15px] text-white">{f.name}</span>
+              <span className="text-[13px] text-white/50 shrink-0">{fileSize(f.size || 0)}</span>
               <button type="button" onClick={() => set({ files: draft.files.filter((_, j) => j !== i) })} aria-label={`Remove ${f.name}`} className="p-1 text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
             </div>
           ))}
           {draft.files.length < MAX_FILES && (
-            <button type="button" onClick={() => attachRef.current?.click()} disabled={attaching} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111] border border-dashed border-[#2a2a2a] text-white/70 text-sm font-semibold hover:text-white disabled:opacity-50">
+            <button type="button" onClick={() => attachRef.current?.click()} disabled={attaching} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#111] border border-dashed border-[#2a2a2a] text-white/80 text-[15px] font-semibold hover:text-white disabled:opacity-50">
               <Paperclip className="w-4 h-4" /> {attaching ? "Uploading..." : "Attach a file"}
             </button>
           )}
@@ -435,7 +437,7 @@ function OwnerSheet({ showId, onClose }) {
       return (
         <div className="mt-2">
           <p className="text-[14px] text-white/50">Hidden from fans.</p>
-          <button type="button" onClick={() => showField(key, true)} className="mt-2 px-3 py-2 rounded-lg text-sm font-bold" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>Show to fans</button>
+          <button type="button" onClick={() => showField(key, true)} className="mt-2 px-3.5 py-2.5 rounded-lg text-[15px] font-bold" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>Show to fans</button>
         </div>
       );
     }
@@ -457,7 +459,7 @@ function OwnerSheet({ showId, onClose }) {
             aria-label={t.always ? `${t.label} is always shown` : shown ? `Hide ${t.label} from fans` : `Show ${t.label} to fans`}
             className="pl-3 pr-1 flex items-center"
           >
-            <span className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center shrink-0" style={{ background: shown ? G : "transparent", border: `1px solid ${shown ? G : "#3a3a3a"}`, opacity: t.always ? 0.6 : 1 }}>
+            <span className="w-[20px] h-[20px] rounded-[5px] flex items-center justify-center shrink-0" style={{ background: shown ? G : "transparent", border: `1px solid ${shown ? G : "#3a3a3a"}`, opacity: t.always ? 0.6 : 1 }}>
               {shown && <Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3.2} />}
             </span>
           </button>
@@ -467,11 +469,11 @@ function OwnerSheet({ showId, onClose }) {
           role="tab"
           aria-selected={active}
           onClick={() => (desktop || !active ? openTab(t) : setTab(""))}
-          className={`flex-1 min-w-0 flex items-center gap-2 ${field ? "pl-2" : "pl-3"} pr-3 ${desktop ? "py-[4px]" : "py-[7px]"} text-left`}
+          className={`flex-1 min-w-0 flex items-center gap-2 ${field ? "pl-2" : "pl-3"} pr-3 ${desktop ? "py-[7px]" : "py-[9px]"} text-left`}
         >
           <span className="min-w-0 flex-1">
-            <span className={`block ${desktop ? "text-[14px]" : "text-[15px]"} font-semibold leading-tight truncate`} style={{ color: shown ? "#fff" : "rgba(255,255,255,0.45)" }}>{t.label}</span>
-            <span className="block text-[11.5px] leading-tight truncate text-white/40">{field && !shown ? "Hidden from fans" : t.summary}</span>
+            <span className={`block ${desktop ? "text-[16px]" : "text-[16px]"} font-semibold leading-tight truncate`} style={{ color: shown ? "#fff" : "rgba(255,255,255,0.45)" }}>{t.label}</span>
+            <span className="block text-[13px] leading-tight truncate text-white/55 mt-0.5">{field && !shown ? "Hidden from fans" : t.summary}</span>
           </span>
           {t.always && <span className="text-[9.5px] tracking-[0.08em] text-white/35" style={{ fontFamily: SCENE_MONO }}>ALWAYS</span>}
           {desktop ? <ChevronRight className="w-4 h-4 shrink-0" style={{ color: active ? G : "rgba(255,255,255,0.25)" }} /> : <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: active ? G : "rgba(255,255,255,0.25)", transform: active ? "rotate(180deg)" : "none" }} />}
@@ -516,7 +518,7 @@ function OwnerSheet({ showId, onClose }) {
   const linkBlock = on && row && (
     // Link on its own line, then Copy / QR / Share side by side.
     <div className="mt-2.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
-      <div className="px-1.5 pt-0.5 pb-1.5 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</div>
+      <div className="px-1.5 pt-0.5 pb-1.5 truncate text-[13.5px] text-white/80" style={{ fontFamily: SCENE_MONO }}>{url}</div>
       <div className="flex gap-1.5 [&>button]:flex-1 [&>button]:justify-center">
         <button
           type="button"
@@ -550,9 +552,9 @@ function OwnerSheet({ showId, onClose }) {
           {saving ? "UPDATING..." : updated && !dirty ? "UPDATED ✓" : "UPDATE"}
         </button>
       </div>
-      {dirty && <p className="mt-2 text-center text-[12px] text-[#F59E0B]">You have changes that fans can't see yet. Press Update to publish them.</p>}
-      {!dirty && updated && <p className="mt-2 text-center text-[12px] text-white/45">Live now for everyone who opens the fan page.</p>}
-      {err && row && <p className="mt-2 text-center text-[12px] text-red-400">{err}</p>}
+      {dirty && <p className="mt-2 text-center text-[14px] text-[#F59E0B]">You have changes that fans can't see yet. Press Update to publish them.</p>}
+      {!dirty && updated && <p className="mt-2 text-center text-[14px] text-white/45">Live now for everyone who opens the fan page.</p>}
+      {err && row && <p className="mt-2 text-center text-[14px] text-red-400">{err}</p>}
     </>
   );
 
@@ -561,12 +563,12 @@ function OwnerSheet({ showId, onClose }) {
       <div className="flex items-center gap-2.5">
         <span className="text-2xl font-bold flex-1 text-white">Fan page</span>
         {pageSwitch}
-        <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: row?.fan_page_enabled ? G : "rgba(255,255,255,0.45)" }}>{row?.fan_page_enabled ? "LIVE" : "OFF"}</span>
+        <span className="text-[12px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: row?.fan_page_enabled ? G : "rgba(255,255,255,0.45)" }}>{row?.fan_page_enabled ? "LIVE" : "OFF"}</span>
         <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
       </div>
       <p className="mt-1 text-[14px] font-medium leading-tight text-white/50">A public page for this event. Crew details, cues and contacts are never on it. Tick what fans see, open an item to fill it in, then press Update.</p>
       {!row && !err && <div className="py-8 flex justify-center"><div className="w-5 h-5 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></div>}
-      {err && !row && <p className="mt-3 text-sm text-red-400">{err}</p>}
+      {err && !row && <p className="mt-3 text-[15px] text-red-400">{err}</p>}
     </>
   );
 
@@ -588,7 +590,7 @@ function OwnerSheet({ showId, onClose }) {
               <div className="min-h-0 overflow-y-auto px-6 py-4 border-l border-[#1c1c1c]" role="tabpanel">
                 {active && (
                   <>
-                    <div className="text-xl font-bold text-white">{active.label}</div>
+                    <div className="text-[26px] font-bold text-white leading-tight">{active.label}</div>
                     {editorFor(active.key)}
                   </>
                 )}
@@ -598,7 +600,7 @@ function OwnerSheet({ showId, onClose }) {
                   {linkBlock}
                   {rsvpBlock}
                   {row.fan_page_enabled && !savedRsvp && (
-                    <p className="mt-4 text-[14px] leading-snug text-white/45">Switch How fans get in to RSVP, pay at door and press Update to take RSVPs here.</p>
+                    <p className="mt-4 text-[15px] leading-relaxed text-white/60">Switch How fans get in to RSVP, pay at door and press Update to take RSVPs here.</p>
                   )}
                 </div>
                 <div className="pt-1 border-t border-[#1c1c1c]">{actionsBlock}</div>
@@ -669,7 +671,7 @@ function ViewerSheet({ shareToken, onClose }) {
         <div className="w-10 h-1 rounded-sm bg-[#2a2a2a] mx-auto mb-3" />
         <div className="flex items-center gap-2.5">
           <span className="text-2xl font-bold flex-1 text-white">Fan page</span>
-          <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: info?.enabled ? G : "rgba(255,255,255,0.45)" }}>{info === undefined ? "" : info?.enabled ? "LIVE" : "OFF"}</span>
+          <span className="text-[12px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: info?.enabled ? G : "rgba(255,255,255,0.45)" }}>{info === undefined ? "" : info?.enabled ? "LIVE" : "OFF"}</span>
           <button type="button" onClick={onClose} aria-label="Close" className="p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
         </div>
 
@@ -683,7 +685,7 @@ function ViewerSheet({ shareToken, onClose }) {
           <>
             <p className="mt-1 text-[15px] font-medium leading-tight text-white/50">This is the page fans see. Only the event owner can edit it.</p>
             <div className="mt-3 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
-              <div className="px-1.5 pt-0.5 pb-1.5 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</div>
+              <div className="px-1.5 pt-0.5 pb-1.5 truncate text-[13.5px] text-white/80" style={{ fontFamily: SCENE_MONO }}>{url}</div>
               <div className="flex gap-1.5 [&>button]:flex-1 [&>button]:justify-center">
                 <button type="button" onClick={copy} className="flex items-center px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
                 <FanQrCode url={url} />
