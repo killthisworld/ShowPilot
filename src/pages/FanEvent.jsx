@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useGoBack, previousScreen } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check, Share2 } from "lucide-react";
+import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import { shareLink } from "@/lib/share";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import RsvpCard from "@/components/showpilot/RsvpCard";
@@ -46,7 +46,6 @@ export default function FanEvent() {
   const [wantEmail, setWantEmail] = useState(false);
   const [fanEmail, setFanEmail] = useState("");
   const [emailState, setEmailState] = useState({ status: "idle", message: "" }); // idle | sending | sent | error
-  const [shareNote, setShareNote] = useState(""); // "LINK COPIED" etc., shown briefly on the Share button
   // Flyer viewing mode: the page info dissolves and the flyer comes forward.
   // It lives in the router's history state, so the phone's back gesture, the
   // browser Back button and the on-screen buttons all return to the info side
@@ -101,15 +100,14 @@ export default function FanEvent() {
     : "";
   const place = [ev.city, ev.state].filter(Boolean).join(", ");
   const eventTitle = ev.event_name || ev.band_name || "Event";
-  // Share this page: phone share sheet, or copy the link on a computer.
+  // Share this page (RSVP "Invite friends"): phone share sheet, or copy the link.
   const sharePage = async () => {
     const r = await shareLink({
       url: `${window.location.origin}/e/${token}`,
       title: eventTitle,
       text: [eventTitle, ev.date && new Date(ev.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })].filter(Boolean).join(" · "),
     });
-    const note = r === "copied" ? "LINK COPIED" : r === "failed" ? "COULDN'T SHARE" : "";
-    if (note) { setShareNote(note); setTimeout(() => setShareNote(""), 2000); }
+    return r;
   };
   // Only a real web address becomes a button, so a bad entry never gives fans a broken link.
   const ticketUrl = normalizeLink(ev.ticket_link);
@@ -246,15 +244,9 @@ export default function FanEvent() {
               )}
               <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
             </div>
-            <div className="flex items-center gap-2">
-              {ev.event_type && (
-                <span className="text-[9px] tracking-[0.1em] px-[7px] py-[3px] rounded-[3px] uppercase" style={{ fontFamily: SCENE_MONO, color, background: color + "24" }}>{ev.event_type}</span>
-              )}
-              <button type="button" onClick={sharePage} aria-label="Share this event" className="h-8 px-2.5 rounded-full flex items-center gap-1.5 text-[10px] tracking-[0.1em] font-bold bg-black/35 border hover:bg-black/50" style={{ fontFamily: SCENE_MONO, color, borderColor: color + "66" }}>
-                {shareNote ? (shareNote === "LINK COPIED" ? <Check className="w-3.5 h-3.5" /> : null) : <Share2 className="w-3.5 h-3.5" />}
-                {shareNote || "SHARE"}
-              </button>
-            </div>
+            {ev.event_type && (
+              <span className="text-[9px] tracking-[0.1em] px-[7px] py-[3px] rounded-[3px] uppercase" style={{ fontFamily: SCENE_MONO, color, background: color + "24" }}>{ev.event_type}</span>
+            )}
           </div>
           <div className="mt-5" style={{ filter: `drop-shadow(0 0 18px ${color}55)` }}>
             <EventTypeIcon type={ev.event_type} imageUrl={ev.icon_url} size={84} color={color} />

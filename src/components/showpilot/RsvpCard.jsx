@@ -26,6 +26,14 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
   const [artistId, setArtistId] = useState(lineup.some((a) => a.id === saved?.artistId) ? saved.artistId : (lineup.length === 1 ? lineup[0].id : ""));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [inviteNote, setInviteNote] = useState("");
+  const invite = async () => {
+    const r = await onShare();
+    if (r === "copied" || r === "failed") {
+      setInviteNote(r === "copied" ? "Link copied" : "Couldn't share");
+      setTimeout(() => setInviteNote(""), 2000);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -84,7 +92,7 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
                 <a href={`/e/${token}/sky?k=${done.skyKey}`} className="px-4 py-2 rounded-full text-[15px] font-bold text-[#0d0d0d]" style={{ background: color }}>See your star</a>
               )}
               {onShare && (
-                <button type="button" onClick={onShare} className="px-4 py-2 rounded-full text-[15px] font-bold border" style={{ color, borderColor: color + "8c", background: color + "14" }}>Invite friends</button>
+                <button type="button" onClick={invite} className="px-4 py-2 rounded-full text-[15px] font-bold border" style={{ color, borderColor: color + "8c", background: color + "14" }}>{inviteNote || "Invite friends"}</button>
               )}
               <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
             </div>

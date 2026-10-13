@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, FileText, ImagePlus, Paperclip, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, FileText, ImagePlus, Paperclip, Plus, Share2, X } from "lucide-react";
+import { shareLink } from "@/lib/share";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
@@ -33,6 +34,30 @@ function useIsDesktop() {
 }
 
 const newArtistId = () => Math.random().toString(36).slice(2, 10);
+
+// Share the fan page link: the phone's share sheet (Messages, Instagram,
+// WhatsApp...), or copies the link where there isn't one.
+function ShareButton({ url, title }) {
+  const [note, setNote] = useState("");
+  const go = async () => {
+    const r = await shareLink({ url, title: title || "Event", text: title ? `${title} on ShowPilot` : undefined });
+    if (r === "copied" || r === "failed") {
+      setNote(r === "copied" ? "COPIED" : "TRY AGAIN");
+      setTimeout(() => setNote(""), 1800);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={go}
+      aria-label="Share the fan page link"
+      className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-bold tracking-[0.06em]"
+      style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}
+    >
+      {note ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />} {note || "SHARE"}
+    </button>
+  );
+}
 
 // What the owner can switch on or off. Only the name and icon are always
 // shown: date and venue are optional too, so private events, speakeasies and
@@ -489,15 +514,19 @@ function OwnerSheet({ showId, onClose }) {
   const offNote = <p className="mt-4 text-[15px] font-medium leading-snug text-white/50">The public page is off, so only people you've invited to the event can see it. Turn it on to set it up and get a link you can share.</p>;
 
   const linkBlock = on && row && (
-    <div className="mt-2.5 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] py-1.5 pl-3 pr-1.5">
-      <span className="flex-1 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</span>
-      <button
-        type="button"
-        onClick={copy}
-        className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]"
-        style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}
-      >{copied ? "COPIED" : "COPY"}</button>
-      {row.fan_page_enabled && <FanQrCode url={url} eventName={row.event_name || row.band_name} />}
+    // Link on its own line, then Copy / QR / Share side by side.
+    <div className="mt-2.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
+      <div className="px-1.5 pt-0.5 pb-1.5 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</div>
+      <div className="flex gap-1.5 [&>button]:flex-1 [&>button]:justify-center">
+        <button
+          type="button"
+          onClick={copy}
+          className="flex items-center px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]"
+          style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}
+        >{copied ? "COPIED" : "COPY"}</button>
+        {row.fan_page_enabled && <FanQrCode url={url} eventName={row.event_name || row.band_name} />}
+        {row.fan_page_enabled && <ShareButton url={url} title={row.event_name || row.band_name} />}
+      </div>
     </div>
   );
 
@@ -653,10 +682,13 @@ function ViewerSheet({ shareToken, onClose }) {
         {info?.enabled && (
           <>
             <p className="mt-1 text-[15px] font-medium leading-tight text-white/50">This is the page fans see. Only the event owner can edit it.</p>
-            <div className="mt-3 flex items-center gap-2 bg-[#111] border border-[#1f1f1f] rounded-[10px] py-1.5 pl-3 pr-1.5">
-              <span className="flex-1 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</span>
-              <button type="button" onClick={copy} className="px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
-              <FanQrCode url={url} />
+            <div className="mt-3 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
+              <div className="px-1.5 pt-0.5 pb-1.5 truncate text-xs text-white/75" style={{ fontFamily: SCENE_MONO }}>{url}</div>
+              <div className="flex gap-1.5 [&>button]:flex-1 [&>button]:justify-center">
+                <button type="button" onClick={copy} className="flex items-center px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
+                <FanQrCode url={url} />
+                <ShareButton url={url} />
+              </div>
             </div>
             <a href={url} className="mt-3 flex items-center justify-center gap-1.5 py-[11px] rounded-[10px] text-base font-bold tracking-[0.06em]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>
               VIEW PAGE <ChevronRight className="w-3.5 h-3.5" />
