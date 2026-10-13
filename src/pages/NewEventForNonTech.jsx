@@ -45,7 +45,7 @@ export default function NewEventForNonTech() {
 
   // Built-in + the user's custom types (shared with the home filters and the
   // event page), "Other" last.
-  const eventTypeOptions = [...buildEventTypeOptions([], preferences?.custom_event_types), "Other"];
+  const eventTypeOptions = [...buildEventTypeOptions([], preferences?.custom_event_types, preferences?.hidden_event_types), "Other"];
   const handleEventTypeChange = async (v) => {
     if (v !== ADD_NEW_VALUE) { setEventType(v); return; }
     const input = window.prompt("Add a new event type:");

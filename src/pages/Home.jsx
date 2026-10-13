@@ -226,8 +226,8 @@ export default function Home() {
   // Built-ins + the user's own custom types + anything already on an event,
   // so a newly added type shows up here right away.
   const eventTypes = useMemo(
-    () => buildEventTypeOptions(shows, preferences?.custom_event_types),
-    [shows, preferences?.custom_event_types]
+    () => buildEventTypeOptions(shows, preferences?.custom_event_types, preferences?.hidden_event_types),
+    [shows, preferences?.custom_event_types, preferences?.hidden_event_types]
   );
   const venues = useMemo(() => [...new Set(shows.map((s) => s.venue).filter(Boolean))].sort(), [shows]);
 

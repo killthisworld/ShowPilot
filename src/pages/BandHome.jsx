@@ -200,8 +200,8 @@ export default function BandHome() {
   const genres = useMemo(() => buildGenreOptions(sortedGigs, preferences?.genre_tags), [sortedGigs, preferences?.genre_tags]);
   // Built-ins + custom types the user added + any type already on an event.
   const eventTypes = useMemo(
-    () => buildEventTypeOptions(sortedGigs, preferences?.custom_event_types),
-    [sortedGigs, preferences?.custom_event_types]
+    () => buildEventTypeOptions(sortedGigs, preferences?.custom_event_types, preferences?.hidden_event_types),
+    [sortedGigs, preferences?.custom_event_types, preferences?.hidden_event_types]
   );
   const venues = useMemo(() => [...new Set(sortedGigs.map((g) => g.venue).filter(Boolean))].sort(), [sortedGigs]);
   const cities = useMemo(() => [...new Set(sortedGigs.map((g) => g.city?.trim()).filter(Boolean))].sort(), [sortedGigs]);

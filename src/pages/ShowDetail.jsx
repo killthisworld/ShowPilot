@@ -17,7 +17,7 @@ import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { usePreferences } from "@/hooks/usePreferences";
-import { EVENT_TYPES_EVENT } from "@/lib/eventTypes";
+import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEventType } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 const US_STATES = [
@@ -690,17 +690,8 @@ export default function ShowDetail() {
     if (!shouldSave) return;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
-      const existing = preferences?.custom_event_types || [];
-      if (!existing.includes(trimmed)) {
-        const { error } = await supabase
-          .from("user_preferences")
-          .upsert({ user_id: user.id, custom_event_types: [...existing, trimmed] }, { onConflict: "user_id" });
-        if (error) throw error;
-        await reloadPreferences();
-        window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: trimmed }));
-      }
+      await addTypeToList(preferences, trimmed); // also brings back a deleted name
+      await reloadPreferences();
     } catch (e) {
       console.error(e);
       showPill("Error saving event type to list");
@@ -709,15 +700,8 @@ export default function ShowDetail() {
 
   const removeCustomEventType = async (type) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const updated = (preferences?.custom_event_types || []).filter((t) => t !== type);
-      const { error } = await supabase
-        .from("user_preferences")
-        .upsert({ user_id: user.id, custom_event_types: updated }, { onConflict: "user_id" });
-      if (error) throw error;
+      await removeEventType(preferences, type);
       await reloadPreferences();
-      window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: type }));
     } catch (e) {
       console.error(e);
       showPill("Error removing event type");
@@ -1021,17 +1005,9 @@ export default function ShowDetail() {
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                {["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].map((t) => (
+                {buildEventTypeOptions([], preferences?.custom_event_types, preferences?.hidden_event_types, show.event_type).map((t) => (
                   <SelectItem key={t} value={t}>{t}</SelectItem>
                 ))}
-                {(preferences?.custom_event_types || []).map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-                {show.event_type &&
-                  !["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic"].includes(show.event_type) &&
-                  !(preferences?.custom_event_types || []).includes(show.event_type) && (
-                    <SelectItem key={show.event_type} value={show.event_type}>{show.event_type}</SelectItem>
-                  )}
               <SelectItem value="__add_new__">Other / Add New</SelectItem>
               </SelectContent>
             </Select>

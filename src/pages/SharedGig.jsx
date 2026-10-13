@@ -1246,7 +1246,7 @@ export default function SharedGig() {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                    {[...buildEventTypeOptions(gig.event_type ? [{ event_type: gig.event_type }] : [], preferences?.custom_event_types), "Other"].map((t) => (
+                    {[...buildEventTypeOptions([], preferences?.custom_event_types, preferences?.hidden_event_types, gig.event_type), "Other"].map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>

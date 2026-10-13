@@ -13,19 +13,30 @@ export const BUILT_IN_EVENT_TYPES = [
   "Open Mic",
 ];
 
-export function buildEventTypeOptions(shows = [], customTypes = []) {
+// `hidden` is preferences.hidden_event_types: types this person deleted from
+// their list (built-ins included). They drop out of every list and filter;
+// `keep` (an event's current type) always stays so its picker still shows it.
+export function buildEventTypeOptions(shows = [], customTypes = [], hidden = [], keep = null) {
+  const gone = new Set((hidden || []).map((h) => String(h).trim().toLowerCase()));
+  const keepKey = typeof keep === "string" ? keep.trim().toLowerCase() : "";
   const seen = new Map();
   const add = (t) => {
     const trimmed = typeof t === "string" ? t.trim() : "";
     if (!trimmed) return;
     const key = trimmed.toLowerCase();
+    if (gone.has(key) && key !== keepKey) return;
     if (!seen.has(key)) seen.set(key, trimmed);
   };
   BUILT_IN_EVENT_TYPES.forEach(add);
   (customTypes || []).forEach(add);
   shows.forEach((s) => add(s.event_type));
+  if (keep) add(keep);
   return [...seen.values()];
 }
+
+// Shortcut for screens that have the person's preferences.
+export const eventTypesFor = (preferences, shows = [], keep = null) =>
+  buildEventTypeOptions(shows, preferences?.custom_event_types, preferences?.hidden_event_types, keep);
 
 export function matchesEventType(show, filter) {
   if (!filter || filter === "all") return true;
@@ -71,21 +82,68 @@ export const ADD_NEW_VALUE = "__add_new__";
 // Fired after a new type is saved, so every screen's lists reload.
 export const EVENT_TYPES_EVENT = "showpilot:event-types";
 
+const announceTypes = (detail) => {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail }));
+};
+
 export async function addCustomEventType(preferences, rawName) {
   const name = (rawName || "").trim();
   if (!name) return null;
   const existing = preferences?.custom_event_types || [];
+  const hidden = preferences?.hidden_event_types || [];
+  const k = name.toLowerCase();
+  const wasHidden = hidden.some((h) => String(h).trim().toLowerCase() === k);
   const all = buildEventTypeOptions([], existing);
-  const dupe = all.find((t) => t.toLowerCase() === name.toLowerCase());
-  if (dupe) return dupe;
+  const dupe = all.find((t) => t.toLowerCase() === k);
+  if (dupe && !wasHidden) return dupe;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not logged in");
-  const { error } = await supabase
-    .from("user_preferences")
-    .upsert({ user_id: user.id, custom_event_types: [...existing, name] }, { onConflict: "user_id" });
+  // Adding a name that was deleted brings it back.
+  const patch = { user_id: user.id };
+  if (!dupe) patch.custom_event_types = [...existing, name];
+  if (wasHidden) patch.hidden_event_types = hidden.filter((h) => String(h).trim().toLowerCase() !== k);
+  const { error } = await supabase.from("user_preferences").upsert(patch, { onConflict: "user_id" });
   if (error) throw error;
-  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(EVENT_TYPES_EVENT, { detail: name }));
-  return name;
+  announceTypes(dupe || name);
+  return dupe || name;
+}
+
+// Deletes a type from this person's lists. One they added is removed from
+// custom_event_types; a built-in is remembered in hidden_event_types. Events
+// that already have the type keep it. Their own color for it is dropped too.
+export async function removeEventType(preferences, rawName) {
+  const name = (rawName || "").trim();
+  if (!name) return;
+  const k = name.toLowerCase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+  const custom = preferences?.custom_event_types || [];
+  const hidden = preferences?.hidden_event_types || [];
+  const colors = cleanColors(preferences?.event_type_colors);
+  delete colors[k];
+  const patch = {
+    user_id: user.id,
+    custom_event_types: custom.filter((t) => String(t).trim().toLowerCase() !== k),
+    event_type_colors: colors,
+  };
+  // Always remembered as hidden too: built-ins are always offered, and any
+  // type still on an event would otherwise come back into the lists.
+  if (!hidden.some((h) => String(h).trim().toLowerCase() === k)) patch.hidden_event_types = [...hidden, name];
+  const { error } = await supabase.from("user_preferences").upsert(patch, { onConflict: "user_id" });
+  if (error) throw error;
+  setMyEventTypeColors(colors, { announce: true });
+  announceTypes(name);
+}
+
+// Brings back a deleted type.
+export async function restoreEventType(preferences, rawName) {
+  const k = (rawName || "").trim().toLowerCase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not logged in");
+  const hidden = (preferences?.hidden_event_types || []).filter((h) => String(h).trim().toLowerCase() !== k);
+  const { error } = await supabase.from("user_preferences").upsert({ user_id: user.id, hidden_event_types: hidden }, { onConflict: "user_id" });
+  if (error) throw error;
+  announceTypes(rawName);
 }
 
 export async function addGenreTag(preferences, rawName) {

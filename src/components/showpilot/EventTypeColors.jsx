@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ChevronDown, Check, Plus, Pipette } from "lucide-react";
+import { ChevronDown, Check, Plus, Pipette, Trash2, RotateCcw } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import {
   buildEventTypeOptions, eventTypeColor, defaultEventTypeColor, getMyEventTypeColors,
-  saveMyEventTypeColor, EVENT_COLOR_CHOICES, addCustomEventType,
+  saveMyEventTypeColor, EVENT_COLOR_CHOICES, addCustomEventType, removeEventType, restoreEventType,
 } from "@/lib/eventTypes";
 
 // "Event colors" in the Settings drawer: every event type this person deals
@@ -14,6 +14,8 @@ import {
 // only changes this person's screens. Default puts the type back to the built-in color.
 // "Add an event type" at the bottom saves a new type (with its color) to the
 // same list the event forms and Home filters use, so it shows up there too.
+// The bin on a row deletes that type from every list (built-ins included);
+// events that already have it keep it. Deleted types can be restored.
 
 // Readable text on top of any picked color.
 const inkOn = (hex) => {
@@ -46,7 +48,16 @@ function CustomSwatch({ value, onPick, label = "Custom" }) {
 
 export default function EventTypeColors({ preferences, onSaved }) {
   const [open, setOpen] = useState(false);
-  const [types, setTypes] = useState(() => buildEventTypeOptions([], preferences?.custom_event_types));
+  // Types found on this person's events (fetched when opened) plus their own
+  // custom and deleted lists, kept locally so a change shows straight away.
+  const [found, setFound] = useState([]);
+  const [custom, setCustom] = useState(preferences?.custom_event_types || []);
+  const [hidden, setHidden] = useState(preferences?.hidden_event_types || []);
+  useEffect(() => { setCustom(preferences?.custom_event_types || []); }, [preferences?.custom_event_types]);
+  useEffect(() => { setHidden(preferences?.hidden_event_types || []); }, [preferences?.hidden_event_types]);
+  const types = React.useMemo(() => buildEventTypeOptions(found, custom, hidden), [found, custom, hidden]);
+  const prefsNow = () => ({ ...preferences, custom_event_types: custom, hidden_event_types: hidden, event_type_colors: mine });
+  const [confirmDel, setConfirmDel] = useState(null);
   const [editing, setEditing] = useState(null);
   const [mine, setMine] = useState(() => getMyEventTypeColors());
   const [savedType, setSavedType] = useState(null);
@@ -71,11 +82,38 @@ export default function EventTypeColors({ preferences, onSaved }) {
         return data ? { event_type: data.event_type } : null;
       }));
       const shows = [...(owned || []), ...linked.filter(Boolean)];
-      const extra = Object.keys(getMyEventTypeColors()).map((k) => ({ event_type: k }));
-      if (alive) setTypes(buildEventTypeOptions([...shows, ...extra], preferences?.custom_event_types));
+      if (alive) setFound(shows);
     })().catch((e) => console.error(e));
     return () => { alive = false; };
-  }, [open, preferences?.custom_event_types]);
+  }, [open]);
+
+  const del = async (type) => {
+    setError("");
+    try {
+      await removeEventType(prefsNow(), type);
+      const k = key(type);
+      setCustom((cs) => cs.filter((c) => key(c) !== k));
+      setHidden((hs) => (hs.some((h) => key(h) === k) ? hs : [...hs, type]));
+      setMine(getMyEventTypeColors());
+      setConfirmDel(null);
+      setEditing(null);
+      onSaved?.();
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't delete that event type. Try again.");
+    }
+  };
+  const restore = async (type) => {
+    setError("");
+    try {
+      await restoreEventType(prefsNow(), type);
+      setHidden((hs) => hs.filter((h) => key(h) !== key(type)));
+      onSaved?.();
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't restore that event type. Try again.");
+    }
+  };
 
   const pick = async (type, color) => {
     setError("");
@@ -105,10 +143,11 @@ export default function EventTypeColors({ preferences, onSaved }) {
     setAdding(true);
     try {
       const exists = types.find((t) => key(t) === key(name));
-      const saved = exists || (await addCustomEventType(preferences, name));
+      const saved = exists || (await addCustomEventType(prefsNow(), name));
       const next = await saveMyEventTypeColor({ ...preferences, event_type_colors: mine }, saved, newColor);
       setMine(next);
-      setTypes((ts) => (ts.some((t) => key(t) === key(saved)) ? ts : [...ts, saved]));
+      setHidden((hs) => hs.filter((h) => key(h) !== key(saved)));
+      setCustom((cs) => (exists || cs.some((c) => key(c) === key(saved)) ? cs : [...cs, saved]));
       setNewName("");
       setSavedType(saved);
       setTimeout(() => setSavedType((t) => (t === saved ? null : t)), 1500);
@@ -138,17 +177,31 @@ export default function EventTypeColors({ preferences, onSaved }) {
           <div className="divide-y divide-[#1c1c1c]">
             {types.map((t) => {
               const c = eventTypeColor(t);
-              const custom = !!mine[key(t)];
+              const isMine = !!mine[key(t)];
               const isOpen = editing === t;
               return (
                 <div key={t} className="py-2">
-                  <button type="button" onClick={() => setEditing(isOpen ? null : t)} className="w-full flex items-center gap-2.5 text-left" aria-label={`Change color for ${t}`}>
-                    <span className="w-5 h-5 rounded-md shrink-0" style={{ background: c, boxShadow: isOpen ? `0 0 0 2px #0d0d0d, 0 0 0 3px ${c}` : "none" }} />
-                    <span className="flex-1 min-w-0 text-[14px] text-white truncate">{t}</span>
-                    <span className="text-[9px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: savedType === t ? "#8CFF3D" : "rgba(255,255,255,0.35)" }}>
-                      {savedType === t ? "SAVED" : custom ? "YOURS" : "DEFAULT"}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => { setEditing(isOpen ? null : t); setConfirmDel(null); }} className="flex-1 min-w-0 flex items-center gap-2.5 text-left" aria-label={`Change color for ${t}`}>
+                      <span className="w-5 h-5 rounded-md shrink-0" style={{ background: c, boxShadow: isOpen ? `0 0 0 2px #0d0d0d, 0 0 0 3px ${c}` : "none" }} />
+                      <span className="flex-1 min-w-0 text-[14px] text-white truncate">{t}</span>
+                      <span className="text-[9px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: savedType === t ? "#8CFF3D" : "rgba(255,255,255,0.35)" }}>
+                        {savedType === t ? "SAVED" : isMine ? "YOURS" : "DEFAULT"}
+                      </span>
+                    </button>
+                    <button type="button" onClick={() => setConfirmDel(confirmDel === t ? null : t)} className="p-1 rounded text-white/25 hover:text-[#FF6B6B]" aria-label={`Delete ${t}`} title="Delete this event type">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {confirmDel === t && (
+                    <div className="mt-2 rounded-md border border-[#FF6B6B]/40 bg-[#FF6B6B]/10 px-2.5 py-2">
+                      <p className="text-[12px] text-white/80 leading-snug">Delete <b>{t}</b> from your event types? Events that already have it keep it.</p>
+                      <div className="mt-1.5 flex gap-2">
+                        <button type="button" onClick={() => del(t)} className="h-7 px-3 rounded-md text-[11px] font-bold tracking-[0.06em] bg-[#FF6B6B] text-[#0d0d0d]" style={{ fontFamily: SCENE_MONO }}>DELETE</button>
+                        <button type="button" onClick={() => setConfirmDel(null)} className="h-7 px-3 rounded-md text-[11px] tracking-[0.06em] border border-[#2a2a2a] text-white/60 hover:text-white" style={{ fontFamily: SCENE_MONO }}>CANCEL</button>
+                      </div>
+                    </div>
+                  )}
                   {isOpen && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {EVENT_COLOR_CHOICES.map((choice) => (
@@ -164,7 +217,7 @@ export default function EventTypeColors({ preferences, onSaved }) {
                         </button>
                       ))}
                       <CustomSwatch value={c} onPick={(color) => pick(t, color)} />
-                      {custom && (
+                      {isMine && (
                         <button type="button" onClick={() => pick(t, null)} className="h-7 px-2 rounded-md border border-[#2a2a2a] text-[10px] tracking-[0.08em] text-white/60 hover:text-white flex items-center gap-1.5" style={{ fontFamily: SCENE_MONO }}>
                           <span className="w-3 h-3 rounded-sm" style={{ background: defaultEventTypeColor(t) }} /> DEFAULT
                         </button>
@@ -175,6 +228,16 @@ export default function EventTypeColors({ preferences, onSaved }) {
               );
             })}
           </div>
+          {hidden.length > 0 && (
+            <div className="mt-1 pt-2 border-t border-[#1c1c1c] flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] tracking-[0.12em] text-white/35 mr-0.5" style={{ fontFamily: SCENE_MONO }}>DELETED</span>
+              {hidden.map((h) => (
+                <button key={h} type="button" onClick={() => restore(h)} className="h-6 pl-2 pr-1.5 rounded-full border border-[#2a2a2a] text-[11px] text-white/50 hover:text-white hover:border-white/40 flex items-center gap-1" title={`Restore ${h}`} aria-label={`Restore ${h}`}>
+                  {h} <RotateCcw className="w-3 h-3" />
+                </button>
+              ))}
+            </div>
+          )}
           <form onSubmit={addType} className="mt-2 pt-3 border-t border-[#1c1c1c]">
             <span className="block text-[10px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>ADD AN EVENT TYPE</span>
             <div className="flex items-center gap-2">
