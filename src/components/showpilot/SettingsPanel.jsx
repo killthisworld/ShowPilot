@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { User, LogOut, Star } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeColors from "@/components/showpilot/EventTypeColors";
@@ -10,6 +11,110 @@ import EventTypeColors from "@/components/showpilot/EventTypeColors";
 // so the two never drift apart - each passes in its own state and handlers.
 const label = "block text-[9px] tracking-[0.14em] text-white/45 mb-1";
 const input = "w-full h-10 rounded-lg bg-[#111] border border-[#1f1f1f] px-3 text-[13px] text-white outline-none focus:border-[#8CFF3D]/60";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// The account email, with a CHANGE control. Changing it sends a confirm
+// link to the new address; nothing switches until that link is clicked, so
+// a typo can't lock anyone out. A pending change shows under the field.
+function EmailField({ user }) {
+  const { updateEmail } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sentTo, setSentTo] = useState("");
+
+  const current = user?.email || "";
+  const pending = sentTo || user?.new_email || "";
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const next = value.trim().toLowerCase();
+    setError("");
+    if (!EMAIL_RE.test(next)) { setError("Enter a valid email address."); return; }
+    if (next === current.toLowerCase()) { setError("That's already your email."); return; }
+    setBusy(true);
+    try {
+      await updateEmail(next);
+      setSentTo(next);
+      setEditing(false);
+      setValue("");
+    } catch (err) {
+      const msg = err?.message || "";
+      setError(/already|registered|exists/i.test(msg)
+        ? "Another Show Pilot account already uses that email."
+        : msg || "Couldn't change the email. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const smallBtn = "shrink-0 h-10 px-3 rounded-lg text-[10px] tracking-[0.14em] border transition-colors disabled:opacity-40";
+
+  return (
+    <div>
+      <span className={label} style={{ fontFamily: SCENE_MONO }}>EMAIL</span>
+      <div className="flex gap-2">
+        <input value={current} readOnly className={input + " text-white/45"} style={{ fontFamily: SCENE_MONO, fontSize: 12 }} />
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => { setEditing(true); setError(""); }}
+            className={smallBtn + " text-white/70 border-[#2a2a2a] bg-[#111] hover:text-white hover:border-[#8CFF3D]/60"}
+            style={{ fontFamily: SCENE_MONO }}
+          >
+            CHANGE
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <form onSubmit={submit} className="mt-2 space-y-2">
+          <input
+            type="email"
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="New email address"
+            className={input}
+            style={{ fontFamily: SCENE_MONO, fontSize: 12 }}
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy || !value.trim()}
+              className={smallBtn + " flex-1 text-[#0d0d0d] bg-[#8CFF3D] border-[#8CFF3D] hover:bg-[#9dff5c] font-semibold"}
+              style={{ fontFamily: SCENE_MONO }}
+            >
+              {busy ? "SENDING..." : "SEND CONFIRM LINK"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => { setEditing(false); setValue(""); setError(""); }}
+              className={smallBtn + " text-white/50 border-[#2a2a2a] bg-[#111] hover:text-white"}
+              style={{ fontFamily: SCENE_MONO }}
+            >
+              CANCEL
+            </button>
+          </div>
+          <p className="text-white/40 text-[10px] leading-snug">
+            We'll email a confirm link to the new address. Your login stays {current || "the same"} until you click it.
+          </p>
+        </form>
+      )}
+
+      {error && <p className="mt-1.5 text-red-400 text-[11px]">{error}</p>}
+
+      {!editing && pending && pending.toLowerCase() !== current.toLowerCase() && (
+        <p className="mt-1.5 text-[11px] leading-snug text-[#8CFF3D]/80">
+          Confirm link sent to <span style={{ fontFamily: SCENE_MONO }}>{pending}</span>. Click it to finish switching. Check your current inbox too, in case it asks you to confirm there as well.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function SettingsPanel({
   prefs, setPrefs, user, accountStyle, onPhoto,
@@ -45,10 +150,7 @@ export default function SettingsPanel({
           <span className={label} style={{ fontFamily: SCENE_MONO }}>DISPLAY NAME</span>
           <input value={prefs.display_name || ""} onChange={(e) => setPrefs({ ...prefs, display_name: e.target.value })} className={input} />
         </div>
-        <div>
-          <span className={label} style={{ fontFamily: SCENE_MONO }}>EMAIL</span>
-          <input value={user?.email || ""} readOnly className={input + " text-white/45"} style={{ fontFamily: SCENE_MONO, fontSize: 12 }} />
-        </div>
+        <EmailField user={user} />
       </div>
 
       {/* Navigation banks */}

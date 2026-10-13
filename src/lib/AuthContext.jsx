@@ -64,6 +64,20 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
+  // Starts an email change. Supabase emails a confirm link to the new
+  // address; the account switches over only once that link is clicked.
+  // Until then the old email keeps working and user.new_email holds the
+  // pending address.
+  const updateEmail = async (newEmail) => {
+    const { data, error } = await supabase.auth.updateUser(
+      { email: newEmail },
+      { emailRedirectTo: window.location.origin },
+    );
+    if (error) throw error;
+    if (data?.user) setUser(data.user);
+    return data;
+  };
+
   const navigateToLogin = () => { window.location.href = "/login"; };
 
   const value = {
@@ -79,6 +93,7 @@ export function AuthProvider({ children }) {
     signOut,
     sendPasswordReset,
     updatePassword,
+    updateEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
