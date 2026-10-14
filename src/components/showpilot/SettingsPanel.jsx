@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { User, LogOut, Star } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { User, LogOut, Star, ChevronDown } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -15,19 +15,45 @@ const input = "w-full h-10 rounded-lg bg-[#111] border border-[#1f1f1f] px-3 tex
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// The account email, with a CHANGE control. Changing it sends a confirm
-// link to the new address; nothing switches until that link is clicked, so
-// a typo can't lock anyone out. A pending change shows under the field.
-function EmailField({ user }) {
+const smallBtn = "shrink-0 h-10 px-3 rounded-lg text-[10px] tracking-[0.14em] border transition-colors disabled:opacity-40";
+const mono12 = { fontFamily: SCENE_MONO, fontSize: 12 };
+
+function hasPasswordLogin(user) {
+  const providers = user?.app_metadata?.providers || [user?.app_metadata?.provider].filter(Boolean);
+  return providers.includes("email") || (user?.identities || []).some((i) => i.provider === "email");
+}
+
+function FormButtons({ busy, disabled, submitLabel, busyLabel, onCancel }) {
+  return (
+    <div className="flex gap-2">
+      <button
+        type="submit"
+        disabled={busy || disabled}
+        className={smallBtn + " flex-1 text-[#0d0d0d] bg-[#8CFF3D] border-[#8CFF3D] hover:bg-[#9dff5c] font-semibold"}
+        style={{ fontFamily: SCENE_MONO }}
+      >
+        {busy ? busyLabel : submitLabel}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onCancel}
+        className={smallBtn + " text-white/50 border-[#2a2a2a] bg-[#111] hover:text-white"}
+        style={{ fontFamily: SCENE_MONO }}
+      >
+        CANCEL
+      </button>
+    </div>
+  );
+}
+
+// New email: Supabase emails a confirm link and nothing switches until it's
+// clicked, so a typo can't lock anyone out.
+function EmailForm({ current, onSent, onCancel }) {
   const { updateEmail } = useAuth();
-  const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [sentTo, setSentTo] = useState("");
-
-  const current = user?.email || "";
-  const pending = sentTo || user?.new_email || "";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -38,102 +64,38 @@ function EmailField({ user }) {
     setBusy(true);
     try {
       await updateEmail(next);
-      setSentTo(next);
-      setEditing(false);
-      setValue("");
+      onSent(next);
     } catch (err) {
       const msg = err?.message || "";
       setError(/already|registered|exists/i.test(msg)
         ? "Another Show Pilot account already uses that email."
         : msg || "Couldn't change the email. Try again.");
-    } finally {
       setBusy(false);
     }
   };
 
-  const smallBtn = "shrink-0 h-10 px-3 rounded-lg text-[10px] tracking-[0.14em] border transition-colors disabled:opacity-40";
-
   return (
-    <div>
-      <span className={label} style={{ fontFamily: SCENE_MONO }}>EMAIL</span>
-      <div className="flex gap-2">
-        <input value={current} readOnly className={input + " text-white/45"} style={{ fontFamily: SCENE_MONO, fontSize: 12 }} />
-        {!editing && (
-          <button
-            type="button"
-            onClick={() => { setEditing(true); setError(""); }}
-            className={smallBtn + " text-white/70 border-[#2a2a2a] bg-[#111] hover:text-white hover:border-[#8CFF3D]/60"}
-            style={{ fontFamily: SCENE_MONO }}
-          >
-            CHANGE
-          </button>
-        )}
-      </div>
-
-      {editing && (
-        <form onSubmit={submit} className="mt-2 space-y-2">
-          <input
-            type="email"
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="New email address"
-            className={input}
-            style={{ fontFamily: SCENE_MONO, fontSize: 12 }}
-          />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={busy || !value.trim()}
-              className={smallBtn + " flex-1 text-[#0d0d0d] bg-[#8CFF3D] border-[#8CFF3D] hover:bg-[#9dff5c] font-semibold"}
-              style={{ fontFamily: SCENE_MONO }}
-            >
-              {busy ? "SENDING..." : "SEND CONFIRM LINK"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => { setEditing(false); setValue(""); setError(""); }}
-              className={smallBtn + " text-white/50 border-[#2a2a2a] bg-[#111] hover:text-white"}
-              style={{ fontFamily: SCENE_MONO }}
-            >
-              CANCEL
-            </button>
-          </div>
-          <p className="text-white/40 text-[10px] leading-snug">
-            We'll email a confirm link to the new address. Your login stays {current || "the same"} until you click it.
-          </p>
-        </form>
-      )}
-
-      {error && <p className="mt-1.5 text-red-400 text-[11px]">{error}</p>}
-
-      {!editing && pending && pending.toLowerCase() !== current.toLowerCase() && (
-        <p className="mt-1.5 text-[11px] leading-snug text-[#8CFF3D]/80">
-          Confirm link sent to <span style={{ fontFamily: SCENE_MONO }}>{pending}</span>. Click it to finish switching. Check your current inbox too, in case it asks you to confirm there as well.
-        </p>
-      )}
-    </div>
+    <form onSubmit={submit} className="mt-2 space-y-2">
+      <span className={label} style={{ fontFamily: SCENE_MONO }}>NEW EMAIL</span>
+      <input type="email" autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder="New email address" className={input} style={mono12} />
+      <FormButtons busy={busy} disabled={!value.trim()} submitLabel="SEND CONFIRM LINK" busyLabel="SENDING..." onCancel={onCancel} />
+      <p className="text-white/40 text-[10px] leading-snug">
+        We'll email a confirm link to the new address. Your login stays {current || "the same"} until you click it.
+      </p>
+      {error && <p className="text-red-400 text-[11px]">{error}</p>}
+    </form>
   );
 }
 
-// Password row. Accounts that signed up with email + password must enter the
-// current one; Google-only accounts can set a first password.
-function PasswordField({ user }) {
+// New password. Accounts with a password must enter the current one;
+// Google-only accounts can set a first password.
+function PasswordForm({ hasPassword, onSaved, onCancel }) {
   const { changePassword } = useAuth();
-  const providers = user?.app_metadata?.providers || [user?.app_metadata?.provider].filter(Boolean);
-  const [hasPassword, setHasPassword] = useState(
-    providers.includes("email") || (user?.identities || []).some((i) => i.provider === "email"),
-  );
-  const [editing, setEditing] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-
-  const reset = () => { setEditing(false); setCurrent(""); setNext(""); setConfirm(""); setError(""); };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -145,72 +107,101 @@ function PasswordField({ user }) {
     setBusy(true);
     try {
       await changePassword(hasPassword ? current : null, next);
-      reset();
-      setHasPassword(true);
-      setDone(true);
+      onSaved();
     } catch (err) {
       setError(err?.message || "Couldn't change the password. Try again.");
-    } finally {
       setBusy(false);
     }
   };
 
-  const smallBtn = "shrink-0 h-10 px-3 rounded-lg text-[10px] tracking-[0.14em] border transition-colors disabled:opacity-40";
-  const pw = { fontFamily: SCENE_MONO, fontSize: 12 };
+  return (
+    <form onSubmit={submit} className="mt-2 space-y-2">
+      <span className={label} style={{ fontFamily: SCENE_MONO }}>{hasPassword ? "NEW PASSWORD" : "SET A PASSWORD"}</span>
+      {!hasPassword && (
+        <p className="text-white/40 text-[10px] leading-snug">You sign in with Google. A password lets you sign in with your email too.</p>
+      )}
+      {hasPassword && (
+        <input type="password" autoComplete="current-password" autoFocus value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" className={input} style={mono12} />
+      )}
+      <input type="password" autoComplete="new-password" autoFocus={!hasPassword} value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password (6+ characters)" className={input} style={mono12} />
+      <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="New password again" className={input} style={mono12} />
+      <FormButtons busy={busy} disabled={!next || !confirm || (hasPassword && !current)} submitLabel={hasPassword ? "UPDATE PASSWORD" : "SET PASSWORD"} busyLabel="SAVING..." onCancel={onCancel} />
+      {hasPassword && (
+        <a href="/forgot-password" className="block text-white/40 hover:text-white/70 text-[10px] underline underline-offset-2">
+          Forgot your current password?
+        </a>
+      )}
+      {error && <p className="text-red-400 text-[11px]">{error}</p>}
+    </form>
+  );
+}
+
+// The EMAIL row. Its CHANGE button opens a small menu: Email or Password.
+// Picking one opens that form under the row.
+function LoginDetails({ user }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mode, setMode] = useState(null); // null | "email" | "password"
+  const [sentTo, setSentTo] = useState("");
+  const [pwSaved, setPwSaved] = useState(false);
+  const [hasPassword, setHasPassword] = useState(() => hasPasswordLogin(user));
+  const menuRef = useRef(null);
+
+  const current = user?.email || "";
+  const pending = sentTo || user?.new_email || "";
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", esc); };
+  }, [menuOpen]);
+
+  const pick = (m) => { setMenuOpen(false); setMode(m); setPwSaved(false); };
+  const item = "w-full text-left px-3 py-2.5 text-[11px] tracking-[0.12em] text-white/80 hover:bg-[#8CFF3D]/10 hover:text-white";
 
   return (
     <div>
-      <span className={label} style={{ fontFamily: SCENE_MONO }}>PASSWORD</span>
+      <span className={label} style={{ fontFamily: SCENE_MONO }}>EMAIL</span>
       <div className="flex gap-2">
-        <input value={hasPassword ? "••••••••••" : "Not set (you sign in with Google)"} readOnly className={input + " text-white/45"} style={pw} />
-        {!editing && (
+        <input value={current} readOnly className={input + " text-white/45"} style={mono12} />
+        <div className="relative shrink-0" ref={menuRef}>
           <button
             type="button"
-            onClick={() => { setEditing(true); setDone(false); setError(""); }}
-            className={smallBtn + " text-white/70 border-[#2a2a2a] bg-[#111] hover:text-white hover:border-[#8CFF3D]/60"}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            disabled={!!mode}
+            onClick={() => setMenuOpen((o) => !o)}
+            className={smallBtn + " inline-flex items-center gap-1 text-white/70 border-[#2a2a2a] bg-[#111] hover:text-white hover:border-[#8CFF3D]/60"}
             style={{ fontFamily: SCENE_MONO }}
           >
-            {hasPassword ? "CHANGE" : "SET"}
+            CHANGE <ChevronDown className={"w-3 h-3 transition-transform " + (menuOpen ? "rotate-180" : "")} />
           </button>
-        )}
+          {menuOpen && (
+            <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-40 rounded-lg border border-[#2a2a2a] bg-[#141414] overflow-hidden shadow-[0_8px_24px_rgba(0,0,0,0.6)]" style={{ fontFamily: SCENE_MONO }}>
+              <button type="button" role="menuitem" className={item} onClick={() => pick("email")}>EMAIL</button>
+              <button type="button" role="menuitem" className={item + " border-t border-[#1f1f1f]"} onClick={() => pick("password")}>
+                {hasPassword ? "PASSWORD" : "SET A PASSWORD"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {editing && (
-        <form onSubmit={submit} className="mt-2 space-y-2">
-          {hasPassword && (
-            <input type="password" autoComplete="current-password" autoFocus value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" className={input} style={pw} />
-          )}
-          <input type="password" autoComplete="new-password" autoFocus={!hasPassword} value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password (6+ characters)" className={input} style={pw} />
-          <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="New password again" className={input} style={pw} />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={busy || !next || !confirm || (hasPassword && !current)}
-              className={smallBtn + " flex-1 text-[#0d0d0d] bg-[#8CFF3D] border-[#8CFF3D] hover:bg-[#9dff5c] font-semibold"}
-              style={{ fontFamily: SCENE_MONO }}
-            >
-              {busy ? "SAVING..." : hasPassword ? "UPDATE PASSWORD" : "SET PASSWORD"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={reset}
-              className={smallBtn + " text-white/50 border-[#2a2a2a] bg-[#111] hover:text-white"}
-              style={{ fontFamily: SCENE_MONO }}
-            >
-              CANCEL
-            </button>
-          </div>
-          {hasPassword && (
-            <a href="/forgot-password" className="block text-white/40 hover:text-white/70 text-[10px] underline underline-offset-2">
-              Forgot your current password?
-            </a>
-          )}
-        </form>
+      {mode === "email" && (
+        <EmailForm current={current} onCancel={() => setMode(null)} onSent={(addr) => { setSentTo(addr); setMode(null); }} />
+      )}
+      {mode === "password" && (
+        <PasswordForm hasPassword={hasPassword} onCancel={() => setMode(null)} onSaved={() => { setHasPassword(true); setPwSaved(true); setMode(null); }} />
       )}
 
-      {error && <p className="mt-1.5 text-red-400 text-[11px]">{error}</p>}
-      {done && !editing && (
+      {!mode && pending && pending.toLowerCase() !== current.toLowerCase() && (
+        <p className="mt-1.5 text-[11px] leading-snug text-[#8CFF3D]/80">
+          Confirm link sent to <span style={{ fontFamily: SCENE_MONO }}>{pending}</span>. Click it to finish switching. Check your current inbox too, in case it asks you to confirm there as well.
+        </p>
+      )}
+      {!mode && pwSaved && (
         <p className="mt-1.5 text-[11px] text-[#8CFF3D]/80">Password updated. Use the new one next time you sign in.</p>
       )}
     </div>
@@ -253,8 +244,7 @@ export default function SettingsPanel({
           <span className={label} style={{ fontFamily: SCENE_MONO }}>DISPLAY NAME</span>
           <input value={prefs.display_name || ""} onChange={(e) => setPrefs({ ...prefs, display_name: e.target.value })} className={input} />
         </div>
-        <EmailField user={user} />
-        <PasswordField user={user} />
+        <LoginDetails user={user} />
       </div>
 
       {/* Navigation banks */}
