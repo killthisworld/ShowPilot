@@ -7,7 +7,7 @@ import { inspectWav, describeWav, qualityWarning, formatBytes, formatDuration } 
 import { setUploadCall, uploadToDrive } from "@/lib/djTools";
 
 const G = "#8CFF3D";
-const AMBER = "#F59E0B";
+const AMBER = "#FF6A00";
 const RED = "#F87171";
 const field = "w-full bg-[#0d0d0d] border border-[#262626] rounded-lg px-3 py-2 text-white text-[15px] placeholder:text-white/25 outline-none focus:border-[#8CFF3D]/60";
 

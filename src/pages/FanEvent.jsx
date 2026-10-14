@@ -284,7 +284,7 @@ export default function FanEvent() {
 
         {ev.venue && (
           <div className="mx-5 mt-3.5 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5 flex items-center gap-3">
-            <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#FB923C24", border: "1px solid #FB923C8c", color: "#FB923C" }}>
+            <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#F2FF0024", border: "1px solid #F2FF008c", color: "#F2FF00" }}>
               <MapPin className="w-[18px] h-[18px]" />
             </span>
             <div className="min-w-0 flex-1">
@@ -292,7 +292,7 @@ export default function FanEvent() {
               {(ev.address || place) && <div className="text-[10px] tracking-[0.06em] uppercase text-white/50 mt-0.5" style={{ fontFamily: SCENE_MONO }}>{ev.address ? [ev.address, place].filter(Boolean).join(", ") : place}</div>}
             </div>
             {mapsUrl && (
-              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.1em] flex items-center gap-1" style={{ fontFamily: SCENE_MONO, color: "#FB923C" }}>
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] tracking-[0.1em] flex items-center gap-1" style={{ fontFamily: SCENE_MONO, color: "#F2FF00" }}>
                 MAP <Navigation className="w-3 h-3" />
               </a>
             )}
@@ -302,7 +302,7 @@ export default function FanEvent() {
         {/* Venue kept for the confirmation email: say where it'll come from. */}
         {!ev.venue && ev.venue_by_email && (
           <div className="mx-5 mt-3.5 bg-[#111111]/80 backdrop-blur-md border border-white/10 rounded-[10px] p-3.5 flex items-center gap-3">
-            <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#FB923C24", border: "1px solid #FB923C8c", color: "#FB923C" }}>
+            <span className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0" style={{ background: "#F2FF0024", border: "1px solid #F2FF008c", color: "#F2FF00" }}>
               <MapPin className="w-[18px] h-[18px]" />
             </span>
             <div className="min-w-0 flex-1">

@@ -14,7 +14,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 // here visually connects to the Venue section it gets loaded into, and
 // same for Artist templates and the Manager/Band lineup.
 const GROUP_STYLE = {
-  venue: { color: "#FB923C", icon: MapPin, label: "Venues" },
+  venue: { color: "#F2FF00", icon: MapPin, label: "Venues" },
   artist: { color: "#EF4444", icon: Music, label: "Artists" },
 };
 

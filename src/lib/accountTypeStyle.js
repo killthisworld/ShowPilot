@@ -5,7 +5,7 @@ import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb 
 // sync with each other and with the same palette used on the sectioned
 // gig page and Home progress bar.
 export const ACCOUNT_TYPE_STYLES = {
-  venue: { label: "Venue", color: "#FB923C", icon: MapPin },
+  venue: { label: "Venue", color: "#F2FF00", icon: MapPin },
   promoter: { label: "Promoter", color: "#60A5FA", icon: Ticket },
   booking_agent: { label: "Booking Agent", color: "#C026D3", icon: FileSignature },
   manager: { label: "Manager", color: "#EF4444", icon: Briefcase },

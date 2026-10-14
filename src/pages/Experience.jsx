@@ -49,7 +49,7 @@ const US_STATES = [
 const TABS = [
   { id: "pilot", label: "My Pilot", color: "#8CFF3D" },
   { id: "fellow", label: "Fellow Pilots", color: "#F472B6" },
-  { id: "logbook", label: "Logbook", color: "#F59E0B" },
+  { id: "logbook", label: "Logbook", color: "#FF6A00" },
 ];
 
 const NON_RAIL_TYPES = ["engineer", "lighting"];
@@ -1424,14 +1424,14 @@ export default function Cockpit() {
               <StatusStrip
                 cells={[
                   { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
-                  { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
+                  { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#FF6A00" },
                   { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
                 ]}
               />
             </div>
           )}
           {activeTab === "logbook" && (
-            <p className="ml-auto text-sm text-[#F59E0B]/80" style={{ fontFamily: SCENE_MONO }}>Logbook opens from the soundwave on the back of your card</p>
+            <p className="ml-auto text-sm text-[#FF6A00]/80" style={{ fontFamily: SCENE_MONO }}>Logbook opens from the soundwave on the back of your card</p>
           )}
         </div>
 
@@ -1485,9 +1485,9 @@ export default function Cockpit() {
                   <button
                     onClick={() => { setOpenWalletId(null); setWalletView("starred_pilots"); }}
                     className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg border text-left transition-colors"
-                    style={{ borderColor: !openWalletId && walletView === "starred_pilots" ? "#F59E0B" : "#262626", background: !openWalletId && walletView === "starred_pilots" ? "#F59E0B1f" : "#1a1a1a" }}
+                    style={{ borderColor: !openWalletId && walletView === "starred_pilots" ? "#FF6A00" : "#262626", background: !openWalletId && walletView === "starred_pilots" ? "#FF6A001f" : "#1a1a1a" }}
                   >
-                    <span className="text-white font-semibold text-sm flex items-center gap-2"><Star className="w-4 h-4 text-[#F59E0B]" /> Starred ID cards</span>
+                    <span className="text-white font-semibold text-sm flex items-center gap-2"><Star className="w-4 h-4 text-[#FF6A00]" /> Starred ID cards</span>
                     <span className="text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>{starredPilots.length}</span>
                   </button>
                   <div className="text-[10px] tracking-[0.12em] text-white/40 pt-2 pb-0.5 px-1" style={{ fontFamily: SCENE_MONO }}>WALLETS</div>
@@ -1629,7 +1629,7 @@ export default function Cockpit() {
                               key={id}
                               type="button"
                               onClick={() => { setLogbookPreview(id); setPreviewShow(null); }}
-                              className={`h-8 px-4 rounded-md text-sm font-semibold transition-all ${on ? "bg-[#F59E0B] text-black shadow-[0_0_12px_#F59E0B55]" : "text-white/55 hover:text-white hover:bg-white/5"}`}
+                              className={`h-8 px-4 rounded-md text-sm font-semibold transition-all ${on ? "bg-[#FF6A00] text-black shadow-[0_0_12px_#FF6A0055]" : "text-white/55 hover:text-white hover:bg-white/5"}`}
                             >
                               {label}
                             </button>
@@ -1665,8 +1665,8 @@ export default function Cockpit() {
                                   onClick={() => pickMonth(key)}
                                   className="h-11 min-w-0 rounded-md flex flex-col items-center justify-center gap-1 transition-colors hover:brightness-125"
                                   style={{
-                                    background: on ? "#F59E0B" : "#141414",
-                                    border: `1px solid ${on ? "#F59E0B" : key === thisMonth ? "#F59E0B88" : "#262626"}`,
+                                    background: on ? "#FF6A00" : "#141414",
+                                    border: `1px solid ${on ? "#FF6A00" : key === thisMonth ? "#FF6A0088" : "#262626"}`,
                                     color: on ? "#0d0d0d" : "rgba(255,255,255,0.75)",
                                   }}
                                 >
@@ -1674,7 +1674,7 @@ export default function Cockpit() {
                                   <span className="flex items-center gap-[3px] h-[6px]">
                                     {done > 0 && <span className="w-[6px] h-[6px] rounded-full" style={{ background: on ? "#0d0d0d" : "#8CFF3D" }} />}
                                     {booked > 0 && <span className="w-[6px] h-[6px] rounded-full border" style={{ borderColor: on ? "#0d0d0d" : "#60A5FA" }} />}
-                                    {designed && <span className="w-[6px] h-[6px] rounded-[1px]" style={{ background: on ? "#0d0d0d" : "#F59E0B" }} />}
+                                    {designed && <span className="w-[6px] h-[6px] rounded-[1px]" style={{ background: on ? "#0d0d0d" : "#FF6A00" }} />}
                                   </span>
                                 </button>
                               );
@@ -1769,7 +1769,7 @@ export default function Cockpit() {
                             <div className="flex items-center gap-3 mt-1.5 text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
                               <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full bg-[#8CFF3D]" />{monthShows.length} FINISHED</span>
                               <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-full border border-[#60A5FA]" />{monthBooked} BOOKED</span>
-                              <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-[1px] bg-[#F59E0B]" />{logbookSettingsMap[selectedLogbookMonth] ? "SAVED" : "NOT SAVED"}</span>
+                              <span className="flex items-center gap-1.5"><span className="w-[7px] h-[7px] rounded-[1px] bg-[#FF6A00]" />{logbookSettingsMap[selectedLogbookMonth] ? "SAVED" : "NOT SAVED"}</span>
                             </div>
                             <p className="text-xs text-white/35 mt-2">Pick any month and year above the preview. Pages can be set up before the shows happen.</p>
                           </div>
@@ -1838,7 +1838,7 @@ export default function Cockpit() {
             <StatusStrip
               cells={[
                 { label: "FELLOW PILOTS", value: String(fellowPilots.length), color: "#F472B6" },
-                { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#F59E0B" },
+                { label: "STARRED", value: String(fellowPilots.filter((x) => x.starred).length), color: "#FF6A00" },
                 { label: "WALLETS", value: String(wallets.length), color: "#60A5FA" },
               ]}
             />

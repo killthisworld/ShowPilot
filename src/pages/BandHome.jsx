@@ -578,7 +578,7 @@ export default function BandHome() {
                                 {pct != null && (
                                   <>
                                     <span className="relative w-[56px] h-1 rounded-sm bg-[#222] overflow-hidden shrink-0"><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
-                                    <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#F59E0B" : "#8CFF3D" }}>
+                                    <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#FF6A00" : "#8CFF3D" }}>
                                       {tasksOpen ? `${tasksOpen} TASK${tasksOpen === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
                                     </span>
                                   </>

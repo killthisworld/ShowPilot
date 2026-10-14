@@ -25,7 +25,7 @@ function weekBounds() {
 const blank = (v) => !v || (typeof v === "string" && v.trim() === "");
 
 const GREEN = "#8CFF3D";
-const AMBER = "#F59E0B";
+const AMBER = "#FF6A00";
 const BLUE = "#60A5FA";
 
 export function buildStatusStrip(accountType, gigs = [], progress = {}) {

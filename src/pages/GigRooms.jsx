@@ -10,7 +10,7 @@ import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 // app already uses for these five sections.
 export const ROOM_META = {
   general: { label: "General", icon: Users, color: "#9CA3AF" },
-  venue: { label: "Venue", icon: MapPin, color: "#FB923C" },
+  venue: { label: "Venue", icon: MapPin, color: "#F2FF00" },
   promoter: { label: "Promoter", icon: Ticket, color: "#60A5FA" },
   booking_agent: { label: "Booking", icon: FileSignature, color: "#C026D3" },
   manager: { label: "Manager/Artist", icon: User, color: "#EF4444" },

@@ -211,7 +211,7 @@ function BoardingPass({ email, role, color }) {
           <div className="grid grid-cols-2 gap-x-5 gap-y-4 mt-5">
             <div className="col-span-2">{cell("PASSENGER", email)}</div>
             {cell("ROLE", role?.label || "Pilot", color)}
-            {cell("STATUS", "Confirm email", "#F59E0B")}
+            {cell("STATUS", "Confirm email", "#FF6A00")}
           </div>
         </div>
 

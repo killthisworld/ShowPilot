@@ -643,7 +643,7 @@ function OwnerSheet({ showId, onClose }) {
           {saving ? "UPDATING..." : updated && !dirty ? "UPDATED ✓" : "UPDATE"}
         </button>
       </div>
-      {dirty && <p className="mt-2 text-center text-[14px] text-[#F59E0B]">You have changes that fans can't see yet. Press Update to publish them.</p>}
+      {dirty && <p className="mt-2 text-center text-[14px] text-[#FF6A00]">You have changes that fans can't see yet. Press Update to publish them.</p>}
       {!dirty && updated && <p className="mt-2 text-center text-[14px] text-white/45">Live now for everyone who opens the fan page.</p>}
       {err && row && <p className="mt-2 text-center text-[14px] text-red-400">{err}</p>}
     </>

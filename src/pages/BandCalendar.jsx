@@ -16,7 +16,7 @@ import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBand
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
-const GOLD = "#FBBF24";
+const GOLD = "#FF6A00";
 
 function getGigColor(g) {
   const typeColor = eventTypeColor(g.event_type);

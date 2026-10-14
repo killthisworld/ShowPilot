@@ -27,7 +27,7 @@ export const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 // progress (the Home page progress bar uses the same palette) so position
 // and color together become a language the user only has to learn once.
 export const SECTION_COLORS = {
-  venue: "#FB923C",
+  venue: "#F2FF00",
   promoter: "#60A5FA",
   booking_agent: "#C026D3",
   manager: "#EF4444",

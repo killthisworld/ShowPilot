@@ -6,7 +6,7 @@ import moment from "moment";
 
 function getAccentColor(show) {
   if (show.is_owned === false) return "#F472B6";      // pink — Linked
-  if (show.starred) return "#F59E0B";          // amber — Starred
+  if (show.starred) return "#FF6A00";          // amber — Starred
   if (show.status === "complete") return "#8CFF3D";  // green — Worked
   if (show.status === "in_progress") return "#60A5FA"; // blue — Frequent
   return "#555";                               // grey — New

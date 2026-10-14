@@ -8,7 +8,7 @@ export const SCENE_COLORS = {
   not_started: "#9A9A9A",
   in_progress: "#60A5FA",
   complete: "#8CFF3D",
-  starred: "#F59E0B",
+  starred: "#FF6A00",
   linked: "#F472B6",
 };
 

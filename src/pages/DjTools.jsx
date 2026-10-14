@@ -12,7 +12,7 @@ import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 
 const G = "#8CFF3D";
 const BLUE = "#60A5FA";
-const AMBER = "#F59E0B";
+const AMBER = "#FF6A00";
 const RED = "#F87171";
 const STATUS = {
   waiting: { label: "NOT STARTED", color: "#9A9A9A" },

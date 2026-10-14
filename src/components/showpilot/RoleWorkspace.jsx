@@ -15,8 +15,8 @@ import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 // and, for the venue, in shows.venue_info.
 
 const G = "#8CFF3D";
-const AMBER = "#F59E0B";
-const ROLE_COLOR = { venue: "#FB923C", promoter: "#60A5FA", booking_agent: "#D946EF", manager: "#F87171" };
+const AMBER = "#FF6A00";
+const ROLE_COLOR = { venue: "#F2FF00", promoter: "#60A5FA", booking_agent: "#D946EF", manager: "#F87171" };
 const ROLE_TITLE = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist" };
 
 // ---------- small helpers ----------
@@ -778,7 +778,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             <p className="text-[15px] text-white/55 -mt-2">Tick each item once the other side confirms it.</p>
             <TableBox>
               {checklist.map((c, i) => (
-                <div key={c.id || i} className="grid grid-cols-[28px_minmax(0,1fr)_130px_40px] gap-3 px-4 py-2 items-center" style={{ background: c.done ? "transparent" : "rgba(245,158,11,0.04)" }}>
+                <div key={c.id || i} className="grid grid-cols-[28px_minmax(0,1fr)_130px_40px] gap-3 px-4 py-2 items-center" style={{ background: c.done ? "transparent" : "rgba(255,106,0,0.04)" }}>
                   <input type="checkbox" checked={!!c.done} onChange={(e) => setItem(i, "done", e.target.checked)} disabled={off} className="w-[18px] h-[18px]" style={{ accentColor: G }} aria-label={`Confirmed: ${c.label || "item"}`} />
                   <input value={c.label || ""} onChange={(e) => setItem(i, "label", e.target.value)} disabled={off} placeholder="What needs confirming" className={inputCls} aria-label="Checklist item" />
                   <select value={c.who || ""} onChange={(e) => setItem(i, "who", e.target.value)} disabled={off} className={inputCls} aria-label="Who confirms">

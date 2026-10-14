@@ -305,12 +305,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const stripCells = selectedNode
     ? [
         { label: "FIELDS FILLED", value: `${selectedNode.percent}%`, color: selectedNode.style.color },
-        { label: "OPEN TASKS", value: String(openTasksFor(selectedNode.role)), color: openTasksFor(selectedNode.role) ? "#F59E0B" : "#8CFF3D" },
+        { label: "OPEN TASKS", value: String(openTasksFor(selectedNode.role)), color: openTasksFor(selectedNode.role) ? "#FF6A00" : "#8CFF3D" },
         { label: "STATUS", value: selectedNode.claimed ? "CLAIMED" : selectedNode.invited ? "INVITED" : "OPEN", color: selectedNode.claimed ? "#8CFF3D" : selectedNode.invited ? "#EAB308" : "#9A9A9A" },
       ]
     : [
         { label: "ROLES CONFIRMED", value: `${nodes.filter((n) => n.claimed).length}/${nodes.length}`, color: "#8CFF3D" },
-        { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#F59E0B" : "#8CFF3D" },
+        { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#FF6A00" : "#8CFF3D" },
         { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#60A5FA" },
       ];
   const tabCounts = {
@@ -539,7 +539,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         <div className="flex items-center gap-1.5 mb-2">
           {[
             { id: "profile", label: selectedRole ? "PROFILE" : "BOARD", color: "#60A5FA" },
-            { id: "tasks", label: "TASKS", color: "#F59E0B" },
+            { id: "tasks", label: "TASKS", color: "#FF6A00" },
             { id: "rooms", label: "ROOMS", color: "#F472B6" },
           ].map((t) => {
             const on = activeTab === t.id;
@@ -1319,7 +1319,7 @@ function TaskNote({ i, title, color, label, onClick, onDone, doneBusy }) {
       onClick={onClick}
       style={{
         background: "#241c0a",
-        border: "1px solid rgba(245,158,11,0.4)",
+        border: "1px solid rgba(255,106,0,0.4)",
         transform: `rotate(${NOTE_TILT[i % NOTE_TILT.length]}deg)`,
         boxShadow: "0 10px 18px rgba(0,0,0,0.5)",
       }}
@@ -1530,7 +1530,7 @@ function DesktopGigWeb({
                 ) : (
                   <>
                     <div className="flex items-center gap-2 pb-1.5">
-                      <span className="text-[#F59E0B] font-bold tracking-[0.08em] text-lg">TASKS</span>
+                      <span className="text-[#FF6A00] font-bold tracking-[0.08em] text-lg">TASKS</span>
                       <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length} OPEN</span>
                     </div>
                     {roleTasks.length === 0 ? (

@@ -17,7 +17,7 @@ function getShowAccentColor(show) {
   const typeColor = eventTypeColor(show.event_type);
   if (typeColor) return typeColor; // event type first, same colors as the home bars
   if (show.is_linked) return "#F472B6"; // pink for linked gigs
-  if (show.starred) return "#FBBF24"; // amber for starred
+  if (show.starred) return "#FF6A00"; // amber for starred
   if (show.status === "complete") return "#8CFF3D"; // green for worked
   if (show.status === "in_progress") return "#60A5FA"; // blue for frequent/in-progress
   return "#555"; // grey for never worked
@@ -187,7 +187,7 @@ export default function CalendarPage() {
   const headerCells = [
     { label: "EVENTS", value: String(monthItems.length), color: "#8CFF3D" },
     { label: "NEXT UP", value: nextUp ? moment(nextUp.date).format("MMM D").toUpperCase() : "—", color: "#60A5FA" },
-    { label: "STARRED", value: String(monthItems.filter((x) => x.starred).length), color: "#F59E0B" },
+    { label: "STARRED", value: String(monthItems.filter((x) => x.starred).length), color: "#FF6A00" },
   ];
 
   return (

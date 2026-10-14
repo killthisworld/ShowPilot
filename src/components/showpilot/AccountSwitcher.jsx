@@ -80,7 +80,7 @@ export default function AccountSwitcher({ currentUserId }) {
         </button>
       </div>
       {others.length > 0 && <p className="mt-1.5 text-white/35 text-[11px] leading-snug">Switch without a password. Remove takes an account off this device only.</p>}
-      {message && <p className="mt-1.5 text-[12px] text-[#F59E0B]">{message}</p>}
+      {message && <p className="mt-1.5 text-[12px] text-[#FF6A00]">{message}</p>}
     </div>
   );
 }

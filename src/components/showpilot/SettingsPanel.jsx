@@ -286,7 +286,7 @@ export default function SettingsPanel({
             <div className="flex gap-1 mb-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} type="button" onClick={() => setRating(n)} className="transition-transform hover:scale-110">
-                  <Star className="w-6 h-6" fill={n <= rating ? "#F59E0B" : "none"} stroke={n <= rating ? "#F59E0B" : "#555"} />
+                  <Star className="w-6 h-6" fill={n <= rating ? "#FF6A00" : "none"} stroke={n <= rating ? "#FF6A00" : "#555"} />
                 </button>
               ))}
             </div>
@@ -300,7 +300,7 @@ export default function SettingsPanel({
               type="button"
               disabled={rating === 0 || ratingSubmitting}
               onClick={onSubmitRating}
-              className="mt-2 w-full rounded-lg py-2 text-[11px] tracking-[0.14em] text-[#F59E0B] bg-[#F59E0B]/10 hover:bg-[#F59E0B]/20 border border-[#F59E0B]/30 disabled:opacity-40"
+              className="mt-2 w-full rounded-lg py-2 text-[11px] tracking-[0.14em] text-[#FF6A00] bg-[#FF6A00]/10 hover:bg-[#FF6A00]/20 border border-[#FF6A00]/30 disabled:opacity-40"
               style={{ fontFamily: SCENE_MONO }}
             >
               {ratingSubmitting ? "SENDING..." : "SUBMIT RATING"}
