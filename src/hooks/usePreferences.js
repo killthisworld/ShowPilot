@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { readPendingAccountType, clearPendingAccountType } from "@/lib/pendingAccountType";
 import { setMyEventTypeColors, EVENT_COLORS_EVENT, EVENT_TYPES_EVENT } from "@/lib/eventTypes";
+import { rememberProfile } from "@/lib/accounts";
 import { rememberAccountType } from "@/lib/accountTypeStyle";
 
 // Several components load preferences at once; only one of them needs to
@@ -51,6 +52,7 @@ export function usePreferences() {
         // This person's own event-type colors, set before the state update so
         // everything that re-renders with it already uses them.
         setMyEventTypeColors(existing.event_type_colors);
+        rememberProfile(user.id, existing);
         rememberAccountType(existing.account_type || "engineer");
         setPreferences(existing);
       } else {
@@ -82,6 +84,7 @@ export function usePreferences() {
           supabase.auth.updateUser({ data: { account_type: accountType } }).then(({ error }) => { if (error) console.error(error); });
         }
         setMyEventTypeColors(created?.event_type_colors);
+        rememberProfile(user.id, created);
         rememberAccountType(created?.account_type || accountType);
         setPreferences(created);
       }

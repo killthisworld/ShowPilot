@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeColors from "@/components/showpilot/EventTypeColors";
+import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
 
 // The body of the Settings drawer, in the same console language as the
 // homes: a profile readout card, mono field labels, bank-style navigation
@@ -244,6 +245,8 @@ export default function SettingsPanel({
           </span>
         </div>
       </div>
+
+      <AccountSwitcher currentUserId={user?.id} />
 
       <div className="space-y-3 mb-4">
         <div>

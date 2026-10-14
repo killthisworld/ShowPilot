@@ -2,10 +2,17 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { savedAccounts, switchToAccount } from "@/lib/accounts";
 import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, AuthFoot } from "@/components/showpilot/AuthShell";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  // ?add=1: signing in to a second account from the account switcher.
+  // ?email=: that account's address, pre-filled (e.g. its saved sign-in
+  // expired and it needs the password again).
+  const query = new URLSearchParams(window.location.search);
+  const adding = query.get("add") === "1";
+  const [email, setEmail] = useState(query.get("email") || "");
+  const others = adding ? savedAccounts() : [];
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
@@ -58,7 +65,9 @@ export default function Login() {
   return (
     <AuthShell>
       <AuthPanel>
-        <AuthHead title="Welcome back" sub="Sign in to get to your shows." />
+        {adding
+          ? <AuthHead title="Add another account" sub="Sign in to your other account. Switch between them any time from Settings." />
+          : <AuthHead title="Welcome back" sub="Sign in to get to your shows." />}
         <form onSubmit={handleSubmit} className="px-6 pt-5 pb-6 space-y-4">
           <AuthField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           <AuthField
@@ -75,6 +84,13 @@ export default function Login() {
           </div>
           <AuthGoogle onClick={handleGoogle} />
         </form>
+        {others.length > 0 && (
+          <div className="px-6 pb-4 -mt-2 text-center">
+            <button type="button" onClick={() => switchToAccount(others[0].id)} className="text-sm text-white/55 hover:text-white">
+              Cancel and go back to {others[0].name || others[0].email}
+            </button>
+          </div>
+        )}
         <AuthFoot>
           New to Show Pilot? <Link to="/register" className="text-[#8CFF3D] font-semibold hover:underline">Create an account</Link>
         </AuthFoot>

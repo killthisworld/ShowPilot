@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/api/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { signOutCurrent } from "@/lib/accounts";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
 export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
@@ -87,8 +88,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    await signOutCurrent();
   };
 
   const submitRating = async () => {

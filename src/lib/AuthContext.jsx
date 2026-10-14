@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
+import { rememberSession, signOutCurrent } from "@/lib/accounts";
 
 const AuthContext = createContext(null);
 
@@ -11,12 +12,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Check for an existing session on load
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) rememberSession(session);
       setUser(session?.user || null);
       setIsLoadingAuth(false);
     });
 
     // Listen for login/logout events anywhere in the app
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Keep this account's saved session current for the account switcher.
+      if (session) rememberSession(session);
       setUser(session?.user || null);
       setIsLoadingAuth(false);
     });
@@ -47,9 +51,10 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  // Signs out the current account only; another account still signed in on
+  // this device takes over (see lib/accounts.js).
   const signOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    await signOutCurrent();
   };
 
   const sendPasswordReset = async (email) => {

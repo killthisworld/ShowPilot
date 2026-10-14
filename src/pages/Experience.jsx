@@ -4,6 +4,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
+import { signOutCurrent } from "@/lib/accounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -667,8 +668,7 @@ export default function Cockpit() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/";
+    await signOutCurrent();
   };
 
   const lastRatingDate = draft?.last_rating_date ? new Date(draft.last_rating_date) : null;
