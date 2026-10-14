@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
+import { markConversationRead } from "@/lib/needsMe";
 import { ArrowLeft, Send, Plus, User, X } from "lucide-react";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
@@ -108,6 +109,8 @@ export default function GigDirectMessages() {
         .order("created_at", { ascending: true });
       if (error) { console.error(error); return; }
       if (!cancelled) setMessages(data || []);
+      // Open thread = read (feeds the unread counts on the company phone layout).
+      markConversationRead(activeThread.id);
     };
     loadMessages();
 
@@ -118,6 +121,7 @@ export default function GigDirectMessages() {
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${activeThread.id}` },
         (payload) => {
           setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
+          if (document.visibilityState === "visible") markConversationRead(activeThread.id);
         }
       )
       .subscribe();

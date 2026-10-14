@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown } from "lucide-react";
+import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, PlaneTakeoff } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
+import NeedsMeHome from "@/components/showpilot/NeedsMeHome";
+import CompanyChats from "@/components/showpilot/CompanyChats";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
@@ -32,8 +34,15 @@ import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventT
 // upcoming show," that's a search box and a labeled, month-grouped list.
 // Tapping a row doesn't navigate away, it brings the Gig Web hub forward
 // as a layer over this screen, same as always.
+//
+// On a phone this is the company phone layout (job 61): the bottom bar's
+// tabs are views of this one page, picked by ?view= - Needs me (default),
+// Events (the list below), Chats, and Web (opens the next event's Gig Web).
+// Desktop keeps its one-screen board.
 export default function BandHome() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const phoneView = new URLSearchParams(location.search).get("view") || "needs";
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
   const isDesktop = useIsDesktop();
@@ -152,7 +161,21 @@ export default function BandHome() {
   const closeGig = () => {
     setWebVisible(false);
     setTimeout(() => setWebToken(null), 250);
+    // The Web tab is "open the web"; closing it lands back on Needs me.
+    if (!isDesktop && phoneView === "web") navigate("/", { replace: true });
   };
+
+  // Web tab: open the Gig Web of the next event coming up (or the most
+  // recent one if nothing is ahead). With no events at all it just shows
+  // the Events list.
+  useEffect(() => {
+    if (isDesktop || phoneView !== "web" || loading || webToken) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const dated = gigs.filter((g) => g.date && g.share_token);
+    const next = dated.filter((g) => g.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0]
+      || dated.sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (next) openGig(next);
+  }, [isDesktop, phoneView, loading, gigs]);
 
   // Called once the celebration finishes (the formed star rises and
   // fades) - a show that's wrapped is a show that's over, so this is also
@@ -608,17 +631,51 @@ export default function BandHome() {
     );
   }
 
+  if (phoneView === "needs") {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] pb-28">
+        <NeedsMeHome
+          preferences={preferences}
+          onPreferencesUpdate={reload}
+          gigs={gigs}
+          progressByShow={progressByShow}
+          gigsLoading={loading}
+          onOpenGig={openGig}
+        />
+        {overlays}
+      </div>
+    );
+  }
+
+  if (phoneView === "chats") {
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] pb-28">
+        <CompanyChats preferences={preferences} gigs={gigs} />
+        {overlays}
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-28">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
           <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-white font-bold text-lg">
             Show<span style={{ color: accountStyle.color }}>Pilot</span>
           </h1>
-          <button onClick={handleCreateEvent} className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
-            <Plus className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Calendar and Cockpit moved off the phone tab bar; they live here now. */}
+            <button onClick={() => navigate("/band/calendar")} aria-label="Calendar" className="w-10 h-10 rounded-full text-white/60 hover:text-white flex items-center justify-center">
+              <CalendarDays className="w-5 h-5" />
+            </button>
+            <button onClick={() => navigate("/experience")} aria-label="Cockpit" className="w-10 h-10 rounded-full text-white/60 hover:text-white flex items-center justify-center">
+              <PlaneTakeoff className="w-5 h-5" />
+            </button>
+            <button onClick={handleCreateEvent} aria-label="New event" className="w-9 h-9 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center hover:bg-[#7ae62e] transition-colors">
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Search row - same as the tech Home */}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Send, User } from "lucide-react";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { markConversationRead } from "@/lib/needsMe";
 
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -38,6 +39,8 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
       if (error) { console.error(error); return; }
       if (cancelled) return;
       setMessages(data || []);
+      // Open chat = read (feeds the unread counts on the company phone layout).
+      markConversationRead(roomId);
 
       const { data: people, error: peopleError } = await supabase.rpc(
         "get_conversation_member_profiles",
@@ -59,6 +62,7 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${roomId}` },
         (payload) => {
           setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
+          if (document.visibilityState === "visible") markConversationRead(roomId);
           const senderId = payload.new.sender_id;
           setSenderProfiles((prev) => {
             if (prev[senderId]) return prev;
