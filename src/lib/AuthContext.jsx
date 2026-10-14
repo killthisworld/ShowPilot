@@ -78,6 +78,25 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  // Changes the password from Settings. When the account already has a
+  // password, the current one is checked first (by signing in with it), so
+  // someone at an unlocked device can't change it, and the fresh sign-in
+  // also satisfies Supabase's "recent login" rule for password changes.
+  // Google-only accounts pass no current password and simply set one.
+  const changePassword = async (currentPassword, newPassword) => {
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) throw new Error("You're signed out. Sign in again and retry.");
+    if (currentPassword) {
+      const { error } = await supabase.auth.signInWithPassword({ email: u.email, password: currentPassword });
+      if (error) throw new Error("Your current password isn't right.");
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      if (/different from the old/i.test(error.message)) throw new Error("Pick a password you haven't used here before.");
+      throw error;
+    }
+  };
+
   const navigateToLogin = () => { window.location.href = "/login"; };
 
   const value = {
@@ -94,6 +113,7 @@ export function AuthProvider({ children }) {
     sendPasswordReset,
     updatePassword,
     updateEmail,
+    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

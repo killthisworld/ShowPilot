@@ -116,6 +116,106 @@ function EmailField({ user }) {
   );
 }
 
+// Password row. Accounts that signed up with email + password must enter the
+// current one; Google-only accounts can set a first password.
+function PasswordField({ user }) {
+  const { changePassword } = useAuth();
+  const providers = user?.app_metadata?.providers || [user?.app_metadata?.provider].filter(Boolean);
+  const [hasPassword, setHasPassword] = useState(
+    providers.includes("email") || (user?.identities || []).some((i) => i.provider === "email"),
+  );
+  const [editing, setEditing] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const reset = () => { setEditing(false); setCurrent(""); setNext(""); setConfirm(""); setError(""); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (hasPassword && !current) { setError("Enter your current password."); return; }
+    if (next.length < 6) { setError("New password needs at least 6 characters."); return; }
+    if (next !== confirm) { setError("The new passwords don't match."); return; }
+    if (hasPassword && next === current) { setError("That's the same as your current password."); return; }
+    setBusy(true);
+    try {
+      await changePassword(hasPassword ? current : null, next);
+      reset();
+      setHasPassword(true);
+      setDone(true);
+    } catch (err) {
+      setError(err?.message || "Couldn't change the password. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const smallBtn = "shrink-0 h-10 px-3 rounded-lg text-[10px] tracking-[0.14em] border transition-colors disabled:opacity-40";
+  const pw = { fontFamily: SCENE_MONO, fontSize: 12 };
+
+  return (
+    <div>
+      <span className={label} style={{ fontFamily: SCENE_MONO }}>PASSWORD</span>
+      <div className="flex gap-2">
+        <input value={hasPassword ? "••••••••••" : "Not set (you sign in with Google)"} readOnly className={input + " text-white/45"} style={pw} />
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => { setEditing(true); setDone(false); setError(""); }}
+            className={smallBtn + " text-white/70 border-[#2a2a2a] bg-[#111] hover:text-white hover:border-[#8CFF3D]/60"}
+            style={{ fontFamily: SCENE_MONO }}
+          >
+            {hasPassword ? "CHANGE" : "SET"}
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <form onSubmit={submit} className="mt-2 space-y-2">
+          {hasPassword && (
+            <input type="password" autoComplete="current-password" autoFocus value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Current password" className={input} style={pw} />
+          )}
+          <input type="password" autoComplete="new-password" autoFocus={!hasPassword} value={next} onChange={(e) => setNext(e.target.value)} placeholder="New password (6+ characters)" className={input} style={pw} />
+          <input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="New password again" className={input} style={pw} />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={busy || !next || !confirm || (hasPassword && !current)}
+              className={smallBtn + " flex-1 text-[#0d0d0d] bg-[#8CFF3D] border-[#8CFF3D] hover:bg-[#9dff5c] font-semibold"}
+              style={{ fontFamily: SCENE_MONO }}
+            >
+              {busy ? "SAVING..." : hasPassword ? "UPDATE PASSWORD" : "SET PASSWORD"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={reset}
+              className={smallBtn + " text-white/50 border-[#2a2a2a] bg-[#111] hover:text-white"}
+              style={{ fontFamily: SCENE_MONO }}
+            >
+              CANCEL
+            </button>
+          </div>
+          {hasPassword && (
+            <a href="/forgot-password" className="block text-white/40 hover:text-white/70 text-[10px] underline underline-offset-2">
+              Forgot your current password?
+            </a>
+          )}
+        </form>
+      )}
+
+      {error && <p className="mt-1.5 text-red-400 text-[11px]">{error}</p>}
+      {done && !editing && (
+        <p className="mt-1.5 text-[11px] text-[#8CFF3D]/80">Password updated. Use the new one next time you sign in.</p>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPanel({
   prefs, setPrefs, user, accountStyle, onPhoto,
   navItems, onSave, saving,
@@ -151,6 +251,7 @@ export default function SettingsPanel({
           <input value={prefs.display_name || ""} onChange={(e) => setPrefs({ ...prefs, display_name: e.target.value })} className={input} />
         </div>
         <EmailField user={user} />
+        <PasswordField user={user} />
       </div>
 
       {/* Navigation banks */}
