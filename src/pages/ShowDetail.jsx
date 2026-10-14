@@ -16,30 +16,14 @@ import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
+import VenueInfoFields from "@/components/showpilot/VenueInfoFields";
+import PerformerFields from "@/components/showpilot/PerformerFields";
+import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEventType } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
-const US_STATES = [
-  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
-  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
-  "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi",
-  "Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico",
-  "New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
-  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
-  "Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia",
-];
 
-const VENUE_CHECKLIST_ITEMS = [
-  { key: "wifi", label: "WiFi" },
-  { key: "console", label: "Console" },
-  { key: "mics", label: "Mics" },
-  { key: "di_boxes", label: "DI Boxes" },
-  { key: "xlrs", label: "XLR's" },
-  { key: "pa_house_monitors", label: "PA/House Monitors" },
-  { key: "sub", label: "Sub" },
-  { key: "onstage_monitors", label: "On-Stage Monitors" },
-];
 
 const ROLE_COLORS = {
   Headliner: { border: "border-blue-400/40", activeBorder: "border-blue-400", text: "text-blue-400", bg: "bg-blue-500/10" },
@@ -164,8 +148,6 @@ export default function ShowDetail() {
   const [genreDraft, setGenreDraft] = useState([]);
   const [busDraft, setBusDraft] = useState({ IEM: "#EAB308", Monitor: "#F97316" });
   const [savingPrefs, setSavingPrefs] = useState(false);
-  const [openNotesKey, setOpenNotesKey] = useState(null);
-  const [collapsedMembers, setCollapsedMembers] = useState({});
   const [showEventTypeManager, setShowEventTypeManager] = useState(false);
   const mainCaptureRef = useRef(null);
   const venuePrintRef = useRef(null);
@@ -265,30 +247,12 @@ export default function ShowDetail() {
   // they've worked with before, whether or not that venue/artist has a
   // ShowPilot account of their own.
   const loadVenueTemplate = (name, data) => {
-    setShow((s) => ({
-      ...s,
-      venue: name,
-      city: data.city || "",
-      state: data.state || "",
-      wifi_network: data.wifi_network || "",
-      wifi_password: data.wifi_password || "",
-      console: data.console || "",
-      power_notes: data.power_notes || "",
-    }));
+    setShow((s) => ({ ...s, ...venueFromTemplate(name, data, s) }));
   };
   const loadArtistTemplate = (name, data) => {
     setBands((prev) => {
       const next = [...prev];
-      next[activeBandIndex] = {
-        ...next[activeBandIndex],
-        band_name: name,
-        genre_tags: data.genre_tags || [],
-        genre_tag: (data.genre_tags || [])[0] || "",
-        band_members: data.band_members || [],
-        stage_plot_url: data.stage_plot_url || "",
-        stage_plot_files: data.stage_plot_files || [],
-        general_notes: data.general_notes || "",
-      };
+      next[activeBandIndex] = { ...next[activeBandIndex], ...artistFromTemplate(name, data) };
       return next;
     });
   };
@@ -540,96 +504,18 @@ export default function ShowDetail() {
     }
     e.target.value = "";
   };
-  const removeStagePlotFile = (i) => {
-    setBands((prev) => {
-      const next = [...prev];
-      const b = { ...next[activeBandIndex] };
-      b.stage_plot_files = (b.stage_plot_files || []).filter((_, idx) => idx !== i);
-      next[activeBandIndex] = b;
-      return next;
-    });
-  };
 
-  const formatPhoneNumber = (value) => {
-    const digits = value.replace(/\D/g, "").slice(0, 10);
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  };
 
-  const addContact = () => update("contacts", [...(show.contacts || []), { name: "", role: "", phone: "", email: "" }]);
-  const updateContact = (i, f, v) => { const c = [...(show.contacts || [])]; c[i] = { ...c[i], [f]: f === "phone" ? formatPhoneNumber(v) : v }; update("contacts", c); };
-  const removeContact = (i) => update("contacts", (show.contacts || []).filter((_, idx) => idx !== i));
 
-  const updateCity = (val) => update("city", val);
-  const updateState = (val) => update("state", val);
 
-  const toggleChecklistItem = (key) => {
-    const current = show.venue_checklist || {};
-    const wasChecked = !!current[key]?.checked;
-    update("venue_checklist", { ...current, [key]: { ...current[key], checked: !wasChecked } });
-  };
-  const updateChecklistNote = (key, notes) => {
-    const current = show.venue_checklist || {};
-    update("venue_checklist", { ...current, [key]: { ...current[key], notes } });
-  };
-  const toggleNotesOpen = (key) => setOpenNotesKey((prev) => (prev === key ? null : key));
-  const toggleMemberCollapsed = (i) => setCollapsedMembers((prev) => ({ ...prev, [i]: prev[i] === false }));
 
-  const addMember = () => updateBandField("band_members", [...(activeBand.band_members || []), { name: "", instrument: "", bus_color: "", bus_type: "", channels_needed: "", phantom_power: false }]);
-  const updateMember = (i, f, v) => {
-    const m = [...(activeBand.band_members || [])];
-    m[i] = { ...m[i], [f]: v };
-    updateBandField("band_members", m);
-  };
   const getInstruments = (m) => {
     if (m.instruments) return m.instruments;
     if (m.instrument) return [{ name: m.instrument, phantom_power: !!m.phantom_power, mic_di: "Mic" }];
     return [];
   };
-  const addInstrument = (i) => {
-    const m = [...(activeBand.band_members || [])];
-    const current = getInstruments(m[i]);
-    m[i] = { ...m[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
-    updateBandField("band_members", m);
-  };
-  const updateInstrument = (i, ii, f, v) => {
-    const m = [...(activeBand.band_members || [])];
-    const instruments = [...getInstruments(m[i])];
-    instruments[ii] = { ...instruments[ii], [f]: v };
-    m[i] = { ...m[i], instruments };
-    updateBandField("band_members", m);
-  };
-  const removeInstrument = (i, ii) => {
-    const m = [...(activeBand.band_members || [])];
-    const instruments = getInstruments(m[i]).filter((_, idx) => idx !== ii);
-    m[i] = { ...m[i], instruments };
-    updateBandField("band_members", m);
-  };
-  const removeMember = (i) => {
-    const removedName = activeBand.band_members[i]?.name;
-    updateBandField("band_members", (activeBand.band_members || []).filter((_, idx) => idx !== i));
-    if (removedName) {
-      updateBandField("artist_fx_notes", (activeBand.artist_fx_notes || []).filter(n => n.artist_name !== removedName));
-    }
-  };
 
-  const applyBusType = (memberIdx, type) => {
-    const m = [...(activeBand.band_members || [])];
-    m[memberIdx] = { ...m[memberIdx], bus_type: type };
-    updateBandField("band_members", m);
-  };
 
-  const toggleGenreTag = (tag) => {
-    const current = activeBand.genre_tags || (activeBand.genre_tag ? [activeBand.genre_tag] : []);
-    const isSelected = current.includes(tag.name);
-    const updated = isSelected ? current.filter(t => t !== tag.name) : [...current, tag.name];
-    setBands((prev) => {
-      const next = [...prev];
-      next[activeBandIndex] = { ...next[activeBandIndex], genre_tags: updated, genre_tag: updated[0] || "", genre_color: updated.length > 0 ? tag.color : "" };
-      return next;
-    });
-  };
 
   const getArtistFxNote = (artistName) => {
     if (artistName === "__general__") return activeBand.general_notes || "";
@@ -1034,119 +920,11 @@ export default function ShowDetail() {
 
         <div ref={venuePrintRef} className="relative">
           <CollapsibleSection title="Venue Info" icon={Info}>
-          <div className="space-y-4 pt-3">
-            <div>
-              <div className="flex items-center justify-between">
-                <Label className="text-white/50 text-xs">Venue</Label>
-                {isTechProductionAccount && <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} />}
-              </div>
-              <Input value={show.venue} onChange={(e) => update("venue", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Venue name" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-white/50 text-xs">City</Label>
-                <Input value={show.city || ""} onChange={(e) => updateCity(e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="City" />
-              </div>
-              <div>
-                <Label className="text-white/50 text-xs">State</Label>
-                <Select value={show.state || ""} onValueChange={updateState}>
-                  <SelectTrigger className="mt-1 h-10 bg-[#111] border-[#222] text-white">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a] max-h-64">
-                    {US_STATES.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-white/50 text-xs mb-2 block">Person of Contact</Label>
-              <div className="space-y-2">
-                {(show.contacts || []).map((c, i) => (
-                  <div key={i} className="bg-[#111] rounded-xl p-3">
-                    <div className="flex justify-between items-start">
-                      <div className="grid grid-cols-2 gap-2 flex-1">
-                        <Input value={c.name} onChange={(e) => updateContact(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.role} onChange={(e) => updateContact(i, "role", e.target.value)} placeholder="Role" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.phone} onChange={(e) => updateContact(i, "phone", e.target.value)} placeholder="Phone" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                        <Input value={c.email} onChange={(e) => updateContact(i, "email", e.target.value)} placeholder="Email" className="h-8 bg-transparent border-[#222] text-white text-sm" />
-                      </div>
-                      <button onClick={() => removeContact(i)} className="p-1.5 ml-2 text-white/30 hover:text-red-400">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <Button variant="ghost" size="sm" onClick={addContact} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Contact
-                </Button>
-              </div>
-            </div>
-
-            <div className="pt-1">
-              <Label className="text-white/50 text-xs mb-2 block">Venue Provides</Label>
-              <div className="flex gap-1">
-                {VENUE_CHECKLIST_ITEMS.map((item) => {
-                  const checked = !!show.venue_checklist?.[item.key]?.checked;
-                  const notesOpen = openNotesKey === item.key;
-                  return (
-                    <div key={item.key} className="flex flex-col items-center gap-1 flex-1 min-w-0">
-                      <span className={`text-[9px] font-semibold text-center leading-tight h-7 flex items-center justify-center transition-colors ${checked ? "text-[#8CFF3D]" : "text-white/40"}`}>
-                        {item.label}
-                      </span>
-                      <button
-                        onClick={() => toggleChecklistItem(item.key)}
-                        className="relative w-3 h-16 rounded-full bg-[#111] border border-[#2a2a2a] overflow-visible"
-                      >
-                        <div
-                          className="absolute bottom-0 left-0 right-0 rounded-full bg-[#8CFF3D]/25 transition-all duration-500 ease-out"
-                          style={{ height: checked ? "100%" : "4%" }}
-                        />
-                        <div
-                          className="absolute left-1/2 -translate-x-1/2 w-5 h-2.5 rounded-sm border transition-all duration-500 ease-out"
-                          style={{
-                            bottom: checked ? "calc(100% - 10px)" : "2px",
-                            backgroundColor: checked ? "#8CFF3D" : "#3a3a3a",
-                            borderColor: checked ? "#8CFF3D" : "#4a4a4a",
-                          }}
-                        />
-                      </button>
-                      <button
-                        onClick={() => toggleNotesOpen(item.key)}
-                        className={`w-5 h-4 rounded flex items-center justify-center transition-colors ${notesOpen ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "bg-white/5 text-white/30 hover:text-white/50"}`}
-                      >
-                        <ChevronDown className={`w-2.5 h-2.5 transition-transform ${notesOpen ? "rotate-180" : ""}`} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {VENUE_CHECKLIST_ITEMS.filter((item) => openNotesKey === item.key).map((item) => (
-                <div key={item.key} className="mt-2 p-2.5 bg-[#0d0d0d] border border-[#222] rounded-lg space-y-2">
-                  <Label className="text-white/40 text-[10px] uppercase tracking-wide">{item.label}</Label>
-                  {item.key === "wifi" ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input value={show.wifi_network} onChange={(e) => update("wifi_network", e.target.value)} placeholder="Network" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                      <Input value={show.wifi_password} onChange={(e) => update("wifi_password", e.target.value)} placeholder="Password" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                    </div>
-                  ) : item.key === "console" ? (
-                    <Input value={show.console} onChange={(e) => update("console", e.target.value)} placeholder="e.g. Yamaha CL5" className="h-7 bg-[#111] border-[#222] text-white text-xs" />
-                  ) : (
-                    <Textarea
-                      value={show.venue_checklist?.[item.key]?.notes || ""}
-                      onChange={(e) => updateChecklistNote(item.key, e.target.value)}
-                      placeholder={`${item.label} details...`}
-                      className="bg-[#111] border-[#222] text-white text-xs min-h-[50px]"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+            <VenueInfoFields
+              value={show}
+              onChange={update}
+              nameAction={isTechProductionAccount ? <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} /> : null}
+            />
         </CollapsibleSection>
         </div>
 
@@ -1219,13 +997,11 @@ export default function ShowDetail() {
               </button>
             )}
           </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <Label className="text-white/50 text-xs">Artist / Group Name *</Label>
-              {isTechProductionAccount && <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} />}
-            </div>
-            <Input value={activeBand.band_name} onChange={(e) => updateBandField("band_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="Artist" />
-          </div>
+          <PerformerFields
+            band={activeBand}
+            onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
+            nameAction={isTechProductionAccount ? <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} /> : null}
+            afterName={<>
           {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email || activeBand.submitter_card_user_id) && (
             <div className="bg-[#111] border border-[#222] rounded-xl p-3">
               <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
@@ -1241,180 +1017,14 @@ export default function ShowDetail() {
           {activeBand.requested_order && (
             <p className="text-white/30 text-xs -mt-1">Requested lineup position: #{activeBand.requested_order}</p>
           )}
-          <div>
-            <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={activeBand.set_length_minutes ?? ""}
-              onChange={(e) => updateBandField("set_length_minutes", e.target.value ? parseInt(e.target.value) : null)}
-              placeholder="e.g. 90"
-              className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-white/50 text-xs">Genre / Tag</Label>
-              <button onClick={openGenreSettings} className="text-white/30 hover:text-[#8CFF3D] p-1 -m-1">
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {genreTags.map((tag) => {
-                const selectedTags = activeBand.genre_tags || (activeBand.genre_tag ? [activeBand.genre_tag] : []);
-                const isSelected = selectedTags.includes(tag.name);
-                return (
-                  <button
-                    key={tag.name}
-                    onClick={() => toggleGenreTag(tag)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected ? "border-white/40 scale-105" : "border-transparent opacity-70 hover:opacity-100"}`}
-                    style={{ backgroundColor: tag.color + "22", color: tag.color }}
-                  >
-                    {tag.name}
-                  </button>
-                );
-              })}
-              {(activeBand.genre_tags || []).filter((name) => !genreTags.some((t) => t.name === name)).map((name) => (
-                <button
-                  key={name}
-                  onClick={() => openGenreSettingsWithNewTag(name)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-white/25 text-white/50 hover:text-white/80 hover:border-white/40 transition-all"
-                  title="Submitted by a performer - tap to add to your genre list and pick a color"
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-            {(activeBand.band_members || []).map((m, i) => (
-              <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                    <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
-                    <span className="text-white/30 text-sm">→</span>
-                    <span className="text-white/60 text-sm">
-                      {(() => {
-                        const names = getInstruments(m).filter((inst) => inst.name).map((inst) => inst.name);
-                        if (names.length === 0) return <span className="text-white/25 italic">Role</span>;
-                        if (names.length === 1) return names[0];
-                        return "Multi Track";
-                      })()}
-                    </span>
-                    {m.bus_type && (
-                      <>
-                        <span className="text-white/30 text-sm">→</span>
-                        <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
-                      </>
-                    )}
-                  </div>
-                  <button onClick={() => toggleMemberCollapsed(i)} className="p-2.5 shrink-0 text-white/30 hover:text-[#8CFF3D]">
-                    <ChevronDown className={`w-6 h-6 transition-transform ${collapsedMembers[i] === false ? "rotate-180" : ""}`} />
-                  </button>
-                  <button onClick={() => removeMember(i)} className="p-1.5 ml-1 shrink-0 text-white/30 hover:text-red-400">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {collapsedMembers[i] === false && (
-                <>
-                <Input value={m.name} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
-
-                <div className="space-y-2">
-                  <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
-                  {getInstruments(m).map((inst, ii) => (
-                    <div key={ii} className="flex items-center gap-1.5">
-                      <Input
-                        value={inst.name}
-                        onChange={(e) => updateInstrument(i, ii, "name", e.target.value)}
-                        placeholder="e.g. Guitar"
-                        className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm"
-                      />
-                      <div className="flex items-center gap-1 shrink-0">
-                        {["Mic", "DI"].map((type) => {
-                          const active = (inst.mic_di || "Mic") === type;
-                          return (
-                            <button
-                              key={type}
-                              onClick={() => updateInstrument(i, ii, "mic_di", type)}
-                              className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                            >
-                              {type}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <button
-                        onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
-                        className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                      >
-                        +48V
-                      </button>
-                      <button onClick={() => removeInstrument(i, ii)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <Button variant="ghost" size="sm" onClick={() => addInstrument(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-8 text-xs">
-                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Instrument
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {["IEM", "Monitor"].map((type, ti) => {
-                    const color = iemMonitorColors[type];
-                    const active = m.bus_type === type;
-                    return (
-                      <React.Fragment key={type}>
-                        <button
-                          onClick={() => applyBusType(i, type)}
-                          className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-white/40" : "border-transparent opacity-60 hover:opacity-100"}`}
-                          style={{ backgroundColor: color + "22", color }}
-                        >
-                          {type}
-                        </button>
-                        {ti === 0 && (
-                          <button onClick={openBusSettings} className="text-white/30 hover:text-[#8CFF3D] p-1.5 shrink-0">
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-                </>
-                )}
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-              <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
-            </Button>
-
-            <div className="border-t border-[#222] pt-3">
-              <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
-              {(activeBand.stage_plot_files || []).length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {(activeBand.stage_plot_files || []).map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-[#111] rounded-xl p-2">
-                      {f.type?.startsWith("image/") ? (
-                        <img src={f.url} alt={f.name} className="w-12 h-12 object-cover rounded-lg border border-[#222]" />
-                      ) : (
-                        <div className="w-12 h-12 flex items-center justify-center bg-[#1a1a1a] rounded-lg border border-[#222]">
-                          <FileText className="w-5 h-5 text-white/40" />
-                        </div>
-                      )}
-                      <span className="flex-1 text-sm text-white/60 truncate">{f.name}</span>
-                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#8CFF3D] hover:underline">View</a>
-                      <button onClick={() => removeStagePlotFile(i)} className="p-1 text-white/30 hover:text-red-400"><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <label className="flex items-center gap-3 py-4 border-2 border-dashed border-[#222] rounded-xl cursor-pointer hover:border-[#8CFF3D]/30 transition-colors px-4">
-                <Paperclip className="w-5 h-5 text-white/30" />
-                <span className="text-sm text-white/40">Upload images or files</span>
-                <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg" multiple className="hidden" onChange={handleStagePlotUpload} />
-              </label>
-            </div>
+            </>}
+            genreTags={genreTags}
+            onAddGenre={openGenreSettings}
+            onAddGenreFromTag={openGenreSettingsWithNewTag}
+            iemMonitorColors={iemMonitorColors}
+            onBusSettings={openBusSettings}
+            onStagePlotUpload={handleStagePlotUpload}
+          />
           </div>
         </CollapsibleSection>
         </div>

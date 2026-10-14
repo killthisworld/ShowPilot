@@ -11,6 +11,7 @@ import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
+import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
@@ -846,24 +847,12 @@ export default function SharedGig() {
   // template gets added as a new act in the lineup, pre-filled so the
   // engineer doesn't retype a room or act they already know.
   const loadVenueTemplate = (name, data) => {
-    update("venue", name);
-    update("city", data.city || "");
-    update("state", data.state || "");
-    update("wifi_network", data.wifi_network || "");
-    update("wifi_password", data.wifi_password || "");
-    update("console", data.console || "");
-    update("power_notes", data.power_notes || "");
+    setGig((g) => ({ ...g, ...venueFromTemplate(name, data, g) }));
   };
   const loadArtistTemplateAsNewBand = (name, data) => {
     update("bands", [...(gig.bands || []), {
       role: "N/A",
-      band_name: name,
-      genre_tags: data.genre_tags || [],
-      band_members: data.band_members || [],
-      stage_plot_url: data.stage_plot_url || "",
-      stage_plot_files: data.stage_plot_files || [],
-      general_notes: data.general_notes || "",
-      set_length_minutes: "",
+      ...artistFromTemplate(name, data),
       sort_order: (gig.bands || []).length,
     }]);
   };
