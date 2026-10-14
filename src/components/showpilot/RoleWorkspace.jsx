@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import DjLineupPanel from "@/components/showpilot/DjLineupPanel";
+import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // Desktop workspace for one company role's section of an event (venue,
@@ -134,7 +136,11 @@ function SideRow({ left, right, rightColor, highlight }) {
 }
 
 // ---------- the workspace ----------
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false }) {
+// layout="web": instead of its own window, the workspace drives the Gig Web's
+// profile web. Its tabs become the ring (portalled into `webSlot`, the hub's
+// place on the page) and the open tab's editor renders here, below the web
+// on a phone or beside it on desktop. Same tabs, same data, same Save.
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true }) {
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -956,6 +962,113 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // pointed at any section they hold.
   const mySections = [...COMPANY_ROLES, "engineer"].filter((r) => p.canEditSection?.(r));
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
+
+  if (layout === "web") {
+    // Features (DCAs) sit in the web's four corners; empty corners are open slots.
+    const dcas = role === "manager"
+      ? [
+          ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => setActive("lineup") } : null,
+          onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
+        ]
+      : [];
+    const stateWord = { done: ["FILLED IN", G], partial: ["IN PROGRESS", AMBER], empty: ["NOT STARTED", "rgba(255,255,255,0.45)"] };
+    const sw = stateWord[current?.state] || stateWord.empty;
+    const web = webSlot
+      ? createPortal(
+          <ProfileWeb
+            color={color}
+            title={ROLE_TITLE[role]}
+            sub={ed ? "CAN EDIT" : "VIEW ONLY"}
+            tabs={tabs}
+            activeKey={current?.key}
+            onPick={setActive}
+            dcas={dcas}
+            onBack={onBack}
+            leaving={leaving}
+          />,
+          webSlot
+        )
+      : null;
+    if (!showContent) return web;
+
+    if (!ed) {
+      const sectionTasks = (gig.tasks || []).filter((t) => t.section === role);
+      const theirOpenReqs = reqs(role).filter((q) => q.status !== "confirmed");
+      const myCompany = mySections.filter((r) => COMPANY_ROLES.includes(r) && r !== role);
+      return (
+        <>
+          {web}
+          <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
+            {!p.user && (
+              <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
+            )}
+            <section className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-3">
+                <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
+                <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{sw[0]}</span>
+              </div>
+              <p className="text-[15px] text-white/50">Only {ROLE_TITLE[role]} works on the details here. You can see where it's at and what's needed from you.</p>
+            </section>
+            <section>
+              <SideLabel className="mb-2">NEEDED FROM YOU</SideLabel>
+              {neededFromMe.length ? (
+                <TaskList tasks={neededFromMe} editable onToggle={p.setTaskDone} color={G} showSection />
+              ) : (
+                <p className="text-[15px] text-white/40">Nothing waiting on you right now.</p>
+              )}
+            </section>
+            {(theirOpenReqs.length > 0 || sectionTasks.some((t) => t.status !== "done")) && (
+              <section>
+                <SideLabel className="mb-2">{ROLE_TITLE[role].toUpperCase()} IS WAITING ON</SideLabel>
+                <div className="flex flex-col gap-1.5">
+                  {theirOpenReqs.map((q) => <SideRow key={q.id} left={q.name} right={(q.status || "requested").toUpperCase()} rightColor={q.status === "conflict" ? "#F87171" : AMBER} />)}
+                  {sectionTasks.filter((t) => t.status !== "done").map((t) => <SideRow key={t.id} left={t.title} right="TASK" rightColor={AMBER} />)}
+                </div>
+              </section>
+            )}
+            {myCompany.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {myCompany.map((r) => (
+                  <button key={r} type="button" onClick={() => onOpenRole?.(r)} className="px-4 py-2.5 rounded-[10px] text-[15px] font-bold tracking-[0.04em]" style={{ border: `1px solid ${ROLE_COLOR[r]}73`, background: `${ROLE_COLOR[r]}1a`, color: ROLE_COLOR[r] }}>
+                    OPEN {ROLE_TITLE[r].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {web}
+        <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
+          <div className="flex items-center gap-3">
+            <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
+            <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{sw[0]}</span>
+          </div>
+          <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">{current?.render()}</div>
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-[#1c1c1c]">
+            {side.action && (
+              <button type="button" onClick={side.action.onClick} className="flex-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em]" style={{ border: `1px solid ${color}73`, background: `${color}1a`, color }}>
+                {side.action.label}
+              </button>
+            )}
+            <button type="button" onClick={p.handleSave} disabled={p.saving} className="flex-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d", boxShadow: "0 0 16px rgba(140,255,61,0.3)" }}>
+              {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
+            </button>
+          </div>
+          {side.body && (
+            <details className="rounded-[10px] border border-[#1f1f1f] bg-[#0a0a0a] px-4 py-3">
+              <summary className="cursor-pointer text-[11px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>AT A GLANCE</summary>
+              <div className="flex flex-col gap-3 pt-3">{side.body}</div>
+            </details>
+          )}
+        </div>
+      </>
+    );
+  }
 
   const header = (
     <header className="h-[72px] shrink-0 flex items-center gap-4 px-7 border-b border-[#1a1a1a]">

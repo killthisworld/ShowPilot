@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -20,6 +21,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
+import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion } from "@/components/showpilot/ProfileWeb";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/ART", engineer: "AUD/LTG" };
@@ -65,6 +67,10 @@ function roleEditable(role, permissions) {
   if ((permissions.granted_sections || []).includes(role)) return true;
   return roleInvited(role, permissions) && !roleClaimed(role, permissions);
 }
+
+// Company profiles open as their own web; Audio/Lighting keeps its phone
+// profile under the event web (it has no workspace tabs yet).
+const isRoleWeb = (role) => !!role && role !== "engineer";
 
 // Renders standalone at /gig/web?token=... (reached from SharedGig's "Gig
 // Web" button - a real page, real back button) and also embeds directly
@@ -127,6 +133,16 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showFanSheet, setShowFanSheet] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  // Webs within webs: a company profile opens as its own web (ProfileWeb via
+  // RoleWorkspace layout="web"), portalled into the hub's spot (`webSlot`).
+  // `leaving` spins whichever web is showing closed before the switch;
+  // `hubAnim` replays the event web's spin open when coming back to it.
+  const [leaving, setLeaving] = useState(false);
+  const [hubAnim, setHubAnim] = useState(0);
+  const [webSlot, setWebSlot] = useState(null);
+  const leaveTimer = useRef(null);
+  useEffect(() => () => clearTimeout(leaveTimer.current), []);
+  const hubEntered = useEntrance(hubAnim);
 
   const loadGig = async () => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -194,9 +210,20 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   }, [activeTab, selectedRole, rooms, user, roomMembers, isDesktop]);
 
   const selectRole = (role) => {
-    setSelectedRole(role);
-    setActiveTab("profile");
-    setProfileExpanded(false);
+    const apply = () => {
+      setSelectedRole(role);
+      setActiveTab("profile");
+      setProfileExpanded(false);
+    };
+    const changesWeb = isRoleWeb(selectedRole) !== isRoleWeb(role) || (isRoleWeb(role) && role !== selectedRole);
+    if (!changesWeb || prefersReducedMotion()) { apply(); return; }
+    if (leaving) return;
+    setLeaving(true);
+    leaveTimer.current = setTimeout(() => {
+      setLeaving(false);
+      if (!isRoleWeb(role)) setHubAnim((n) => n + 1);
+      apply();
+    }, SPIN_MS);
   };
 
   // Tasks live on the gig itself (not per-role, like useRoleProfile's
@@ -298,6 +325,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   });
 
   const selectedNode = selectedRole ? nodes.find((n) => n.role === selectedRole) : null;
+  const roleWeb = isRoleWeb(selectedRole);
+  const hubM = spinMotion({ entering: !hubEntered, leaving });
 
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
   const openTasksFor = (role) => openTasks.filter((t) => t.section === role).length;
@@ -417,6 +446,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
+        roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={() => setShowFanSheet(true)}
       />
     );
   }
@@ -442,8 +472,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       </div>
 
       <div className="px-4 pt-3 max-w-lg mx-auto flex flex-col items-center">
+        {roleWeb ? (
+          <div ref={setWebSlot} className="relative shrink-0" style={{ width: 300, height: 300 }} />
+        ) : (
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
-          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0 }}>
+          <div className="absolute inset-0" style={{ ...hubM.wrap, zIndex: 1 }}>
+          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0, opacity: hubM.hidden ? 0 : 1, transition: hubM.node.transition }}>
             {nodes.map((n) => (
               // Spokes stay neutral - selecting a role lights up its box, not its line.
               <line
@@ -457,12 +491,40 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             ))}
           </svg>
 
+
+          {nodes.map((n) => {
+            const active = n.role === selectedRole;
+            return (
+              <button
+                key={n.role}
+                type="button"
+                onClick={() => selectRole(n.role)}
+                className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
+                style={{
+                  left: hubM.hidden ? cx : n.x, top: hubM.hidden ? cy : n.y, transform: `translate(-50%, -50%) scale(${hubM.scale})`, ...hubM.node, width: 68, height: 56, zIndex: 1,
+                  // Solid base so the spoke line behind never shows through; only the selected one lights up.
+                  backgroundColor: "#161616",
+                  backgroundImage: active ? `linear-gradient(${n.style.color}33, ${n.style.color}33)` : undefined,
+                  border: `1.5px solid ${active ? n.style.color : "#2a2a2a"}`,
+                  boxShadow: active ? `0 0 0 3px ${n.style.color}40, 0 0 16px ${n.style.color}66` : undefined,
+                }}
+              >
+                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, opacity: active ? 1 : 0.5, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
+                <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color, opacity: active ? 1 : 0.45 }} />
+                </span>
+                <span className={`text-[9px] leading-none ${active ? "text-white/80" : "text-white/35"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
+                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color, opacity: active ? 1 : 0.5 }} />}
+              </button>
+            );
+          })}
+          </div>
           <button
             type="button"
             onClick={() => selectRole(null)}
             className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors overflow-hidden"
             style={{
-              left: cx, top: cy, transform: "translate(-50%, -50%)", width: 112, height: 96, zIndex: 1,
+              left: cx, top: cy, transform: `translate(-50%, -50%) scale(${hubM.center.scale})`, opacity: hubM.center.opacity, transition: hubM.center.transition, width: 112, height: 96, zIndex: 2,
               borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
               boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA, 0 0 60px #B6FF5C44" : undefined,
@@ -484,34 +546,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             ) : null}
             <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
           </button>
-
-          {nodes.map((n) => {
-            const active = n.role === selectedRole;
-            return (
-              <button
-                key={n.role}
-                type="button"
-                onClick={() => selectRole(n.role)}
-                className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
-                style={{
-                  left: n.x, top: n.y, transform: "translate(-50%, -50%)", width: 68, height: 56, zIndex: 1,
-                  // Solid base so the spoke line behind never shows through; only the selected one lights up.
-                  backgroundColor: "#161616",
-                  backgroundImage: active ? `linear-gradient(${n.style.color}33, ${n.style.color}33)` : undefined,
-                  border: `1.5px solid ${active ? n.style.color : "#2a2a2a"}`,
-                  boxShadow: active ? `0 0 0 3px ${n.style.color}40, 0 0 16px ${n.style.color}66` : undefined,
-                }}
-              >
-                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, opacity: active ? 1 : 0.5, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
-                <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
-                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color, opacity: active ? 1 : 0.45 }} />
-                </span>
-                <span className={`text-[9px] leading-none ${active ? "text-white/80" : "text-white/35"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
-                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color, opacity: active ? 1 : 0.5 }} />}
-              </button>
-            );
-          })}
         </div>
+        )}
       </div>
 
       <div className="w-full max-w-lg mx-auto px-4 mt-2">
@@ -559,8 +595,22 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         </div>
 
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
+          {roleWeb && (
+            <RoleWebPanel
+              key={selectedRole}
+              role={selectedRole}
+              token={token}
+              onChanged={loadGig}
+              webSlot={webSlot}
+              leaving={leaving}
+              onBack={() => selectRole(null)}
+              onOpenRole={selectRole}
+              onOpenFanPage={() => setShowFanSheet(true)}
+              showContent={activeTab === "profile"}
+            />
+          )}
           {activeTab === "profile" ? (
-            selectedRole ? (
+            roleWeb ? null : selectedRole ? (
               <ProfileTabPanel
                 role={selectedRole}
                 token={token}
@@ -601,6 +651,81 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
       {overlays}
     </div>
+  );
+}
+
+// A company profile's own web: loads the section (useRoleProfile) and hands
+// it to RoleWorkspace's "web" layout, which spins its tabs into `webSlot`
+// (the hub's place on the page) and renders the open tab here. Keyed by
+// role, so switching profiles starts fresh.
+function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true }) {
+  const p = useRoleProfile({ role, token, onChanged });
+  const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
+  const ready = !(p.loading || p.checkingAuth || p.notFound || !p.gig);
+  const color = ACCOUNT_TYPE_STYLES[role]?.color || "#8CFF3D";
+
+  const goSignIn = (toRegister) => {
+    const currentPath = window.location.pathname + window.location.search;
+    try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
+    window.location.href = `${toRegister ? "/register" : "/login"}?redirect=${encodeURIComponent(currentPath)}`;
+  };
+
+  if (!ready) {
+    const placeholder = (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${color}44`, borderTopColor: color }} />
+      </div>
+    );
+    return (
+      <>
+        {webSlot && createPortal(placeholder, webSlot)}
+        {showContent && (p.notFound ? <p className="text-white/40 text-sm text-center py-6">Couldn't load this section.</p> : <div className="py-8" />)}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {showContent && ((showInvite && p.editable) || !p.user) && (
+        <div className="flex flex-wrap justify-end gap-2 mb-3">
+          {!p.user && (
+            <>
+              <button type="button" onClick={() => goSignIn(false)} className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-white/25 text-white/75 hover:text-white">Sign in</button>
+              <button type="button" onClick={() => goSignIn(true)} className="text-[11px] font-bold px-3 py-1.5 rounded-full text-[#0d0d0d]" style={{ background: color }}>Create account</button>
+            </>
+          )}
+          {showInvite && p.editable && (
+            <button type="button" onClick={() => invite.openInvite(role, SECTION_LABELS[role])}
+              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
+              <UserPlus className="w-3.5 h-3.5" /> Invite
+            </button>
+          )}
+        </div>
+      )}
+      <RoleWorkspace
+        layout="web"
+        role={role}
+        p={p}
+        webSlot={webSlot}
+        leaving={leaving}
+        onBack={onBack}
+        onOpenRole={onOpenRole}
+        onOpenFanPage={onOpenFanPage}
+        showContent={showContent}
+      />
+      <InviteModal
+        inviteFor={invite.inviteFor}
+        inviteRoleChoice={invite.inviteRoleChoice}
+        inviteUrl={invite.inviteUrl}
+        inviteCopied={invite.inviteCopied}
+        generatingInvite={invite.generatingInvite}
+        onClose={invite.closeInvite}
+        onChooseEngineerRole={invite.chooseEngineerRole}
+        onGenerate={invite.generateInvite}
+        onCopy={invite.copyInviteUrl}
+        onShare={invite.shareInviteUrl}
+      />
+    </>
   );
 }
 
@@ -1340,7 +1465,7 @@ function TaskNote({ i, title, color, label, onClick, onDone, doneBusy }) {
   );
 }
 
-function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
+function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM }) {
   const iconUrl = myIcon || gig.icon_url;
   const typeColor = eventTypeColor(gig.event_type);
   const n = nodes.length || 1;
@@ -1363,7 +1488,8 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
   });
   return (
     <div ref={boxRef} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+      <div className="absolute inset-0" style={{ ...(hubM?.wrap || {}), zIndex: 1 }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: hubM?.hidden ? 0 : 1, transition: hubM?.node.transition }}>
         {pts.map((nd) => (
           <line
             key={nd.role} x1="50" y1="50" x2={nd.px} y2={nd.py}
@@ -1372,26 +1498,6 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
           />
         ))}
       </svg>
-      <button
-        type="button"
-        onClick={() => selectRole(null)}
-        className="absolute flex flex-col items-center justify-center rounded-[18px] bg-[#161616] border px-3 overflow-hidden"
-        style={{
-          left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: Math.round(160 * k), height: Math.round(100 * k), zIndex: 1,
-          borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
-          boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
-        }}
-      >
-        {iconUrl ? (
-          <>
-            <img src={iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
-            <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
-          </>
-        ) : typeColor ? (
-          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: -10, bottom: -12, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
-        ) : null}
-        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
-      </button>
       {pts.map((nd) => {
         const active = nd.role === selectedRole;
         return (
@@ -1401,7 +1507,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
             onClick={() => selectRole(nd.role)}
             className="absolute flex flex-col items-center justify-center gap-1.5 rounded-[14px] cursor-pointer px-1"
             style={{
-              left: `${nd.px}%`, top: `${nd.py}%`, transform: "translate(-50%, -50%)", width: Math.round(92 * k), height: Math.round(72 * k), zIndex: 1,
+              left: hubM?.hidden ? "50%" : `${nd.px}%`, top: hubM?.hidden ? "50%" : `${nd.py}%`, transform: `translate(-50%, -50%) scale(${hubM?.scale ?? 1})`, ...(hubM?.node || {}), width: Math.round(92 * k), height: Math.round(72 * k), zIndex: 1,
               backgroundColor: "#161616",
               backgroundImage: active ? `linear-gradient(${nd.style.color}33, ${nd.style.color}33)` : undefined,
               border: `1.5px solid ${active ? nd.style.color : "#2a2a2a"}`,
@@ -1417,6 +1523,27 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
           </button>
         );
       })}
+      </div>
+      <button
+        type="button"
+        onClick={() => selectRole(null)}
+        className="absolute flex flex-col items-center justify-center rounded-[18px] bg-[#161616] border px-3 overflow-hidden"
+        style={{
+          left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${hubM?.center.scale ?? 1})`, opacity: hubM?.center.opacity ?? 1, transition: hubM?.center.transition, width: Math.round(160 * k), height: Math.round(100 * k), zIndex: 2,
+          borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
+          boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
+        }}
+      >
+        {iconUrl ? (
+          <>
+            <img src={iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
+            <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
+          </>
+        ) : typeColor ? (
+          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: -10, bottom: -12, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
+        ) : null}
+        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+      </button>
     </div>
   );
 }
@@ -1424,7 +1551,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon }) {
 function DesktopGigWeb({
   gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
   token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
-  profileExpanded, setProfileExpanded,
+  profileExpanded, setProfileExpanded, roleWeb, hubM, leaving, webSlot, setWebSlot, openFanPage,
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
@@ -1482,8 +1609,26 @@ function DesktopGigWeb({
         <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
           <div className="min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
-              <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} />
+              {roleWeb ? (
+                <div ref={setWebSlot} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto" />
+              ) : (
+                <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} hubM={hubM} />
+              )}
             </div>
+            {roleWeb && (
+              <div className="w-full max-w-[520px] flex flex-col gap-2 rounded-xl bg-[#131313]/90 border border-[#222] px-3.5 py-3">
+                <span className="text-[11px] tracking-[0.12em] text-white/50" style={{ fontFamily: SCENE_MONO }}>JUMP TO ANOTHER PROFILE ON THIS EVENT</span>
+                <div className="flex flex-wrap gap-2">
+                  {nodes.filter((nd) => nd.role !== selectedRole).map((nd) => (
+                    <button key={nd.role} type="button" onClick={() => selectRole(nd.role)}
+                      className="h-9 px-3 rounded-full bg-[#1a1a1a] text-[13px] font-bold tracking-[0.05em] whitespace-nowrap"
+                      style={{ fontFamily: SCENE_MONO, color: nd.style.color, border: `1.5px ${nd.claimed ? "solid" : "dashed"} ${nd.style.color}` }}>
+                      {ROLE_CODES[nd.role]} {nd.percent}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {isOwner && gig?.id && (
               <InviteSheet
                 showId={gig.id}
@@ -1524,7 +1669,20 @@ function DesktopGigWeb({
               )}
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
-              {selectedRole ? (
+              {roleWeb ? (
+                <RoleWebPanel
+                  key={selectedRole}
+                  role={selectedRole}
+                  token={token}
+                  onChanged={loadGig}
+                  webSlot={webSlot}
+                  leaving={leaving}
+                  onBack={() => selectRole(null)}
+                  onOpenRole={selectRole}
+                  onOpenFanPage={openFanPage}
+                  showInvite={false}
+                />
+              ) : selectedRole ? (
                 profileExpanded ? (
                   <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
                 ) : (
