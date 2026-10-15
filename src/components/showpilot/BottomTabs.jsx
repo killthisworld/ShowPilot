@@ -1,6 +1,12 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff } from "lucide-react";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import { usePreferences } from "@/hooks/usePreferences";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import TechRail from "@/components/showpilot/TechRail";
+import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
+import { isCompanyType } from "@/lib/needsMe";
 
 const TABS = [
   { path: "/", label: "Home", icon: Home },
@@ -8,8 +14,37 @@ const TABS = [
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
-export default function BottomTabs() {
+// Tech profiles (audio / lighting). Phone: the bottom tab bar.
+// Desktop (1024px+): the left rail instead, and <body> is tagged so the page
+// shifts right to make room (index.css). `railOnly`: pages that never had
+// the phone tab bar (e.g. the show page) still get the rail on desktop.
+export default function BottomTabs({ railOnly = false }) {
   const { pathname } = useLocation();
+  const isDesktop = useIsDesktop();
+  const { preferences, reload } = usePreferences();
+
+  // Pages shared with company profiles (Linked, Archived...) give a company
+  // account its own rail on desktop.
+  const company = isCompanyType(preferences?.account_type);
+
+  useEffect(() => {
+    if (!isDesktop || company) return undefined;
+    document.body.classList.add("has-rail");
+    return () => document.body.classList.remove("has-rail");
+  }, [isDesktop, company]);
+
+  if (isDesktop && company) return <BandBottomTabs />;
+  if (isDesktop) {
+    return (
+      <TechRail
+        className="fixed left-0 top-0 bottom-0 z-50"
+        accent={getAccountTypeStyle(preferences?.account_type).color}
+        preferences={preferences}
+        onPreferencesUpdate={reload}
+      />
+    );
+  }
+  if (railOnly) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d]/95 backdrop-blur-lg border-t border-[#1e1e1e] pb-3">

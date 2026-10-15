@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { motion } from "framer-motion";
@@ -543,6 +544,7 @@ export default function Logbook() {
           </div>
         </div>
       )}
+      <BottomTabs railOnly />
     </div>
   );
 }

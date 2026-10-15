@@ -10,7 +10,7 @@ import { shareLink } from "@/lib/share";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
-import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
+import TechRail from "@/components/showpilot/TechRail";
 import MonthDropdown from "@/components/showpilot/MonthDropdown";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
@@ -37,12 +37,6 @@ const ALL_BANK = { id: "all", label: "ALL", color: "#8CFF3D" };
 // Section heights, shared by the strips and the labels column so they line up.
 const H = { name: 104, tasks: 66, roles: 178, sends: 104 };
 
-const ConsoleIcon = (props) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-    <path d="M4 21V14M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
-  </svg>
-);
-
 const WebIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M12 4L19.6 9.5L16.7 18.5H7.3L4.4 9.5Z" />
@@ -51,37 +45,6 @@ const WebIcon = ({ size = 18 }) => (
     {[[12, 4], [19.6, 9.5], [16.7, 18.5], [7.3, 18.5], [4.4, 9.5]].map(([x, y]) => <circle key={x + "-" + y} cx={x} cy={y} r="1.7" fill="currentColor" />)}
   </svg>
 );
-
-// The tech desktop rail (audio "Console", lighting "Desk").
-export function Rail({ accent, preferences, onPreferencesUpdate, homeLabel = "Console", HomeIcon = ConsoleIcon }) {
-  const tabs = [
-    { to: "/", label: homeLabel, Icon: HomeIcon, on: true },
-    { to: "/calendar", label: "Calendar", Icon: CalendarDays },
-    { to: "/experience", label: "Cockpit", Icon: PlaneTakeoff },
-  ];
-  return (
-    <nav aria-label="Main" className="w-[84px] shrink-0 flex flex-col items-center gap-1.5 py-[18px] border-r border-[#1a1a1a]" style={{ fontFamily: SCENE_FONT }}>
-      <div className="mb-3.5">
-        <SettingsDrawer preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} avatar accent={accent} />
-      </div>
-      {tabs.map(({ to, label, Icon, on }) => (
-        <Link
-          key={to}
-          to={to}
-          aria-current={on ? "page" : undefined}
-          className={`w-16 pt-2.5 pb-2 rounded-[10px] flex flex-col items-center gap-1 transition-colors ${on ? "" : "text-white/55 hover:text-white/85 hover:bg-white/5"}`}
-          style={on ? { color: accent, background: accent + "1a" } : undefined}
-        >
-          <Icon className="w-5 h-5" />
-          <span className="text-[13px] font-bold tracking-[0.04em]">{label}</span>
-        </Link>
-      ))}
-      <Link to="/about" aria-label="About Show Pilot" className="mt-auto w-11 h-11 rounded-[11px] overflow-hidden shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
-        <img src="/icon-192.png" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
-      </Link>
-    </nav>
-  );
-}
 
 export default function TechConsoleDesk({
   shows, // already filtered by search / bank / dropdown filters
@@ -233,7 +196,7 @@ export default function TechConsoleDesk({
 
   return (
     <div className="fixed inset-0 flex bg-[#0d0d0d] text-[#f2f2f2] overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <Rail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
+      <TechRail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* 1 · Input */}

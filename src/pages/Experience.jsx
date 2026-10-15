@@ -72,7 +72,8 @@ export default function Cockpit({ embedded = false } = {}) {
   const pilotTabLabel = PILOT_TAB_LABELS[preferences?.account_type] || "My Pilot";
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
-  // The desktop layout goes with the left rail, which only the band side has.
+  // Tech profiles (audio / lighting) use the tech rail; everyone else the
+  // company rail. Both get the one-screen desktop layout (job 74).
   const isBandSide = !NON_RAIL_TYPES.includes(preferences?.account_type || "engineer");
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1350,7 +1351,7 @@ export default function Cockpit({ embedded = false } = {}) {
   // Desktop (1024px+, band side with the left rail): one screen, the same
   // three tabs across the top, each laid out in side-by-side panels instead
   // of one long scroll. Phones keep the layout below.
-  if (isDesktop && isBandSide && !embedded) {
+  if (isDesktop && !embedded) {
     const tabColor = (TABS.find((t) => t.id === activeTab) || TABS[0]).color;
     const board = { backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px", boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" };
     const panel = "min-h-0 flex flex-col bg-[#151515] border border-[#262626] rounded-md";
@@ -1802,7 +1803,7 @@ export default function Cockpit({ embedded = false } = {}) {
         </div>
 
         {overlays}
-        <BandBottomTabs />
+        {isBandSide ? <BandBottomTabs /> : <BottomTabs />}
       </div>
     );
   }

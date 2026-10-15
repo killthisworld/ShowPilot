@@ -156,7 +156,7 @@ export default function LinkedGigs() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto">
+        <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto lg:max-w-5xl lg:px-6">
           <button onClick={() => goBack()} className="p-1 text-white/60 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -167,7 +167,7 @@ export default function LinkedGigs() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto">
+      <div className="px-4 pt-4 max-w-lg mx-auto lg:max-w-5xl lg:px-6">
         <p className="text-white/40 text-xs mb-4">Gigs that others have given you access to.</p>
         {loading ? (
           <div className="flex justify-center py-12">
@@ -180,7 +180,7 @@ export default function LinkedGigs() {
             <p className="text-white/25 text-xs mt-1">Gigs someone shares with you will show up here once you save them.</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-3">
             {gigs.map((g) => (
               <SwipeableGigCard
                 key={g.share_token}

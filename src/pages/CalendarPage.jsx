@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Star, ClipboardList, Copy, X, Check, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, ClipboardList, Copy, X, Check, Plus, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
@@ -13,6 +13,9 @@ import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import StatusStrip from "@/components/showpilot/StatusStrip";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 
 function getShowAccentColor(show) {
   const typeColor = eventTypeColor(show.event_type);
@@ -37,6 +40,7 @@ export default function CalendarPage() {
   const [linkEventName, setLinkEventName] = useState("");
   const [linkEventDate, setLinkEventDate] = useState("");
   const navigate = useNavigate();
+  const isDesktop = useIsDesktop();
 
   const handleTourManagerLink = async () => {
     setGeneratingLink(true);
@@ -199,8 +203,8 @@ export default function CalendarPage() {
     { label: "STARRED", value: String(monthItems.filter((x) => x.starred).length), color: "#FF6A00" },
   ];
 
-  return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+  const modals = (
+    <>
       {/* Manager Import Link share menu */}
       {tmLink && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setTmLink(null)}>
@@ -262,6 +266,199 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {/* Name the event before generating the link */}
+      {showLinkForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setShowLinkForm(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-1">Performer Intake</h3>
+            <p className="text-white/40 text-xs mb-3">Optional — helps you and the performer both know what this link is for.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-white/50 text-xs">Event Name</label>
+                <input
+                  value={linkEventName}
+                  onChange={(e) => setLinkEventName(e.target.value)}
+                  placeholder="e.g. Friday Night Live"
+                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#a855f7]/50"
+                />
+              </div>
+              <div>
+                <label className="text-white/50 text-xs">Event Date</label>
+                <input
+                  type="date"
+                  value={linkEventDate}
+                  onChange={(e) => setLinkEventDate(e.target.value)}
+                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#a855f7]/50 [color-scheme:dark]"
+                />
+              </div>
+            </div>
+            <Button onClick={handleTourManagerLink} disabled={generatingLink} className="w-full font-semibold rounded-xl mt-4" style={{ backgroundColor: "#a855f7", color: "#fff" }}>
+              {generatingLink ? "Generating..." : "Generate Link"}
+            </Button>
+            <button onClick={() => setShowLinkForm(false)} className="w-full text-center py-2.5 mt-1 text-white/40 hover:text-white text-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+    </>
+  );
+
+  // Desktop (1024px+): one screen, the month fills it and the selected day's
+  // shows sit in a panel on the right (same layout as the company calendar).
+  if (isDesktop) {
+    const todayKey = moment().format("YYYY-MM-DD");
+    const activeKey = selectedDate && moment(selectedDate).isSame(currentMonth, "month")
+      ? selectedDate
+      : moment().isSame(currentMonth, "month") ? todayKey : null;
+    const activeShows = activeKey ? (showsByDate[activeKey] || []) : [];
+    const gridDays = daysInMonth.length > 35 && daysInMonth[35].isSame(currentMonth, "month") ? daysInMonth : daysInMonth.slice(0, Math.min(daysInMonth.length, 35));
+    const gridRows = Math.ceil(gridDays.length / 7);
+    const goToday = () => { setCurrentMonth(moment()); setSelectedDate(todayKey); };
+    const arrow = "h-[38px] w-[38px] flex items-center justify-center rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white";
+    return (
+      <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
+        {modals}
+        <div className="flex items-center gap-3.5 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
+          <button type="button" onClick={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))} className={arrow} aria-label="Previous month"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+          <MonthDropdown
+            label={currentMonth.format("MMMM YYYY")}
+            value={currentMonth.format("YYYY-MM")}
+            options={monthOptions}
+            onSelect={pickMonth}
+            align="center"
+            className="justify-center px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em] min-w-[250px]"
+          />
+          <button type="button" onClick={() => setCurrentMonth((m) => m.clone().add(1, "month"))} className={arrow} aria-label="Next month"><ChevronRight className="w-[18px] h-[18px]" /></button>
+          <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
+          <div className="flex-1 max-w-[440px] ml-auto hidden xl:block"><StatusStrip cells={headerCells} /></div>
+          <button type="button" onClick={() => newShowOnDate(activeKey)} style={{ marginLeft: "auto" }} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
+            <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New show
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 mx-5 mt-3.5 mb-[18px] p-4 flex gap-5 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px", boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></div>
+          ) : (
+            <>
+              <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+                <div className="grid grid-cols-7 gap-1.5 pb-1.5 shrink-0">
+                  {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d) => (
+                    <div key={d} className="text-center text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{d}</div>
+                  ))}
+                </div>
+                <div className="flex-1 min-h-0 grid grid-cols-7 gap-1.5" style={{ gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))` }}>
+                  {gridDays.map((day) => {
+                    const key = day.format("YYYY-MM-DD");
+                    const inMonth = day.isSame(currentMonth, "month");
+                    const dayShows = inMonth ? (showsByDate[key] || []) : [];
+                    const isToday = key === todayKey;
+                    const isSel = inMonth && activeKey === key;
+                    const photos = hasDayPhotos(dayShows);
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => inMonth && setSelectedDate(key)}
+                        onDoubleClick={() => inMonth && !dayShows.length && newShowOnDate(key)}
+                        className={`relative min-w-0 min-h-0 overflow-hidden rounded-[10px] px-[7px] py-1.5 flex flex-col gap-[3px] transition-all ${inMonth ? "cursor-pointer" : ""}`}
+                        style={{
+                          background: isSel ? "#1b2a0e" : inMonth ? "#111" : "transparent",
+                          border: isSel ? "2px solid #D2FF85" : isToday && inMonth ? "1px solid rgba(140,255,61,0.7)" : inMonth ? "1px solid #1f1f1f" : "1px solid transparent",
+                          boxShadow: isSel ? "0 0 22px 4px rgba(198,255,107,0.55)" : undefined,
+                        }}
+                      >
+                        {photos && (
+                          <DayPhotoBands events={dayShows} colorOf={getShowAccentColor} keyOf={(x) => x.id || x.share_token} onOpen={openShow} max={3} titleClass="text-[13px]" />
+                        )}
+                        <div className="relative z-10 flex items-center justify-between pointer-events-none">
+                          <span className="text-sm font-semibold" style={{ fontFamily: SCENE_MONO, color: isSel ? "#D2FF85" : isToday && inMonth ? "#8CFF3D" : photos ? "#fff" : inMonth ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.15)", textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>{day.date()}</span>
+                          {isToday && inMonth && <span className="text-[9px] tracking-[0.08em] text-[#8CFF3D]" style={{ fontFamily: SCENE_MONO, textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>TODAY</span>}
+                        </div>
+                        {!photos && dayShows.slice(0, 3).map((x) => {
+                          const color = getShowAccentColor(x);
+                          return (
+                            <button
+                              key={x.id || x.share_token}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); openShow(x); }}
+                              className="text-left min-w-0 px-1.5 py-0.5 rounded"
+                              style={{ background: color + "26", borderLeft: `3px solid ${color}` }}
+                            >
+                              <span className="block text-[13px] font-semibold leading-[1.15] text-white truncate">{x.event_name || x.band_name || "Untitled Gig"}</span>
+                            </button>
+                          );
+                        })}
+                        {!photos && dayShows.length > 3 && <span className="text-[10px] text-white/45" style={{ fontFamily: SCENE_MONO }}>+{dayShows.length - 3} more</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {monthTypes.length > 0 && (
+                  <div className="flex items-center gap-1.5 pt-2.5 flex-wrap shrink-0">
+                    {monthTypes.map((t) => {
+                      const c = eventTypeColor(t);
+                      return c ? <span key={t} className="text-[10px] tracking-[0.08em] px-[7px] py-[2px] rounded-[3px]" style={{ fontFamily: SCENE_MONO, color: c, background: c + "1f" }}>{t.toUpperCase()}</span> : null;
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="w-[340px] shrink-0 min-h-0 flex flex-col bg-[#151515] border border-[#262626] rounded-md" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
+                <div className="px-[18px] pt-4 pb-2.5 shrink-0">
+                  <div className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>SELECTED DAY</div>
+                  <div className="text-[28px] font-bold leading-[1.1] mt-0.5 text-white">{activeKey ? moment(activeKey).format("ddd, MMM D") : "Pick a day"}</div>
+                  <div className="text-[11px] text-white/50 mt-[3px]" style={{ fontFamily: SCENE_MONO }}>
+                    {activeKey ? (activeShows.length ? `${activeShows.length} ${activeShows.length === 1 ? "SHOW" : "SHOWS"}` : "NO SHOWS") : "SELECT A DAY ON THE CALENDAR"}
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto border-t border-dashed border-[#2a2a2a] p-3.5 flex flex-col gap-2.5">
+                  {activeShows.map((x) => {
+                    const title = x.event_name || x.band_name || "Untitled Gig";
+                    const location = [x.venue, [x.city, x.state].filter(Boolean).join(", ") || x.location].filter(Boolean).join(" · ");
+                    const color = getShowAccentColor(x);
+                    return (
+                      <button key={x.id || x.share_token} type="button" onClick={() => openShow(x)} className="flex items-stretch gap-2.5 px-3 py-2.5 rounded-md bg-[#1a1a1a] hover:bg-[#202020] border border-[#262626] text-left transition-colors">
+                        <span className="w-1 rounded-sm shrink-0" style={{ background: color }} />
+                        <EventTypeIcon type={x.event_type} imageUrl={x.icon_url} size={34} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            {x.is_linked && <Link2 className="w-3 h-3 shrink-0" style={{ color }} />}
+                            <p className="text-white text-[19px] font-semibold leading-[1.1] truncate">{title}</p>
+                            {x.starred && <Star className="w-3.5 h-3.5 text-[#FF6A00] shrink-0" fill="currentColor" />}
+                          </div>
+                          {location && <p className="text-[10px] tracking-[0.04em] text-white/50 mt-[3px] truncate uppercase" style={{ fontFamily: SCENE_MONO }}>{location}</p>}
+                          <div className="mt-1.5"><StatusBadge status={x.status} /></div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {activeKey && activeShows.length === 0 && <p className="text-base text-white/35 text-center py-5">Nothing on this day yet.</p>}
+                </div>
+                <div className="px-[18px] pt-3 pb-4 shrink-0 border-t border-dashed border-[#2a2a2a] flex flex-col gap-2">
+                  {activeKey && (
+                    <button type="button" onClick={() => newShowOnDate(activeKey)} className="w-full py-2.5 rounded-lg text-[17px] font-bold text-[#8CFF3D] hover:bg-[#8CFF3D]/15 transition-colors" style={{ border: "1px dashed rgba(140,255,61,0.55)", background: "rgba(140,255,61,0.08)" }}>
+                      + Add show on this day
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { setLinkEventDate(activeKey || ""); setShowLinkForm(true); }} disabled={generatingLink} className="w-full py-2.5 rounded-lg text-[16px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: "#a855f7" }}>
+                    <ClipboardList className="w-4 h-4" /> {generatingLink ? "Generating..." : "Create intake link"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <BottomTabs />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+      {modals}
 
       <CalendarHeader
         monthLabel={currentMonth.format("MMMM YYYY")}
@@ -350,42 +547,6 @@ export default function CalendarPage() {
           {generatingLink ? "Generating..." : "Create import link"}
         </Button>
       </div>
-
-      {/* Name the event before generating the link */}
-      {showLinkForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setShowLinkForm(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-white font-bold text-base mb-1">Performer Intake</h3>
-            <p className="text-white/40 text-xs mb-3">Optional — helps you and the performer both know what this link is for.</p>
-            <div className="space-y-3">
-              <div>
-                <label className="text-white/50 text-xs">Event Name</label>
-                <input
-                  value={linkEventName}
-                  onChange={(e) => setLinkEventName(e.target.value)}
-                  placeholder="e.g. Friday Night Live"
-                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#a855f7]/50"
-                />
-              </div>
-              <div>
-                <label className="text-white/50 text-xs">Event Date</label>
-                <input
-                  type="date"
-                  value={linkEventDate}
-                  onChange={(e) => setLinkEventDate(e.target.value)}
-                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#a855f7]/50 [color-scheme:dark]"
-                />
-              </div>
-            </div>
-            <Button onClick={handleTourManagerLink} disabled={generatingLink} className="w-full font-semibold rounded-xl mt-4" style={{ backgroundColor: "#a855f7", color: "#fff" }}>
-              {generatingLink ? "Generating..." : "Generate Link"}
-            </Button>
-            <button onClick={() => setShowLinkForm(false)} className="w-full text-center py-2.5 mt-1 text-white/40 hover:text-white text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
       <BottomTabs />
     </div>

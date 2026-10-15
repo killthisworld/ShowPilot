@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -119,13 +120,13 @@ export default function ArchivedShows() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-10">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto">
+        <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
           <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold text-white">Archived Shows</h1>
         </div>
-        <div className="px-4 pb-3 max-w-lg mx-auto">
+        <div className="px-4 pb-3 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
           <div className="relative" ref={searchRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
             <Input
@@ -151,7 +152,7 @@ export default function ArchivedShows() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto">
+      <div className="px-4 pt-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
@@ -165,7 +166,7 @@ export default function ArchivedShows() {
             {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([state, cities]) => (
               <div key={state}>
                 <h2 className="text-[#8CFF3D] font-bold text-sm uppercase tracking-wide mb-2">{state}</h2>
-                <div className="space-y-3">
+                <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-start">
                   {Object.entries(cities).sort(([a], [b]) => a.localeCompare(b)).map(([city, cityShows]) => (
                     <div key={city} className="bg-[#161616] rounded-xl border border-[#222] p-3">
                       <p className="text-white/70 text-xs font-semibold flex items-center gap-1 mb-2">
@@ -200,6 +201,7 @@ export default function ArchivedShows() {
           </div>
         )}
       </div>
+      <BottomTabs railOnly />
     </div>
   );
 }

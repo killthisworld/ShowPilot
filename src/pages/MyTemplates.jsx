@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
@@ -454,6 +455,7 @@ export default function MyTemplates() {
         {categories.map(groupCard)}
       </div>
       {editor}
+      <BottomTabs railOnly />
     </div>
   );
 }

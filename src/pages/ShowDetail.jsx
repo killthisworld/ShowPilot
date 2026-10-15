@@ -15,6 +15,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import VenueInfoFields from "@/components/showpilot/VenueInfoFields";
@@ -54,6 +56,7 @@ export default function ShowDetail() {
   const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
+  const isDesktop = useIsDesktop();
   const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
@@ -784,10 +787,13 @@ export default function ShowDetail() {
       )}
 
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
-          <button onClick={() => goBack(backTo)} className="p-2 -ml-2 rounded-lg hover:bg-white/5">
-            <ArrowLeft className="w-5 h-5 text-white/70" />
-          </button>
+        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto lg:max-w-none lg:px-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => goBack(backTo)} className="p-2 -ml-2 rounded-lg hover:bg-white/5">
+              <ArrowLeft className="w-5 h-5 text-white/70" />
+            </button>
+            <h1 className="hidden lg:block text-white text-2xl font-bold truncate">{show.event_name || (isNew ? "New show" : "Untitled show")}</h1>
+          </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
               <StickyNote className="w-4 h-4" />
@@ -815,7 +821,10 @@ export default function ShowDetail() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
+      {/* Desktop (1024px+): the event card on the left, Venue Info and
+          Performer side by side (stacked under each other below 1280px). */}
+      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3 lg:max-w-none lg:px-6 lg:pt-5 lg:space-y-0 lg:grid lg:gap-5 lg:items-start lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="space-y-3 lg:sticky lg:top-[76px] lg:row-span-2 xl:row-span-1">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
             {isTechProductionAccount && (
@@ -943,9 +952,10 @@ export default function ShowDetail() {
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
         </div>
+        </div>
 
-        <div ref={venuePrintRef} className="relative">
-          <CollapsibleSection title="Venue Info" icon={Info}>
+        <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">
+          <CollapsibleSection title="Venue Info" icon={Info} defaultOpen={isDesktop}>
             <VenueInfoFields
               value={show}
               onChange={update}
@@ -954,8 +964,8 @@ export default function ShowDetail() {
         </CollapsibleSection>
         </div>
 
-        <div ref={bandPrintRef} className="relative">
-          <CollapsibleSection title="Performer" icon={Music} badge={(() => {
+        <div ref={bandPrintRef} className="relative lg:col-start-2 xl:col-start-3 xl:row-start-1">
+          <CollapsibleSection title="Performer" icon={Music} defaultOpen={isDesktop} badge={(() => {
             const namedCount = bands.filter((b) => b.band_name && b.band_name.trim() !== "").length;
             return namedCount > 0 ? namedCount : undefined;
           })()}>
@@ -1138,6 +1148,7 @@ export default function ShowDetail() {
       )}
 
       </div>
+      {isTechProductionAccount && <BottomTabs railOnly />}
     </div>
   );
 }

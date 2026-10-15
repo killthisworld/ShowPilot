@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, X, Lightbulb } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -9,7 +9,7 @@ import { shareLink } from "@/lib/share";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
-import { Rail } from "@/components/showpilot/TechConsoleDesk";
+import TechRail from "@/components/showpilot/TechRail";
 
 // Lighting tech desktop (1024px+): one numbered TO DO list of the tasks,
 // event updates and unread chats from your shows, worked like a cue list.
@@ -224,7 +224,7 @@ export default function LightingDesk({ shows, accent = "#8CFF3D", preferences, o
 
   return (
     <div className="fixed inset-0 flex bg-[#0b0c0e] text-[#eef0f2] overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <Rail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} homeLabel="Desk" HomeIcon={Lightbulb} />
+      <TechRail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
 
       <div className="flex-1 min-w-0 flex flex-col gap-2.5 px-5 pt-3.5 pb-4">
         {/* NOW + counts */}
