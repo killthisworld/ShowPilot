@@ -7,7 +7,6 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { fanPath } from "@/lib/fanUrl";
 import { hashString, seededRandom } from "@/lib/constellation";
-import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
 import SpaceDrift from "@/components/showpilot/SpaceDrift";
 
 // Fan accounts (jobs 77, 79, 83, 84, 85; direction in claude/fan-profile-direction.md).
@@ -16,7 +15,7 @@ import SpaceDrift from "@/components/showpilot/SpaceDrift";
 //          with the event's art) and Discover (only if the fan turns on local
 //          shows: events near their home city that hosts listed, by type)
 //   Stars  their constellation: one star per show; tap one for a summary
-//   Me     their name, look (star color, sky, first tab) and sign out
+//   Me     their name, local shows, star color and sign out
 // Every tab fits the screen: no page scrolling, phone-first.
 
 const LINE = "#2b2f5a";
@@ -53,13 +52,8 @@ const liftColor = (hex) => {
   return DEFAULT_STAR;
 };
 const DEFAULT_STAR = "#E4E0FF";
-const SKIES = [
-  { id: "galaxy", label: "Galaxy" },
-  { id: "black", label: "Deep black" },
-  { id: "still", label: "Still" },
-];
 // discover: false = personal only; city/state = home area; types = filter.
-const DEFAULT_STYLE = { star: DEFAULT_STAR, sky: "galaxy", discover: false, city: "", state: "", types: [] };
+const DEFAULT_STYLE = { star: DEFAULT_STAR, discover: false, city: "", state: "", types: [] };
 
 const TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
@@ -164,7 +158,7 @@ export default function FanHome() {
 
   return (
     <div className="h-[100dvh] relative isolate overflow-hidden flex flex-col text-white" style={{ fontFamily: SCENE_FONT, backgroundColor: "#000" }}>
-      <Backdrop sky={style.sky} />
+      <Backdrop />
 
       <div className="flex-1 min-h-0 w-full max-w-lg mx-auto px-4 pt-5 flex flex-col">
         <header className="shrink-0 flex items-end justify-between gap-3">
@@ -209,16 +203,11 @@ export default function FanHome() {
   );
 }
 
-// The black, drifting space behind every tab (the fan picks how it looks).
-function Backdrop({ sky }) {
+// Deep black, drifting space behind every tab (same for every fan, job 88).
+function Backdrop() {
   return (
     <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-      {sky !== "black" && (
-        <div className="absolute" style={{ width: "112vw", height: "112vh", left: "-6vw", top: "-6vh", filter: "saturate(0.35) brightness(0.8) contrast(1.15)" }}>
-          <GalaxyCanvas seed="showpilot-fan" />
-        </div>
-      )}
-      {sky !== "still" && <SpaceDrift />}
+      <SpaceDrift />
       <span className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%)" }} />
     </div>
   );
@@ -699,7 +688,6 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
           <div className={label} style={{ fontFamily: SCENE_MONO, color: DIM }}>STAR COLOR</div>
           <StarColors value={style.star} shown={star} onPick={(hex) => onStyle({ star: hex })} />
         </div>
-        <Choice title="SKY" options={SKIES} value={style.sky} onPick={(v) => onStyle({ sky: v })} star={star} />
       </section>
     </div>
   );
