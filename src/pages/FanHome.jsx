@@ -33,13 +33,33 @@ const STAR_COLORS = [
   { hex: "#FF6A00", name: "Blaze" },
   { hex: "#F2FF00", name: "Highlighter" },
 ];
+// Any color the fan picks, lifted if it's too dark to see on the black sky
+// (and to keep dark text readable on star-colored buttons).
+const toHex = (rgb) => "#" + rgb.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, "0")).join("").toUpperCase();
+const luminance = ([r, g, b]) => {
+  const lin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+const liftColor = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return DEFAULT_STAR;
+  const rgb = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  if (luminance(rgb) >= 0.2) return `#${m[1].toUpperCase()}`;
+  // Mix toward white until it's bright enough to read on black.
+  for (let t = 0.05; t <= 1; t += 0.05) {
+    const mixed = rgb.map((c) => c + (1 - c) * t);
+    if (luminance(mixed) >= 0.2) return toHex(mixed);
+  }
+  return DEFAULT_STAR;
+};
+const DEFAULT_STAR = "#E4E0FF";
 const SKIES = [
   { id: "galaxy", label: "Galaxy" },
   { id: "black", label: "Deep black" },
   { id: "still", label: "Still" },
 ];
 // discover: false = personal only; city/state = home area; types = filter.
-const DEFAULT_STYLE = { star: "#E4E0FF", sky: "galaxy", home: "shows", discover: false, city: "", state: "", types: [] };
+const DEFAULT_STYLE = { star: DEFAULT_STAR, sky: "galaxy", home: "shows", discover: false, city: "", state: "", types: [] };
 
 const ALL_TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
@@ -93,7 +113,7 @@ export default function FanHome() {
   const { user } = useAuth();
   const { preferences, setPreferences } = usePreferences();
   const style = { ...DEFAULT_STYLE, ...(preferences?.fan_style || {}) };
-  const STAR = style.star;
+  const STAR = liftColor(style.star);
 
   const TABS = ALL_TABS.filter((t) => t.id !== "discover" || style.discover);
   const [params, setParams] = useSearchParams();
@@ -625,23 +645,47 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
         {style.discover && <HomeCity style={style} star={star} onStyle={onStyle} />}
         <div>
           <div className={label} style={{ fontFamily: SCENE_MONO, color: DIM }}>STAR COLOR</div>
-          <div className="flex flex-wrap gap-2.5">
-            {STAR_COLORS.map((c) => {
-              const on = style.star === c.hex;
-              return (
-                <button key={c.hex} type="button" onClick={() => onStyle({ star: c.hex })} aria-label={c.name} aria-pressed={on}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: c.hex, boxShadow: on ? `0 0 0 2px #000, 0 0 0 4px ${c.hex}, 0 0 14px ${c.hex}` : "none" }}>
-                  {on && <Check className="w-4 h-4" style={{ color: "#0d0d0d" }} strokeWidth={3} />}
-                </button>
-              );
-            })}
-          </div>
+          <StarColors value={style.star} shown={star} onPick={(hex) => onStyle({ star: hex })} />
         </div>
         <Choice title="SKY" options={SKIES} value={style.sky} onPick={(v) => onStyle({ sky: v })} star={star} />
         <Choice title="OPENS TO" options={[{ id: "shows", label: "Shows" }, ...(style.discover ? [{ id: "discover", label: "Discover" }] : []), { id: "stars", label: "Stars" }]}
           value={style.home === "discover" && !style.discover ? "shows" : style.home} onPick={(v) => onStyle({ home: v })} star={star} />
       </section>
+    </div>
+  );
+}
+
+// Six presets plus a rainbow swatch that opens the color picker for any
+// color. Dragging in the picker previews live and saves once it settles.
+function StarColors({ value, shown, onPick }) {
+  const preset = STAR_COLORS.some((c) => c.hex.toLowerCase() === String(value || "").toLowerCase());
+  const [live, setLive] = useState(null);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const pickCustom = (hex) => {
+    setLive(liftColor(hex));
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => { onPick(hex.toUpperCase()); setLive(null); }, 350);
+  };
+  const ring = (c) => `0 0 0 2px #000, 0 0 0 4px ${c}, 0 0 14px ${c}`;
+  const custom = live || (!preset ? shown : null);
+  return (
+    <div className="flex gap-2 justify-between">
+      {STAR_COLORS.map((c) => {
+        const on = !live && value?.toLowerCase() === c.hex.toLowerCase();
+        return (
+          <button key={c.hex} type="button" onClick={() => onPick(c.hex)} aria-label={c.name} aria-pressed={on}
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: c.hex, boxShadow: on ? ring(c.hex) : "none" }}>
+            {on && <Check className="w-4 h-4" style={{ color: "#0d0d0d" }} strokeWidth={3} />}
+          </button>
+        );
+      })}
+      <label className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer" aria-label="Pick any color" title="Pick any color"
+        style={{ background: custom || "conic-gradient(#ff4d4d, #ffd84d, #6dff4d, #4dffe6, #4d7bff, #c44dff, #ff4d9e, #ff4d4d)", boxShadow: custom ? ring(custom) : "none" }}>
+        <input type="color" value={custom || shown} onChange={(e) => pickCustom(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+        {custom ? <Check className="w-4 h-4 pointer-events-none" style={{ color: "#0d0d0d" }} strokeWidth={3} /> : <span className="text-[18px] font-bold leading-none pointer-events-none" style={{ color: "#0d0d0d" }}>+</span>}
+      </label>
     </div>
   );
 }
