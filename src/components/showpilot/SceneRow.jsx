@@ -5,6 +5,7 @@ import { eventTypeColor, typeBarBackground } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
+import { techShowPath, isDesktopNow } from "@/lib/showRoute";
 import { sceneAccent, scenePlace, sceneDate, sceneTitle, SCENE_COLORS, SCENE_MONO } from "@/lib/sceneStyle";
 
 const SWIPE_WIDTH = 144;
@@ -33,8 +34,7 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
   const open = () => {
     if (moved.current) return;
     if (offset !== 0) { setOffset(0); return; }
-    if (show.is_owned === false) navigate(`/gig/web?token=${show.share_token}`);
-    else navigate(`/show/${show.id}`);
+    navigate(techShowPath(show, { desktop: isDesktopNow() }));
   };
 
   return (

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SceneRow from "@/components/showpilot/SceneRow";
+import { techShowPath, isDesktopNow } from "@/lib/showRoute";
 import CuePad from "@/components/showpilot/CuePad";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip } from "@/lib/homeStats";
@@ -357,7 +358,7 @@ export default function Home() {
 
   const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
   const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
-  const openShow = (s) => navigate(s.is_owned === false ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`);
+  const openShow = (s) => navigate(techShowPath(s, { desktop: isDesktopNow() }));
 
   const genreTagMap = useMemo(() => {
     const map = {};
@@ -670,7 +671,7 @@ export default function Home() {
                 return (
                   <Link
                     key={show.is_owned === false ? show.share_token : show.id}
-                    to={show.is_owned === false ? `/gig/web?token=${show.share_token}` : `/show/${show.id}`}
+                    to={techShowPath(show, { desktop: isDesktopNow() })}
                     className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0"
                     style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
                   >

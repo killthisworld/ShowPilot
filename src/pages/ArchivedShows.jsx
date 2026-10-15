@@ -6,6 +6,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Search, ArchiveRestore, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePreferences } from "@/hooks/usePreferences";
+import { techShowPath, isDesktopNow } from "@/lib/showRoute";
 
 export default function ArchivedShows() {
   const navigate = useNavigate(); const goBack = useGoBack();
@@ -62,10 +63,8 @@ export default function ArchivedShows() {
   // same as always. Everything else - non-tech owned events, and any
   // linked gig regardless of account type - goes through Gig Web, the
   // radial hub that replaced the old block-based SharedGig page.
-  const openShow = (s) => {
-    if (s.is_owned && isTechProductionAccount) navigate(`/show/${s.id}`);
-    else navigate(`/gig/web?token=${s.share_token}`);
-  };
+  // Tech owners' shows open their web too now (SHOW tab = the editor), job 72.
+  const openShow = (s) => navigate(isTechProductionAccount ? techShowPath(s, { desktop: isDesktopNow() }) : `/gig/web?token=${s.share_token}`);
 
   const handleUnarchive = async (show) => {
     setShows((prev) => prev.filter((s) => (show.is_owned ? s.id !== show.id : s.share_token !== show.share_token)));

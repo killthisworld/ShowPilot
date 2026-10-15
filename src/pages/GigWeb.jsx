@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -22,6 +22,9 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
+// The show editor, embedded as the SHOW tab for a tech owner (job 72).
+// Lazy so the web doesn't load the editor's PDF/canvas code until needed.
+const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
 import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
 
 // Short console-style codes for the role channel buttons.
@@ -134,6 +137,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // or stays collapsed behind "Open Full Profile". Resets to collapsed
   // every time a different role (or the same one again) is selected.
   const [profileExpanded, setProfileExpanded] = useState(false);
+  // Audio / lighting owners open their own show here (job 72, option A).
+  // They land on TASKS with the full web; the first tab is SHOW, the show
+  // editor, and the web folds to a one-line strip while it's open.
+  const landedRef = useRef(false);
   const [rooms, setRooms] = useState([]);
   const [roomMembers, setRoomMembers] = useState({}); // roomId -> member rows
   // Owner-only gig management. Archive is reversible (Settings > Archived
@@ -185,6 +192,11 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     setLoading(false);
   };
   useEffect(() => { loadGig(); }, [token]);
+  useEffect(() => {
+    if (landedRef.current || !permissions) return;
+    landedRef.current = true;
+    if (!tokenProp && !params.get("tab") && isTechProductionAccount && permissions.is_owner) setActiveTab("tasks");
+  }, [permissions]);
   // A role workspace opened in its own window posts back after it saves.
   useEffect(() => {
     const onMsg = (e) => {
@@ -399,8 +411,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#FF6A00" : "#8CFF3D" },
         { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#fff" },
       ];
+  const showTabMode = isTechProductionAccount && !!permissions?.is_owner && !selectedRole && !!gig?.id;
+  const editingShow = showTabMode && activeTab === "profile" && !isDesktop;
   const tabCounts = {
-    profile: selectedNode ? null : nodes.length,
+    profile: selectedNode || showTabMode ? null : nodes.length,
     tasks: selectedNode ? openTasksFor(selectedNode.role) : openTasks.length,
     rooms: null,
   };
@@ -543,6 +557,26 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         </div>
       </div>
 
+      {editingShow ? (
+        <div className="px-4 pt-3 max-w-lg mx-auto">
+          {/* The web folded to one line while the show is being edited; tap to unfold it (TASKS). */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("tasks")}
+            aria-label="Show the web"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#141414] border border-[#2a2a2a]"
+          >
+            <span className="w-6 h-6 rounded-full border-2 border-white bg-[#2a2a2a] shrink-0" style={{ boxShadow: "0 0 10px #FFFFFFAA" }} />
+            {nodes.map((n) => (
+              <span key={n.role} className="w-3.5 h-3.5 rounded-full shrink-0" style={{ border: `2px ${n.claimed ? "solid" : "dashed"} ${n.claimed || n.invited ? n.style.color : `${n.style.color}66`}` }} />
+            ))}
+            <span className="ml-auto text-[11px] text-white/60 tracking-[0.06em]" style={{ fontFamily: SCENE_MONO }}>
+              {stripCells[0].value} · {stripCells[2].value} ▾
+            </span>
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="px-4 pt-3 max-w-lg mx-auto">
         <StatusStrip cells={stripCells} />
       </div>
@@ -597,12 +631,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             className="absolute flex flex-col items-center justify-center gap-1 rounded-full bg-[#161616] border px-3 transition-colors overflow-hidden"
             style={{
               left: cx, top: cy, ...hubM.center, width: 116, height: 116, zIndex: 2,
-              borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a",
+              borderColor: selectedRole === null ? "#FFFFFF" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
-              boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA, 0 0 60px #B6FF5C44" : undefined,
+              // Lit white so the event never blends into a profile's color (Audio green, Promoter blue...).
+              boxShadow: selectedRole === null ? "0 0 0 3px #FFFFFF55, 0 0 30px #FFFFFFAA, 0 0 60px #FFFFFF44" : undefined,
             }}
           >
-            {selectedRole === null && <span className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 40%, rgba(198,255,107,0.28), rgba(198,255,107,0.06) 70%)" }} />}
+            {selectedRole === null && <span className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 70%)" }} />}
             {/* The event's icon as a faded backdrop: an uploaded image (dimmed, with a dark wash so text stays crisp) or the type glyph in its color. */}
             {(myIcon || gig.icon_url) ? (
               <>
@@ -622,6 +657,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         )}
       </div>
 
+      </>
+      )}
+
       <div className="w-full max-w-lg mx-auto px-4 mt-2">
         <div className="flex items-center gap-2 mb-2">
           {selectedNode ? (
@@ -639,7 +677,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}%
               </span>
             </>
-          ) : (
+          ) : showTabMode ? null : (
             <span className="text-white font-semibold text-base">Overview</span>
           )}
         </div>
@@ -647,7 +685,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         <div className="flex items-center gap-1.5 mb-2">
           {[
             // Board / Tasks / Rooms aren't profiles, so they stay uncolored.
-            { id: "profile", label: selectedRole ? "PROFILE" : "BOARD" },
+            { id: "profile", label: selectedRole ? "PROFILE" : showTabMode ? "SHOW" : "BOARD" },
             { id: "tasks", label: "TASKS" },
             { id: "rooms", label: "ROOMS" },
           ].map((t) => {
@@ -693,6 +731,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 expanded={profileExpanded}
                 setExpanded={setProfileExpanded}
               />
+            ) : showTabMode ? (
+              <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
+                <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+              </Suspense>
             ) : (
               <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
             )
@@ -1688,8 +1730,8 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
         className="absolute flex flex-col items-center justify-center rounded-full bg-[#161616] border px-4 overflow-hidden"
         style={{
           left: "50%", top: "50%", ...m.center, width: Math.round(164 * k), height: Math.round(164 * k), zIndex: 2,
-          borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
-          boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
+          borderColor: selectedRole === null ? "#FFFFFF" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
+          boxShadow: selectedRole === null ? "0 0 0 3px #FFFFFF55, 0 0 30px #FFFFFFAA" : undefined,
         }}
       >
         {iconUrl ? (

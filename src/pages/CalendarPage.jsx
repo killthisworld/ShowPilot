@@ -16,6 +16,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import MonthDropdown from "@/components/showpilot/MonthDropdown";
+import { isDesktopNow } from "@/lib/showRoute";
 
 function getShowAccentColor(show) {
   const typeColor = eventTypeColor(show.event_type);
@@ -178,11 +179,9 @@ export default function CalendarPage() {
   }, [currentMonth]);
 
   const openShow = (show) => {
-    if (show.is_linked) {
-      navigate(`/gig/web?token=${show.share_token}`);
-    } else {
-      navigate(`/show/${show.id}`, { state: { from: "calendar" } });
-    }
+    // Your own shows open their web too (SHOW tab = the editor), job 72.
+    if (show.is_linked || (show.share_token && !isDesktopNow())) navigate(`/gig/web?token=${show.share_token}`);
+    else navigate(`/show/${show.id}`, { state: { from: "calendar" } });
   };
 
   // Lets the calendar create a new show pre-filled with a specific date,

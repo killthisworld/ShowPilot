@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, Trash2, Plus, Mail, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
+import { isDesktopNow } from "@/lib/showRoute";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -51,8 +52,13 @@ const emptyBand = (role, sortOrder) => ({
   general_notes: "",
 });
 
-export default function ShowDetail() {
-  const { id } = useParams();
+// embeddedId: render inside another screen (the SHOW tab of the show's web,
+// job 72) instead of as its own page: no page header or back button, a
+// compact action row instead, and onSaved() after each save.
+export default function ShowDetail({ embeddedId, onSaved } = {}) {
+  const routeParams = useParams();
+  const id = embeddedId || routeParams.id;
+  const embedded = !!embeddedId;
   const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
@@ -173,7 +179,7 @@ export default function ShowDetail() {
       ])
         .then(([showRes, bandsRes]) => {
           if (showRes.error || !showRes.data) {
-            navigate("/");
+            if (!embedded) navigate("/");
             return;
           }
           // Check both the gig's own updated_at AND the most recent
@@ -403,6 +409,7 @@ export default function ShowDetail() {
       if (show.share_token) sharedPayload.share_token = show.share_token;
 
       let showId = id;
+      let createdToken = null;
       if (isNew) {
         const { data: created, error } = await supabase
           .from("shows")
@@ -411,6 +418,7 @@ export default function ShowDetail() {
           .single();
         if (error) throw error;
         showId = created.id;
+        createdToken = created.share_token || null;
       } else {
         const { error } = await supabase.from("shows").update(sharedPayload).eq("id", id);
         if (error) throw error;
@@ -441,9 +449,12 @@ export default function ShowDetail() {
 
       if (isNew) {
         showPill("Show created ✓");
-        navigate(`/show/${showId}`, { replace: true, state: location.state });
+        // Tech accounts work a show from its web (SHOW tab = this editor), job 72.
+        if (isTechProductionAccount && createdToken && !isDesktopNow()) navigate(`/gig/web?token=${createdToken}`, { replace: true });
+        else navigate(`/show/${showId}`, { replace: true, state: location.state });
       } else {
         showPill("Saved ✓");
+        onSaved?.();
       }
     } catch (e) {
       console.error(e);
@@ -703,7 +714,7 @@ export default function ShowDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-8">
+    <div className={embedded ? "" : "min-h-screen bg-[#0d0d0d] pb-8"}>
       {savedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
           {savedToast}
@@ -786,6 +797,28 @@ export default function ShowDetail() {
         </div>
       )}
 
+      {embedded ? (
+        // Sticks under the web's header so Save stays in reach on a long form.
+        <div className="sticky top-[60px] z-30 -mx-3 -mt-3 px-3 py-2 mb-2 bg-[#111111]/95 backdrop-blur border-b border-[#1f1f1f] rounded-t-2xl flex items-center gap-1">
+          <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`} aria-label={show.starred ? "Unstar" : "Star"}>
+            <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
+          </button>
+          <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes" aria-label="FX / Artist Notes">
+            <StickyNote className="w-4 h-4" />
+          </button>
+          <InviteSheet
+            showId={id}
+            trigger={
+              <button className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Invite" aria-label="Invite">
+                <Mail className="w-4 h-4" />
+              </button>
+            }
+          />
+          <Button onClick={handleSave} disabled={saving} size="sm" className="ml-auto bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 rounded-lg">
+            <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? "..." : "Save"}
+          </Button>
+        </div>
+      ) : (
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto lg:max-w-none lg:px-6">
           <div className="flex items-center gap-3 min-w-0">
@@ -820,10 +853,11 @@ export default function ShowDetail() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Desktop (1024px+): the event card on the left, Venue Info and
           Performer side by side (stacked under each other below 1280px). */}
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3 lg:max-w-none lg:px-6 lg:pt-5 lg:space-y-0 lg:grid lg:gap-5 lg:items-start lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className={embedded ? "space-y-3" : "px-4 pt-4 max-w-lg mx-auto space-y-3 lg:max-w-none lg:px-6 lg:pt-5 lg:space-y-0 lg:grid lg:gap-5 lg:items-start lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]"}>
         <div className="space-y-3 lg:sticky lg:top-[76px] lg:row-span-2 xl:row-span-1">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
