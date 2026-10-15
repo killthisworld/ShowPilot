@@ -1,30 +1,42 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Star, KeyRound, MapPin, LogOut, ExternalLink, Ticket, Sparkles, User } from "lucide-react";
+import { Star, KeyRound, MapPin, LogOut, ExternalLink, Ticket, Sparkles, User, Check, Pencil } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
+import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { fanPath } from "@/lib/fanUrl";
 import { hashString, seededRandom } from "@/lib/constellation";
-import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
 import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
 import SpaceDrift from "@/components/showpilot/SpaceDrift";
 
-// Fan accounts (jobs 77 + 79; direction in claude/fan-profile-direction.md).
-// The fan's own corner of Show Pilot, with its own main tabs:
-//   Shows  every event they RSVP'd to with their account's email
-//   Stars  their personal sky: one star per show, a growing collection
-//   Me     account, switch account, sign out
-// Phone-first, in the event sky's colors.
+// Fan accounts (jobs 77, 79, 83, 84; direction in claude/fan-profile-direction.md).
+// The fan's own corner of Show Pilot, on the black drifting-space sky:
+//   Shows  every event they RSVP'd to, as big cards with the event's art
+//   Stars  their constellation: one star per show; tap one for a summary
+//   Me     their name, look (star color, sky, first tab) and sign out
+// Every tab fits the screen: no page scrolling, phone-first.
 
-const STAR = "#E4E0FF";
 const LINE = "#2b2f5a";
 const SOFT = "#b7bbe6";
 const DIM = "#7e83b8";
 const G = "#8CFF3D";
-// Panels are slightly see-through so the space behind shows at the edges.
 const CARD = "rgba(16,20,52,0.82)";
-const CARD_DEEP = "rgba(11,14,38,0.88)";
+
+const STAR_COLORS = [
+  { hex: "#E4E0FF", name: "Starlight" },
+  { hex: "#8CFF3D", name: "Green" },
+  { hex: "#60A5FA", name: "Blue" },
+  { hex: "#F472B6", name: "Pink" },
+  { hex: "#FF6A00", name: "Blaze" },
+  { hex: "#F2FF00", name: "Highlighter" },
+];
+const SKIES = [
+  { id: "galaxy", label: "Galaxy" },
+  { id: "black", label: "Deep black" },
+  { id: "still", label: "Still" },
+];
+const DEFAULT_STYLE = { star: "#E4E0FF", sky: "galaxy", home: "shows" };
 
 const TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
@@ -48,12 +60,12 @@ const dateParts = (iso) => {
 };
 const daysUntil = (iso) => {
   if (!iso) return null;
-  const a = new Date(`${iso}T00:00:00`).getTime();
-  const b = new Date(`${todayIso()}T00:00:00`).getTime();
-  return Math.round((a - b) / 86400000);
+  return Math.round((new Date(`${iso}T00:00:00`).getTime() - new Date(`${todayIso()}T00:00:00`).getTime()) / 86400000);
 };
 const countdownLabel = (n) => (n === null ? "DATE TBA" : n === 0 ? "TONIGHT" : n === 1 ? "TOMORROW" : `${n} DAYS TO GO`);
 const showTitle = (s) => s.event_name || s.band_name || "Untitled event";
+const placeOf = (s) => [s.venue, [s.city, s.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
+const partyOf = (s) => (s.guests > 1 ? `YOU + ${s.guests - 1}` : "JUST YOU");
 const linksFor = (s) => {
   const page = s.fan_token || s.fan_slug ? fanPath(s.fan_slug, s.fan_token) : null;
   return { page, sky: page && s.sky_key ? `${page}/sky?k=${s.sky_key}` : null };
@@ -61,17 +73,20 @@ const linksFor = (s) => {
 
 export default function FanHome() {
   const { user } = useAuth();
+  const { preferences, setPreferences } = usePreferences();
+  const style = { ...DEFAULT_STYLE, ...(preferences?.fan_style || {}) };
+  const STAR = style.star;
+
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "shows";
+  const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : style.home === "stars" ? "stars" : "shows";
   const setTab = (id) => {
     const next = new URLSearchParams(params);
-    if (id === "shows") next.delete("tab"); else next.set("tab", id);
+    next.set("tab", id);
     setParams(next, { replace: true });
-    window.scrollTo(0, 0);
   };
+
   const [shows, setShows] = useState(null);
   const [error, setError] = useState(false);
-
   useEffect(() => {
     let alive = true;
     supabase.rpc("get_my_fan_shows").then(({ data, error: err }) => {
@@ -82,84 +97,99 @@ export default function FanHome() {
     return () => { alive = false; };
   }, []);
 
+  // Save the fan's look on their account (falls back to this screen only if
+  // the save fails, e.g. before the fan_style column exists).
+  const saveStyle = async (patch) => {
+    const next = { ...style, ...patch };
+    setPreferences((p) => ({ ...(p || {}), fan_style: next }));
+    if (!user?.id) return;
+    const { error: err } = await supabase.from("user_preferences").update({ fan_style: next }).eq("user_id", user.id);
+    if (err) console.error(err);
+  };
+  const saveName = async (name) => {
+    const clean = String(name || "").trim().slice(0, 40) || null;
+    setPreferences((p) => ({ ...(p || {}), display_name: clean }));
+    if (!user?.id) return;
+    const { error: err } = await supabase.from("user_preferences").update({ display_name: clean }).eq("user_id", user.id);
+    if (err) console.error(err);
+  };
+
   const today = todayIso();
   const upcoming = (shows || []).filter((s) => !s.date || s.date >= today);
   const past = (shows || []).filter((s) => s.date && s.date < today).reverse();
   const current = TABS.find((t) => t.id === tab);
+  const name = preferences?.display_name || "";
 
   return (
-    <div className="min-h-screen relative isolate text-white" style={{ fontFamily: SCENE_FONT, backgroundColor: "#000" }}>
-      {/* The same black, drifting space as sign-in and About: a still galaxy
-          toned toward black, stars drifting past on top. Reduced motion: still. */}
-      <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute" style={{ width: "112vw", height: "112vh", left: "-6vw", top: "-6vh", filter: "saturate(0.35) brightness(0.8) contrast(1.15)" }}>
-          <GalaxyCanvas seed="showpilot-fan" />
-        </div>
-        <SpaceDrift />
-        <span className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%)" }} />
-      </div>
-      <div className="max-w-lg mx-auto px-4 pt-6 pb-28">
-        <header>
-          <div className="text-[11px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>SHOW PILOT · FAN</div>
-          <h1 className="text-[34px] font-bold tracking-[0.04em] leading-none mt-1">{current.title}</h1>
-          {tab !== "me" && <p className="text-[13px] mt-1.5 truncate" style={{ color: SOFT }}>{user?.email}</p>}
+    <div className="h-[100dvh] relative isolate overflow-hidden flex flex-col text-white" style={{ fontFamily: SCENE_FONT, backgroundColor: "#000" }}>
+      <Backdrop sky={style.sky} />
+
+      <div className="flex-1 min-h-0 w-full max-w-lg mx-auto px-4 pt-5 flex flex-col">
+        <header className="shrink-0 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] tracking-[0.16em] truncate" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
+              {name ? name.toUpperCase() : "SHOW PILOT"} · FAN
+            </div>
+            <h1 className="text-[32px] font-bold tracking-[0.04em] leading-none mt-1">{current.title}</h1>
+          </div>
+          {tab === "stars" && shows && shows.length > 0 && (
+            <span className="text-[12px] tracking-[0.1em] pb-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
+              {past.length} LIT · {upcoming.length} WAITING
+            </span>
+          )}
         </header>
 
-        {shows === null ? (
-          <div className="py-24 flex justify-center">
-            <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${STAR}33`, borderTopColor: STAR }} />
-          </div>
-        ) : tab === "me" ? (
-          <MeTab user={user} total={shows.length} upcoming={upcoming.length} past={past.length} />
-        ) : error ? (
-          <p className="mt-10 text-[15px] leading-relaxed rounded-xl px-4 py-4" style={{ background: CARD, border: `1px solid ${LINE}`, color: SOFT }}>
-            Your shows couldn't load right now. Try again in a minute.
-          </p>
-        ) : shows.length === 0 ? (
-          <EmptyShows email={user?.email} stars={tab === "stars"} />
-        ) : tab === "stars" ? (
-          <StarsTab shows={shows} today={today} />
-        ) : (
-          <>
-            <Section label="COMING UP" count={upcoming.length}>
-              {upcoming.length === 0 ? (
-                <p className="text-[15px]" style={{ color: SOFT }}>Nothing coming up. Your next RSVP will show here.</p>
-              ) : (
-                upcoming.map((s) => <ShowCard key={s.rsvp_id} show={s} />)
-              )}
-            </Section>
-            {past.length > 0 && (
-              <Section label="BEEN THERE" count={past.length}>
-                {past.map((s) => <ShowCard key={s.rsvp_id} show={s} past />)}
-              </Section>
-            )}
-          </>
-        )}
+        <main className="flex-1 min-h-0 mt-4 mb-3 flex flex-col">
+          {shows === null ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${STAR}33`, borderTopColor: STAR }} />
+            </div>
+          ) : tab === "me" ? (
+            <MeTab user={user} name={name} style={style} star={STAR} counts={{ total: shows.length, upcoming: upcoming.length, past: past.length }} onStyle={saveStyle} onName={saveName} />
+          ) : error ? (
+            <Notice text="Your shows couldn't load right now. Try again in a minute." />
+          ) : shows.length === 0 ? (
+            <EmptyShows email={user?.email} stars={tab === "stars"} star={STAR} />
+          ) : tab === "stars" ? (
+            <StarsTab shows={shows} today={today} star={STAR} />
+          ) : (
+            <ShowsTab upcoming={upcoming} past={past} star={STAR} />
+          )}
+        </main>
       </div>
 
-      <FanTabs tab={tab} onTab={setTab} />
+      <FanTabs tab={tab} onTab={setTab} star={STAR} />
     </div>
   );
 }
 
-// The fan's main tabs, pinned to the bottom (phone-first; centered on desktop).
-function FanTabs({ tab, onTab }) {
+// The black, drifting space behind every tab (the fan picks how it looks).
+function Backdrop({ sky }) {
   return (
-    <nav aria-label="Fan" className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-lg" style={{ background: "rgba(0,0,0,0.85)", borderTop: `1px solid ${LINE}`, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
-      <div className="max-w-lg mx-auto h-16 flex items-center justify-around px-4" style={{ fontFamily: SCENE_FONT }}>
+    <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      {sky !== "black" && (
+        <div className="absolute" style={{ width: "112vw", height: "112vh", left: "-6vw", top: "-6vh", filter: "saturate(0.35) brightness(0.8) contrast(1.15)" }}>
+          <GalaxyCanvas seed="showpilot-fan" />
+        </div>
+      )}
+      {sky !== "still" && <SpaceDrift />}
+      <span className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%)" }} />
+    </div>
+  );
+}
+
+function FanTabs({ tab, onTab, star }) {
+  return (
+    <nav aria-label="Fan" className="shrink-0 backdrop-blur-lg" style={{ background: "rgba(0,0,0,0.85)", borderTop: `1px solid ${LINE}`, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+      <div className="max-w-lg mx-auto h-16 flex items-center justify-around px-4">
         {TABS.map((t) => {
           const on = t.id === tab;
           const Icon = t.icon;
           return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => onTab(t.id)}
-              aria-current={on ? "page" : undefined}
+            <button key={t.id} type="button" onClick={() => onTab(t.id)} aria-current={on ? "page" : undefined}
               className="w-20 h-14 flex flex-col items-center justify-center gap-1 rounded-xl transition-colors"
-              style={{ color: on ? STAR : DIM, background: on ? "rgba(228,224,255,0.08)" : "transparent" }}
-            >
-              <Icon className="w-[22px] h-[22px]" style={on ? { filter: `drop-shadow(0 0 6px ${STAR}99)` } : undefined} />
+              style={{ color: on ? star : DIM, background: on ? `${star}14` : "transparent" }}>
+              <Icon className="w-[22px] h-[22px]" style={on ? { filter: `drop-shadow(0 0 6px ${star}99)` } : undefined} />
               <span className="text-[13px] font-bold tracking-[0.06em]">{t.label}</span>
             </button>
           );
@@ -169,237 +199,314 @@ function FanTabs({ tab, onTab }) {
   );
 }
 
-function EmptyShows({ email, stars }) {
+function Notice({ text }) {
+  return <p className="text-[15px] leading-relaxed rounded-xl px-4 py-4" style={{ background: CARD, border: `1px solid ${LINE}`, color: SOFT }}>{text}</p>;
+}
+
+function EmptyShows({ email, stars, star }) {
   return (
-    <div className="mt-10 rounded-2xl px-5 py-8 text-center" style={{ background: CARD, border: `1px dashed ${LINE}` }}>
-      <Star className="w-8 h-8 mx-auto" style={{ color: STAR }} />
-      <h2 className="text-[24px] font-bold mt-3 leading-tight">{stars ? "Your sky is empty, for now" : "No shows yet"}</h2>
-      <p className="text-[15px] mt-2 leading-relaxed" style={{ color: SOFT }}>
-        RSVP to an event with <span className="text-white font-semibold break-all">{email}</span> and it lands here{stars ? " as a new star" : ", with your key to the event's sky"}.
-      </p>
+    <div className="flex-1 flex items-center">
+      <div className="w-full rounded-2xl px-5 py-8 text-center" style={{ background: CARD, border: `1px dashed ${LINE}` }}>
+        <Star className="w-8 h-8 mx-auto" style={{ color: star }} />
+        <h2 className="text-[24px] font-bold mt-3 leading-tight">{stars ? "Your sky is empty, for now" : "No shows yet"}</h2>
+        <p className="text-[15px] mt-2 leading-relaxed" style={{ color: SOFT }}>
+          RSVP to an event with <span className="text-white font-semibold break-all">{email}</span> and it lands here{stars ? " as a new star" : ", with your key to the event's sky"}.
+        </p>
+      </div>
     </div>
   );
 }
 
-function Section({ label, count, children }) {
+// ---------- Shows ----------
+// Coming up / Been there, each a swipeable deck of big cards that fills the
+// space between the header and the tabs. Each card shows the event's art.
+function ShowsTab({ upcoming, past, star }) {
+  const [which, setWhich] = useState(upcoming.length ? "upcoming" : "past");
+  const list = which === "upcoming" ? upcoming : past;
+  const deckRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  useEffect(() => { setIndex(0); deckRef.current?.scrollTo({ left: 0 }); }, [which]);
+  const onScroll = () => {
+    const el = deckRef.current;
+    if (!el || !el.firstElementChild) return;
+    const w = el.firstElementChild.getBoundingClientRect().width + 12;
+    setIndex(Math.max(0, Math.min(list.length - 1, Math.round(el.scrollLeft / w))));
+  };
+  const seg = (id, label, n) => {
+    const on = which === id;
+    return (
+      <button type="button" onClick={() => setWhich(id)} aria-pressed={on}
+        className="flex-1 h-10 rounded-full text-[14px] font-bold tracking-[0.04em] transition-colors"
+        style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
+        {label} · {n}
+      </button>
+    );
+  };
   return (
-    <section className="mt-8">
-      <div className="flex items-baseline gap-2 mb-3">
-        <h2 className="text-[13px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{label}</h2>
-        <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: DIM }}>{count}</span>
+    <div className="flex-1 min-h-0 flex flex-col gap-3">
+      <div className="shrink-0 flex gap-1 p-1 rounded-full" style={{ background: "rgba(16,20,52,0.7)", border: `1px solid ${LINE}` }}>
+        {seg("upcoming", "Coming up", upcoming.length)}
+        {seg("past", "Been there", past.length)}
       </div>
-      <div className="flex flex-col gap-3">{children}</div>
-    </section>
+      {list.length === 0 ? (
+        <div className="flex-1 flex items-center"><Notice text={which === "upcoming" ? "Nothing coming up. Your next RSVP will show here." : "No past shows yet."} /></div>
+      ) : (
+        <>
+          <div ref={deckRef} onScroll={onScroll} className="flex-1 min-h-0 flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
+            {list.map((s) => <ShowPanel key={s.rsvp_id} show={s} past={which === "past"} star={star} single={list.length === 1} />)}
+          </div>
+          {list.length > 1 && (
+            <div className="shrink-0 flex justify-center gap-1.5" aria-hidden="true">
+              {list.map((s, i) => <span key={s.rsvp_id} className="h-1.5 rounded-full transition-all" style={{ width: i === index ? 18 : 6, background: i === index ? star : "#3a3f6e" }} />)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
-// One RSVP'd event, shaped like a ticket: date stub on the left, the event
-// on the right, key + event page below.
-function ShowCard({ show, past = false }) {
+function ShowPanel({ show, past, star, single }) {
   const parts = dateParts(show.date);
   const n = daysUntil(show.date);
-  const place = [show.venue, [show.city, show.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const { page, sky } = linksFor(show);
-  const title = showTitle(show);
-
+  const place = placeOf(show);
+  const art = show.flyer_url;
   return (
-    <article className="rounded-2xl overflow-hidden" style={{ background: CARD, border: `1px solid ${past ? "#23264a" : LINE}`, opacity: past ? 0.8 : 1 }}>
-      <div className="flex">
-        <div className="w-[76px] shrink-0 flex flex-col items-center justify-center py-4" style={{ background: CARD_DEEP, borderRight: `2px dashed ${LINE}` }}>
-          {parts ? (
-            <>
-              <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.mon}</span>
-              <span className="text-[34px] font-bold leading-none">{parts.day}</span>
-              <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.dow}</span>
-            </>
-          ) : (
-            <span className="text-[11px] tracking-[0.1em] text-center px-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>DATE TBA</span>
+    <article className="relative shrink-0 snap-center rounded-3xl overflow-hidden flex flex-col justify-end"
+      style={{ width: single ? "100%" : "86%", border: `1px solid ${LINE}`, background: "#0b0e24" }}>
+      {art ? (
+        <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: past ? "grayscale(0.5) brightness(0.8)" : "none" }} />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0" style={{ background: `radial-gradient(circle at 70% 25%, ${star}40, transparent 55%), radial-gradient(circle at 20% 80%, #3b2f8a66, transparent 60%), #0b0e24` }}>
+          <Star className="absolute right-6 top-6 w-16 h-16" style={{ color: star, opacity: 0.35 }} />
+        </div>
+      )}
+      <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0) 30%, rgba(3,4,14,0.78) 62%, rgba(3,4,14,0.96))" }} />
+      {parts && (
+        <div className="absolute left-4 top-4 rounded-xl px-3 py-2 text-center" style={{ background: "rgba(0,0,0,0.6)", border: `1px solid ${LINE}`, backdropFilter: "blur(6px)" }}>
+          <div className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.mon}</div>
+          <div className="text-[30px] font-bold leading-none">{parts.day}</div>
+          <div className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.dow}</div>
+        </div>
+      )}
+      <div className="relative px-4 pb-4 flex flex-col gap-1.5">
+        <span className="text-[12px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: past ? SOFT : n !== null && n <= 1 ? G : star }}>
+          {past ? `BEEN THERE · ${parts?.long?.toUpperCase() || ""}` : countdownLabel(n)}
+        </span>
+        <h3 className="text-[28px] font-bold leading-[1.05] tracking-[0.02em] line-clamp-2">{showTitle(show)}</h3>
+        {show.band_name && show.event_name && show.band_name !== show.event_name && <span className="text-[15px] text-white/85 truncate">{show.band_name}</span>}
+        {place && <span className="flex items-center gap-1.5 text-[14px] truncate" style={{ color: SOFT }}><MapPin className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{place}</span></span>}
+        <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: "#c3c7ee" }}>{partyOf(show)}{show.artist_name ? ` · FOR ${String(show.artist_name).toUpperCase()}` : ""}</span>
+        <div className="flex gap-2 mt-2">
+          {sky && (
+            <Link to={sky} className="flex-1 min-w-0 h-11 rounded-xl flex items-center justify-center gap-1.5 text-[14px] font-bold whitespace-nowrap"
+              style={{ background: past ? "rgba(0,0,0,0.5)" : G, color: past ? star : "#0d0d0d", border: past ? `1px solid ${LINE}` : "none" }}>
+              <KeyRound className="w-4 h-4" /> {past ? "Your star" : "Open your key"}
+            </Link>
+          )}
+          {page && (
+            <Link to={page} className="flex-1 min-w-0 h-11 rounded-xl flex items-center justify-center gap-1.5 text-[14px] font-semibold whitespace-nowrap" style={{ color: "#fff", border: `1px solid ${LINE}`, background: "rgba(0,0,0,0.5)" }}>
+              Event page <ExternalLink className="w-4 h-4" />
+            </Link>
           )}
         </div>
-        <div className="flex-1 min-w-0 px-4 py-3.5 flex flex-col gap-1">
-          {!past && (
-            <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: n !== null && n <= 1 ? G : STAR }}>{countdownLabel(n)}</span>
-          )}
-          <h3 className="text-[22px] font-bold leading-tight tracking-[0.02em] line-clamp-2">{title}</h3>
-          {show.band_name && show.event_name && show.band_name !== show.event_name && (
-            <span className="text-[14px] text-white/80 truncate">{show.band_name}</span>
-          )}
-          {place && (
-            <span className="flex items-center gap-1.5 text-[13px] truncate" style={{ color: SOFT }}>
-              <MapPin className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{place}</span>
-            </span>
-          )}
-          <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: "#9ea3d6" }}>
-            {show.guests > 1 ? `YOU + ${show.guests - 1}` : "JUST YOU"}{show.artist_name ? ` · FOR ${String(show.artist_name).toUpperCase()}` : ""}
-          </span>
-        </div>
-      </div>
-      <div className="flex gap-2 px-3 pb-3 pt-1">
-        {sky && (
-          <Link to={sky} className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[15px] font-bold"
-            style={{ background: past ? "transparent" : G, color: past ? STAR : "#0d0d0d", border: past ? `1px solid ${LINE}` : "none" }}>
-            <KeyRound className="w-4 h-4" /> {past ? "Your star" : "Open your key"}
-          </Link>
-        )}
-        {page && (
-          <Link to={page} className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[15px] font-semibold" style={{ color: "#ffffff", border: `1px solid ${LINE}` }}>
-            Event page <ExternalLink className="w-4 h-4" />
-          </Link>
-        )}
       </div>
     </article>
   );
 }
 
-// The fan's personal sky: one star per show, laid out on a spiral from the
-// first show outward and joined in date order like a constellation. Shows
-// they've been to are lit; coming-up shows are outlined, waiting to light.
-function StarsTab({ shows, today }) {
+// ---------- Stars ----------
+// Just the fan's constellation: one star per show on a spiral, joined in date
+// order. Lit = been there; outlined and pulsing = coming up. Tap a star for a
+// short summary. The sky fills the space between the header and the tabs.
+function StarsTab({ shows, today, star }) {
+  const boxRef = useRef(null);
+  const [box, setBox] = useState({ w: 340, h: 420 });
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return undefined;
+    const measure = () => { const r = el.getBoundingClientRect(); if (r.width && r.height) setBox({ w: r.width, h: r.height }); };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const { w: W, h: H } = box;
   const ordered = useMemo(() => [...shows].sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999"))), [shows]);
-  const W = 340, H = 380, CX = W / 2, CY = H / 2;
-  const stars = useMemo(() => ordered.map((s, i) => {
-    const seed = hashString(s.rsvp_id || String(i));
-    const a = i * 2.39996 + seededRandom(seed) * 0.5; // golden angle, with a little drift
-    const r = 18 + 30 * Math.sqrt(i) + seededRandom(seed + 7) * 8;
-    return {
-      show: s,
-      x: Math.max(16, Math.min(W - 16, CX + r * Math.cos(a))),
-      y: Math.max(16, Math.min(H - 16, CY + r * Math.sin(a) * 1.05)),
-      lit: !!s.date && s.date < today,
-    };
-  }), [ordered, today]);
-  const dust = useMemo(() => Array.from({ length: 70 }, (_, i) => ({
-    x: seededRandom(i * 13 + 1) * W, y: seededRandom(i * 29 + 5) * H, r: seededRandom(i * 7 + 3) > 0.85 ? 1.3 : 0.8, o: 0.15 + seededRandom(i * 3 + 9) * 0.35,
-  })), []);
-  const [sel, setSel] = useState(() => (stars.find((s) => !s.lit) || stars[stars.length - 1])?.show.rsvp_id);
+  const stars = useMemo(() => {
+    const step = Math.min(W, H) / (2.6 * Math.sqrt(Math.max(ordered.length, 4)));
+    return ordered.map((s, i) => {
+      const seed = hashString(s.rsvp_id || String(i));
+      const a = i * 2.39996 + seededRandom(seed) * 0.6;
+      const r = step * (0.7 + Math.sqrt(i) * 1.15) + seededRandom(seed + 7) * step * 0.4;
+      return {
+        show: s,
+        x: Math.max(22, Math.min(W - 22, W / 2 + r * Math.cos(a))),
+        y: Math.max(22, Math.min(H - 22, H * 0.44 + r * Math.sin(a))),
+        lit: !!s.date && s.date < today,
+      };
+    });
+  }, [ordered, today, W, H]);
+  const dust = useMemo(() => Array.from({ length: 90 }, (_, i) => ({
+    x: seededRandom(i * 13 + 1) * W, y: seededRandom(i * 29 + 5) * H, r: seededRandom(i * 7 + 3) > 0.85 ? 1.3 : 0.8, o: 0.12 + seededRandom(i * 3 + 9) * 0.3,
+  })), [W, H]);
+  const [sel, setSel] = useState(null);
   const selected = stars.find((s) => s.show.rsvp_id === sel);
-  const litCount = stars.filter((s) => s.lit).length;
 
   return (
-    <div className="mt-6">
-      <div className="grid grid-cols-3 gap-2">
-        <Tile n={stars.length} label="STARS" />
-        <Tile n={litCount} label="LIT" color={STAR} />
-        <Tile n={stars.length - litCount} label="WAITING" color={G} />
+    <div ref={boxRef} className="relative flex-1 min-h-0 rounded-3xl overflow-hidden" style={{ background: "rgba(3,4,16,0.45)", border: `1px solid ${LINE}` }}
+      onClick={(e) => { if (e.target === e.currentTarget || e.target.tagName === "svg") setSel(null); }}>
+      <svg width={W} height={H} className="absolute inset-0 block" role="img" aria-label={`Your constellation: ${stars.length} stars`}>
+        {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill="#ffffff" opacity={d.o} />)}
+        {stars.slice(1).map((s, i) => (
+          <line key={`l${i}`} x1={stars[i].x} y1={stars[i].y} x2={s.x} y2={s.y} stroke={star} strokeOpacity={s.lit ? 0.45 : 0.2} strokeWidth="1.2" strokeDasharray={s.lit ? undefined : "3 5"} />
+        ))}
+        {stars.map((s) => {
+          const on = s.show.rsvp_id === sel;
+          return (
+            <g key={s.show.rsvp_id} onClick={(e) => { e.stopPropagation(); setSel(on ? null : s.show.rsvp_id); }} style={{ cursor: "pointer" }}>
+              <circle cx={s.x} cy={s.y} r="20" fill="transparent" />
+              {s.lit ? (
+                <>
+                  <circle cx={s.x} cy={s.y} r={on ? 14 : 10} fill={star} opacity="0.16" />
+                  <circle cx={s.x} cy={s.y} r={on ? 6 : 4.5} fill={star} />
+                </>
+              ) : (
+                <circle cx={s.x} cy={s.y} r={on ? 7 : 5} fill="none" stroke={G} strokeWidth="1.6">
+                  <animate attributeName="opacity" values="1;0.4;1" dur="2.4s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {on && <circle cx={s.x} cy={s.y} r="17" fill="none" stroke={s.lit ? star : G} strokeOpacity="0.7" strokeWidth="1" />}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="sr-only">
+        {stars.map((s) => <button key={s.show.rsvp_id} type="button" onClick={() => setSel(s.show.rsvp_id)}>{showTitle(s.show)}</button>)}
       </div>
 
-      <div className="relative mt-4 rounded-2xl overflow-hidden" style={{ background: "rgba(5,6,20,0.55)", border: `1px solid ${LINE}` }}>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={`Your sky: ${stars.length} stars, ${litCount} lit`}>
-          {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill="#ffffff" opacity={d.o} />)}
-          {stars.slice(1).map((s, i) => (
-            <line key={`l${i}`} x1={stars[i].x} y1={stars[i].y} x2={s.x} y2={s.y} stroke={STAR} strokeOpacity={s.lit ? 0.35 : 0.15} strokeWidth="1" strokeDasharray={s.lit ? undefined : "3 4"} />
-          ))}
-          {stars.map((s) => {
-            const on = s.show.rsvp_id === sel;
-            return (
-              <g key={s.show.rsvp_id} onClick={() => setSel(s.show.rsvp_id)} style={{ cursor: "pointer" }}>
-                <circle cx={s.x} cy={s.y} r="16" fill="transparent" />
-                {s.lit ? (
-                  <>
-                    <circle cx={s.x} cy={s.y} r={on ? 11 : 8} fill={STAR} opacity="0.18" />
-                    <circle cx={s.x} cy={s.y} r={on ? 5 : 4} fill={STAR} />
-                  </>
-                ) : (
-                  <circle cx={s.x} cy={s.y} r={on ? 6 : 4.5} fill="none" stroke={G} strokeWidth="1.5">
-                    <animate attributeName="opacity" values="1;0.45;1" dur="2.4s" repeatCount="indefinite" />
-                  </circle>
-                )}
-                {on && <circle cx={s.x} cy={s.y} r="14" fill="none" stroke={s.lit ? STAR : G} strokeOpacity="0.6" strokeWidth="1" />}
-              </g>
-            );
-          })}
-        </svg>
-        <div className="sr-only">
-          {stars.map((s) => <button key={s.show.rsvp_id} type="button" onClick={() => setSel(s.show.rsvp_id)}>{showTitle(s.show)}</button>)}
-        </div>
-      </div>
-      <p className="mt-2 text-[12px] text-center" style={{ fontFamily: SCENE_MONO, color: DIM }}>TAP A STAR · LIT = BEEN THERE · OUTLINED = COMING UP</p>
-
-      {selected && <StarCard s={selected} />}
+      {selected ? (
+        <StarSummary s={selected} star={star} onClose={() => setSel(null)} />
+      ) : (
+        <p className="absolute left-0 right-0 bottom-3 text-center text-[12px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: DIM }}>TAP A STAR</p>
+      )}
     </div>
   );
 }
 
-function Tile({ n, label, color = "#ffffff" }) {
-  return (
-    <div className="rounded-xl px-3 py-2.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-      <div className="text-[26px] font-bold leading-none" style={{ color }}>{n}</div>
-      <div className="text-[11px] tracking-[0.12em] mt-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{label}</div>
-    </div>
-  );
-}
-
-function StarCard({ s }) {
+function StarSummary({ s, star, onClose }) {
   const parts = dateParts(s.show.date);
   const n = daysUntil(s.show.date);
-  const { page, sky } = linksFor(s.show);
+  const { sky } = linksFor(s.show);
+  const place = placeOf(s.show);
   return (
-    <div className="mt-4 rounded-2xl px-4 py-4 flex flex-col gap-2" style={{ background: CARD, border: `1px solid ${s.lit ? LINE : `${G}55`}` }}>
-      <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: s.lit ? STAR : G }}>
-        {s.lit ? `BEEN THERE · ${parts?.long?.toUpperCase() || ""}` : `${countdownLabel(n)}${parts ? ` · ${parts.long.toUpperCase()}` : ""}`}
-      </span>
-      <h3 className="text-[24px] font-bold leading-tight">{showTitle(s.show)}</h3>
-      {(s.show.venue || s.show.city) && (
-        <span className="flex items-center gap-1.5 text-[14px]" style={{ color: SOFT }}>
-          <MapPin className="w-3.5 h-3.5 shrink-0" /> {[s.show.venue, s.show.city].filter(Boolean).join(" · ")}
-        </span>
-      )}
-      <div className="flex gap-2 mt-1">
-        {sky && (
-          <Link to={sky} className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[15px] font-bold"
-            style={{ background: s.lit ? "transparent" : G, color: s.lit ? STAR : "#0d0d0d", border: s.lit ? `1px solid ${LINE}` : "none" }}>
-            <KeyRound className="w-4 h-4" /> {s.lit ? "Visit the sky" : "Open your key"}
-          </Link>
-        )}
-        {page && (
-          <Link to={page} className="flex-1 h-11 rounded-xl flex items-center justify-center gap-2 text-[15px] font-semibold" style={{ color: "#ffffff", border: `1px solid ${LINE}` }}>
-            Event page <ExternalLink className="w-4 h-4" />
-          </Link>
-        )}
+    <div className="absolute left-3 right-3 bottom-3 rounded-2xl px-4 py-3" style={{ background: "rgba(8,10,30,0.92)", border: `1px solid ${s.lit ? LINE : `${G}66`}`, backdropFilter: "blur(8px)" }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: s.lit ? star : G }}>
+            {s.lit ? "BEEN THERE" : countdownLabel(n)}{parts ? ` · ${parts.long.toUpperCase()}` : ""}
+          </div>
+          <div className="text-[20px] font-bold leading-tight mt-0.5 truncate">{showTitle(s.show)}</div>
+          <div className="text-[13px] truncate mt-0.5" style={{ color: SOFT }}>{[place, partyOf(s.show).toLowerCase()].filter(Boolean).join(" · ")}</div>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-8 h-8 rounded-full text-[16px] leading-none" style={{ color: SOFT, border: `1px solid ${LINE}` }}>×</button>
       </div>
+      {sky && (
+        <Link to={sky} className="inline-flex items-center gap-1 mt-1.5 text-[13px] font-semibold" style={{ color: s.lit ? star : G }}>
+          {s.lit ? "Visit the sky" : "Open your key"} ›
+        </Link>
+      )}
     </div>
   );
 }
 
-function MeTab({ user, total, upcoming, past }) {
+// ---------- Me ----------
+function MeTab({ user, name, style, star, counts, onStyle, onName }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const email = user?.email || "";
-  const since = user?.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : null;
+  const since = user?.created_at ? new Date(user.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : null;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(name);
+  useEffect(() => { setDraft(name); }, [name]);
   const doSignOut = async () => {
     try { await signOut(); } catch (e) { console.error(e); }
     navigate("/login", { replace: true });
   };
+  const label = "text-[11px] tracking-[0.12em] mb-1.5";
+
   return (
-    <div className="mt-6 flex flex-col gap-4">
-      <div className="rounded-2xl px-4 py-5 flex items-center gap-4" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-        <span className="w-16 h-16 rounded-full shrink-0 flex items-center justify-center text-[28px] font-bold" style={{ background: "#1b2052", border: `2px solid ${STAR}`, color: STAR, boxShadow: `0 0 18px ${STAR}40` }}>
-          {(email[0] || "?").toUpperCase()}
+    <div className="flex-1 min-h-0 flex flex-col gap-3">
+      <div className="shrink-0 rounded-2xl px-4 py-3.5 flex items-center gap-3.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+        <span className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-[24px] font-bold" style={{ background: "#141a44", border: `2px solid ${star}`, color: star, boxShadow: `0 0 18px ${star}40` }}>
+          {((name || email)[0] || "?").toUpperCase()}
         </span>
-        <div className="min-w-0">
-          <div className="text-[18px] font-bold truncate">{email}</div>
-          <div className="text-[12px] tracking-[0.1em] mt-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>FAN{since ? ` SINCE ${since.toUpperCase()}` : ""}</div>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <form onSubmit={(e) => { e.preventDefault(); onName(draft); setEditing(false); }} className="flex gap-2">
+              <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="Your name" aria-label="Your name"
+                className="min-w-0 flex-1 h-10 rounded-lg px-3 text-[16px] bg-black/50 text-white outline-none" style={{ border: `1px solid ${LINE}` }} />
+              <button type="submit" aria-label="Save name" className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: star, color: "#0d0d0d" }}><Check className="w-4 h-4" /></button>
+            </form>
+          ) : (
+            <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-2 text-left max-w-full">
+              <span className="text-[20px] font-bold truncate">{name || "Add your name"}</span>
+              <Pencil className="w-3.5 h-3.5 shrink-0" style={{ color: SOFT }} />
+            </button>
+          )}
+          <div className="text-[13px] truncate" style={{ color: SOFT }}>{email}</div>
+          <div className="text-[11px] tracking-[0.1em] mt-0.5" style={{ fontFamily: SCENE_MONO, color: DIM }}>
+            FAN{since ? ` SINCE ${since.toUpperCase()}` : ""} · {counts.total} SHOWS · {counts.past} LIT
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <Tile n={total} label="SHOWS" />
-        <Tile n={upcoming} label="COMING UP" color={G} />
-        <Tile n={past} label="BEEN THERE" color={STAR} />
-      </div>
-
-      <p className="text-[14px] leading-relaxed rounded-xl px-4 py-3" style={{ background: CARD_DEEP, border: `1px solid ${LINE}`, color: SOFT }}>
-        Shows appear here when you RSVP with <span className="text-white font-semibold break-all">{email}</span>. Using another email for RSVPs? Add it as a second account below.
-      </p>
-
-      <section className="rounded-2xl px-4 pt-4 pb-0" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-        <AccountSwitcher currentUserId={user?.id} />
+      <section className="flex-1 min-h-0 rounded-2xl px-4 py-3.5 flex flex-col gap-3.5 overflow-y-auto" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+        <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>MAKE IT YOURS</div>
+        <div>
+          <div className={label} style={{ fontFamily: SCENE_MONO, color: DIM }}>STAR COLOR</div>
+          <div className="flex flex-wrap gap-2.5">
+            {STAR_COLORS.map((c) => {
+              const on = style.star === c.hex;
+              return (
+                <button key={c.hex} type="button" onClick={() => onStyle({ star: c.hex })} aria-label={c.name} aria-pressed={on}
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ background: c.hex, boxShadow: on ? `0 0 0 2px #000, 0 0 0 4px ${c.hex}, 0 0 14px ${c.hex}` : "none" }}>
+                  {on && <Check className="w-4 h-4" style={{ color: "#0d0d0d" }} strokeWidth={3} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <Choice title="SKY" options={SKIES} value={style.sky} onPick={(v) => onStyle({ sky: v })} star={star} />
+        <Choice title="OPENS TO" options={[{ id: "shows", label: "My shows" }, { id: "stars", label: "My stars" }]} value={style.home} onPick={(v) => onStyle({ home: v })} star={star} />
       </section>
 
-      <button type="button" onClick={doSignOut} className="h-12 rounded-xl flex items-center justify-center gap-2 text-[16px] font-bold"
-        style={{ background: "transparent", border: `1px solid ${LINE}`, color: STAR }}>
+      <button type="button" onClick={doSignOut} className="shrink-0 h-12 rounded-xl flex items-center justify-center gap-2 text-[16px] font-bold"
+        style={{ background: "rgba(0,0,0,0.5)", border: `1px solid ${LINE}`, color: star }}>
         <LogOut className="w-4 h-4" /> Sign out
       </button>
+    </div>
+  );
+}
+
+function Choice({ title, options, value, onPick, star }) {
+  return (
+    <div>
+      <div className="text-[11px] tracking-[0.12em] mb-1.5" style={{ fontFamily: SCENE_MONO, color: DIM }}>{title}</div>
+      <div className="flex gap-1 p-1 rounded-full" style={{ background: "rgba(0,0,0,0.45)", border: `1px solid ${LINE}` }}>
+        {options.map((o) => {
+          const on = value === o.id;
+          return (
+            <button key={o.id} type="button" onClick={() => onPick(o.id)} aria-pressed={on}
+              className="flex-1 h-9 rounded-full text-[14px] font-bold" style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
