@@ -1612,7 +1612,18 @@ function DesktopGigWeb({
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
         <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
-          <div className="min-h-0 flex flex-col items-center justify-center gap-4">
+          <div className="relative min-h-0 flex flex-col items-center justify-center gap-4">
+            {selectedRole && (
+              <button
+                type="button"
+                onClick={() => selectRole(null)}
+                aria-label="Back to the event web"
+                className="absolute top-0 right-0 z-10 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full bg-[#161616]/90 border border-[#2a2a2a] text-white/75 hover:text-white hover:border-white/40 text-[13px] font-bold tracking-[0.06em] transition-colors"
+                style={{ fontFamily: SCENE_MONO }}
+              >
+                <ArrowLeft className="w-4 h-4" /> BACK
+              </button>
+            )}
             <div className="w-full flex-1 min-h-0 flex items-center">
               {roleWeb ? (
                 <div ref={setWebSlot} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto" />
@@ -1620,20 +1631,6 @@ function DesktopGigWeb({
                 <DesktopHub nodes={nodes} selectedRole={selectedRole} selectRole={selectRole} gig={gig} title={title} myIcon={myIcon} hubM={hubM} />
               )}
             </div>
-            {roleWeb && (
-              <div className="w-full max-w-[520px] flex flex-col gap-2 rounded-xl bg-[#131313]/90 border border-[#222] px-3.5 py-3">
-                <span className="text-[11px] tracking-[0.12em] text-white/50" style={{ fontFamily: SCENE_MONO }}>JUMP TO ANOTHER PROFILE ON THIS EVENT</span>
-                <div className="flex flex-wrap gap-2">
-                  {nodes.filter((nd) => nd.role !== selectedRole).map((nd) => (
-                    <button key={nd.role} type="button" onClick={() => selectRole(nd.role)}
-                      className="h-9 px-3 rounded-full bg-[#1a1a1a] text-[13px] font-bold tracking-[0.05em] whitespace-nowrap"
-                      style={{ fontFamily: SCENE_MONO, color: nd.style.color, border: `1.5px ${nd.claimed ? "solid" : "dashed"} ${nd.style.color}` }}>
-                      {ROLE_CODES[nd.role]} {nd.percent}%
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             {isOwner && gig?.id && (
               <InviteSheet
                 showId={gig.id}
@@ -1651,9 +1648,6 @@ function DesktopGigWeb({
             <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 shrink-0">
               {selectedNode ? (
                 <>
-                  <button type="button" onClick={() => selectRole(null)} className="flex items-center gap-1 text-white/40 hover:text-white text-xs font-semibold shrink-0 -ml-1 pl-1 pr-2 py-1 rounded-full hover:bg-white/5">
-                    <ArrowLeft className="w-3.5 h-3.5" /> Overview
-                  </button>
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
                   <span className="min-w-0 flex flex-col">
                     <span className="text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
