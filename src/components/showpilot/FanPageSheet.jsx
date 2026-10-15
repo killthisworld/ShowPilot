@@ -116,6 +116,8 @@ function OwnerSheet({ showId, onClose }) {
       // RSVP capacity: no limit, or a max number of people.
       capacityOn: typeof cfg.capacity === "number" && cfg.capacity >= 1,
       capacity: typeof cfg.capacity === "number" && cfg.capacity >= 1 ? String(Math.floor(cfg.capacity)) : "",
+      // Fan Discover (job 85): list this event for fans nearby. Off by default.
+      discover: cfg.discover === true,
     };
   };
 
@@ -228,6 +230,7 @@ function OwnerSheet({ showId, onClose }) {
           lineup: draft.lineup.map((a) => ({ id: a.id, name: a.name.trim().slice(0, 80) })).filter((a) => a.name),
           files: draft.files,
           capacity,
+          discover: draft.discover,
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
@@ -292,6 +295,7 @@ function OwnerSheet({ showId, onClose }) {
       { key: "lineup", label: "Lineup", summary: draft.lineup.filter((a) => a.name.trim()).length ? `${draft.lineup.filter((a) => a.name.trim()).length} artists` : "No artists" },
       { key: "email", label: "RSVP email", summary: draft.emailSubject ? clip(draft.emailSubject) : "Default subject" },
     ] : []),
+    { key: "discover", label: "Local shows", summary: !draft.discover ? "Not listed" : draft.hidden.includes("date") || draft.hidden.includes("venue") ? "On, but date or venue is hidden" : "Listed for fans nearby" },
     { key: "files", label: "Email attachments", summary: draft.files.length ? `${draft.files.length} ${draft.files.length === 1 ? "file" : "files"}` : "None" },
     ...(!rsvp && !savedRsvp && row?.fan_page_enabled ? [{ key: "eventbrite", label: "Ticket buyer emails", summary: "Eventbrite" }] : []),
   ] : [];
@@ -425,6 +429,21 @@ function OwnerSheet({ showId, onClose }) {
         {label("MESSAGE TO PEOPLE WHO RSVP", "mt-4")}
         <textarea className={`${inputCls} mt-1.5 min-h-[240px]`} maxLength={2000} placeholder="A message only people who RSVP get (where to enter, what to bring, parking)" value={draft?.rsvpMessage || ""} onChange={(e) => set({ rsvpMessage: e.target.value })} />
         {note(`Leave the subject empty to use "You're on the list: event name and date". Every RSVP email also has the flyer, the event details and the fan's key to the event sky.`)}
+      </>
+    ),
+    discover: draft && (
+      <>
+        <div className="mt-2 grid grid-cols-2 gap-1 p-1 bg-[#111] border border-[#1f1f1f] rounded-[10px]">
+          {[[false, "Not listed"], [true, "List in local shows"]].map(([k, text]) => (
+            <button key={text} type="button" aria-pressed={draft.discover === k} onClick={() => set({ discover: k })} className="py-2.5 rounded-lg text-[15px] font-bold tracking-[0.02em]" style={draft.discover === k ? { background: G, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.6)" }}>{text}</button>
+          ))}
+        </div>
+        {draft.discover && (draft.hidden.includes("date") || draft.hidden.includes("venue"))
+          ? <p className="mt-2.5 text-[15px] leading-relaxed text-[#FF6A00]">Fans nearby won't see it yet: local shows need the date and venue ticked on, so fans know when and where. Tick them above, or leave this off to keep the event private.</p>
+          : note(draft.discover
+            ? `Fan accounts in ${row?.city || "this event's city"}${row?.state ? `, ${row.state}` : ""} who turned on recommendations see it in Discover, as a flyer card with the name, date, city${draft.venueWhere === "email" ? "" : ", venue"} and ${rsvp ? "RSVP" : "ticket"} button. It drops off after the show.`
+            : "Only people with the link see this page. Turn this on to also show it to fans nearby who use Show Pilot's local recommendations.")}
+        {draft.discover && !row?.state && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no city or state yet, so it can't be matched to fans nearby. Add them in the event itself.</p>}
       </>
     ),
     files: draft && (

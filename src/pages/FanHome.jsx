@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Star, KeyRound, MapPin, LogOut, ExternalLink, Ticket, Sparkles, User, Check, Pencil } from "lucide-react";
+import { Star, KeyRound, MapPin, LogOut, ExternalLink, Ticket, Sparkles, User, Check, Pencil, Compass } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -10,9 +10,11 @@ import { hashString, seededRandom } from "@/lib/constellation";
 import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
 import SpaceDrift from "@/components/showpilot/SpaceDrift";
 
-// Fan accounts (jobs 77, 79, 83, 84; direction in claude/fan-profile-direction.md).
+// Fan accounts (jobs 77, 79, 83, 84, 85; direction in claude/fan-profile-direction.md).
 // The fan's own corner of Show Pilot, on the black drifting-space sky:
-//   Shows  every event they RSVP'd to, as big cards with the event's art
+//   Shows     every event they RSVP'd to, as big cards with the event's art
+//   Discover  only if the fan turns on recommendations: upcoming events near
+//             their home city that hosts chose to list, filterable by type
 //   Stars  their constellation: one star per show; tap one for a summary
 //   Me     their name, look (star color, sky, first tab) and sign out
 // Every tab fits the screen: no page scrolling, phone-first.
@@ -36,13 +38,29 @@ const SKIES = [
   { id: "black", label: "Deep black" },
   { id: "still", label: "Still" },
 ];
-const DEFAULT_STYLE = { star: "#E4E0FF", sky: "galaxy", home: "shows" };
+// discover: false = personal only; city/state = home area; types = filter.
+const DEFAULT_STYLE = { star: "#E4E0FF", sky: "galaxy", home: "shows", discover: false, city: "", state: "", types: [] };
 
-const TABS = [
+const ALL_TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
+  { id: "discover", label: "Discover", icon: Compass, title: "DISCOVER" },
   { id: "stars", label: "Stars", icon: Sparkles, title: "MY STARS" },
   { id: "me", label: "Me", icon: User, title: "ME" },
 ];
+
+const US_STATES = [
+  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"], ["CO", "Colorado"], ["CT", "Connecticut"],
+  ["DE", "Delaware"], ["DC", "District of Columbia"], ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"], ["ID", "Idaho"], ["IL", "Illinois"],
+  ["IN", "Indiana"], ["IA", "Iowa"], ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"], ["ME", "Maine"], ["MD", "Maryland"],
+  ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"], ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"],
+  ["NV", "Nevada"], ["NH", "New Hampshire"], ["NJ", "New Jersey"], ["NM", "New Mexico"], ["NY", "New York"], ["NC", "North Carolina"],
+  ["ND", "North Dakota"], ["OH", "Ohio"], ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"], ["RI", "Rhode Island"],
+  ["SC", "South Carolina"], ["SD", "South Dakota"], ["TN", "Tennessee"], ["TX", "Texas"], ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"],
+  ["WA", "Washington"], ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"],
+];
+const stateName = (ab) => US_STATES.find(([a]) => a === ab)?.[1] || ab;
+const typeKey = (t) => String(t || "").trim().toLowerCase();
+const typeLabel = (t) => String(t || "").trim().replace(/\b\w/g, (c) => c.toUpperCase());
 
 const todayIso = () => {
   const d = new Date();
@@ -77,8 +95,10 @@ export default function FanHome() {
   const style = { ...DEFAULT_STYLE, ...(preferences?.fan_style || {}) };
   const STAR = style.star;
 
+  const TABS = ALL_TABS.filter((t) => t.id !== "discover" || style.discover);
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : style.home === "stars" ? "stars" : "shows";
+  const wanted = params.get("tab") || style.home;
+  const tab = TABS.some((t) => t.id === wanted) ? wanted : "shows";
   const setTab = (id) => {
     const next = new URLSearchParams(params);
     next.set("tab", id);
@@ -130,8 +150,13 @@ export default function FanHome() {
             <div className="text-[11px] tracking-[0.16em] truncate" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
               {name ? name.toUpperCase() : "SHOW PILOT"} · FAN
             </div>
-            <h1 className="text-[32px] font-bold tracking-[0.04em] leading-none mt-1">{current.title}</h1>
+            <h1 className="text-[32px] font-bold tracking-[0.04em] leading-none mt-1 whitespace-nowrap">{current.title}</h1>
           </div>
+          {tab === "discover" && style.state && (
+            <span className="text-[12px] tracking-[0.1em] pb-1 truncate min-w-0" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
+              <MapPin className="inline w-3 h-3 -mt-0.5 mr-1" />{(style.city ? `${style.city}, ${style.state}` : stateName(style.state)).toUpperCase()}
+            </span>
+          )}
           {tab === "stars" && shows && shows.length > 0 && (
             <span className="text-[12px] tracking-[0.1em] pb-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
               {past.length} LIT · {upcoming.length} WAITING
@@ -144,6 +169,8 @@ export default function FanHome() {
             <div className="flex-1 flex items-center justify-center">
               <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${STAR}33`, borderTopColor: STAR }} />
             </div>
+          ) : tab === "discover" ? (
+            <DiscoverTab style={style} star={STAR} onStyle={saveStyle} onSetUp={() => setTab("me")} />
           ) : tab === "me" ? (
             <MeTab user={user} name={name} style={style} star={STAR} counts={{ total: shows.length, upcoming: upcoming.length, past: past.length }} onStyle={saveStyle} onName={saveName} />
           ) : error ? (
@@ -158,7 +185,7 @@ export default function FanHome() {
         </main>
       </div>
 
-      <FanTabs tab={tab} onTab={setTab} star={STAR} />
+      <FanTabs tabs={TABS} tab={tab} onTab={setTab} star={STAR} />
     </div>
   );
 }
@@ -178,16 +205,16 @@ function Backdrop({ sky }) {
   );
 }
 
-function FanTabs({ tab, onTab, star }) {
+function FanTabs({ tabs, tab, onTab, star }) {
   return (
     <nav aria-label="Fan" className="shrink-0 backdrop-blur-lg" style={{ background: "rgba(0,0,0,0.85)", borderTop: `1px solid ${LINE}`, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
-      <div className="max-w-lg mx-auto h-16 flex items-center justify-around px-4">
-        {TABS.map((t) => {
+      <div className="max-w-lg mx-auto h-16 flex items-center justify-around px-2">
+        {tabs.map((t) => {
           const on = t.id === tab;
           const Icon = t.icon;
           return (
             <button key={t.id} type="button" onClick={() => onTab(t.id)} aria-current={on ? "page" : undefined}
-              className="w-20 h-14 flex flex-col items-center justify-center gap-1 rounded-xl transition-colors"
+              className={`${tabs.length > 3 ? "w-[76px]" : "w-20"} h-14 flex flex-col items-center justify-center gap-1 rounded-xl transition-colors`}
               style={{ color: on ? star : DIM, background: on ? `${star}14` : "transparent" }}>
               <Icon className="w-[22px] h-[22px]" style={on ? { filter: `drop-shadow(0 0 6px ${star}99)` } : undefined} />
               <span className="text-[13px] font-bold tracking-[0.06em]">{t.label}</span>
@@ -223,15 +250,6 @@ function EmptyShows({ email, stars, star }) {
 function ShowsTab({ upcoming, past, star }) {
   const [which, setWhich] = useState(upcoming.length ? "upcoming" : "past");
   const list = which === "upcoming" ? upcoming : past;
-  const deckRef = useRef(null);
-  const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); deckRef.current?.scrollTo({ left: 0 }); }, [which]);
-  const onScroll = () => {
-    const el = deckRef.current;
-    if (!el || !el.firstElementChild) return;
-    const w = el.firstElementChild.getBoundingClientRect().width + 12;
-    setIndex(Math.max(0, Math.min(list.length - 1, Math.round(el.scrollLeft / w))));
-  };
   const seg = (id, label, n) => {
     const on = which === id;
     return (
@@ -251,32 +269,50 @@ function ShowsTab({ upcoming, past, star }) {
       {list.length === 0 ? (
         <div className="flex-1 flex items-center"><Notice text={which === "upcoming" ? "Nothing coming up. Your next RSVP will show here." : "No past shows yet."} /></div>
       ) : (
-        <>
-          <div ref={deckRef} onScroll={onScroll} className="flex-1 min-h-0 flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
-            {list.map((s) => <ShowPanel key={s.rsvp_id} show={s} past={which === "past"} star={star} single={list.length === 1} />)}
-          </div>
-          {list.length > 1 && (
-            <div className="shrink-0 flex justify-center gap-1.5" aria-hidden="true">
-              {list.map((s, i) => <span key={s.rsvp_id} className="h-1.5 rounded-full transition-all" style={{ width: i === index ? 18 : 6, background: i === index ? star : "#3a3f6e" }} />)}
-            </div>
-          )}
-        </>
+        <Deck items={list} keyOf={(s) => s.rsvp_id} resetKey={which} star={star}
+          render={(s, single) => <ShowPanel show={s} past={which === "past"} star={star} single={single} />} />
       )}
     </div>
   );
 }
 
-function ShowPanel({ show, past, star, single }) {
-  const parts = dateParts(show.date);
-  const n = daysUntil(show.date);
-  const { page, sky } = linksFor(show);
-  const place = placeOf(show);
-  const art = show.flyer_url;
+// A swipeable row of full-height cards with dots (or "3 / 20" for long lists).
+function Deck({ items, keyOf, render, resetKey, star }) {
+  const deckRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  useEffect(() => { setIndex(0); deckRef.current?.scrollTo({ left: 0 }); }, [resetKey]);
+  const onScroll = () => {
+    const el = deckRef.current;
+    if (!el || !el.firstElementChild) return;
+    const w = el.firstElementChild.getBoundingClientRect().width + 12;
+    setIndex(Math.max(0, Math.min(items.length - 1, Math.round(el.scrollLeft / w))));
+  };
+  const single = items.length === 1;
+  return (
+    <>
+      <div ref={deckRef} onScroll={onScroll} className="flex-1 min-h-0 flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
+        {items.map((it) => <React.Fragment key={keyOf(it)}>{render(it, single)}</React.Fragment>)}
+      </div>
+      {items.length > 12 ? (
+        <div className="shrink-0 text-center text-[12px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{index + 1} / {items.length}</div>
+      ) : items.length > 1 && (
+        <div className="shrink-0 flex justify-center gap-1.5" aria-hidden="true">
+          {items.map((it, i) => <span key={keyOf(it)} className="h-1.5 rounded-full transition-all" style={{ width: i === index ? 18 : 6, background: i === index ? star : "#3a3f6e" }} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+// The flyer card shell: the event's art (or a starry gradient), a dark fade
+// for the text, and the date block top-left.
+function FlyerFrame({ art, dim, date, star, single, children }) {
+  const parts = dateParts(date);
   return (
     <article className="relative shrink-0 snap-center rounded-3xl overflow-hidden flex flex-col justify-end"
       style={{ width: single ? "100%" : "86%", border: `1px solid ${LINE}`, background: "#0b0e24" }}>
       {art ? (
-        <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: past ? "grayscale(0.5) brightness(0.8)" : "none" }} />
+        <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ filter: dim ? "grayscale(0.5) brightness(0.8)" : "none" }} />
       ) : (
         <div aria-hidden="true" className="absolute inset-0" style={{ background: `radial-gradient(circle at 70% 25%, ${star}40, transparent 55%), radial-gradient(circle at 20% 80%, #3b2f8a66, transparent 60%), #0b0e24` }}>
           <Star className="absolute right-6 top-6 w-16 h-16" style={{ color: star, opacity: 0.35 }} />
@@ -290,7 +326,18 @@ function ShowPanel({ show, past, star, single }) {
           <div className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.dow}</div>
         </div>
       )}
-      <div className="relative px-4 pb-4 flex flex-col gap-1.5">
+      <div className="relative px-4 pb-4 flex flex-col gap-1.5">{children}</div>
+    </article>
+  );
+}
+
+function ShowPanel({ show, past, star, single }) {
+  const parts = dateParts(show.date);
+  const n = daysUntil(show.date);
+  const { page, sky } = linksFor(show);
+  const place = placeOf(show);
+  return (
+    <FlyerFrame art={show.flyer_url} dim={past} date={show.date} star={star} single={single}>
         <span className="text-[12px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: past ? SOFT : n !== null && n <= 1 ? G : star }}>
           {past ? `BEEN THERE · ${parts?.long?.toUpperCase() || ""}` : countdownLabel(n)}
         </span>
@@ -311,8 +358,113 @@ function ShowPanel({ show, past, star, single }) {
             </Link>
           )}
         </div>
+    </FlyerFrame>
+  );
+}
+
+// ---------- Discover ----------
+// Upcoming events near the fan's home city that their hosts chose to list,
+// as the same flyer cards, filtered by event type (saved on the account).
+function DiscoverTab({ style, star, onStyle, onSetUp }) {
+  const [list, setList] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!style.state) return undefined;
+    let alive = true;
+    setList(null);
+    setFailed(false);
+    supabase.rpc("get_local_shows", { p_city: style.city || "", p_states: [style.state, stateName(style.state)] }).then(({ data, error }) => {
+      if (!alive) return;
+      if (error) { console.error(error); setFailed(true); setList([]); return; }
+      setList(Array.isArray(data) ? data : []);
+    });
+    return () => { alive = false; };
+  }, [style.city, style.state]);
+
+  if (!style.state) {
+    return (
+      <div className="flex-1 flex items-center">
+        <div className="w-full rounded-2xl px-5 py-8 text-center" style={{ background: CARD, border: `1px dashed ${LINE}` }}>
+          <Compass className="w-8 h-8 mx-auto" style={{ color: star }} />
+          <h2 className="text-[24px] font-bold mt-3 leading-tight">Where's home?</h2>
+          <p className="text-[15px] mt-2 leading-relaxed" style={{ color: SOFT }}>Set your city in Me and shows near you land here.</p>
+          <button type="button" onClick={onSetUp} className="mt-4 h-11 px-5 rounded-xl text-[15px] font-bold" style={{ background: star, color: "#0d0d0d" }}>Set my city</button>
+        </div>
       </div>
-    </article>
+    );
+  }
+  if (list === null) {
+    return <div className="flex-1 flex items-center justify-center"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${star}33`, borderTopColor: star }} /></div>;
+  }
+  if (failed) return <Notice text="Local shows couldn't load right now. Try again in a minute." />;
+
+  // Types come from what's actually listed nearby, most common first.
+  const counts = new Map();
+  list.forEach((s) => {
+    const k = typeKey(s.event_type);
+    if (k) counts.set(k, { label: counts.get(k)?.label || typeLabel(s.event_type), n: (counts.get(k)?.n || 0) + 1 });
+  });
+  const types = [...counts.entries()].sort((a, b) => b[1].n - a[1].n);
+  const picked = (style.types || []).filter((k) => counts.has(k));
+  const shown = picked.length ? list.filter((s) => picked.includes(typeKey(s.event_type))) : list;
+  const toggle = (k) => onStyle({ types: picked.includes(k) ? picked.filter((x) => x !== k) : [...picked, k] });
+  const chip = (on, label, onClick, key) => (
+    <button key={key} type="button" onClick={onClick} aria-pressed={on}
+      className="shrink-0 h-9 px-3.5 rounded-full text-[14px] font-bold whitespace-nowrap"
+      style={{ background: on ? star : "rgba(16,20,52,0.7)", color: on ? "#0d0d0d" : SOFT, border: `1px solid ${on ? star : LINE}` }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col gap-3">
+      {types.length > 0 && (
+        <div className="shrink-0 flex gap-2 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: "none" }}>
+          {chip(!picked.length, `All · ${list.length}`, () => onStyle({ types: [] }), "all")}
+          {types.map(([k, v]) => chip(picked.includes(k), `${v.label} · ${v.n}`, () => toggle(k), k))}
+        </div>
+      )}
+      {shown.length === 0 ? (
+        <div className="flex-1 flex items-center">
+          <Notice text={list.length
+            ? "Nothing nearby in those types right now. Try another filter."
+            : `No shows listed near ${style.city || stateName(style.state)} yet. When hosts list their events, they'll show up here.`} />
+        </div>
+      ) : (
+        <Deck items={shown} keyOf={(s) => s.show_key} resetKey={`${picked.join(",")}|${style.city}|${style.state}`} star={star}
+          render={(s, single) => <DiscoverPanel show={s} star={star} single={single} />} />
+      )}
+    </div>
+  );
+}
+
+function DiscoverPanel({ show, star, single }) {
+  const n = daysUntil(show.date);
+  const page = show.fan_token || show.fan_slug ? fanPath(show.fan_slug, show.fan_token) : null;
+  const place = placeOf(show);
+  const kicker = [show.event_type && typeLabel(show.event_type).toUpperCase(), countdownLabel(n)].filter(Boolean).join(" · ");
+  const meta = [
+    show.show_time && String(show.show_time).toUpperCase(),
+    show.entry === "rsvp" ? (show.price ? `${show.price} AT THE DOOR` : "RSVP · PAY AT THE DOOR") : show.price ? `TICKETS ${show.price}` : null,
+    !show.local && "NEARBY",
+  ].filter(Boolean).join(" · ");
+  return (
+    <FlyerFrame art={show.flyer_url} date={show.date} star={star} single={single}>
+      {show.going && (
+        <span className="self-start mb-1 px-2.5 py-1 rounded-full text-[11px] font-bold tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, background: G, color: "#0d0d0d" }}>YOU'RE GOING</span>
+      )}
+      <span className="text-[12px] tracking-[0.12em] truncate" style={{ fontFamily: SCENE_MONO, color: n !== null && n <= 1 ? G : star }}>{kicker}</span>
+      <h3 className="text-[28px] font-bold leading-[1.05] tracking-[0.02em] line-clamp-2">{showTitle(show)}</h3>
+      {show.band_name && show.event_name && show.band_name !== show.event_name && <span className="text-[15px] text-white/85 truncate">{show.band_name}</span>}
+      {place && <span className="flex items-center gap-1.5 text-[14px] truncate" style={{ color: SOFT }}><MapPin className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{place}</span></span>}
+      {meta && <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: "#c3c7ee" }}>{meta}</span>}
+      {page && (
+        <Link to={page} className="mt-2 h-11 rounded-xl flex items-center justify-center gap-1.5 text-[15px] font-bold whitespace-nowrap"
+          style={show.going ? { background: "rgba(0,0,0,0.5)", color: star, border: `1px solid ${LINE}` } : { background: G, color: "#0d0d0d" }}>
+          {show.going ? "See event" : show.entry === "rsvp" ? "RSVP" : "Get tickets"} <ExternalLink className="w-4 h-4" />
+        </Link>
+      )}
+    </FlyerFrame>
   );
 }
 
@@ -439,19 +591,23 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
-      <div className="shrink-0 rounded-2xl px-4 py-3.5 flex items-center gap-3.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+      <div className="shrink-0 relative rounded-2xl px-4 py-3.5 flex items-center gap-3.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+        <button type="button" onClick={doSignOut} aria-label="Sign out" className="absolute right-2.5 top-2.5 h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[12px] font-bold"
+          style={{ color: SOFT, border: `1px solid ${LINE}`, background: "rgba(0,0,0,0.35)" }}>
+          <LogOut className="w-3.5 h-3.5" /> Sign out
+        </button>
         <span className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-[24px] font-bold" style={{ background: "#141a44", border: `2px solid ${star}`, color: star, boxShadow: `0 0 18px ${star}40` }}>
           {((name || email)[0] || "?").toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
           {editing ? (
-            <form onSubmit={(e) => { e.preventDefault(); onName(draft); setEditing(false); }} className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); onName(draft); setEditing(false); }} className="flex gap-2 pr-24">
               <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={40} placeholder="Your name" aria-label="Your name"
                 className="min-w-0 flex-1 h-10 rounded-lg px-3 text-[16px] bg-black/50 text-white outline-none" style={{ border: `1px solid ${LINE}` }} />
               <button type="submit" aria-label="Save name" className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: star, color: "#0d0d0d" }}><Check className="w-4 h-4" /></button>
             </form>
           ) : (
-            <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-2 text-left max-w-full">
+            <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-2 text-left max-w-full pr-24">
               <span className="text-[20px] font-bold truncate">{name || "Add your name"}</span>
               <Pencil className="w-3.5 h-3.5 shrink-0" style={{ color: SOFT }} />
             </button>
@@ -463,8 +619,10 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
         </div>
       </div>
 
-      <section className="flex-1 min-h-0 rounded-2xl px-4 py-3.5 flex flex-col gap-3.5 overflow-y-auto" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-        <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>MAKE IT YOURS</div>
+      <section className="flex-1 min-h-0 rounded-2xl px-4 py-3.5 flex flex-col justify-between gap-3 overflow-y-auto" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+        <Choice title="SHOW PILOT FOR ME" options={[{ id: "mine", label: "Just my shows" }, { id: "local", label: "+ Local shows" }]}
+          value={style.discover ? "local" : "mine"} onPick={(v) => onStyle({ discover: v === "local" })} star={star} />
+        {style.discover && <HomeCity style={style} star={star} onStyle={onStyle} />}
         <div>
           <div className={label} style={{ fontFamily: SCENE_MONO, color: DIM }}>STAR COLOR</div>
           <div className="flex flex-wrap gap-2.5">
@@ -481,14 +639,37 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
           </div>
         </div>
         <Choice title="SKY" options={SKIES} value={style.sky} onPick={(v) => onStyle({ sky: v })} star={star} />
-        <Choice title="OPENS TO" options={[{ id: "shows", label: "My shows" }, { id: "stars", label: "My stars" }]} value={style.home} onPick={(v) => onStyle({ home: v })} star={star} />
+        <Choice title="OPENS TO" options={[{ id: "shows", label: "Shows" }, ...(style.discover ? [{ id: "discover", label: "Discover" }] : []), { id: "stars", label: "Stars" }]}
+          value={style.home === "discover" && !style.discover ? "shows" : style.home} onPick={(v) => onStyle({ home: v })} star={star} />
       </section>
-
-      <button type="button" onClick={doSignOut} className="shrink-0 h-12 rounded-xl flex items-center justify-center gap-2 text-[16px] font-bold"
-        style={{ background: "rgba(0,0,0,0.5)", border: `1px solid ${LINE}`, color: star }}>
-        <LogOut className="w-4 h-4" /> Sign out
-      </button>
     </div>
+  );
+}
+
+// Home city for local shows. Saved with the check button (or Enter).
+function HomeCity({ style, star, onStyle }) {
+  const [city, setCity] = useState(style.city || "");
+  const [st, setSt] = useState(style.state || "");
+  useEffect(() => { setCity(style.city || ""); setSt(style.state || ""); }, [style.city, style.state]);
+  const dirty = city.trim() !== (style.city || "") || st !== (style.state || "");
+  const save = (e) => { e.preventDefault(); if (st) onStyle({ city: city.trim().slice(0, 60), state: st }); };
+  const field = "h-10 rounded-lg px-3 text-[16px] bg-black/50 text-white outline-none";
+  return (
+    <form onSubmit={save}>
+      <div className="text-[11px] tracking-[0.12em] mb-1.5" style={{ fontFamily: SCENE_MONO, color: DIM }}>HOME CITY</div>
+      <div className="flex gap-2">
+        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" aria-label="City" maxLength={60} autoComplete="address-level2"
+          className={`${field} min-w-0 flex-1`} style={{ border: `1px solid ${LINE}` }} />
+        <select value={st} onChange={(e) => setSt(e.target.value)} aria-label="State" className={`${field} w-[76px] px-2`} style={{ border: `1px solid ${LINE}` }}>
+          <option value="">State</option>
+          {US_STATES.map(([a, n]) => <option key={a} value={a} className="bg-[#111]" title={n}>{a}</option>)}
+        </select>
+        <button type="submit" disabled={!st || !dirty} aria-label="Save home city" className="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40"
+          style={{ background: dirty && st ? star : "rgba(0,0,0,0.45)", color: dirty && st ? "#0d0d0d" : star, border: `1px solid ${dirty && st ? star : LINE}` }}>
+          <Check className="w-4 h-4" />
+        </button>
+      </div>
+    </form>
   );
 }
 
