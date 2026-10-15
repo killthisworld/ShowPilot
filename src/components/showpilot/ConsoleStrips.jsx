@@ -142,46 +142,62 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
     { to: "/experience", label: "Cockpit", Icon: PlaneTakeoff },
   ];
 
+  // Sideways is one fixed screen: nothing behind it scrolls, and the
+  // strips only move left/right.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = [html.style.overflow, body.style.overflow, html.style.overscrollBehavior, body.style.overscrollBehavior];
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      [html.style.overflow, body.style.overflow, html.style.overscrollBehavior, body.style.overscrollBehavior] = prev;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-[80] flex bg-[#0d0d0d] text-[#f2f2f2]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <nav aria-label="Main" className="w-[62px] shrink-0 flex flex-col items-center justify-center gap-1 border-r border-[#1e1e1e]" style={{ paddingLeft: "env(safe-area-inset-left)" }}>
+    <div className="fixed inset-x-0 top-0 z-[80] flex bg-[#0d0d0d] text-[#f2f2f2] overflow-hidden" style={{ height: "100dvh", fontFamily: "Inter, system-ui, sans-serif", overscrollBehavior: "none", touchAction: "pan-x" }}>
+      <nav aria-label="Main" className="w-[64px] shrink-0 flex flex-col items-center justify-center gap-1 border-r border-[#1e1e1e]" style={{ paddingLeft: "env(safe-area-inset-left)" }}>
         {rail.map(({ to, label, Icon, on }) => (
-          <Link key={to} to={to} className="w-[58px] h-[50px] flex flex-col items-center justify-center gap-[3px] text-[11px] font-semibold" style={{ color: on ? accent : "rgba(255,255,255,0.6)" }}>
+          <Link key={to} to={to} className="w-[60px] h-[52px] flex flex-col items-center justify-center gap-[3px] text-[12px] font-semibold" style={{ color: on ? accent : "rgba(255,255,255,0.65)" }}>
             <Icon className="w-5 h-5" />
             <span>{label}</span>
           </Link>
         ))}
       </nav>
 
-      <div className="flex-1 min-w-0 flex flex-col px-2.5 py-2" style={{ paddingRight: "max(10px, env(safe-area-inset-right))" }}>
-        <div className="h-8 mb-1.5 flex items-center gap-1.5 shrink-0">
-          {groups.map((g) => (
-            <button
-              key={g.key}
-              type="button"
-              onClick={() => groupRefs.current[g.key]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
-              className="h-[30px] px-3 rounded-full bg-[#1a1a1a] border border-[#333] text-[14px] font-bold tracking-[0.06em] text-white"
-              style={{ fontFamily: SCENE_FONT }}
-            >
-              {g.label}
-            </button>
-          ))}
-          <span className="flex-1" />
-          <span className="h-[30px] px-2.5 rounded-lg flex items-center gap-1 text-[12px] font-bold" style={{ background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00" }}>
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col px-2.5 pt-2 pb-2" style={{ paddingRight: "max(10px, env(safe-area-inset-right))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+        <div className="h-8 mb-2 flex items-center gap-1.5 shrink-0 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {groups.map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                onClick={() => groupRefs.current[g.key]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
+                className="h-8 px-3 shrink-0 rounded-full bg-[#1a1a1a] border border-[#333] text-[15px] font-bold tracking-[0.06em] text-white"
+                style={{ fontFamily: SCENE_FONT }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          <span className="h-8 px-2.5 shrink-0 rounded-lg flex items-center gap-1 text-[13px] font-bold" style={{ background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00" }}>
             <span style={{ fontFamily: SCENE_MONO }}>{totalOpen}</span> open
           </span>
-          <span className="h-[30px] px-2.5 rounded-lg flex items-center gap-1 text-[12px] font-bold" style={{ background: "#0d1520", border: "1.5px solid #60A5FA", color: "#60A5FA" }}>
+          <span className="h-8 px-2.5 shrink-0 rounded-lg flex items-center gap-1 text-[13px] font-bold" style={{ background: "#0d1520", border: "1.5px solid #60A5FA", color: "#60A5FA" }}>
             <span style={{ fontFamily: SCENE_MONO }}>{totalUnread}</span> new
           </span>
-          <Link to="/show/new" aria-label="Add a show" className="w-[30px] h-[30px] rounded-lg flex items-center justify-center" style={{ background: accent, color: "#0d0d0d" }}>
+          <Link to="/show/new" aria-label="Add a show" className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center" style={{ background: accent, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" strokeWidth={2.6} />
           </Link>
         </div>
 
         {strips.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-white/50 text-sm">No upcoming shows yet.</div>
+          <div className="flex-1 flex items-center justify-center text-white/60 text-[15px]">No upcoming shows yet.</div>
         ) : (
-          <div className="flex-1 min-h-0 flex gap-1.5 overflow-x-auto snap-x" style={{ scrollbarWidth: "none" }}>
+          <div className="flex-1 min-h-0 flex gap-2 overflow-x-auto overflow-y-hidden snap-x snap-mandatory" style={{ scrollbarWidth: "none", overscrollBehavior: "contain", touchAction: "pan-x" }}>
             {groups.map((g) => g.items.map((s, i) => {
               const key = s.id || s.share_token;
               const color = eventTypeColor(s.event_type) || (s.is_owned === false ? "#F472B6" : accent);
@@ -193,76 +209,82 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
               const unread = Number(unreadByToken[s.share_token] || 0);
               const included = s.included_sections?.length ? s.included_sections : ROLES.map((r) => r.id);
               const on = rolesByShow[s.id];
-              const glass = photo ? "rgba(10,10,10,0.55)" : "transparent";
-              const btnBg = photo ? "rgba(20,20,20,0.8)" : "#222";
+              const glass = photo ? "rgba(10,10,10,0.6)" : "transparent";
+              const btnBg = photo ? "rgba(20,20,20,0.85)" : "#242424";
               const d = s.date ? new Date(s.date + "T00:00:00") : null;
               return (
                 <div
                   key={key}
                   ref={i === 0 ? (el) => { groupRefs.current[g.key] = el; } : undefined}
-                  className="w-[122px] shrink-0 h-full flex flex-col rounded-[9px] overflow-hidden relative isolate snap-start"
+                  className="w-[184px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate snap-start"
                   style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}
                 >
                   {photo && (
                     <>
                       <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
-                      <img src={photo} alt="" className="absolute left-1/2 top-2.5 w-[280%] max-w-none -translate-x-1/2 -z-20" />
-                      <div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.55))" }} />
+                      <img src={photo} alt="" className="absolute left-1/2 top-2.5 w-[240%] max-w-none -translate-x-1/2 -z-20" />
+                      <div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.6))" }} />
                     </>
                   )}
-                  <button type="button" onClick={() => onOpen(s)} className="h-[62px] shrink-0 px-2 pt-1 pb-1.5 flex flex-col justify-center gap-[2px] text-left" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0))" : "#1c1c1c", textShadow: photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
-                    <span className="text-[10px] leading-tight" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
-                    <span className="text-[13px] font-semibold leading-snug truncate w-full">{s.event_name || s.band_name || "Untitled"}</span>
-                    <span className="text-[10px] leading-tight text-white/70 truncate w-full">{s.venue || "No venue yet"}</span>
+
+                  {/* Show */}
+                  <button type="button" onClick={() => onOpen(s)} className="shrink-0 px-2.5 pt-1.5 pb-2 flex flex-col gap-[2px] text-left" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c", textShadow: photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
+                    <span className="text-[12px] leading-tight" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
+                    <span className="text-[16px] font-semibold leading-snug truncate w-full">{s.event_name || s.band_name || "Untitled"}</span>
+                    <span className="text-[12px] leading-tight text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
                   </button>
 
-                  <div className="px-[7px] py-[5px]" style={{ background: glass }}>
-                    <button type="button" onClick={() => onOpen(s)} aria-label={open ? `${open} open tasks` : "No open tasks"} className="w-full h-7 flex items-center gap-1.5 px-[7px] rounded-[7px]" style={{ background: open ? "#341c0b" : "#0f1d08", border: `1.5px solid ${open ? "#FF6A00" : "#8CFF3D"}`, color: open ? "#FF6A00" : "#8CFF3D" }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 12l3 3 5-6" /></svg>
-                      {open > 0 && <span className="text-[13px] font-semibold" style={{ fontFamily: SCENE_MONO }}>{open}</span>}
-                      <span className="text-[11px] font-bold">{open ? (open === 1 ? "task" : "tasks") : "all clear"}</span>
+                  {/* Tasks */}
+                  <div className="shrink-0 px-2 py-1.5" style={{ background: glass, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <button type="button" onClick={() => onOpen(s)} aria-label={open ? `${open} open tasks` : "No open tasks"} className="w-full h-8 flex items-center gap-1.5 px-2 rounded-lg" style={{ background: open ? "#341c0b" : "#0f1d08", border: `1.5px solid ${open ? "#FF6A00" : "#8CFF3D"}`, color: open ? "#FF6A00" : "#8CFF3D" }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 12l3 3 5-6" /></svg>
+                      {open > 0 && <span className="text-[15px] font-semibold" style={{ fontFamily: SCENE_MONO }}>{open}</span>}
+                      <span className="text-[13px] font-bold" style={{ fontFamily: SCENE_FONT, letterSpacing: "0.05em" }}>{open ? (open === 1 ? "TASK OPEN" : "TASKS OPEN") : "ALL CLEAR"}</span>
                     </button>
                   </div>
 
-                  <div className="px-[7px] pt-0.5 pb-1.5 flex flex-col gap-[3px]" style={{ background: glass }}>
-                    {on || s.is_owned !== false ? (
-                      ROLES.filter((r) => included.includes(r.id)).map((r) => {
-                        const lit = on?.has(r.id);
-                        return (
-                          <span key={r.id} className="h-4 rounded flex items-center px-1.5 text-[10.5px] font-bold tracking-[0.05em]" style={{ fontFamily: SCENE_FONT, background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "66"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 8px ${r.color}99` : "none" }}>
-                            {r.label}
-                          </span>
-                        );
-                      })
-                    ) : (
-                      <span className="text-[10px] text-white/60 leading-snug py-1">Linked event. Open the web to see who's on it.</span>
-                    )}
-                  </div>
-
-                  <div className="px-[7px] pb-1.5 grid grid-cols-3 gap-1" style={{ background: glass }}>
-                    <Link to={`/gig/rooms?token=${s.share_token}`} aria-label="Chat" className="h-7 rounded-md flex items-center justify-center relative text-white" style={{ background: btnBg }}>
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      {unread > 0 && <span className="absolute -top-1 -right-0.5 min-w-[15px] h-[15px] px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[9px] font-bold flex items-center justify-center">{unread}</span>}
-                    </Link>
-                    <button type="button" aria-label="Fan page" onClick={() => setFanShow(s)} className="h-7 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
-                      <Ticket className="w-3.5 h-3.5" />
-                    </button>
-                    <Link to={`/gig/web?token=${s.share_token}`} aria-label="Open web" className="h-7 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
-                      <WebIcon size={16} />
-                    </Link>
-                  </div>
-
-                  <div className="flex-1 min-h-0 p-2 flex gap-2.5 justify-center relative border-t border-[#262626]" style={{ background: glass }}>
-                    <button type="button" aria-label={photo ? "Change photo" : "Add photo"} onClick={() => pickPhoto(s)} disabled={busyPhoto === key} className="absolute left-1 bottom-1 w-[26px] h-[26px] rounded-md flex items-center justify-center text-white disabled:opacity-50" style={{ background: "rgba(13,13,13,0.85)", border: "1px solid rgba(255,255,255,0.25)" }}>
-                      <Camera className="w-3 h-3" />
-                    </button>
-                    <div className="w-[7px] rounded bg-[#222] relative overflow-hidden" aria-hidden="true">
-                      <div className="absolute left-0 right-0 bottom-0" style={{ height: `${pct}%`, background: lvl }} />
+                  {/* Who's on + sends, with the ready fader beside them */}
+                  <div className="flex-1 min-h-0 flex gap-2 px-2 pt-1.5 pb-2" style={{ background: glass, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="flex-1 min-w-0 flex flex-col gap-[4px]">
+                      {on || s.is_owned !== false ? (
+                        ROLES.filter((r) => included.includes(r.id)).map((r) => {
+                          const lit = on?.has(r.id);
+                          return (
+                            <span key={r.id} className="h-[20px] shrink-0 rounded-[5px] flex items-center px-1.5 text-[13px] font-bold tracking-[0.05em]" style={{ fontFamily: SCENE_FONT, background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "66"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 8px ${r.color}99` : "none" }}>
+                              {r.label}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <span className="text-[12px] text-white/70 leading-snug py-1">Linked show. Open the web to see who's on it.</span>
+                      )}
+                      <div className="mt-auto pt-1 grid grid-cols-4 gap-1">
+                        <Link to={`/gig/rooms?token=${s.share_token}`} aria-label="Chat" className="h-8 rounded-md flex items-center justify-center relative text-white" style={{ background: btnBg }}>
+                          <MessageCircle className="w-4 h-4" />
+                          {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
+                        </Link>
+                        <button type="button" aria-label="Fan page" onClick={() => setFanShow(s)} className="h-8 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
+                          <Ticket className="w-4 h-4" />
+                        </button>
+                        <Link to={`/gig/web?token=${s.share_token}`} aria-label="Open web" className="h-8 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
+                          <WebIcon size={17} />
+                        </Link>
+                        <button type="button" aria-label={photo ? "Change photo" : "Add photo"} onClick={() => pickPhoto(s)} disabled={busyPhoto === key} className="h-8 rounded-md flex items-center justify-center text-white disabled:opacity-50" style={{ background: btnBg }}>
+                          <Camera className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="w-[5px] rounded bg-[#2e2e2e] relative" aria-hidden="true">
-                      <div className="absolute -left-[11px] w-[27px] h-4 rounded bg-[#d4d4d4]" style={{ bottom: `calc((100% - 16px) * ${pct / 100})`, boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }} />
+                    <div className="w-[34px] shrink-0 flex flex-col items-center gap-1">
+                      <div className="flex-1 min-h-0 flex gap-[7px]">
+                        <div className="w-[6px] rounded bg-[#222] relative overflow-hidden" aria-hidden="true">
+                          <div className="absolute left-0 right-0 bottom-0" style={{ height: `${pct}%`, background: lvl }} />
+                        </div>
+                        <div className="w-[5px] rounded bg-[#2e2e2e] relative" aria-hidden="true">
+                          <div className="absolute -left-[9px] w-[23px] h-[14px] rounded bg-[#d4d4d4]" style={{ bottom: `calc((100% - 14px) * ${pct / 100})`, boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }} />
+                        </div>
+                      </div>
+                      <span className="text-[11px] leading-none" style={{ fontFamily: SCENE_MONO, color: lvl }} aria-label={`${pct}% ready`}>{pct}%</span>
                     </div>
-                    <span className="self-end text-[10px]" style={{ fontFamily: SCENE_MONO, color: lvl }} aria-label={`${pct}% ready`}>{pct}%</span>
                   </div>
                 </div>
               );
