@@ -79,6 +79,9 @@ const AuthenticatedApp = () => {
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
       <Route path="/gig/web" element={<GigWeb />} />
+      <Route path="/rsvp/:token" element={<FanEvent />} />
+      <Route path="/rsvp/:token/sky" element={<EventSky />} />
+      {/* Older links and QR codes that are already out there */}
       <Route path="/e/:token" element={<FanEvent />} />
       <Route path="/e/:token/sky" element={<EventSky />} />
       <Route path="/gig/venue" element={<VenueProfile />} />

@@ -8,6 +8,7 @@ import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
+import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
 
 const G = "#8CFF3D";
 const MAX_LINEUP = 12;
@@ -97,6 +98,7 @@ function OwnerSheet({ showId, onClose }) {
     const cfg = data.fan_page || {};
     return {
       enabled: !!data.fan_page_enabled,
+      slug: data.fan_slug || "",
       hidden: cfg.hidden || [],
       showTime: cfg.show_time || "",
       ages: cfg.ages || "",
@@ -121,7 +123,7 @@ function OwnerSheet({ showId, onClose }) {
     let alive = true;
     supabase
       .from("shows")
-      .select("fan_token, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
+      .select("fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
       .eq("id", showId)
       .single()
       .then(({ data, error }) => {
@@ -134,7 +136,8 @@ function OwnerSheet({ showId, onClose }) {
   }, [showId]);
 
   const set = (patch) => { setUpdated(false); setErr(""); setDraft((d) => ({ ...d, ...patch })); };
-  const url = row ? `${window.location.origin}/e/${row.fan_token}` : "";
+  const url = row ? fanUrl(row.fan_slug, row.fan_token) : "";
+  const linkPrefix = fanUrl("zz").slice(0, -2);
   const dirty = row && draft && JSON.stringify(draft) !== JSON.stringify(toDraft(row));
 
   const copy = async () => {
@@ -191,6 +194,9 @@ function OwnerSheet({ showId, onClose }) {
       }
       ticketLink = ok;
     }
+    const slugText = trimSlug(draft.slug);
+    const slugErr = slugProblem(slugText);
+    if (slugErr) { setErr(`Custom link: ${slugErr}`); return; }
     let capacity = null;
     if (draft.capacityOn) {
       capacity = Number(draft.capacity);
@@ -206,6 +212,7 @@ function OwnerSheet({ showId, onClose }) {
       .from("shows")
       .update({
         fan_page_enabled: draft.enabled,
+        fan_slug: slugText || null,
         fan_page: {
           ...(row.fan_page || {}),
           hidden: draft.hidden,
@@ -225,9 +232,10 @@ function OwnerSheet({ showId, onClose }) {
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
       })
       .eq("id", showId)
-      .select("fan_token, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
+      .select("fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
       .single();
     setSaving(false);
+    if (error?.code === "23505") { setErr("That custom link is already taken. Try another."); return; }
     if (error || !data) { setErr("Couldn't update. Try again."); return; }
     // Clean up attachments the owner removed (best effort).
     const kept = new Set(draft.files.map((f) => f.path));
@@ -529,6 +537,22 @@ function OwnerSheet({ showId, onClose }) {
 
   const offNote = <p className="mt-4 text-[15px] font-medium leading-snug text-white/50">The public page is off, so only people you've invited to the event can see it. Turn it on to set it up and get a link you can share.</p>;
 
+  // Saves just the QR look (color, background, shape), without publishing any
+  // other edits that are still in progress.
+  const saveQrStyle = async (style) => {
+    const { data: fresh, error: readErr } = await supabase.from("shows").select("fan_page").eq("id", showId).single();
+    if (readErr || !fresh) return false;
+    const { data, error } = await supabase
+      .from("shows")
+      .update({ fan_page: { ...(fresh.fan_page || {}), qr: style } })
+      .eq("id", showId)
+      .select("fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
+      .single();
+    if (error || !data) return false;
+    setRow(data);
+    return true;
+  };
+
   const linkBlock = on && row && (
     // Link on its own line, then Copy / QR / Share side by side.
     <div className="mt-2.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] p-1.5">
@@ -540,9 +564,35 @@ function OwnerSheet({ showId, onClose }) {
           className="flex items-center px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]"
           style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}
         >{copied ? "COPIED" : "COPY"}</button>
-        {row.fan_page_enabled && <FanQrCode url={url} eventName={row.event_name || row.band_name} />}
+        {row.fan_page_enabled && <FanQrCode url={url} eventName={row.event_name || row.band_name} style={row.fan_page?.qr} onSaveStyle={saveQrStyle} />}
         {row.fan_page_enabled && <ShareButton url={url} title={row.event_name || row.band_name} />}
       </div>
+      {draft && (
+        <div className="mt-2 px-1.5 pb-1.5 pt-2 border-t border-[#1f1f1f]">
+          <div className="text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>CUSTOM LINK</div>
+          <div className="mt-1.5 flex items-center bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg focus-within:border-[#8CFF3D]/60 overflow-hidden">
+            <span className="pl-3 pr-0.5 text-[14px] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>{linkPrefix.replace(/^https?:\/\//, "")}/</span>
+            <input
+              value={draft.slug}
+              onChange={(e) => set({ slug: cleanSlug(e.target.value) })}
+              onBlur={() => set({ slug: trimSlug(draft.slug) })}
+              placeholder={cleanSlug(row.event_name || row.band_name || "my-event").replace(/-+$/, "").slice(0, 20) || "my-event"}
+              maxLength={SLUG_MAX}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="Custom link name"
+              className="flex-1 min-w-0 bg-transparent py-2.5 pr-3 text-white text-[14px] placeholder:text-white/30 focus:outline-none"
+              style={{ fontFamily: SCENE_MONO }}
+            />
+          </div>
+          <p className="mt-1.5 text-[13px] leading-snug text-white/45">
+            {slugProblem(trimSlug(draft.slug)) || (trimSlug(draft.slug) !== (row.fan_slug || "")
+              ? "Press Update to change the link. Your QR code and shared links will use the new one."
+              : `Pick an easy name to share, like the event name. ${SLUG_MIN}-${SLUG_MAX} letters, numbers and hyphens. Leave blank to use the automatic link.`)}
+          </p>
+        </div>
+      )}
     </div>
   );
 
@@ -566,7 +616,7 @@ function OwnerSheet({ showId, onClose }) {
       .from("shows")
       .update({ fan_page: { ...(fresh.fan_page || {}), capacity: wantCap } })
       .eq("id", showId)
-      .select("fan_token, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
+      .select("fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state")
       .single();
     setCapSaving(false);
     if (error || !data) { setCapErr("Couldn't save the limit. Try again."); return; }
@@ -752,7 +802,7 @@ function ViewerSheet({ shareToken, onClose }) {
     return () => { alive = false; };
   }, [shareToken]);
 
-  const url = info?.fan_token ? `${window.location.origin}/e/${info.fan_token}` : "";
+  const url = info?.fan_token ? fanUrl(info.fan_slug, info.fan_token) : "";
   const copy = async () => {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
   };
@@ -781,7 +831,7 @@ function ViewerSheet({ shareToken, onClose }) {
               <div className="px-1.5 pt-0.5 pb-1.5 truncate text-[13.5px] text-white/80" style={{ fontFamily: SCENE_MONO }}>{url}</div>
               <div className="flex gap-1.5 [&>button]:flex-1 [&>button]:justify-center">
                 <button type="button" onClick={copy} className="flex items-center px-3 py-2 rounded-lg text-sm font-bold tracking-[0.06em]" style={{ background: copied ? G : "rgba(140,255,61,0.1)", border: `1px solid ${copied ? G : "rgba(140,255,61,0.4)"}`, color: copied ? "#0d0d0d" : G }}>{copied ? "COPIED" : "COPY"}</button>
-                <FanQrCode url={url} />
+                <FanQrCode url={url} style={info.qr} />
                 <ShareButton url={url} />
               </div>
             </div>

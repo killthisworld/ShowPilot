@@ -8,6 +8,7 @@ import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import RsvpCard from "@/components/showpilot/RsvpCard";
 import { normalizeLink } from "@/lib/links";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import useFanToken from "@/lib/useFanToken";
 
 // Public, no-login page for one event. Everything on it comes from
 // get_fan_event, which only returns what the owner chose to show - crew
@@ -31,7 +32,9 @@ async function requestEventEmail(token, email) {
 }
 
 export default function FanEvent() {
-  const { token } = useParams();
+  const { token: key } = useParams();
+  const resolved = useFanToken(key);
+  const token = resolved.token;
   const navigate = useNavigate();
   const [ev, setEv] = useState(null);
   // Back shows when there is somewhere to go back to: earlier history (a fan
@@ -59,6 +62,8 @@ export default function FanEvent() {
   };
 
   useEffect(() => {
+    if (resolved.state === "missing") { setState("missing"); return undefined; }
+    if (!token) return undefined;
     let alive = true;
     supabase.rpc("get_fan_event", { p_token: token }).then(({ data, error }) => {
       if (!alive) return;
@@ -66,7 +71,7 @@ export default function FanEvent() {
       else { setEv(data); setState("ok"); }
     });
     return () => { alive = false; };
-  }, [token]);
+  }, [token, resolved.state]);
 
   useEffect(() => {
     if (!viewing) return;
@@ -103,7 +108,7 @@ export default function FanEvent() {
   // Share this page (RSVP "Invite friends"): phone share sheet, or copy the link.
   const sharePage = async () => {
     const r = await shareLink({
-      url: `${window.location.origin}/e/${token}`,
+      url: `${window.location.origin}${location.pathname.replace(/\/+$/, "")}`,
       title: eventTitle,
       text: [eventTitle, ev.date && new Date(ev.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })].filter(Boolean).join(" · "),
     });

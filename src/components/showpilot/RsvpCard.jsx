@@ -89,7 +89,7 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2.5">
               {done.skyKey && (
-                <a href={`/e/${token}/sky?k=${done.skyKey}`} className="px-4 py-2 rounded-full text-[15px] font-bold text-[#0d0d0d]" style={{ background: color }}>See your star</a>
+                <a href={`${window.location.pathname.replace(/\/+$/, "")}/sky?k=${done.skyKey}`} className="px-4 py-2 rounded-full text-[15px] font-bold text-[#0d0d0d]" style={{ background: color }}>See your star</a>
               )}
               {onShare && (
                 <button type="button" onClick={invite} className="px-4 py-2 rounded-full text-[15px] font-bold border" style={{ color, borderColor: color + "8c", background: color + "14" }}>{inviteNote || "Invite friends"}</button>

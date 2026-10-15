@@ -5,6 +5,7 @@ import { hashColor, hashString, seededRandom } from "@/lib/constellation";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import SkyKey from "@/components/showpilot/SkyKey";
 import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
+import useFanToken from "@/lib/useFanToken";
 
 // /e/:token/sky?k=<sky key>  (public, no login)
 //
@@ -107,7 +108,11 @@ function SkyStar({ star, color, isMe, revealDelay, onSelect, selected, scale = 1
 }
 
 export default function EventSky() {
-  const { token } = useParams();
+  const { token: tokenKey } = useParams();
+  const resolved = useFanToken(tokenKey);
+  const token = resolved.token;
+  // Back to this same event page, whichever kind of link got here.
+  const pageHref = window.location.pathname.replace(/\/sky\/?$/, "");
   const [params] = useSearchParams();
   const key = params.get("k") || "";
   const [phase, setPhase] = useState("verifying"); // verifying | unlocking | open | failed
@@ -131,6 +136,7 @@ export default function EventSky() {
 
   useEffect(() => {
     let alive = true;
+    if (resolved.state === "loading") return undefined;
     const started = Date.now();
     const valid = /^[0-9a-f-]{36}$/i.test(key) && /^[0-9a-f-]{36}$/i.test(token || "");
     (valid ? load() : Promise.resolve({ data: null })).then(({ data }) => {
@@ -141,7 +147,7 @@ export default function EventSky() {
       }, wait);
     });
     return () => { alive = false; };
-  }, [load, key, token]);
+  }, [load, key, token, resolved.state]);
 
   // Keep the sky current while it's open.
   useEffect(() => {
@@ -212,7 +218,7 @@ export default function EventSky() {
             <div className="mt-6 max-w-xs">
               <p className="text-2xl font-bold">This key doesn't open this sky</p>
               <p className="mt-1.5 text-[15px] leading-snug text-white/60">Use the Unlock your key link in your RSVP email, or RSVP on the event page to get a key.</p>
-              <a href={`/e/${token}`} className="inline-block mt-4 px-5 py-2.5 rounded-full text-base font-bold text-[#0d0d0d]" style={{ background: "#8CFF3D" }}>Go to the event page</a>
+              <a href={pageHref} className="inline-block mt-4 px-5 py-2.5 rounded-full text-base font-bold text-[#0d0d0d]" style={{ background: "#8CFF3D" }}>Go to the event page</a>
             </div>
           )}
         </div>
@@ -261,7 +267,7 @@ export default function EventSky() {
             <p className="mt-0.5 text-[15px] leading-snug text-white/60">
               {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
             </p>
-            <a href={`/e/${token}`} className="inline-block mt-2 text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
+            <a href={pageHref} className="inline-block mt-2 text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
           </div>
         </div>
       )}
