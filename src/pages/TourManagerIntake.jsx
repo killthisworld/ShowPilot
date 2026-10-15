@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
+import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,12 +69,7 @@ export default function TourManagerIntake() {
     }
     setLoadingTemplate(true);
     try {
-      const { data } = await supabase
-        .from("user_preferences")
-        .select("band_template")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const t = data?.band_template;
+      const t = await fetchMyArtistProfile(supabase, user.id);
       if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
         toast({ title: "No saved artist profile yet", description: "Set one up in Settings > My Templates." });
       } else {

@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { FolderOpen, MapPin, Music, Search, X } from "lucide-react";
+import { FolderOpen, Search, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { templateSubtitle } from "@/lib/roleTemplates";
 
 // A small "Load Template" button that, on click, fetches the current
 // user's saved_templates for the given category (venue or artist) and
@@ -11,29 +13,39 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 // is handed to onLoad - the caller decides how to map those fields onto its
 // own show or gig state, since ShowDetail, SharedGig, and NewEventForNonTech
 // each keep that state in a different shape.
-const ACCENT = { venue: "#F2FF00", artist: "#EF4444" };
+// One entry per template category (saved_templates.category), in the
+// profile colors.
+const KIND = {
+  venue: { word: "venue", style: ACCOUNT_TYPE_STYLES.venue },
+  artist: { word: "artist", style: ACCOUNT_TYPE_STYLES.band },
+  promoter: { word: "promoter", style: ACCOUNT_TYPE_STYLES.promoter },
+  booking_agent: { word: "booking agent", style: ACCOUNT_TYPE_STYLES.booking_agent },
+  manager: { word: "manager", style: ACCOUNT_TYPE_STYLES.manager },
+};
 
 function subtitle(category, data) {
   const d = data || {};
   if (category === "venue") {
-    return [d.city, d.state].filter(Boolean).join(", ");
+    return [d.city || d.gig?.city, d.state || d.gig?.state].filter(Boolean).join(", ");
   }
+  if (category !== "artist") return templateSubtitle(category, d);
   const genres = Array.isArray(d.genre_tags) ? d.genre_tags : (d.genre_tag ? [d.genre_tag] : []);
   const members = Array.isArray(d.band_members) ? d.band_members.length : 0;
   return [genres.slice(0, 2).join(" / "), members ? `${members} member${members === 1 ? "" : "s"}` : ""]
     .filter(Boolean).join(" · ");
 }
 
-export default function LoadTemplateButton({ category, label, onLoad, className }) {
+// `children` replaces the default small pill label; `buttonStyle` styles it.
+export default function LoadTemplateButton({ category, label, onLoad, className, buttonStyle, children }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState(null); // null = not fetched yet
   const [q, setQ] = useState("");
 
-  const isVenue = category === "venue";
-  const categoryLabel = isVenue ? "venue" : "artist";
-  const accent = ACCENT[isVenue ? "venue" : "artist"];
-  const Icon = isVenue ? MapPin : Music;
+  const kind = KIND[category] || KIND.artist;
+  const categoryLabel = kind.word;
+  const accent = kind.style.color;
+  const Icon = kind.style.icon;
 
   const close = () => { setOpen(false); setQ(""); };
 
@@ -93,7 +105,7 @@ export default function LoadTemplateButton({ category, label, onLoad, className 
               My templates
             </div>
             <div className="mt-1 text-[26px] leading-none uppercase text-white" style={{ fontFamily: SCENE_FONT, fontWeight: 700, letterSpacing: "0.02em" }}>
-              Load {isVenue ? "venue" : "artist"}
+              Load {categoryLabel}
             </div>
           </div>
           <button
@@ -188,8 +200,9 @@ export default function LoadTemplateButton({ category, label, onLoad, className 
         type="button"
         onClick={openPicker}
         className={className || "flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0"}
+        style={buttonStyle}
       >
-        <FolderOpen className="w-3 h-3" /> {label || "Load Template"}
+        {children || <><FolderOpen className="w-3 h-3" /> {label || "Load Template"}</>}
       </button>
       {modal && createPortal(modal, document.body)}
     </>

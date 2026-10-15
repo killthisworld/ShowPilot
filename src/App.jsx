@@ -27,7 +27,6 @@ import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
-import BandProfile from '@/pages/BandProfile';
 import MyTemplates from '@/pages/MyTemplates';
 import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
@@ -102,7 +101,8 @@ const AuthenticatedApp = () => {
         <Route path="/experience" element={<Experience />} />
         <Route path="/archived" element={<ArchivedShows />} />
         <Route path="/manager-links" element={<ManagerLinksPage />} />
-        <Route path="/band-profile" element={<BandProfile />} />
+        {/* Old single-template page; templates for every profile live in My Templates now. */}
+        <Route path="/band-profile" element={<Navigate to="/my-templates" replace />} />
         <Route path="/my-templates" element={<MyTemplates />} />
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />

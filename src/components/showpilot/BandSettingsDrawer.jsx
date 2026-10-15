@@ -127,7 +127,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
       navItems={[
         { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
         { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
-        { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/band-profile"); } },
+        { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/my-templates"); } },
         // DJ Tools isn't listed here: it lives on the Manager / Artist
         // profile web (its DJ Tools feature corner -> Lineup & set times).
       ]}

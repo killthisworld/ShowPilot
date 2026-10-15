@@ -1,38 +1,72 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, Plus, Trash2, Music, MapPin, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
+import useIsDesktop from "@/hooks/useIsDesktop";
 import VenueInfoFields from "@/components/showpilot/VenueInfoFields";
 import PerformerFields from "@/components/showpilot/PerformerFields";
+import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { emptyVenueTemplate, emptyArtistTemplate, normalizeVenueTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
+import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubtitle } from "@/lib/roleTemplates";
+import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
 
-// Section colors mirror SharedGig's SECTION_COLORS so a Venue template
-// here visually connects to the Venue section it gets loaded into, and
-// same for Artist templates and the Manager/Band lineup.
-const GROUP_STYLE = {
-  venue: { color: "#F2FF00", icon: MapPin, label: "Venues" },
-  artist: { color: "#EF4444", icon: Music, label: "Artists" },
+// One group per template kind, in the profile colors. Venue + Artist use
+// the show's own Venue Info / Performer fields for audio and lighting
+// accounts; company accounts (venue, promoter, booking agent, manager /
+// artist) edit their section templates in the same workspace tabs they
+// use on an event (RoleWorkspace in template mode).
+const GROUP = {
+  venue: { style: ACCOUNT_TYPE_STYLES.venue, label: "Venue", plural: "Venues" },
+  promoter: { style: ACCOUNT_TYPE_STYLES.promoter, label: "Promoter", plural: "Promoter" },
+  booking_agent: { style: ACCOUNT_TYPE_STYLES.booking_agent, label: "Booking Agent", plural: "Booking Agent" },
+  manager: { style: ACCOUNT_TYPE_STYLES.manager, label: "Manager", plural: "Manager / Artist" },
+  artist: { style: ACCOUNT_TYPE_STYLES.band, label: "Artist", plural: "Artists" },
+};
+const EMPTY_NOTE = {
+  tech: {
+    venue: "No venue templates yet. Save one for a room you work often, even if it doesn't use ShowPilot.",
+    artist: "No artist templates yet. Save one for an artist you work with repeatedly.",
+  },
+  company: {
+    venue: "Your room once: address, load-in, schedule, house gear, hospitality. Load it on every show.",
+    promoter: "Contact, doors, ticket tiers, guest allocation and the costs you settle every night.",
+    booking_agent: "Contact and your usual offer: deal type, guarantee, split, radius, costs.",
+    manager: "Contact, advance checklist, vehicle, standing guest list and merch.",
+    artist: "Members, genres, stage plot and notes. Load it as an act in the lineup, or into a performer intake.",
+  },
 };
 
-// Templates use exactly the fields of a show's Venue Info / Performer
-// sections (the same VenueInfoFields / PerformerFields components), so
-// what you save here is what fills a show.
-const emptyData = (category) => (category === "venue" ? emptyVenueTemplate() : emptyArtistTemplate());
-const normalizeData = (category, data) => (category === "venue" ? normalizeVenueTemplate(data || {}) : normalizeArtistTemplate(data || {}));
+const MANAGER_SIDE = { band: "manager", manager: "manager" };
+const IMPORT_FLAG = "showpilot_band_template_imported";
+
+const emptyData = (category) => (category === "venue" ? emptyVenueTemplate() : category === "artist" ? emptyArtistTemplate() : { section: {}, gig: {} });
+const normalizeData = (category, data) => (category === "venue" ? normalizeVenueTemplate(data || {}) : category === "artist" ? normalizeArtistTemplate(data || {}) : { section: {}, gig: {}, ...(data || {}) });
 
 export default function MyTemplates() {
-  const navigate = useNavigate(); const goBack = useGoBack();
+  const goBack = useGoBack();
+  const desktop = useIsDesktop();
   const { toast } = useToast();
   const { preferences, reload: reloadPreferences } = usePreferences();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState([]); // { key, id, category, name, data, open, saving, saved }
   const [confirmDeleteKey, setConfirmDeleteKey] = useState(null);
+  const [editing, setEditing] = useState(null); // workspace editor: { key, role, name, gig }
+  const [edSaving, setEdSaving] = useState(false);
+  const [edSaved, setEdSaved] = useState(false);
+
+  const accountType = preferences?.account_type || "engineer";
+  const isTech = ["engineer", "lighting"].includes(accountType);
+  const own = MANAGER_SIDE[accountType] || accountType;
+  const categories = isTech
+    ? ["venue", "artist"]
+    : [...COMPANY_TEMPLATE_ROLES].sort((a, b) => (a === own ? -1 : b === own ? 1 : 0)).concat("artist");
+  const workspaceKind = (category) => !isTech && COMPANY_TEMPLATE_ROLES.includes(category);
 
   useEffect(() => {
     const init = async () => {
@@ -48,9 +82,9 @@ export default function MyTemplates() {
         if (error) {
           console.error(error);
         } else {
-          setTemplates(
-            (data || []).map((t) => ({ key: `id:${t.id}`, id: t.id, category: t.category, name: t.name, data: normalizeData(t.category, t.data), open: false, saving: false, saved: false }))
-          );
+          let rows = data || [];
+          rows = await importOldArtistTemplate(user, rows);
+          setTemplates(rows.map((t) => ({ key: `id:${t.id}`, id: t.id, category: t.category, name: t.name, data: normalizeData(t.category, t.data), open: false, saving: false, saved: false })));
         }
       }
       setLoading(false);
@@ -58,7 +92,28 @@ export default function MyTemplates() {
     init();
   }, []);
 
-  const findIdx = (key) => templates.findIndex((t) => t.key === key);
+  // Artist accounts used to keep one artist profile on user_preferences
+  // (the old My Templates page). Bring it in once as an Artist template.
+  async function importOldArtistTemplate(user, rows) {
+    try {
+      if (rows.some((r) => r.category === "artist")) return rows;
+      if (localStorage.getItem(`${IMPORT_FLAG}:${user.id}`)) return rows;
+      const { data } = await supabase.from("user_preferences").select("band_template").eq("user_id", user.id).maybeSingle();
+      const t = data?.band_template;
+      localStorage.setItem(`${IMPORT_FLAG}:${user.id}`, "1");
+      if (!t || (!t.band_name && !(t.band_members || []).length)) return rows;
+      const { band_name, documents, ...rest } = t;
+      const { data: inserted, error } = await supabase
+        .from("saved_templates")
+        .insert({ owner_id: user.id, category: "artist", name: band_name || "My artist", data: rest })
+        .select("id, category, name, data")
+        .single();
+      return error ? rows : [...rows, inserted];
+    } catch {
+      return rows;
+    }
+  }
+
   const setTemplate = (key, updater) => {
     setTemplates((prev) => {
       const idx = prev.findIndex((t) => t.key === key);
@@ -70,9 +125,16 @@ export default function MyTemplates() {
   };
   const setData = (key, field, val) => setTemplate(key, (t) => ({ ...t, data: { ...t.data, [field]: val } }));
 
+  const openEditor = (t) => {
+    setEdSaved(false);
+    setEditing({ key: t.key, role: t.category, name: t.name, gig: { id: `tpl_${user?.id}`, ...gigFromTemplate(t.category, t.name, t.data) } });
+  };
+
   const addTemplate = (category) => {
     const key = `new:${Date.now()}`;
-    setTemplates((prev) => [...prev, { key, id: null, category, name: "", data: emptyData(category), open: true, saving: false, saved: false }]);
+    const t = { key, id: null, category, name: "", data: emptyData(category), open: !workspaceKind(category), saving: false, saved: false };
+    setTemplates((prev) => [...prev, t]);
+    if (workspaceKind(category)) openEditor(t);
   };
 
   const toggleOpen = (key) => setTemplate(key, (t) => ({ ...t, open: !t.open }));
@@ -118,32 +180,36 @@ export default function MyTemplates() {
     }
     e.target.value = "";
   };
+
+  // Insert or update one template row. Returns the saved row's key.
+  const writeTemplate = async (t, name, data) => {
+    if (t.id) {
+      const { error } = await supabase.from("saved_templates").update({ name, data, updated_at: new Date().toISOString() }).eq("id", t.id);
+      if (error) throw error;
+      setTemplate(t.key, { name, data });
+      return t.key;
+    }
+    const { data: inserted, error } = await supabase
+      .from("saved_templates")
+      .insert({ owner_id: user.id, category: t.category, name, data })
+      .select()
+      .single();
+    if (error) throw error;
+    const key = `id:${inserted.id}`;
+    setTemplate(t.key, { id: inserted.id, key, name, data });
+    return key;
+  };
+
   const saveTemplate = async (key) => {
     const t = templates.find((tt) => tt.key === key);
     if (!t || !user) return;
     if (!t.name.trim()) {
-      toast({ title: `Give this ${t.category} template a name first`, variant: "destructive" });
+      toast({ title: `Give this ${GROUP[t.category].label.toLowerCase()} template a name first`, variant: "destructive" });
       return;
     }
     setTemplate(key, { saving: true });
-    let finalKey = key;
     try {
-      if (t.id) {
-        const { error } = await supabase
-          .from("saved_templates")
-          .update({ name: t.name.trim(), data: t.data, updated_at: new Date().toISOString() })
-          .eq("id", t.id);
-        if (error) throw error;
-      } else {
-        const { data: inserted, error } = await supabase
-          .from("saved_templates")
-          .insert({ owner_id: user.id, category: t.category, name: t.name.trim(), data: t.data })
-          .select()
-          .single();
-        if (error) throw error;
-        finalKey = `id:${inserted.id}`;
-        setTemplate(key, { id: inserted.id, key: finalKey });
-      }
+      const finalKey = await writeTemplate(t, t.name.trim(), t.data);
       setTemplate(finalKey, { saved: true, saving: false });
       setTimeout(() => setTemplate(finalKey, { saved: false }), 2000);
       toast({ title: "Template saved" });
@@ -152,6 +218,40 @@ export default function MyTemplates() {
       toast({ title: "Error saving template", variant: "destructive" });
       setTemplate(key, { saving: false });
     }
+  };
+
+  // Save from the workspace editor.
+  const saveEditor = async () => {
+    if (!editing || !user) return;
+    const t = templates.find((tt) => tt.key === editing.key);
+    if (!t) return;
+    const name = (editing.name || (editing.role === "venue" ? editing.gig.venue : "") || "").trim();
+    if (!name) {
+      toast({ title: `Give this ${GROUP[editing.role].label.toLowerCase()} template a name first`, variant: "destructive" });
+      return;
+    }
+    setEdSaving(true);
+    try {
+      // Keep fields this editor doesn't show (e.g. an engineer's venue contacts).
+      const data = { ...(t.data || {}), ...templateFromGig(editing.role, editing.gig) };
+      const key = await writeTemplate(t, name, data);
+      setEditing((e) => (e ? { ...e, key, name } : e));
+      setEdSaved(true);
+      setTimeout(() => setEdSaved(false), 1800);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error saving template", description: "Check your connection and try again.", variant: "destructive" });
+    }
+    setEdSaving(false);
+  };
+
+  const closeEditor = () => {
+    // Drop a brand-new template that was never saved.
+    if (editing) {
+      const t = templates.find((tt) => tt.key === editing.key);
+      if (t && !t.id) setTemplates((prev) => prev.filter((tt) => tt.key !== t.key));
+    }
+    setEditing(null);
   };
 
   const deleteTemplate = async (key) => {
@@ -172,12 +272,11 @@ export default function MyTemplates() {
   };
 
   const summaryLine = (t) => {
+    if (workspaceKind(t.category) || !["venue", "artist"].includes(t.category)) return templateSubtitle(t.category, t.data);
     if (t.category === "venue") {
-      const parts = [[t.data.city, t.data.state].filter(Boolean).join(", "), t.data.console].filter(Boolean);
-      return parts.join(" · ");
+      return [[t.data.city, t.data.state].filter(Boolean).join(", "), t.data.console].filter(Boolean).join(" · ");
     }
-    const parts = [(t.data.genre_tags || []).join(", "), t.data.band_members?.length ? `${t.data.band_members.length} member${t.data.band_members.length !== 1 ? "s" : ""}` : ""].filter(Boolean);
-    return parts.join(" · ");
+    return [(t.data.genre_tags || []).join(", "), t.data.band_members?.length ? `${t.data.band_members.length} member${t.data.band_members.length !== 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
   };
 
   if (loading) {
@@ -194,113 +293,168 @@ export default function MyTemplates() {
     Monitor: busPresets.find((p) => p.bus_type === "Monitor")?.color || "#F97316",
   };
 
+  const deleteControls = (t) => (confirmDeleteKey === t.key ? (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <button onClick={() => deleteTemplate(t.key)} className="text-xs font-bold tracking-[0.06em] px-3 py-2 rounded-xl bg-red-500/20 text-red-400">DELETE</button>
+      <button onClick={() => setConfirmDeleteKey(null)} className="text-xs font-bold tracking-[0.06em] px-3 py-2 rounded-xl bg-white/5 text-white/50">KEEP</button>
+    </div>
+  ) : (
+    <button onClick={() => setConfirmDeleteKey(t.key)} aria-label="Delete template" className="p-2.5 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-500/10 shrink-0">
+      <Trash2 className="w-4 h-4" />
+    </button>
+  ));
+
+  const groupCard = (category) => {
+    const g = GROUP[category];
+    const color = g.style.color;
+    const Icon = g.style.icon;
+    const list = templates.filter((t) => t.category === category && (t.id || !workspaceKind(category)));
+    const yours = !isTech && category === own;
+    return (
+      <section key={category} className="rounded-2xl bg-[#111] border border-[#1f1f1f] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
+        <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + "1f" }}>
+            <Icon className="w-[18px] h-[18px]" style={{ color }} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[20px] font-bold leading-none text-white">{g.plural}</h2>
+              {yours && <span className="text-[10px] tracking-[0.12em] px-1.5 py-[2px] rounded" style={{ background: color, color: "#0d0d0d", fontFamily: SCENE_MONO }}>YOURS</span>}
+            </div>
+            <div className="mt-1 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{list.length} TEMPLATE{list.length === 1 ? "" : "S"}</div>
+          </div>
+          <button
+            onClick={() => addTemplate(category)}
+            className="flex items-center gap-1 text-[13px] font-bold tracking-[0.04em] px-3 py-2 rounded-lg"
+            style={{ border: `1px solid ${color}66`, color, background: color + "14" }}
+          >
+            <Plus className="w-4 h-4" /> NEW
+          </button>
+        </div>
+
+        <div className="px-3 pb-3 space-y-2">
+          {list.length === 0 && (
+            <p className="px-1 pb-1 text-[14px] leading-snug text-white/40">{EMPTY_NOTE[isTech ? "tech" : "company"][category]}</p>
+          )}
+          {list.map((t) => (workspaceKind(category) ? (
+            <div key={t.key} className="flex items-center gap-1 rounded-xl bg-[#161616] border border-[#242424]" style={{ borderLeft: `3px solid ${color}` }}>
+              <button type="button" onClick={() => openEditor(t)} className="flex-1 min-w-0 flex items-center gap-2 px-3.5 py-3 text-left">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-semibold text-white truncate">{t.name}</span>
+                  {summaryLine(t) && <span className="block text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</span>}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: color + "aa" }} />
+              </button>
+              <div className="pr-1.5">{deleteControls(t)}</div>
+            </div>
+          ) : (
+            <div key={t.key} className="rounded-xl border overflow-hidden" style={{ borderColor: color + "40", borderLeftWidth: 3, borderLeftColor: color }}>
+              <button type="button" onClick={() => toggleOpen(t.key)} className="w-full flex items-center justify-between gap-2 px-3.5 py-3 bg-[#161616]">
+                <div className="min-w-0 text-left">
+                  <p className="text-[16px] font-semibold text-white truncate">{t.name || `Untitled ${g.label.toLowerCase()}`}</p>
+                  {!t.open && summaryLine(t) && <p className="text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</p>}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${t.open ? "rotate-180" : ""}`} />
+              </button>
+              {t.open && (
+                <div className="p-4 space-y-3 bg-[#141414]">
+                  {category === "venue" ? (
+                    <VenueInfoFields
+                      value={{ ...t.data, venue: t.name }}
+                      onChange={(field, val) => (field === "venue" ? setTemplate(t.key, { name: val }) : setData(t.key, field, val))}
+                      namePlaceholder="e.g. The Fillmore"
+                    />
+                  ) : (
+                    <PerformerFields
+                      band={{ ...t.data, band_name: t.name }}
+                      onPatch={({ band_name, ...rest }) => setTemplate(t.key, (cur) => ({
+                        ...cur,
+                        ...(band_name !== undefined ? { name: band_name } : {}),
+                        data: { ...cur.data, ...rest },
+                      }))}
+                      genreTags={preferences?.genre_tags || []}
+                      onAddGenre={() => addGenre()}
+                      onAddGenreFromTag={(name) => addGenre(name)}
+                      iemMonitorColors={iemMonitorColors}
+                      onStagePlotUpload={(e) => handleStagePlotUpload(t.key, e)}
+                      showNotes
+                    />
+                  )}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button onClick={() => saveTemplate(t.key)} disabled={t.saving} className="flex-1 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e] rounded-xl">
+                      {t.saving ? "Saving..." : t.saved ? "Saved ✓" : "Save Template"}
+                    </Button>
+                    {deleteControls(t)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )))}
+        </div>
+      </section>
+    );
+  };
+
+  // The workspace editor: same tabs as the event section, template only.
+  const tplP = editing ? {
+    gig: editing.gig,
+    editable: true,
+    canEdit: true,
+    user,
+    permissions: { is_owner: true },
+    canEditSection: () => true,
+    update: (k, v) => setEditing((e) => (e ? { ...e, gig: { ...e.gig, [k]: v } } : e)),
+    updateSection: (s, k, v) => setEditing((e) => (e ? { ...e, gig: { ...e.gig, [s]: { ...(e.gig[s] || {}), [k]: v } } } : e)),
+    handleSave: saveEditor,
+    saving: edSaving,
+    saved: edSaved,
+    addRequirement: () => {}, updateRequirementStatus: () => {}, deleteRequirement: () => {},
+    claimTask: async () => {}, markTaskDone: async () => {}, setTaskDetails: async () => {}, setTaskDone: () => {},
+    addBand: () => {}, updateBand: () => {}, removeBand: () => {},
+  } : null;
+  const tplMeta = editing ? { name: editing.name, setName: (n) => setEditing((e) => (e ? { ...e, name: n } : e)) } : null;
+
+  const editor = editing && (desktop ? (
+    <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} modal onClose={closeEditor} />
+  ) : (
+    <div className="fixed inset-0 z-[70] bg-[#0d0d0d] overflow-y-auto" style={{ fontFamily: SCENE_FONT }}>
+      <div className="sticky top-0 z-10 bg-[#0d0d0d]/95 backdrop-blur border-b border-[#1a1a1a] px-4 py-3 flex items-center gap-3">
+        <button type="button" onClick={closeEditor} aria-label="Back to My Templates" className="p-1 -ml-1 text-white/60 hover:text-white"><ArrowLeft className="w-5 h-5" /></button>
+        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: GROUP[editing.role].style.color }} />
+        <input
+          value={editing.name}
+          onChange={(e) => tplMeta.setName(e.target.value)}
+          placeholder={`${GROUP[editing.role].label} template name`}
+          aria-label="Template name"
+          className="flex-1 min-w-0 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[16px] font-semibold text-white placeholder:text-white/30 outline-none focus:border-white/40"
+        />
+      </div>
+      <div className="px-4 py-4 max-w-lg mx-auto">
+        <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} layout="web" onClose={closeEditor} />
+      </div>
+    </div>
+  ));
+
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24">
+    <div className="min-h-screen bg-[#0d0d0d] pb-24 text-white" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-3 px-4 py-4 max-w-lg mx-auto">
+        <div className={`flex items-center gap-3 px-4 py-4 mx-auto ${desktop ? "max-w-[1180px]" : "max-w-lg"}`}>
           <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-white">My Templates</h1>
-            <p className="text-white/40 text-xs">Save venue and artist info once, reuse it every time you're back</p>
+            <h1 className="text-[26px] font-bold leading-none">My Templates</h1>
+            <p className="mt-1 text-white/50 text-[14px]">
+              {isTech ? "Save venue and artist info once, reuse it every time you're back." : "Fill a section in once, then press Load template on any event."}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-6">
-        {["venue", "artist"].map((category) => {
-          const style = GROUP_STYLE[category];
-          const list = templates.filter((t) => t.category === category);
-          return (
-            <div key={category} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <style.icon className="w-4 h-4" style={{ color: style.color }} />
-                  <p className="font-semibold text-sm" style={{ color: style.color }}>{style.label}</p>
-                </div>
-                <button
-                  onClick={() => addTemplate(category)}
-                  className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors"
-                  style={{ borderColor: style.color + "50", color: style.color, backgroundColor: style.color + "12" }}
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add
-                </button>
-              </div>
-
-              {list.length === 0 && (
-                <p className="text-white/25 text-xs px-1">
-                  {category === "venue"
-                    ? "No venue templates yet. Save one for a room you work often, even if it doesn't use ShowPilot."
-                    : "No artist templates yet. Save one for an artist you work with repeatedly."}
-                </p>
-              )}
-
-              <div className="space-y-2.5">
-                {list.map((t) => (
-                  <div key={t.key} className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: style.color + "50" }}>
-                    <button
-                      type="button"
-                      onClick={() => toggleOpen(t.key)}
-                      className="w-full flex items-center justify-between gap-2 p-3.5"
-                      style={{ backgroundColor: style.color + "10" }}
-                    >
-                      <div className="min-w-0 text-left">
-                        <p className="font-semibold text-sm text-white truncate">{t.name || `Untitled ${category === "venue" ? "venue" : "artist"}`}</p>
-                        {!t.open && summaryLine(t) && <p className="text-white/35 text-xs truncate mt-0.5">{summaryLine(t)}</p>}
-                      </div>
-                      <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${t.open ? "rotate-180" : ""}`} />
-                    </button>
-
-                    {t.open && (
-                      <div className="p-4 space-y-3 bg-[#161616]">
-                        {category === "venue" ? (
-                          <VenueInfoFields
-                            value={{ ...t.data, venue: t.name }}
-                            onChange={(field, val) => (field === "venue" ? setTemplate(t.key, { name: val }) : setData(t.key, field, val))}
-                            namePlaceholder="e.g. The Fillmore"
-                          />
-                        ) : (
-                          <PerformerFields
-                            band={{ ...t.data, band_name: t.name }}
-                            onPatch={({ band_name, ...rest }) => setTemplate(t.key, (cur) => ({
-                              ...cur,
-                              ...(band_name !== undefined ? { name: band_name } : {}),
-                              data: { ...cur.data, ...rest },
-                            }))}
-                            genreTags={preferences?.genre_tags || []}
-                            onAddGenre={() => addGenre()}
-                            onAddGenreFromTag={(name) => addGenre(name)}
-                            iemMonitorColors={iemMonitorColors}
-                            onStagePlotUpload={(e) => handleStagePlotUpload(t.key, e)}
-                            showNotes
-                          />
-                        )}
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <Button onClick={() => saveTemplate(t.key)} disabled={t.saving} className="flex-1 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e] rounded-xl">
-                            {t.saving ? "Saving..." : t.saved ? "Saved ✓" : "Save Template"}
-                          </Button>
-                          {confirmDeleteKey === t.key ? (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button onClick={() => deleteTemplate(t.key)} className="text-xs font-semibold px-3 py-2 rounded-xl bg-red-500/20 text-red-400">Confirm</button>
-                              <button onClick={() => setConfirmDeleteKey(null)} className="text-xs font-semibold px-3 py-2 rounded-xl bg-white/5 text-white/50">Cancel</button>
-                            </div>
-                          ) : (
-                            <button onClick={() => setConfirmDeleteKey(t.key)} className="p-2.5 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-500/10 shrink-0">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      <div className={`px-4 pt-5 mx-auto ${desktop ? "max-w-[1180px] grid grid-cols-2 xl:grid-cols-3 gap-4 items-start" : "max-w-lg space-y-4"}`}>
+        {categories.map(groupCard)}
       </div>
+      {editor}
     </div>
   );
 }

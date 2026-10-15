@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, FolderOpen, Plus, Save, Trash2 } from "lucide-react";
+import { supabase } from "@/api/supabaseClient";
+import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
+import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import DjLineupPanel from "@/components/showpilot/DjLineupPanel";
@@ -141,7 +144,10 @@ function SideRow({ left, right, rightColor, highlight }) {
 // profile web. Its tabs become the ring (portalled into `webSlot`, the hub's
 // place on the page) and the open tab's editor renders here, below the web
 // on a phone or beside it on desktop. Same tabs, same data, same Save.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null }) {
+// `template` switches it into template editing (My Templates): only the
+// reusable tabs, no tasks / requests / other sections, and a name field.
+// Shape: { name, setName }. `p` then edits the template instead of an event.
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null }) {
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -387,7 +393,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             </TableBox>
             <AddButton color={color} disabled={off} onClick={() => setPi("tiers", [...tiers, { id: uid(), name: "", price: "", qty: "", sold: "" }])}>Add a tier</AddButton>
             <Grid cols={3}>
-              <In label="Ticket link" value={pi.ticket_link} onChange={(v) => setPi("ticket_link", v)} disabled={off} placeholder="https://" />
+              {!template && <In label="Ticket link" value={pi.ticket_link} onChange={(v) => setPi("ticket_link", v)} disabled={off} placeholder="https://" />}
               <In label="Headline price" value={pi.ticket_price} onChange={(v) => setPi("ticket_price", v)} disabled={off} placeholder="$20" />
               <In label="Comps held" value={pi.comps} onChange={(v) => setPi("comps", v)} disabled={off} placeholder="12" />
             </Grid>
@@ -401,11 +407,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([pi.announce_date, pi.on_sale_date, pi.marketing_notes]), 3),
         render: () => (
           <>
-            <Grid cols={3}>
+            {!template && <Grid cols={3}>
               <In type="date" label="Announce" value={pi.announce_date} onChange={(v) => setPi("announce_date", v)} disabled={off} />
               <In type="date" label="On sale" value={pi.on_sale_date} onChange={(v) => setPi("on_sale_date", v)} disabled={off} />
               <In type="date" label="Final push" value={pi.final_push_date} onChange={(v) => setPi("final_push_date", v)} disabled={off} />
-            </Grid>
+            </Grid>}
             <Area label="Press, assets and links" value={pi.marketing_notes} onChange={(v) => setPi("marketing_notes", v)} disabled={off} placeholder="Need hi-res photo and bio from the artist; radio spot booked" rows={4} />
           </>
         ),
@@ -814,8 +820,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([mi.arrival_time, mi.hotel, mi.vehicle]), 3),
         render: () => (
           <>
-            <Grid><In label="Arrival time" value={mi.arrival_time} onChange={(v) => setMi("arrival_time", v)} disabled={off} placeholder="2:30 PM" /><In label="Vehicle" value={mi.vehicle} onChange={(v) => setMi("vehicle", v)} disabled={off} placeholder="Sprinter van + 6x12 trailer" /></Grid>
-            <In label="Hotel" value={mi.hotel} onChange={(v) => setMi("hotel", v)} disabled={off} placeholder="Hotel name, address, confirmation #" />
+            <Grid>{!template && <In label="Arrival time" value={mi.arrival_time} onChange={(v) => setMi("arrival_time", v)} disabled={off} placeholder="2:30 PM" />}<In label="Vehicle" value={mi.vehicle} onChange={(v) => setMi("vehicle", v)} disabled={off} placeholder="Sprinter van + 6x12 trailer" /></Grid>
+            {!template && <In label="Hotel" value={mi.hotel} onChange={(v) => setMi("hotel", v)} disabled={off} placeholder="Hotel name, address, confirmation #" />}
             <Area label="Travel notes" value={mi.travel_notes} onChange={(v) => setMi("travel_notes", v)} disabled={off} placeholder="Flights, drive time from the last city, day after" />
           </>
         ),
@@ -928,6 +934,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const tabs = useMemo(
     () => {
       const list = builders[role]();
+      if (template) return list.filter((t) => (TEMPLATE_TABS[role] || []).includes(t.key));
       // Current tasks: this section's owner-assigned to-dos, with the ones
       // you've claimed first. It sits at the top of the profile's web,
       // ahead of the section's own parts, so the holder sees them first.
@@ -968,8 +975,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onSaveDetails={(d) => p.setTaskDetails(openTask.id, d)}
     />
   ) : null;
-  const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || tabs[1] || tabs[0];
-  const side = role === "venue" ? venueSide() : role === "promoter" ? promoterSide() : role === "booking_agent" ? bookingSide() : managerSide();
+  const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);
+  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : role === "promoter" ? promoterSide() : role === "booking_agent" ? bookingSide() : managerSide();
+  // Load a saved template into this event / save this section as one.
+  const templateTools = ed && !template && p.user ? (
+    <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
+  ) : null;
   const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks");
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
@@ -977,7 +988,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
 
   // The other company sections on this event, as simple progress lines.
   const included = (r) => !gig.included_sections || gig.included_sections.includes(r);
-  const others = COMPANY_ROLES.filter((r) => r !== role && included(r)).map((r) => {
+  const others = template ? [] : COMPANY_ROLES.filter((r) => r !== role && included(r)).map((r) => {
     const parts = counted(builders[r]());
     const openReqs = (gig.requirements || []).filter((q) => q.section === r && q.status !== "confirmed").length;
     return { role: r, done: parts.filter((t) => t.state === "done").length, total: parts.length, openReqs, mine: !!p.canEditSection?.(r) };
@@ -1014,6 +1025,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         )
       : null;
     if (!showContent) return web;
+    // No web to pick tabs from (a template on a phone): a row of tab chips.
+    const tabChips = !webSlot ? (
+      <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+        {tabs.map((t) => {
+          const on = current?.key === t.key;
+          return (
+            <button key={t.key} type="button" onClick={() => setActive(t.key)} className="shrink-0 px-3 py-2 rounded-full text-[14px] font-semibold whitespace-nowrap" style={on ? { background: color, color: "#0d0d0d" } : { border: `1px solid ${color}55`, color: t.state === "empty" ? "rgba(255,255,255,0.6)" : "#fff" }}>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
 
     if (!ed) {
       const sectionTasks = (gig.tasks || []).filter((t) => t.section === role);
@@ -1074,11 +1098,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         {web}
         {taskSheet}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
+          {tabChips}
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
             <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{sw[0]}</span>
           </div>
           <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">{current?.render()}</div>
+          {templateTools}
           <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-[#1c1c1c]">
             {side.action && (
               <button type="button" onClick={side.action.onClick} className="flex-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em]" style={{ border: `1px solid ${color}73`, background: `${color}1a`, color }}>
@@ -1100,7 +1126,26 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     );
   }
 
-  const header = (
+  const header = template ? (
+    <header className="h-[72px] shrink-0 flex items-center gap-4 px-7 border-b border-[#1a1a1a]">
+      <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-[15px] font-semibold text-white/55 hover:text-white">
+        <ArrowLeft className="w-4 h-4" /> My Templates
+      </button>
+      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
+      <h1 className="text-[32px] font-bold tracking-wide leading-none whitespace-nowrap">{ROLE_TITLE[role]} template</h1>
+      <input
+        value={template.name}
+        onChange={(e) => template.setName(e.target.value)}
+        placeholder="Template name"
+        aria-label="Template name"
+        className="flex-1 min-w-0 max-w-[420px] bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[17px] font-semibold text-white placeholder:text-white/30 outline-none focus:border-white/40"
+      />
+      <div className="ml-auto flex items-center gap-3.5 shrink-0">
+        <span className="text-[12px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color }}>{doneTabs} OF {totalTabs} FILLED IN</span>
+        <div className="w-[150px] h-2 rounded bg-[#1f1f1f] overflow-hidden"><div className="h-full" style={{ width: `${totalTabs ? (doneTabs / totalTabs) * 100 : 0}%`, background: color }} /></div>
+      </div>
+    </header>
+  ) : (
     <header className="h-[72px] shrink-0 flex items-center gap-4 px-7 border-b border-[#1a1a1a]">
       <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-[15px] font-semibold text-white/55 hover:text-white">
         <ArrowLeft className="w-4 h-4" /> {modal ? "Back to board" : "Event board"}
@@ -1217,7 +1262,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
-          <SideLabel className="mb-1.5">YOUR SECTION</SideLabel>
+          <SideLabel className="mb-1.5">{template ? "WHAT THE TEMPLATE FILLS IN" : "YOUR SECTION"}</SideLabel>
           <div className="bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden divide-y divide-[#1c1c1c]">
             {tabs.map((t) => {
               const on = current?.key === t.key;
@@ -1258,6 +1303,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         <aside className="min-h-0 flex flex-col border-l border-[#1c1c1c] bg-[#0a0a0a]">
           <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-5 pb-3 flex flex-col gap-3">{side.body}</div>
           <div className="shrink-0 px-5 pt-3 pb-5 border-t border-[#1c1c1c] flex flex-col gap-2.5">
+            {templateTools}
             {side.action && (
               <button type="button" onClick={side.action.onClick} className="py-3 rounded-[10px] text-[16px] font-bold tracking-[0.06em]" style={{ border: `1px solid ${color}73`, background: `${color}1a`, color }}>
                 {side.action.label}
@@ -1367,6 +1413,99 @@ function TaskList({ tasks, editable, onToggle, color, showSection = false }) {
           </label>
         );
       })}
+    </div>
+  );
+}
+
+// Right column while editing a template: what it does and what stays out.
+const TEMPLATE_LEFT_OUT = {
+  venue: "Nothing is left out: every part of the venue section carries over.",
+  promoter: "Left out: ticket link, announce / on-sale / final-push dates and tickets sold. Those change every show.",
+  booking_agent: "Left out: holds, contract stage and deposits. Those belong to one show.",
+  manager: "Left out: the lineup, set times, arrival time and hotel. Advance items start unticked on each show.",
+};
+function templateSide(role, color) {
+  return {
+    body: (
+      <>
+        <SideLabel>HOW TEMPLATES WORK</SideLabel>
+        <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4 flex flex-col gap-3 text-[15px] leading-snug text-white/75">
+          <p>Fill this in once. On any event, open your {ROLE_TITLE[role]} section and press <span style={{ color }}>LOAD TEMPLATE</span> to drop it in.</p>
+          <p>Loading only fills what the template has. Anything already on the event that the template leaves blank stays as it is. Files are added, not replaced.</p>
+          <p className="text-white/50">{TEMPLATE_LEFT_OUT[role]}</p>
+        </div>
+      </>
+    ),
+    action: null,
+  };
+}
+
+// LOAD TEMPLATE / SAVE AS TEMPLATE for a section on a real event. Loading
+// only changes the screen; the section's own Save keeps it.
+function TemplateTools({ role, color, gig, update, userId }) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const [state, setState] = useState(""); // "", "saving", "saved", "error"
+  const [loaded, setLoaded] = useState("");
+
+  const startSave = () => { setName(suggestTemplateName(role, gig)); setNaming(true); setState(""); };
+  const save = async () => {
+    const n = name.trim();
+    if (!n) return;
+    setState("saving");
+    try {
+      const data = templateFromGig(role, gig);
+      const { data: existing } = await supabase.from("saved_templates").select("id").eq("owner_id", userId).eq("category", role).eq("name", n).maybeSingle();
+      const { error } = existing
+        ? await supabase.from("saved_templates").update({ data, updated_at: new Date().toISOString() }).eq("id", existing.id)
+        : await supabase.from("saved_templates").insert({ owner_id: userId, category: role, name: n, data });
+      if (error) throw error;
+      setState("saved");
+      setTimeout(() => { setNaming(false); setState(""); }, 1400);
+    } catch (e) {
+      console.error(e);
+      setState("error");
+    }
+  };
+
+  const pill = "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[10px] text-[14px] font-bold tracking-[0.06em]";
+  return (
+    <div className="flex flex-col gap-2">
+      {!naming ? (
+        <div className="flex gap-2">
+          <LoadTemplateButton
+            category={role}
+            onLoad={(n, data) => { applyTemplate(role, data, gig, update); setLoaded(n); }}
+            className={pill}
+            buttonStyle={{ border: "1px solid #2a2a2a", background: "#111", color: "rgba(255,255,255,0.85)" }}
+          >
+            <FolderOpen className="w-4 h-4" style={{ color }} /> LOAD TEMPLATE
+          </LoadTemplateButton>
+          <button type="button" onClick={startSave} className={pill} style={{ border: "1px solid #2a2a2a", background: "#111", color: "rgba(255,255,255,0.85)" }}>
+            <Save className="w-4 h-4" style={{ color }} /> SAVE AS TEMPLATE
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-[10px] p-3" style={{ border: `1px solid ${color}55`, background: `${color}0d` }}>
+          <span className="text-[11px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SAVE THIS {ROLE_TITLE[role].toUpperCase()} SECTION AS A TEMPLATE</span>
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setNaming(false); }}
+              placeholder="Template name"
+              className="flex-1 min-w-0 bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[16px] text-white placeholder:text-white/30 outline-none focus:border-white/40"
+            />
+            <button type="button" onClick={save} disabled={!name.trim() || state === "saving"} className="px-4 rounded-lg text-[14px] font-bold tracking-[0.06em] disabled:opacity-40" style={{ background: color, color: "#0d0d0d" }}>
+              {state === "saved" ? "SAVED ✓" : state === "saving" ? "..." : "SAVE"}
+            </button>
+            <button type="button" onClick={() => setNaming(false)} className="px-2 text-[13px] font-bold text-white/50">CANCEL</button>
+          </div>
+          <span className="text-[13px] text-white/45">{state === "error" ? "Couldn't save the template. Try again." : "Same name as one you have? It gets replaced. Dates and one-night details stay off."}</span>
+        </div>
+      )}
+      {loaded && !naming && <span className="text-[13px]" style={{ color }}>Loaded “{loaded}”. Press Save to keep it on this event.</span>}
     </div>
   );
 }
