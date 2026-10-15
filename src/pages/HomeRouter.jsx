@@ -2,6 +2,7 @@ import React from "react";
 import { usePreferences } from "@/hooks/usePreferences";
 import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
+import FanHome from "@/pages/FanHome";
 
 // Routes to the right home screen based on account type. Engineer and
 // Lighting Tech share the full New/Frequent/Worked tracking Home page, since
@@ -24,6 +25,9 @@ export default function HomeRouter() {
       </div>
     );
   }
+
+  // Fans get their own home: the shows they RSVP'd to (job 77).
+  if (preferences?.account_type === "fan") return <FanHome />;
 
   if (preferences?.account_type && !TECHNICAL_PRODUCTION_TYPES.includes(preferences.account_type)) {
     return <BandHome />;

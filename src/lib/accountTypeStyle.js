@@ -1,4 +1,4 @@
-import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb } from "lucide-react";
+import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb, Star } from "lucide-react";
 
 // One place for the color/icon/label per account type, so the "Pilot"
 // header, Settings, and anywhere else that shows account type all stay in
@@ -12,6 +12,8 @@ export const ACCOUNT_TYPE_STYLES = {
   band: { label: "Artist", color: "#EF4444", icon: Music },
   engineer: { label: "Audio Engineer", color: "#8CFF3D", icon: Headphones },
   lighting: { label: "Lighting Tech", color: "#8CFF3D", icon: Lightbulb },
+  // Fans: starlight, the color of their star and key in the event sky.
+  fan: { label: "Fan", color: "#E4E0FF", icon: Star },
 };
 
 // The account type is remembered on this device, so screens that draw before

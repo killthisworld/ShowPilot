@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb, ChevronLeft } from "lucide-react";
+import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb, ChevronLeft, Star } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -33,13 +33,24 @@ const ROLE_GROUPS = [
       { value: "lighting", label: "Lighting Tech", icon: Lightbulb },
     ],
   },
+  {
+    // Fans (job 77): every show they RSVP to, with their key and sky.
+    label: "Going to shows",
+    roles: [
+      { value: "fan", label: "Fan", icon: Star },
+    ],
+  },
 ];
 const ROLES = ROLE_GROUPS.flatMap((g) => g.roles);
 const roleColor = (value) => ACCOUNT_TYPE_STYLES[value]?.color || "#8CFF3D";
 
 export default function Register() {
-  const [step, setStep] = useState(1);
-  const [accountType, setAccountType] = useState(null);
+  // ?role=fan (from an RSVP confirmation) skips straight to the form.
+  const presetRole = (() => {
+    try { const r = new URLSearchParams(window.location.search).get("role"); return ROLES.some((x) => x.value === r) ? r : null; } catch { return null; }
+  })();
+  const [step, setStep] = useState(presetRole ? 2 : 1);
+  const [accountType, setAccountType] = useState(presetRole);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -167,6 +178,11 @@ export default function Register() {
           }
         />
         <form onSubmit={handleSubmit} className="px-6 pt-5 pb-6 space-y-4">
+          {accountType === "fan" && (
+            <p className="text-[14px] leading-snug rounded-lg px-3 py-2.5" style={{ color: "#d6d8f5", background: "#0b0e24", border: "1px solid #2b2f5a" }}>
+              Use the email you RSVP with. Every show you RSVP to with it shows up in your account, with your key and the event sky.
+            </p>
+          )}
           <AuthField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           <AuthField label="Password" password autoComplete="new-password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="At least 6 characters" />
           <AuthField label="Confirm password" password autoComplete="new-password" minLength={6} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />

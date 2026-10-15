@@ -96,6 +96,10 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
               )}
               <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
             </div>
+            {/* Fan accounts (job 77): every show you RSVP to, in one place. */}
+            <a href="/register?role=fan" className="mt-3 block text-[13px] leading-snug text-white/60 hover:text-white">
+              Keep all your shows and stars in one place. <span className="font-semibold underline underline-offset-2" style={{ color }}>Create a free fan account</span>
+            </a>
           </>
         ) : full && !saved ? (
           <div className="py-1">
