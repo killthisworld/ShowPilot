@@ -109,6 +109,10 @@ const AuthenticatedApp = () => {
         <Route path="/dj" element={<DjTools />} />
         <Route path="/dj/drive/callback" element={<DjDriveCallback />} />
       </Route>
+      {/* Custom fan links: showpilot.space/<name>. Every real page above wins; this only
+          catches a single unknown word, and FanEvent shows "not available" if it isn't one. */}
+      <Route path="/:token" element={<FanEvent />} />
+      <Route path="/:token/sky" element={<EventSky />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

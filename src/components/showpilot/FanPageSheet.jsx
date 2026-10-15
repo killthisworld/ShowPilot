@@ -137,7 +137,7 @@ function OwnerSheet({ showId, onClose }) {
 
   const set = (patch) => { setUpdated(false); setErr(""); setDraft((d) => ({ ...d, ...patch })); };
   const url = row ? fanUrl(row.fan_slug, row.fan_token) : "";
-  const linkPrefix = fanUrl("zz").slice(0, -3); // e.g. https://showpilot.space/rsvp
+  const linkPrefix = fanUrl("zz").slice(0, -2); // e.g. https://showpilot.space/
   const dirty = row && draft && JSON.stringify(draft) !== JSON.stringify(toDraft(row));
 
   const copy = async () => {
@@ -571,7 +571,7 @@ function OwnerSheet({ showId, onClose }) {
         <div className="mt-2 px-1.5 pb-1.5 pt-2 border-t border-[#1f1f1f]">
           <div className="text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>CUSTOM LINK</div>
           <div className="mt-1.5 flex items-center bg-[#0d0d0d] border border-[#2a2a2a] rounded-lg focus-within:border-[#8CFF3D]/60 overflow-hidden">
-            <span className="pl-3 pr-0.5 text-[14px] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>{linkPrefix.replace(/^https?:\/\//, "")}/</span>
+            <span className="pl-3 pr-0.5 text-[14px] text-white/45 shrink-0" style={{ fontFamily: SCENE_MONO }}>{linkPrefix.replace(/^https?:\/\//, "")}</span>
             <input
               value={draft.slug}
               onChange={(e) => set({ slug: cleanSlug(e.target.value) })}
@@ -588,7 +588,7 @@ function OwnerSheet({ showId, onClose }) {
           </div>
           <p className="mt-1.5 text-[13px] leading-snug text-white/45">
             {slugProblem(trimSlug(draft.slug)) || (trimSlug(draft.slug) !== (row.fan_slug || "")
-              ? "Press Update to change the link. Your QR code and shared links will use the new one."
+              ? `Press Update to change the link. Your QR code and shared links will use the new one.${row.fan_slug ? " The old name will stop working." : ""}`
               : `Pick an easy name to share, like the event name. ${SLUG_MIN}-${SLUG_MAX} letters, numbers and hyphens. Leave blank to use the automatic link.`)}
           </p>
         </div>
