@@ -65,7 +65,13 @@ export default function TicketCard({
         style={{ left: stubWidth - 1, top: notch + 3, bottom: notch + 3, borderLeft: "2px dashed rgba(255,255,255,0.2)" }}
       />
       <div className={`relative isolate overflow-hidden flex-1 min-w-0 rounded-r-[10px] ${compact ? "px-2.5 py-2" : "pl-4 pr-3.5 py-3"}`}>
-        <EventBarPhoto url={photo} />
+        {/* The event's photo across the ticket body (job 73: clearly
+            visible, not a faint wash), with a scrim so the text stays
+            readable on any image. */}
+        <EventBarPhoto url={photo} opacity={0.6} />
+        {photo && (
+          <span aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(21,21,21,0.92) 0%, rgba(21,21,21,0.55) 55%, rgba(21,21,21,0.15) 100%)" }} />
+        )}
         {children}
       </div>
     </div>

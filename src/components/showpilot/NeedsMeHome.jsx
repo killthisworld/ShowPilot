@@ -8,11 +8,16 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import {
-  BLAZE, BLAZE_TINT, dueInfo, localISO, addDaysISO, shortDate, timeAgo, chatHref, chatTitle,
+  BLAZE, dueInfo, localISO, addDaysISO, shortDate, timeAgo, chatHref, chatTitle,
   readSeenChanges, rememberSeenChange, sectionMeta, vocab, openQuickAdd,
 } from "@/lib/needsMe";
 
 const BLUE = "#60A5FA";
+// Count tiles (job 73): due now = red, new messages = Show Pilot green,
+// changed = yellow.
+const RED = "#FF4545";
+const NEW_GREEN = "#8CFF3D";
+const CHANGED_YELLOW = "#FACC15";
 const TASKS_SHOWN = 5;
 
 // The company phone home: straight to what needs you. Tasks due on your
@@ -134,9 +139,9 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
       {/* Count tiles */}
       <div className="grid grid-cols-3 gap-2 px-5 pb-3.5">
         {[
-          { n: dueNow.length, label: "DUE NOW", color: BLAZE, bg: BLAZE_TINT, ref: tasksRef },
-          { n: unreadTotal, label: "UNREAD", color: BLUE, bg: "#0d1520", ref: chatsRef },
-          { n: changes.length, label: "CHANGED", color: accent, bg: tint(accent), ref: changesRef },
+          { n: dueNow.length, label: "DUE NOW", color: RED, bg: tint(RED), ref: tasksRef },
+          { n: unreadTotal, label: "NEW", color: NEW_GREEN, bg: tint(NEW_GREEN), ref: chatsRef },
+          { n: changes.length, label: "CHANGED", color: CHANGED_YELLOW, bg: tint(CHANGED_YELLOW), ref: changesRef },
         ].map((t) => (
           <button
             key={t.label}
@@ -179,14 +184,16 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
             {sectionLabel(`TASKS · ${tasks.length}`)}
             {shownTasks.map((t) => {
               const due = dueInfo(t.due_date);
-              const metaColor = due?.urgent ? BLAZE : "rgba(255,255,255,0.55)";
+              // Due today or overdue matches the red DUE NOW tile.
+              const urgent = !!due?.urgent;
+              const metaColor = urgent ? RED : "rgba(255,255,255,0.55)";
               return (
                 <div key={t.id} className={`${card} flex items-center gap-3 p-3`}>
                   <button
                     onClick={() => markDone(t)}
                     aria-label={`Mark "${t.title}" done`}
                     className="w-11 h-11 shrink-0 rounded-full bg-transparent flex items-center justify-center"
-                    style={{ border: `2px solid ${due?.urgent ? BLAZE : "#4a4a4a"}`, color: due?.urgent ? BLAZE : "#8a8a8a" }}
+                    style={{ border: `2px solid ${urgent ? RED : "#4a4a4a"}`, color: urgent ? RED : "#8a8a8a" }}
                   >
                     <Check className="w-5 h-5" strokeWidth={2.5} />
                   </button>
@@ -210,7 +217,7 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
         {/* Unread chats */}
         {unreadChats.length > 0 && (
           <div ref={chatsRef} className="flex flex-col gap-2.5 pt-1.5 scroll-mt-4">
-            {sectionLabel(`UNREAD · ${unreadTotal}`)}
+            {sectionLabel(`NEW · ${unreadTotal}`)}
             {unreadChats.slice(0, 5).map((c) => {
               const color = c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color;
               const title = chatTitle(c);
@@ -274,6 +281,7 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
                     key={g.share_token || g.id}
                     color={eventTypeColor(g.event_type) || accent}
                     date={g.date}
+                    photo={g.icon_url}
                     compact
                     stubWidth={44}
                     notch={6}

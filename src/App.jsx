@@ -41,6 +41,7 @@ import GigRooms from '@/pages/GigRooms';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
 import About from '@/pages/About';
+import MePage from "@/pages/MePage";
 import DjTools from '@/pages/DjTools';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
@@ -106,6 +107,7 @@ const AuthenticatedApp = () => {
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />
         <Route path="/eventbrite/callback" element={<EventbriteCallback />} />
+        <Route path="/me" element={<MePage />} />
         <Route path="/dj" element={<DjTools />} />
         <Route path="/dj/drive/callback" element={<DjDriveCallback />} />
       </Route>

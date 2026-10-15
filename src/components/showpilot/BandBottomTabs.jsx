@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User } from "lucide-react";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -20,7 +20,7 @@ const TABS = [
 // Phones: the company phone layout's bottom bar - Needs me / Events / + /
 // Chats / Me, with "+" (quick-add a task) in the middle on every screen.
 // Events opens the banner calendar; an event's web opens from there. Me is
-// your profile and settings (job 67).
+// your profile and settings, as its own full page (/me, job 73).
 // Desktop (1024px+): a slim left rail with Home / Calendar / Cockpit plus
 // settings, and <body> is tagged so the page shifts over to make room (see
 // index.css).
@@ -69,7 +69,6 @@ export default function BandBottomTabs() {
 }
 
 function CompanyPhoneBar({ preferences, pathname, search }) {
-  const { reload } = usePreferences();
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const words = vocab(preferences?.account_type);
   const { data } = useNeedsMe();
@@ -78,7 +77,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
   const view = v === "events" ? "events" : v;
   const activeKey =
     view ||
-    (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : null);
+    (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : pathname.startsWith("/me") ? "me" : null);
 
   const tab = (key, to, label, Icon, badge) => {
     const active = activeKey === key;
@@ -92,7 +91,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
         <Icon className="w-[22px] h-[22px]" strokeWidth={2} />
         <span>{label}</span>
         {badge > 0 && (
-          <span className="absolute top-0.5 right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[11px] font-bold flex items-center justify-center">
+          <span className="absolute top-0.5 right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#8CFF3D] text-[#0d0d0d] text-[11px] font-bold flex items-center justify-center">
             {badge > 99 ? "99+" : badge}
           </span>
         )}
@@ -119,7 +118,21 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
             <Plus className="w-7 h-7" strokeWidth={3} />
           </button>
           {tab("chats", "/?view=chats", "Chats", MessageCircle, unread)}
-          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} tab accent={accent} />
+          {/* Me opens a full page (/me), not a slide-over. */}
+          <Link
+            to="/me"
+            aria-label="Me: profile and settings"
+            aria-current={activeKey === "me" ? "page" : undefined}
+            className="relative w-16 h-[52px] flex flex-col items-center justify-center gap-[3px] text-[11px] font-semibold transition-colors"
+            style={{ color: activeKey === "me" ? accent : "rgba(255,255,255,0.55)" }}
+          >
+            <span className="w-6 h-6 rounded-full overflow-hidden bg-[#262626] flex items-center justify-center" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
+              {preferences?.profile_photo_url
+                ? <img src={preferences.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                : <User className="w-3.5 h-3.5 text-white/60" />}
+            </span>
+            <span>Me</span>
+          </Link>
         </div>
       </nav>
       <QuickAddSheet preferences={preferences} accent={accent} />

@@ -5,18 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Link2, Archive, Disc3 } from "lucide-react";
+import { Menu, User, LogOut, Star, Link2, Archive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
-import { DJ_COLOR } from "@/lib/djTools";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
 // `avatar`: the trigger is the person's profile photo (desktop rail) instead
 // of the menu bars (phone header). `tab`: the trigger is the "Me" tab on the
 // company phone's bottom bar (photo + label), with `accent` as its ring.
-export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, avatar = false, tab = false, accent = "#8CFF3D" }) {
+// `page`: no drawer at all, the panel renders in place (the company phone's
+// full-screen Me page, /me).
+export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, avatar = false, tab = false, page = false, accent = "#8CFF3D" }) {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(preferences || { display_name: "" });
   const [saving, setSaving] = useState(false);
@@ -120,6 +121,26 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
     setRatingSubmitting(false);
   };
 
+  const panel = (
+    <SettingsPanel
+      prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
+      navItems={[
+        { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
+        { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
+        { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/band-profile"); } },
+        // DJ Tools isn't listed here: it lives on the Manager / Artist
+        // profile web (its DJ Tools feature corner -> Lineup & set times).
+      ]}
+      onSave={save} saving={saving}
+      canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}
+      ratingComment={ratingComment} setRatingComment={setRatingComment} ratingSubmitting={ratingSubmitting} onSubmitRating={submitRating}
+      onColorsSaved={() => onPreferencesUpdate?.()}
+      onSignOut={handleSignOut}
+    />
+  );
+
+  if (page) return panel;
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -145,23 +166,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
         )}
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-[#0d0d0d] border-[#1f1f1f] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <SettingsPanel
-          prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
-          navItems={[
-            { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
-            { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
-            { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/band-profile"); } },
-            // DJ tools live with the Manager / Artist profiles.
-            ...(["band", "manager"].includes(prefs.account_type)
-              ? [{ icon: Disc3, label: "DJ Tools", sub: "Set links, running order, WAVs straight to your Google Drive", color: DJ_COLOR, onClick: () => { setOpen(false); navigate("/dj"); } }]
-              : []),
-          ]}
-          onSave={save} saving={saving}
-          canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}
-          ratingComment={ratingComment} setRatingComment={setRatingComment} ratingSubmitting={ratingSubmitting} onSubmitRating={submitRating}
-          onColorsSaved={() => onPreferencesUpdate?.()}
-          onSignOut={handleSignOut}
-        />
+        {panel}
       </SheetContent>
     </Sheet>
   );
