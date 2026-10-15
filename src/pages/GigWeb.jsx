@@ -989,7 +989,9 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded,
 // RPC the old SharedGig page used for this, then onChanged() (loadGig)
 // picks the saved values back up everywhere else on the page (the header,
 // the web's center hub, the status line) at once.
-function EventDetailsEditor({ token, gig, onChanged, onIconChanged }) {
+// `compact`: the desktop board's one-row version (icon, name, date, Save
+// only while something changed), always open so there's no dropdown.
+function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = false }) {
   const [eventName, setEventName] = useState(gig.event_name || "");
   const [date, setDate] = useState(gig.date || "");
   const [saving, setSaving] = useState(false);
@@ -1053,6 +1055,54 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged }) {
     }
     setSaving(false);
   };
+
+  if (compact) {
+    const inCls = "min-w-0 bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-white/30 rounded-md px-2 py-1 text-white outline-none";
+    return (
+      <div className="mb-3">
+        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-[#262626] bg-[#111]">
+          <label className="relative shrink-0 cursor-pointer group" title={gig.icon_url ? "Change event image" : "Add an event image"}>
+            <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={36} />
+            <span className="absolute inset-0 rounded-lg flex items-center justify-center bg-black/60 text-[9px] font-bold tracking-[0.06em] text-white opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontFamily: SCENE_MONO }}>{iconBusy ? "..." : "EDIT"}</span>
+            <input type="file" accept="image/*" className="hidden" disabled={iconBusy} onChange={uploadIcon} />
+          </label>
+          <input
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+            placeholder="Event name"
+            aria-label="Event name"
+            className={`${inCls} flex-1 text-[16px] font-semibold placeholder:text-white/30`}
+          />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Date"
+            className={`${inCls} shrink-0 w-[150px] text-[14px] text-white/80 [color-scheme:dark]`}
+            style={{ fontFamily: SCENE_MONO }}
+          />
+          {(dirty || saved) && (
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || !dirty}
+              className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold tracking-[0.06em]"
+              style={{ background: "#8CFF3D", color: "#0d0d0d" }}
+            >
+              {saved ? "SAVED ✓" : saving ? "..." : "SAVE"}
+            </button>
+          )}
+        </div>
+        {(iconError || (gig.icon_url && !iconBusy)) && (
+          <div className="mt-1 px-1 flex items-center gap-3 text-[11px]">
+            {iconError && <span className="text-red-400">{iconError}</span>}
+            {gig.icon_url && !iconBusy && <button type="button" onClick={removeIcon} className="text-white/35 hover:text-red-400">Remove image</button>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4 pb-4 border-b border-[#1f1f1f]">
@@ -1153,9 +1203,9 @@ function MyIconControl({ gig, myIcon, onChanged }) {
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
 function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails }) {
-  // Desktop board: the event's name / date / icon editor folds into one line
-  // so the role tiles and tasks lead. Phones keep it open, as before.
-  const [detailsOpen, setDetailsOpen] = useState(!foldDetails);
+  // Desktop board: the event's name / date / icon editor is one compact row
+  // (always open, no dropdown) so the role tiles and tasks lead. Phones keep
+  // the full editor, as before.
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
@@ -1164,20 +1214,9 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
   const showHeadcount = claimedCount > 0 || invitedCount > 0;
   return (
     <div>
-      {permissions?.is_owner && gig && (detailsOpen ? (
-        <>
-          <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} />
-          {foldDetails && (
-            <button type="button" onClick={() => setDetailsOpen(false)} className="-mt-2 mb-3 text-white/40 hover:text-white text-xs font-semibold">Done editing details</button>
-          )}
-        </>
-      ) : (
-        <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-lg border border-[#262626] bg-[#111]">
-          <span className="text-[10px] tracking-[0.12em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>EVENT</span>
-          <span className="text-sm text-white/80 truncate">{[gig.event_name || gig.band_name, gig.date && new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ") || "Add a name and date"}</span>
-          <button type="button" onClick={() => setDetailsOpen(true)} className="ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border border-white/20 text-white/65 hover:text-white">Edit details</button>
-        </div>
-      ))}
+      {permissions?.is_owner && gig && (
+        <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} compact={!!foldDetails} />
+      )}
       {canPersonalIcon && gig && (
         <MyIconControl gig={gig} myIcon={myIcon} onChanged={onMyIconChanged} />
       )}
