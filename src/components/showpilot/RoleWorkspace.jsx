@@ -1115,12 +1115,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
             </button>
           </div>
-          {side.body && (
-            <details className="rounded-[10px] border border-[#1f1f1f] bg-[#0a0a0a] px-4 py-3">
-              <summary className="cursor-pointer text-[11px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>AT A GLANCE</summary>
-              <div className="flex flex-col gap-3 pt-3">{side.body}</div>
-            </details>
-          )}
         </div>
       </>
     );
@@ -1131,7 +1125,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-[15px] font-semibold text-white/55 hover:text-white">
         <ArrowLeft className="w-4 h-4" /> My Templates
       </button>
-      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
       <h1 className="text-[32px] font-bold tracking-wide leading-none whitespace-nowrap">{ROLE_TITLE[role]} template</h1>
       <input
         value={template.name}
@@ -1150,7 +1143,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       <button type="button" onClick={onClose} className="flex items-center gap-1.5 text-[15px] font-semibold text-white/55 hover:text-white">
         <ArrowLeft className="w-4 h-4" /> {modal ? "Back to board" : "Event board"}
       </button>
-      <span className="w-3 h-3 rounded-full shrink-0" style={{ background: color }} />
       <h1 className="text-[32px] font-bold tracking-wide leading-none whitespace-nowrap">{ROLE_TITLE[role]}</h1>
       <span className="text-[12px] tracking-[0.08em] text-white/55 border border-[#262626] rounded-md px-2.5 py-1.5 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
         {[gig.event_name || gig.band_name, dateLabel, gig.venue].filter(Boolean).join(" · ")}

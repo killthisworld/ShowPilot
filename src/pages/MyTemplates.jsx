@@ -420,7 +420,6 @@ export default function MyTemplates() {
     <div className="fixed inset-0 z-[70] bg-[#0d0d0d] overflow-y-auto" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-10 bg-[#0d0d0d]/95 backdrop-blur border-b border-[#1a1a1a] px-4 py-3 flex items-center gap-3">
         <button type="button" onClick={closeEditor} aria-label="Back to My Templates" className="p-1 -ml-1 text-white/60 hover:text-white"><ArrowLeft className="w-5 h-5" /></button>
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: GROUP[editing.role].style.color }} />
         <input
           value={editing.name}
           onChange={(e) => tplMeta.setName(e.target.value)}
