@@ -6,6 +6,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
+import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
@@ -152,6 +153,11 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [leaving, setLeaving] = useState(false);
   const [hubAnim, setHubAnim] = useState(0);
   const [webSlot, setWebSlot] = useState(null);
+  // Bulletin board task summaries: the task open in TaskSheet, and where a
+  // claim sends you (that profile's web, opened on its Current tasks node).
+  const [openTaskId, setOpenTaskId] = useState(null);
+  const [webFocus, setWebFocus] = useState({ role: null, n: 0 });
+  const pendingTab = useRef(null);
   const leaveTimer = useRef(null);
   useEffect(() => () => clearTimeout(leaveTimer.current), []);
   const hubEntered = useEntrance(hubAnim);
@@ -224,7 +230,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const selectRole = (role) => {
     const apply = () => {
       setSelectedRole(role);
-      setActiveTab("profile");
+      setActiveTab(pendingTab.current || "profile");
+      pendingTab.current = null;
       setProfileExpanded(false);
     };
     const changesWeb = isRoleWeb(selectedRole) !== isRoleWeb(role) || (isRoleWeb(role) && role !== selectedRole);
@@ -243,15 +250,53 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // task's section is just where it happens to point - so state and the
   // two mutations live here and get handed down to both the Board and
   // whichever role's Profile tab is open.
-  const addTask = async (section, title) => {
+  // Task RPCs return the bare row; merge it over what we have so the names
+  // get_shared_gig adds (who added / claimed it) stay put.
+  const mergeTask = (taskId, data) => setGig((g) => ({
+    ...g,
+    tasks: (g.tasks || []).map((t) => (t.id === taskId
+      ? { ...t, ...data, claimed_by_name: data.claimed_by && data.claimed_by === t.claimed_by ? t.claimed_by_name : null }
+      : t)),
+  }));
+  const addTask = async (section, title, details = "") => {
     const { data, error } = await supabase.rpc("add_gig_task", { p_token: token, p_section: section, p_title: title });
     if (error) { console.error(error); throw error; }
-    setGig((g) => ({ ...g, tasks: [...(g.tasks || []), data] }));
+    let task = data;
+    if (details.trim()) {
+      const res = await supabase.rpc("set_gig_task_details", { p_token: token, p_task_id: data.id, p_details: details });
+      if (!res.error && res.data) task = res.data;
+    }
+    setGig((g) => ({ ...g, tasks: [...(g.tasks || []), { ...task, created_by_name: g.owner_display_name || null }] }));
   };
   const completeTask = async (taskId, done = true) => {
     const { data, error } = await supabase.rpc("set_gig_task_status", { p_token: token, p_task_id: taskId, p_done: done });
     if (error) { console.error(error); throw error; }
-    setGig((g) => ({ ...g, tasks: (g.tasks || []).map((t) => (t.id === taskId ? data : t)) }));
+    mergeTask(taskId, data);
+  };
+  const claimTask = async (taskId, claim = true) => {
+    const { data, error } = await supabase.rpc("claim_gig_task", { p_token: token, p_task_id: taskId, p_claim: claim });
+    if (error) throw error;
+    mergeTask(taskId, data);
+  };
+  const saveTaskDetails = async (taskId, details) => {
+    const { data, error } = await supabase.rpc("set_gig_task_details", { p_token: token, p_task_id: taskId, p_details: details });
+    if (error) throw error;
+    mergeTask(taskId, data);
+  };
+  // After a claim: that profile's web, opened on Current tasks (the Audio /
+  // Lighting section has no web of its own, so it lands on its task board).
+  const goToCurrentTasks = (section) => {
+    setOpenTaskId(null);
+    if (isRoleWeb(section)) {
+      setWebFocus((f) => ({ role: section, n: f.n + 1 }));
+      pendingTab.current = "profile";
+      if (selectedRole !== section) selectRole(section);
+      else setActiveTab("profile");
+    } else {
+      pendingTab.current = "tasks";
+      if (selectedRole !== section) selectRole(section);
+      else setActiveTab("tasks");
+    }
   };
 
   // Both go straight through the shows table (same RLS-gated pattern
@@ -390,8 +435,26 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     );
   })();
 
+  const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
   const overlays = (
     <>
+      {openTask && (
+        <TaskSheet
+          task={openTask}
+          color={nodes.find((n) => n.role === openTask.section)?.style.color || ACCOUNT_TYPE_STYLES[openTask.section]?.color || "#8CFF3D"}
+          label={SECTION_LABELS[openTask.section] || openTask.section}
+          userId={user?.id}
+          signedIn={!!user}
+          isOwner={!!permissions?.is_owner}
+          canWork={!!user && roleEditable(openTask.section, permissions)}
+          onClose={() => setOpenTaskId(null)}
+          onClaim={async () => { await claimTask(openTask.id, true); goToCurrentTasks(openTask.section); }}
+          onRelease={() => claimTask(openTask.id, false)}
+          onDone={async () => { await completeTask(openTask.id, true); setOpenTaskId(null); }}
+          onSaveDetails={(d) => saveTaskDetails(openTask.id, d)}
+          onGoToCurrent={() => goToCurrentTasks(openTask.section)}
+        />
+      )}
       {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}
       {showArchiveConfirm && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => !archiving && setShowArchiveConfirm(false)}>
@@ -458,6 +521,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
+        onOpenTask={setOpenTaskId} webFocus={webFocus}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={() => setShowFanSheet(true)}
       />
     );
@@ -605,7 +669,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
           {roleWeb && (
             <RoleWebPanel
-              key={selectedRole}
+              key={`${selectedRole}:${webFocus.role === selectedRole ? webFocus.n : 0}`}
               role={selectedRole}
               token={token}
               onChanged={loadGig}
@@ -615,6 +679,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               onOpenRole={selectRole}
               onOpenFanPage={() => setShowFanSheet(true)}
               showContent={activeTab === "profile"}
+              initialTab={webFocus.role === selectedRole && webFocus.n ? "tasks" : null}
             />
           )}
           {activeTab === "profile" ? (
@@ -640,6 +705,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               onAddTask={addTask}
               onCompleteTask={completeTask}
               onSelectRole={selectRole}
+              onOpenTask={setOpenTaskId}
+              userId={user?.id}
             />
           ) : (
             <RoomsTabPanel
@@ -666,7 +733,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // it to RoleWorkspace's "web" layout, which spins its tabs into `webSlot`
 // (the hub's place on the page) and renders the open tab here. Keyed by
 // role, so switching profiles starts fresh.
-function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true }) {
+function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true, initialTab = null }) {
   const p = useRoleProfile({ role, token, onChanged });
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const ready = !(p.loading || p.checkingAuth || p.notFound || !p.gig);
@@ -722,6 +789,7 @@ function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpen
         onOpenRole={onOpenRole}
         onOpenFanPage={onOpenFanPage}
         showContent={showContent}
+        initialTab={initialTab}
       />
       <InviteModal
         inviteFor={invite.inviteFor}
@@ -1174,17 +1242,17 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
 // control (RoleTaskList, unchanged) - same components, same "guided"
 // tap-a-task-to-go-fill-it-out behavior as before, just reachable from
 // their own tab rather than nested inside Board/Profile.
-function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAddTask, onCompleteTask, onSelectRole }) {
+function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAddTask, onCompleteTask, onSelectRole, onOpenTask, userId }) {
   if (selectedRole) {
     const roleTasks = (tasks || []).filter((t) => t.section === selectedRole && t.status !== "done");
     if (roleTasks.length === 0) {
       return <p className="text-white/25 text-xs text-center py-3">Nothing outstanding for this section right now.</p>;
     }
-    return <RoleTaskList tasks={roleTasks} editable={roleEditable(selectedRole, permissions)} onComplete={onCompleteTask} />;
+    return <RoleTaskList tasks={roleTasks} editable={roleEditable(selectedRole, permissions)} onComplete={onCompleteTask} onOpen={onOpenTask} userId={userId} />;
   }
 
   const openTasks = (tasks || []).filter((t) => t.status !== "done");
-  return <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} />;
+  return <TasksSection nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={onAddTask} onSelectRole={onSelectRole} onOpenTask={onOpenTask} userId={userId} />;
 }
 
 // The board's Tasks section - free-form owner-created to-dos, each
@@ -1193,9 +1261,10 @@ function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAdd
 // role's Profile tab (RoleTaskList below renders it there with a Mark
 // done button), so the board itself stays a scannable list of what's
 // still outstanding rather than a form.
-function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes }) {
+function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes, onOpenTask, userId }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
+  const [details, setDetails] = useState("");
   const [section, setSection] = useState(nodes[0]?.role || "");
   const [submitting, setSubmitting] = useState(false);
 
@@ -1203,8 +1272,9 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
     if (!title.trim() || !section || submitting) return;
     setSubmitting(true);
     try {
-      await onAddTask(section, title.trim());
+      await onAddTask(section, title.trim(), details);
       setTitle("");
+      setDetails("");
       setAdding(false);
     } catch (e) {
       console.error(e);
@@ -1237,6 +1307,14 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
             placeholder="e.g. Book venues for East Coast leg"
             className="w-full h-9 bg-[#111] border border-[#222] rounded-lg px-3 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
           />
+          <textarea
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="What needs doing (optional): the steps or anything they should know"
+            className="w-full bg-[#111] border border-[#222] rounded-lg px-3 py-2 text-white text-sm leading-snug placeholder:text-white/25 outline-none focus:border-[#333]"
+          />
           <div className="flex items-center gap-1.5 flex-wrap">
             {nodes.map((n) => (
               <button
@@ -1253,7 +1331,7 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
             ))}
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={() => { setAdding(false); setTitle(""); }} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1">
+            <button type="button" onClick={() => { setAdding(false); setTitle(""); setDetails(""); }} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1">
               Cancel
             </button>
             <button
@@ -1272,7 +1350,7 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
         <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
           {tasks.map((t, i) => {
             const node = nodes.find((n) => n.role === t.section);
-            return <TaskNote key={t.id} i={i} title={t.title} color={node?.style.color || "#8CFF3D"} label={node?.style.label || t.section} onClick={() => onSelectRole(t.section)} />;
+            return <TaskNote key={t.id} i={i} title={t.title} color={node?.style.color || "#8CFF3D"} label={node?.style.label || t.section} claimedBy={claimText(t, userId)} onClick={() => (onOpenTask ? onOpenTask(t.id) : onSelectRole(t.section))} />;
           })}
         </div>
       ) : tasks.length > 0 ? (
@@ -1284,11 +1362,14 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
               <button
                 key={t.id}
                 type="button"
-                onClick={() => onSelectRole(t.section)}
+                onClick={() => (onOpenTask ? onOpenTask(t.id) : onSelectRole(t.section))}
                 className="w-full flex items-center gap-2 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
               >
                 <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-white text-sm truncate flex-1 min-w-0">{t.title}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-white text-sm truncate">{t.title}</span>
+                  {t.claimed_by && <span className="block text-[11px] truncate" style={{ color }}>Claimed by {claimText(t, userId)}</span>}
+                </span>
                 <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0" style={{ color, background: color + "1A" }}>
                   {node?.style.label || t.section}
                 </span>
@@ -1308,7 +1389,7 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes })
 // here, each with a Mark done button for whoever can edit this section
 // (owner, role-holder, or granted access - same `editable` flag the
 // fields below already use).
-function RoleTaskList({ tasks, editable, onComplete }) {
+function RoleTaskList({ tasks, editable, onComplete, onOpen, userId }) {
   const [completingId, setCompletingId] = useState(null);
 
   const complete = async (id) => {
@@ -1327,12 +1408,15 @@ function RoleTaskList({ tasks, editable, onComplete }) {
       <p className="text-white/30 text-[10px] font-bold uppercase tracking-wide">Tasks for this section</p>
       <div className="flex flex-col gap-1">
         {tasks.map((t) => (
-          <div key={t.id} className="flex items-center justify-between gap-2 bg-[#161616] rounded-lg px-3 py-2">
-            <span className="text-white/80 text-xs truncate">{t.title}</span>
-            {editable && (
+          <div key={t.id} className="flex items-center justify-between gap-2 bg-[#161616] rounded-lg px-3 py-2 cursor-pointer hover:bg-[#1c1c1c]" onClick={() => onOpen?.(t.id)}>
+            <span className="min-w-0">
+              <span className="block text-white/80 text-xs truncate">{t.title}</span>
+              {t.claimed_by && <span className="block text-[10.5px] text-white/45 truncate">Claimed by {claimText(t, userId)}</span>}
+            </span>
+            {editable && (!t.claimed_by || t.claimed_by === userId) && (
               <button
                 type="button"
-                onClick={() => complete(t.id)}
+                onClick={(e) => { e.stopPropagation(); complete(t.id); }}
                 disabled={!!completingId}
                 className="flex items-center gap-1 text-[10px] font-semibold text-[#8CFF3D] hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-full shrink-0 disabled:opacity-50 transition-colors"
               >
@@ -1447,11 +1531,15 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
 // ---------------------------------------------------------------------
 const NOTE_TILT = [-2.2, 1.6, -1, 2.1, -1.7, 1.2];
 
-function TaskNote({ i, title, color, label, onClick, onDone, doneBusy }) {
+function TaskNote({ i, title, color, label, onClick, onDone, doneBusy, claimedBy }) {
   return (
     <div
       className="relative box-border w-[calc(50%-7px)] min-h-[104px] pt-4 pb-2.5 px-3 rounded-[3px] flex flex-col justify-between cursor-pointer"
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+      aria-label={`Task: ${title}. Open summary`}
       style={{
         background: "#241c0a",
         border: "1px solid rgba(255,106,0,0.4)",
@@ -1468,7 +1556,7 @@ function TaskNote({ i, title, color, label, onClick, onDone, doneBusy }) {
             <Check className="w-3 h-3" /> Done
           </button>
         ) : (
-          <span className="text-[10px] font-semibold" style={{ fontFamily: SCENE_MONO, color }}>OPEN</span>
+          <span className="text-[10px] font-semibold truncate" style={{ fontFamily: SCENE_MONO, color }}>{claimedBy ? (claimedBy === "You" ? "YOURS" : `CLAIMED · ${claimedBy.toUpperCase()}`) : "OPEN"}</span>
         )}
       </div>
     </div>
@@ -1553,6 +1641,7 @@ function DesktopGigWeb({
   gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
   token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
   profileExpanded, setProfileExpanded, roleWeb, hubM, leaving, webSlot, setWebSlot, openFanPage,
+  onOpenTask, webFocus = { role: null, n: 0 },
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
@@ -1666,7 +1755,7 @@ function DesktopGigWeb({
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
               {roleWeb ? (
                 <RoleWebPanel
-                  key={selectedRole}
+                  key={`${selectedRole}:${webFocus.role === selectedRole ? webFocus.n : 0}`}
                   role={selectedRole}
                   token={token}
                   onChanged={loadGig}
@@ -1676,6 +1765,7 @@ function DesktopGigWeb({
                   onOpenRole={selectRole}
                   onOpenFanPage={openFanPage}
                   showInvite={false}
+                  initialTab={webFocus.role === selectedRole && webFocus.n ? "tasks" : null}
                 />
               ) : selectedRole ? (
                 profileExpanded ? (
@@ -1691,7 +1781,7 @@ function DesktopGigWeb({
                     ) : (
                       <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
                         {roleTasks.map((t, i) => (
-                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} onClick={() => {}} onDone={canDo ? () => done(t.id) : undefined} doneBusy={completingId === t.id} />
+                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} claimedBy={claimText(t, user?.id)} onClick={() => onOpenTask?.(t.id)} onDone={canDo && (!t.claimed_by || t.claimed_by === user?.id) ? () => done(t.id) : undefined} doneBusy={completingId === t.id} />
                         ))}
                       </div>
                     )}
@@ -1701,7 +1791,7 @@ function DesktopGigWeb({
                 <>
                   <OverviewBoard hideInvite foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
                   <div className="mt-5 pt-4 border-t border-dashed border-[#2a2a2a]">
-                    <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} />
+                    <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} onOpenTask={onOpenTask} userId={user?.id} />
                   </div>
                 </>
               )}

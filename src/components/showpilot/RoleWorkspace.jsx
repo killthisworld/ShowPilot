@@ -5,6 +5,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import DjLineupPanel from "@/components/showpilot/DjLineupPanel";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
+import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // Desktop workspace for one company role's section of an event (venue,
@@ -140,10 +141,12 @@ function SideRow({ left, right, rightColor, highlight }) {
 // profile web. Its tabs become the ring (portalled into `webSlot`, the hub's
 // place on the page) and the open tab's editor renders here, below the web
 // on a phone or beside it on desktop. Same tabs, same data, same Save.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null }) {
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
+  // Task summary (TaskSheet) open over the workspace, by task id.
+  const [openTaskId, setOpenTaskId] = useState(null);
   const off = !ed;
   const [copied, setCopied] = useState("");
   const copy = async (text, key) => {
@@ -925,17 +928,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const tabs = useMemo(
     () => {
       const list = builders[role]();
-      // Owner-assigned to-dos for this section sit at the top, ahead of the
-      // section's own parts, so the holder sees them first.
+      // Current tasks: this section's owner-assigned to-dos, with the ones
+      // you've claimed first. It sits at the top of the profile's web,
+      // ahead of the section's own parts, so the holder sees them first.
       const myTasks = (gig.tasks || []).filter((t) => t.section === role);
       const open = myTasks.filter((t) => t.status !== "done");
+      const mine = open.filter((t) => p.user && t.claimed_by === p.user.id);
       return [
         {
           key: "tasks",
-          label: "Your tasks",
-          summary: myTasks.length ? `${open.length} open · ${myTasks.length - open.length} done` : "Nothing assigned yet",
+          label: "Current tasks",
+          summary: myTasks.length ? [mine.length && `${mine.length} yours`, `${open.length} open`, `${myTasks.length - open.length} done`].filter(Boolean).join(" · ") : "Nothing assigned yet",
           state: myTasks.length === 0 ? "empty" : open.length ? "partial" : "done",
-          render: () => <TaskList tasks={myTasks} editable={ed} onToggle={p.setTaskDone} color={color} />,
+          render: () => <CurrentTasks tasks={myTasks} userId={p.user?.id} color={color} onOpen={setOpenTaskId} />,
         },
         ...list,
       ];
@@ -943,7 +948,26 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [role, gig, ed, p.canEdit]
   );
-  const [active, setActive] = useState(null);
+  const [active, setActive] = useState(initialTab || null);
+  // The task summary, for this workspace's tasks (claim / let go / done /
+  // details go through useRoleProfile, so the event web refreshes too).
+  const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
+  const taskSheet = openTask ? (
+    <TaskSheet
+      task={openTask}
+      color={ROLE_COLOR[openTask.section] || color}
+      label={SECTION_NAME[openTask.section] || openTask.section}
+      userId={p.user?.id}
+      signedIn={!!p.user}
+      isOwner={!!p.permissions?.is_owner}
+      canWork={openTask.section === "engineer" ? !!p.canEditSection?.("engineer") || !!p.canEditSection?.("lighting") : !!p.canEditSection?.(openTask.section)}
+      onClose={() => setOpenTaskId(null)}
+      onClaim={async () => { await p.claimTask(openTask.id, true); if (openTask.section === role) setActive("tasks"); }}
+      onRelease={() => p.claimTask(openTask.id, false)}
+      onDone={async () => { await p.markTaskDone(openTask.id, true); setOpenTaskId(null); }}
+      onSaveDetails={(d) => p.setTaskDetails(openTask.id, d)}
+    />
+  ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || tabs[1] || tabs[0];
   const side = role === "venue" ? venueSide() : role === "promoter" ? promoterSide() : role === "booking_agent" ? bookingSide() : managerSide();
   const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks");
@@ -998,6 +1022,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
+          {taskSheet}
           <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
             {!p.user && (
               <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
@@ -1022,7 +1047,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 <SideLabel className="mb-2">{ROLE_TITLE[role].toUpperCase()} IS WAITING ON</SideLabel>
                 <div className="flex flex-col gap-1.5">
                   {theirOpenReqs.map((q) => <SideRow key={q.id} left={q.name} right={(q.status || "requested").toUpperCase()} rightColor={q.status === "conflict" ? "#F87171" : AMBER} />)}
-                  {sectionTasks.filter((t) => t.status !== "done").map((t) => <SideRow key={t.id} left={t.title} right="TASK" rightColor={AMBER} />)}
+                  {sectionTasks.filter((t) => t.status !== "done").map((t) => (
+                    <button key={t.id} type="button" onClick={() => setOpenTaskId(t.id)} className="text-left">
+                      <SideRow left={t.title} right={t.claimed_by ? `CLAIMED · ${claimText(t, p.user?.id).toUpperCase()}` : "TASK"} rightColor={t.claimed_by ? color : AMBER} />
+                    </button>
+                  ))}
                 </div>
               </section>
             )}
@@ -1043,6 +1072,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
+        {taskSheet}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
@@ -1165,7 +1195,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   <SideLabel className="mb-2">{ROLE_TITLE[role].toUpperCase()} IS WAITING ON</SideLabel>
                   <div className="flex flex-col gap-1.5">
                     {theirOpenReqs.map((q) => <SideRow key={q.id} left={q.name} right={(q.status || "requested").toUpperCase()} rightColor={q.status === "conflict" ? "#F87171" : AMBER} />)}
-                    {sectionTasks.filter((t) => t.status !== "done").map((t) => <SideRow key={t.id} left={t.title} right="TASK" rightColor={AMBER} />)}
+                    {sectionTasks.filter((t) => t.status !== "done").map((t) => (
+                    <button key={t.id} type="button" onClick={() => setOpenTaskId(t.id)} className="text-left">
+                      <SideRow left={t.title} right={t.claimed_by ? `CLAIMED · ${claimText(t, p.user?.id).toUpperCase()}` : "TASK"} rightColor={t.claimed_by ? color : AMBER} />
+                    </button>
+                  ))}
                   </div>
                 </section>
               )}
@@ -1179,6 +1213,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   return (
     <Shell modal={modal} onClose={onClose}>
       {header}
+      {taskSheet}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
@@ -1265,6 +1300,55 @@ const SECTION_NAME = { venue: "Venue", promoter: "Promoter", booking_agent: "Boo
 
 // Owner-assigned to-dos (gig_tasks). The section holder ticks them off;
 // set_gig_task_status does its own permission check.
+// The Current tasks node on a profile's web: what you've claimed first, then
+// the section's unclaimed tasks you could pick up, then ones other people
+// hold, then done. Each opens its summary (TaskSheet) to claim / finish it.
+function CurrentTasks({ tasks, userId, color, onOpen }) {
+  if (!tasks.length) return <p className="text-[15px] text-white/40">The event owner hasn't assigned anything to this section yet.</p>;
+  const open = tasks.filter((t) => t.status !== "done");
+  const groups = [
+    ["YOURS", open.filter((t) => userId && t.claimed_by === userId), "Nothing claimed yet. Pick a task below and claim it."],
+    ["UP FOR GRABS", open.filter((t) => !t.claimed_by), null],
+    ["CLAIMED BY OTHERS", open.filter((t) => t.claimed_by && t.claimed_by !== userId), null],
+    ["DONE", tasks.filter((t) => t.status === "done"), null],
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map(([title, list, empty]) => (list.length || empty) ? (
+        <section key={title}>
+          <SideLabel className="mb-1.5">{title}{list.length ? ` · ${list.length}` : ""}</SideLabel>
+          {list.length ? (
+            <div className="bg-[#111] border border-[#1f1f1f] rounded-[10px] divide-y divide-[#1c1c1c]">
+              {list.map((t) => {
+                const done = t.status === "done";
+                const who = claimText(t, userId);
+                return (
+                  <button key={t.id} type="button" onClick={() => onOpen(t.id)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03]">
+                    <span className="w-[20px] h-[20px] rounded-[5px] shrink-0 flex items-center justify-center" style={{ background: done ? color : "transparent", border: done ? "none" : `1px solid ${who === "You" ? color : "#3a3a3a"}` }}>
+                      {done && <Check className="w-3.5 h-3.5 text-[#0d0d0d]" strokeWidth={3.2} />}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className={`block text-[16px] truncate ${done ? "line-through text-white/35" : ""}`}>{t.title}</span>
+                      {(t.details || t.due_date || (who && who !== "You")) && (
+                        <span className="block text-[12.5px] text-white/45 truncate">
+                          {[who && who !== "You" && `Claimed by ${who}`, t.due_date && `Due ${new Date(t.due_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}`, t.details && t.details.split("\n")[0]].filter(Boolean).join(" · ")}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[14px] text-white/40">{empty}</p>
+          )}
+        </section>
+      ) : null)}
+    </div>
+  );
+}
+
 function TaskList({ tasks, editable, onToggle, color, showSection = false }) {
   if (!tasks.length) return <p className="text-[15px] text-white/40">The event owner hasn't assigned anything to this section yet.</p>;
   const sorted = [...tasks].sort((a, b) => (a.status === "done") - (b.status === "done"));

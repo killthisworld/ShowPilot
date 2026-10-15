@@ -82,7 +82,7 @@ export function useBoxSize(initial) {
 
 // Short labels so tab names fit inside a node.
 const SHORT = {
-  tasks: "Tasks", requests: "Requests", documents: "Docs", address: "Address", load_in: "Load-in", schedule: "Schedule",
+  tasks: "Current", requests: "Requests", documents: "Docs", address: "Address", load_in: "Load-in", schedule: "Schedule",
   wifi_power: "Wi-Fi", house_gear: "Gear", hospitality: "Hospo", contact: "Contact", doors: "Doors", tickets: "Tickets",
   marketing: "Marketing", guests: "Guests", settlement: "Settle", deal: "Deal", holds: "Holds", contract: "Contract",
   deposit: "Payments", lineup: "Lineup", advance: "Advance", travel: "Travel", merch: "Merch",

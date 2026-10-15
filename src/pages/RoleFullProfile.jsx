@@ -201,22 +201,35 @@ export function useRoleProfile({ role, token, onChanged }) {
 
   // Marks one of the owner's tasks for a section done (or reopens it) -
   // same RPC and permission check Gig Web's Tasks tab uses.
-  const setTaskDone = async (taskId, done = true) => {
-    try {
-      const { data, error } = await supabase.rpc("set_gig_task_status", { p_token: token, p_task_id: taskId, p_done: done });
-      if (error) throw error;
-      setGig((g) => ({ ...g, tasks: (g.tasks || []).map((t) => (t.id === taskId ? data : t)) }));
-      onChanged?.();
-    } catch (e) {
-      console.error(e);
-    }
+  // Task RPCs return the bare row, so merge it over what we have to keep the
+  // names (who added / claimed it) that get_shared_gig adds.
+  const mergeTask = (taskId, data) => setGig((g) => ({
+    ...g,
+    tasks: (g.tasks || []).map((t) => (t.id === taskId
+      ? { ...t, ...data, claimed_by_name: data.claimed_by && data.claimed_by === t.claimed_by ? t.claimed_by_name : null }
+      : t)),
+  }));
+  const taskRpc = async (fn, args, taskId) => {
+    const { data, error } = await supabase.rpc(fn, { p_token: token, p_task_id: taskId, ...args });
+    if (error) throw error;
+    mergeTask(taskId, data);
+    onChanged?.();
+    return data;
   };
+  const setTaskDone = async (taskId, done = true) => {
+    try { await taskRpc("set_gig_task_status", { p_done: done }, taskId); } catch (e) { console.error(e); }
+  };
+  // These throw, so the task summary can show what went wrong.
+  const markTaskDone = (taskId, done = true) => taskRpc("set_gig_task_status", { p_done: done }, taskId);
+  const claimTask = (taskId, claim = true) => taskRpc("claim_gig_task", { p_claim: claim }, taskId);
+  const setTaskDetails = (taskId, details) => taskRpc("set_gig_task_details", { p_details: details }, taskId);
 
   return {
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,
     handleSave, addRequirement, updateRequirementStatus, deleteRequirement, setTaskDone,
+    markTaskDone, claimTask, setTaskDetails,
     iemMonitorColors,
   };
 }
