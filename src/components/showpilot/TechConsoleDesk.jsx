@@ -333,12 +333,6 @@ export default function TechConsoleDesk({
             </div>
           ) : (
             <>
-              <div aria-hidden="true" className="w-[78px] shrink-0 flex flex-col text-[11px] tracking-[0.12em] pt-[34px]" style={{ fontFamily: SCENE_MONO }}>
-                <div style={{ height: H.name }} className="text-[#a3a3a3]">SHOW</div>
-                <div style={{ height: H.tasks }} className="text-[#FF6A00]">TASKS</div>
-                <div style={{ height: H.roles }} className="text-[#F2FF00]">WHO'S ON</div>
-                <div style={{ height: H.sends }} className="text-[#C026D3]">SENDS</div>
-              </div>
               <div className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
                 {groups.map((g, gi) => (
                   <div

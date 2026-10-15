@@ -142,6 +142,25 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
     { to: "/experience", label: "Cockpit", Icon: PlaneTakeoff },
   ];
 
+  // Strips share the visible width evenly: as many as fit at ~180px, none
+  // cut off at the edge. Re-measured when the phone or window changes size.
+  const rowRef = useRef(null);
+  const [stripW, setStripW] = useState(184);
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return undefined;
+    const GAP = 8;
+    const fit = () => {
+      const w = el.clientWidth;
+      const n = Math.max(2, Math.floor((w + GAP) / (176 + GAP)));
+      setStripW(Math.floor((w - GAP * (n - 1)) / n));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [strips.length]);
+
   // Sideways is one fixed screen: nothing behind it scrolls, and the
   // strips only move left/right.
   useEffect(() => {
@@ -197,7 +216,7 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
         {strips.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-white/60 text-[15px]">No upcoming shows yet.</div>
         ) : (
-          <div className="flex-1 min-h-0 flex gap-2 overflow-x-auto overflow-y-hidden snap-x snap-mandatory" style={{ scrollbarWidth: "none", overscrollBehavior: "contain", touchAction: "pan-x" }}>
+          <div ref={rowRef} className="flex-1 min-h-0 flex gap-2 overflow-x-auto overflow-y-hidden snap-x snap-mandatory" style={{ scrollbarWidth: "none", overscrollBehavior: "contain", touchAction: "pan-x" }}>
             {groups.map((g) => g.items.map((s, i) => {
               const key = s.id || s.share_token;
               const color = eventTypeColor(s.event_type) || (s.is_owned === false ? "#F472B6" : accent);
@@ -216,8 +235,8 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
                 <div
                   key={key}
                   ref={i === 0 ? (el) => { groupRefs.current[g.key] = el; } : undefined}
-                  className="w-[184px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate snap-start"
-                  style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}
+                  className="shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate snap-start"
+                  style={{ width: stripW, background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}
                 >
                   {photo && (
                     <>
@@ -245,45 +264,45 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
 
                   {/* Who's on + sends, with the ready fader beside them */}
                   <div className="flex-1 min-h-0 flex gap-2 px-2 pt-1.5 pb-2" style={{ background: glass, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="flex-1 min-w-0 flex flex-col gap-[4px]">
+                    <div className="flex-1 min-w-0 flex flex-col gap-[5px]">
                       {on || s.is_owned !== false ? (
                         ROLES.filter((r) => included.includes(r.id)).map((r) => {
                           const lit = on?.has(r.id);
                           return (
-                            <span key={r.id} className="h-[20px] shrink-0 rounded-[5px] flex items-center px-1.5 text-[13px] font-bold tracking-[0.05em]" style={{ fontFamily: SCENE_FONT, background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "66"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 8px ${r.color}99` : "none" }}>
+                            <span key={r.id} className="flex-1 min-h-[20px] max-h-[34px] rounded-[6px] flex items-center px-2 text-[14px] font-bold tracking-[0.05em]" style={{ fontFamily: SCENE_FONT, background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "66"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 8px ${r.color}99` : "none" }}>
                               {r.label}
                             </span>
                           );
                         })
                       ) : (
-                        <span className="text-[12px] text-white/70 leading-snug py-1">Linked show. Open the web to see who's on it.</span>
+                        <span className="flex-1 text-[13px] text-white/70 leading-snug py-1">Linked show. Open the web to see who's on it.</span>
                       )}
-                      <div className="mt-auto pt-1 grid grid-cols-4 gap-1">
-                        <Link to={`/gig/rooms?token=${s.share_token}`} aria-label="Chat" className="h-8 rounded-md flex items-center justify-center relative text-white" style={{ background: btnBg }}>
+                      <div className="shrink-0 pt-1 grid grid-cols-4 gap-1.5">
+                        <Link to={`/gig/rooms?token=${s.share_token}`} aria-label="Chat" className="h-9 rounded-lg flex items-center justify-center relative text-white" style={{ background: btnBg }}>
                           <MessageCircle className="w-4 h-4" />
                           {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
                         </Link>
-                        <button type="button" aria-label="Fan page" onClick={() => setFanShow(s)} className="h-8 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
+                        <button type="button" aria-label="Fan page" onClick={() => setFanShow(s)} className="h-9 rounded-lg flex items-center justify-center text-white" style={{ background: btnBg }}>
                           <Ticket className="w-4 h-4" />
                         </button>
-                        <Link to={`/gig/web?token=${s.share_token}`} aria-label="Open web" className="h-8 rounded-md flex items-center justify-center text-white" style={{ background: btnBg }}>
+                        <Link to={`/gig/web?token=${s.share_token}`} aria-label="Open web" className="h-9 rounded-lg flex items-center justify-center text-white" style={{ background: btnBg }}>
                           <WebIcon size={17} />
                         </Link>
-                        <button type="button" aria-label={photo ? "Change photo" : "Add photo"} onClick={() => pickPhoto(s)} disabled={busyPhoto === key} className="h-8 rounded-md flex items-center justify-center text-white disabled:opacity-50" style={{ background: btnBg }}>
+                        <button type="button" aria-label={photo ? "Change photo" : "Add photo"} onClick={() => pickPhoto(s)} disabled={busyPhoto === key} className="h-9 rounded-lg flex items-center justify-center text-white disabled:opacity-50" style={{ background: btnBg }}>
                           <Camera className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
-                    <div className="w-[34px] shrink-0 flex flex-col items-center gap-1">
+                    <div className="w-[40px] shrink-0 flex flex-col items-center gap-1 pt-0.5">
                       <div className="flex-1 min-h-0 flex gap-[7px]">
-                        <div className="w-[6px] rounded bg-[#222] relative overflow-hidden" aria-hidden="true">
+                        <div className="w-[7px] rounded bg-[#222] relative overflow-hidden" aria-hidden="true">
                           <div className="absolute left-0 right-0 bottom-0" style={{ height: `${pct}%`, background: lvl }} />
                         </div>
                         <div className="w-[5px] rounded bg-[#2e2e2e] relative" aria-hidden="true">
-                          <div className="absolute -left-[9px] w-[23px] h-[14px] rounded bg-[#d4d4d4]" style={{ bottom: `calc((100% - 14px) * ${pct / 100})`, boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }} />
+                          <div className="absolute -left-[10px] w-[25px] h-4 rounded bg-[#d4d4d4]" style={{ bottom: `calc((100% - 16px) * ${pct / 100})`, boxShadow: "0 2px 6px rgba(0,0,0,0.6)" }} />
                         </div>
                       </div>
-                      <span className="text-[11px] leading-none" style={{ fontFamily: SCENE_MONO, color: lvl }} aria-label={`${pct}% ready`}>{pct}%</span>
+                      <span className="text-[12px] leading-none" style={{ fontFamily: SCENE_MONO, color: lvl }} aria-label={`${pct}% ready`}>{pct}%</span>
                     </div>
                   </div>
                 </div>
