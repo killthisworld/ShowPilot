@@ -1180,6 +1180,62 @@ function MyIconControl({ gig, myIcon, onChanged }) {
   );
 }
 
+// The profiles on the event as a row of mixing-console channel strips, in
+// the same order as the web: a solid scribble strip in the profile's color,
+// a status LED (lit = claimed, ring = invited, dark = nobody yet), a meter
+// filled to how much of that section is done, and its open tasks. Click a
+// strip to open that profile, same as its node on the web.
+function ProfileStrips({ nodes, tasks, onSelectRole }) {
+  const SEGMENTS = 10;
+  return (
+    <div className="grid gap-1.5 p-1.5 rounded-[10px] bg-[#0a0a0a] border border-[#1f1f1f]" style={{ gridTemplateColumns: `repeat(${nodes.length}, minmax(0, 1fr))`, fontFamily: SCENE_MONO }}>
+      {nodes.map((n) => {
+        const Icon = n.style.icon;
+        const c = n.style.color;
+        const open = tasks.filter((t) => t.section === n.role && t.status !== "done").length;
+        const lit = Math.round((Math.max(0, Math.min(100, n.percent)) / 100) * SEGMENTS);
+        const status = n.claimed ? "CLAIMED" : n.invited ? "INVITED" : "OPEN";
+        return (
+          <button
+            key={n.role}
+            type="button"
+            onClick={() => onSelectRole(n.role)}
+            aria-label={`${n.style.label}: ${status.toLowerCase()}, ${n.percent}% filled in, ${open} open task${open === 1 ? "" : "s"}`}
+            className="group min-w-0 flex flex-col rounded-[6px] overflow-hidden bg-[#141414] border border-[#232323] hover:border-white/25 transition-colors text-left"
+          >
+            {/* Scribble strip */}
+            <div className="flex items-center justify-center gap-1 px-1 py-1.5" style={{ background: c }}>
+              <Icon className="hidden sm:block w-3.5 h-3.5 shrink-0" style={{ color: "#0d0d0d" }} />
+              <span className="text-[9px] sm:text-[10.5px] font-bold tracking-[0.02em] sm:tracking-[0.04em] truncate" style={{ color: "#0d0d0d" }}>{ROLE_CODES[n.role] || n.style.label}</span>
+            </div>
+            {/* Status LED */}
+            <div className="flex items-center justify-center gap-1.5 pt-2 pb-1.5">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={n.claimed ? { background: c, boxShadow: `0 0 6px ${c}` } : n.invited ? { border: `1.5px solid ${c}` } : { background: "#2a2a2a" }}
+              />
+              <span className="hidden sm:inline text-[9.5px] tracking-[0.08em] text-white/55">{status}</span>
+            </div>
+            {/* Meter */}
+            <div className="flex-1 flex flex-col sm:flex-row items-center sm:items-end justify-center gap-1.5 sm:gap-2 px-1 sm:px-2 pb-1.5">
+              <div className="flex flex-col-reverse gap-[3px] w-3 shrink-0">
+                {Array.from({ length: SEGMENTS }).map((_, i) => (
+                  <span key={i} className="h-[5px] rounded-[1px]" style={{ background: i < lit ? c : "#262626", opacity: i < lit ? 0.55 + (0.45 * (i + 1)) / SEGMENTS : 1 }} />
+                ))}
+              </div>
+              <span className="text-[13px] sm:text-[15px] font-semibold text-white tabular-nums leading-none mb-[-1px]">{n.percent}<span className="text-[10px] text-white/45">%</span></span>
+            </div>
+            {/* Tasks */}
+            <div className="border-t border-[#232323] py-1.5 text-center text-[9px] sm:text-[10px] tracking-[0.04em] sm:tracking-[0.06em]" style={{ color: open ? "#fff" : "rgba(255,255,255,0.35)" }}>
+              {open ? <>{open}<span className="hidden sm:inline"> TASK{open === 1 ? "" : "S"}</span><span className="sm:hidden"> TO DO</span></> : <span>—</span>}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // The Board tab for the center/overview node - "the profile of the
 // center event itself" from the request: a rollup tile per role instead
 // of fields to edit for each role, since there's no single role section
@@ -1221,40 +1277,13 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
         <MyIconControl gig={gig} myIcon={myIcon} onChanged={onMyIconChanged} />
       )}
       {showHeadcount && (
-        <div className="flex items-center gap-1.5 mb-3 text-xs">
-          <span className="font-semibold" style={{ color: "#8CFF3D" }}>{claimedCount} claimed</span>
+        <div className="flex items-center gap-1.5 mb-2 text-[11px] tracking-[0.08em] text-white/55" style={{ fontFamily: SCENE_MONO }}>
+          <span>{claimedCount} CLAIMED</span>
           <span className="text-white/20">·</span>
-          <span className="font-semibold text-[#EAB308]">{invitedCount} invited</span>
+          <span>{invitedCount} INVITED</span>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2">
-        {nodes.map((n) => {
-          const Icon = n.style.icon;
-          const statusLabel = n.claimed ? "Claimed" : n.invited ? "Invited" : "Not invited";
-          const statusColor = n.claimed ? "#8CFF3D" : n.invited ? "#EAB308" : "rgba(255,255,255,0.35)";
-          return (
-            <button
-              key={n.role}
-              type="button"
-              onClick={() => onSelectRole(n.role)}
-              className="flex flex-col gap-1.5 bg-[#161616] hover:bg-[#1c1c1c] rounded-xl px-3 py-2.5 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{ background: n.style.color + "18", color: n.style.color }}>
-                  <Icon className="w-3 h-3" />
-                </div>
-                <span className="text-white text-xs font-semibold truncate">{n.style.label}</span>
-              </div>
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full" style={{ color: statusColor, background: statusColor + "1A" }}>{statusLabel}</span>
-                <span className="flex items-center gap-0.5 text-white/40 text-[10px] shrink-0">
-                  {n.percent}% <ChevronRight className="w-3 h-3 text-white/20" />
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <ProfileStrips nodes={nodes} tasks={gig?.tasks || []} onSelectRole={onSelectRole} />
 
       {permissions?.is_owner && gig?.id && !hideInvite && (
         <div className="mt-3 pt-3 border-t border-[#1f1f1f]">
