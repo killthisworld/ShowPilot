@@ -1,19 +1,33 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import StatusStrip from "@/components/showpilot/StatusStrip";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 
 // Console-style header shared by the tech and non-tech calendars: month
-// title with arrow keys, a readout strip for the month, and a legend of the
-// event types that actually appear in it (same colors as the home bars).
-export default function CalendarHeader({ monthLabel, onPrev, onNext, cells, types = [] }) {
+// title with arrow keys (tap the title for a month dropdown), a readout
+// strip for the month, and a legend of the event types that actually appear
+// in it (same colors as the home bars).
+export default function CalendarHeader({ monthLabel, onPrev, onNext, cells, types = [], monthKey, monthOptions, onPickMonth }) {
   const arrow = "h-9 w-9 flex items-center justify-center rounded-lg bg-[#111] border border-[#1f1f1f] text-white/60 hover:text-white";
   return (
     <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
       <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
         <button type="button" onClick={onPrev} className={arrow} aria-label="Previous month"><ChevronLeft className="w-5 h-5" /></button>
-        <h2 className="text-white text-2xl font-semibold tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_FONT }}>{monthLabel}</h2>
+        {monthOptions && onPickMonth ? (
+          <MonthDropdown
+            label={monthLabel}
+            value={monthKey}
+            options={monthOptions}
+            onSelect={onPickMonth}
+            align="center"
+            className="px-2 py-1 text-white text-2xl font-semibold tracking-[0.08em] uppercase min-w-0"
+            style={{ fontFamily: SCENE_FONT }}
+          />
+        ) : (
+          <h2 className="text-white text-2xl font-semibold tracking-[0.08em] uppercase" style={{ fontFamily: SCENE_FONT }}>{monthLabel}</h2>
+        )}
         <button type="button" onClick={onNext} className={arrow} aria-label="Next month"><ChevronRight className="w-5 h-5" /></button>
       </div>
       <div className="px-4 pb-2 max-w-lg mx-auto"><StatusStrip cells={cells} /></div>

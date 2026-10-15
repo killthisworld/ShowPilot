@@ -11,6 +11,7 @@ import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
 // channel strip, grouped by month like console banks, read top to bottom
@@ -342,7 +343,19 @@ export default function TechConsoleDesk({
                     className="flex flex-col gap-2 shrink-0"
                     style={gi < groups.length - 1 ? { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" } : undefined}
                   >
-                    <div className="h-[26px] text-[20px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT, color: gi % 2 ? "#60A5FA" : accent }}>{g.label}</div>
+                    {/* Month heading = dropdown of every month bank; picking one jumps to it. */}
+                    <div className="h-[26px] flex items-center">
+                      <MonthDropdown
+                        label={g.label}
+                        value={g.key}
+                        options={groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length, group: /^\d{4}/.test(x.key) ? x.key.slice(0, 4) : "Other" }))}
+                        onSelect={(k) => groupRefs.current[k]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
+                        accent={gi % 2 ? "#60A5FA" : accent}
+                        ariaLabel="Jump to a month"
+                        className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em]"
+                        style={{ fontFamily: SCENE_FONT, color: gi % 2 ? "#60A5FA" : accent }}
+                      />
+                    </div>
                     <div className="flex-1 min-h-0 flex gap-2">
                       {g.items.map((s) => (
                         <Strip

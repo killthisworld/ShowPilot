@@ -8,6 +8,7 @@ import StatusBadge from "@/components/showpilot/StatusBadge";
 import moment from "moment";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import CalendarHeader from "@/components/showpilot/CalendarHeader";
+import { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -152,6 +153,14 @@ export default function CalendarPage() {
     return map;
   }, [shows]);
 
+  // Month dropdown: every month around your events, with how many each has.
+  const monthOptions = useMemo(() => {
+    const counts = {};
+    Object.entries(showsByDate).forEach(([d, list]) => { const k = d.slice(0, 7); counts[k] = (counts[k] || 0) + list.length; });
+    return calendarMonthOptions({ dates: Object.keys(showsByDate), counts });
+  }, [showsByDate]);
+  const pickMonth = (key) => setCurrentMonth(moment(key + "-01", "YYYY-MM-DD"));
+
   const daysInMonth = useMemo(() => {
     const start = currentMonth.clone().startOf("month").startOf("week");
     const end = currentMonth.clone().endOf("month").endOf("week");
@@ -256,6 +265,9 @@ export default function CalendarPage() {
 
       <CalendarHeader
         monthLabel={currentMonth.format("MMMM YYYY")}
+        monthKey={currentMonth.format("YYYY-MM")}
+        monthOptions={monthOptions}
+        onPickMonth={pickMonth}
         onPrev={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))}
         onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
         cells={headerCells}

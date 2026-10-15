@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, PlaneTakeoff } from "lucide-react";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
@@ -319,6 +320,23 @@ export default function BandHome() {
   // Past stays collapsed unless asked for - or while searching/filtering, when you are plainly looking for something old.
   const pastOpen = showPast || search.trim() !== "" || hasActiveFilters;
 
+  // Each month heading is a dropdown of every month group; picking one jumps
+  // to it (scrolls the month columns on desktop, the list on phones).
+  const monthJumpOptions = monthGroups.map(([k, list]) => ({
+    key: k, label: monthLabel(k), count: list.length, group: /^\d{4}/.test(k) ? k.slice(0, 4) : "Other",
+  }));
+  const jumpToMonth = (key) => {
+    if (key === "past" && !pastOpen) setShowPast(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-home-month="${key}"]`);
+      if (!el) return;
+      // Phones: land the month just below the sticky search/filter header.
+      const head = document.querySelector("[data-home-header]");
+      if (head) el.style.scrollMarginTop = `${Math.round(head.getBoundingClientRect().height) + 12}px`;
+      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+    }));
+  };
+
   const stripCells = useMemo(
     () => buildStatusStrip(preferences?.account_type, gigs, progressByShow),
     [preferences?.account_type, gigs, progressByShow]
@@ -545,9 +563,18 @@ export default function BandHome() {
               {columns.map(([monthKey, monthGigs], ci) => {
                 const accent = monthKey === "past" ? "#9A9A9A" : monthKey === "undated" ? "#9A9A9A" : MONTH_COLORS[ci % MONTH_COLORS.length];
                 return (
-                  <div key={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 44px) / 3)", minWidth: 340 }}>
-                    <div className="flex items-baseline gap-2 px-1 pb-2.5 shrink-0">
-                      <span className="text-[19px] font-bold tracking-[0.08em] uppercase" style={{ color: accent }}>{monthLabel(monthKey)}</span>
+                  <div key={monthKey} data-home-month={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 44px) / 3)", minWidth: 340 }}>
+                    <div className="flex items-center gap-2 px-1 pb-2.5 shrink-0">
+                      <MonthDropdown
+                        label={monthLabel(monthKey)}
+                        value={monthKey}
+                        options={monthJumpOptions}
+                        onSelect={jumpToMonth}
+                        accent={accent}
+                        ariaLabel="Jump to a month"
+                        className="-ml-1 px-1 py-0.5 text-[19px] font-bold tracking-[0.08em] uppercase min-w-0"
+                        style={{ color: accent }}
+                      />
                       <span className="text-[11px] text-white/50" style={{ fontFamily: SCENE_MONO }}>· {monthGigs.length}</span>
                       {monthKey === "past" && (
                         <button onClick={() => setShowPast(false)} className="ml-auto text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
@@ -641,7 +668,7 @@ export default function BandHome() {
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-28">
-      <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+      <div data-home-header className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-4 max-w-lg mx-auto">
           <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} />
           <h1 className="text-white font-bold text-lg">
@@ -791,7 +818,7 @@ export default function BandHome() {
         ) : (
           <div className="space-y-4">
             {monthGroups.map(([monthKey, monthGigs]) => (
-              <div key={monthKey}>
+              <div key={monthKey} data-home-month={monthKey}>
                 {monthKey === "past" ? (
                   <button
                     type="button"
@@ -802,7 +829,16 @@ export default function BandHome() {
                     <ChevronDown className={`w-4 h-4 transition-transform ${pastOpen ? "rotate-180" : ""}`} />
                   </button>
                 ) : (
-                  <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
+                  <div className="mb-1.5">
+                    <MonthDropdown
+                      label={monthLabel(monthKey)}
+                      value={monthKey}
+                      options={monthJumpOptions}
+                      onSelect={jumpToMonth}
+                      ariaLabel="Jump to a month"
+                      className="px-1 py-1 text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide"
+                    />
+                  </div>
                 )}
                 {(monthKey !== "past" || pastOpen) && (
                 <div className="flex flex-col gap-2">

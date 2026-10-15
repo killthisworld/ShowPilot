@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import CalendarHeader from "@/components/showpilot/CalendarHeader";
+import MonthDropdown, { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -79,6 +80,14 @@ export default function BandCalendar() {
     return map;
   }, [gigs]);
 
+  // Month dropdown: every month around your events, with how many each has.
+  const monthOptions = useMemo(() => {
+    const counts = {};
+    Object.entries(gigsByDate).forEach(([d, list]) => { const k = d.slice(0, 7); counts[k] = (counts[k] || 0) + list.length; });
+    return calendarMonthOptions({ dates: Object.keys(gigsByDate), counts });
+  }, [gigsByDate]);
+  const pickMonth = (key) => setCurrentMonth(moment(key + "-01", "YYYY-MM-DD"));
+
   const daysInGrid = useMemo(() => {
     const startOfMonth = currentMonth.clone().startOf("month");
     const startOfGrid = startOfMonth.clone().startOf("week");
@@ -126,7 +135,14 @@ export default function BandCalendar() {
       <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
         <div className="flex items-center gap-3.5 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
           <button type="button" onClick={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))} className={arrow} aria-label="Previous month"><ChevronLeft className="w-[18px] h-[18px]" /></button>
-          <h2 className="text-white text-[32px] font-bold tracking-[0.02em] min-w-[250px] text-center">{currentMonth.format("MMMM YYYY")}</h2>
+          <MonthDropdown
+            label={currentMonth.format("MMMM YYYY")}
+            value={currentMonth.format("YYYY-MM")}
+            options={monthOptions}
+            onSelect={pickMonth}
+            align="center"
+            className="justify-center px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em] min-w-[250px]"
+          />
           <button type="button" onClick={() => setCurrentMonth((m) => m.clone().add(1, "month"))} className={arrow} aria-label="Next month"><ChevronRight className="w-[18px] h-[18px]" /></button>
           <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
           <div className="flex-1 max-w-[440px] ml-auto"><StatusStrip cells={headerCells} /></div>
@@ -251,6 +267,9 @@ export default function BandCalendar() {
     <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
       <CalendarHeader
         monthLabel={currentMonth.format("MMMM YYYY")}
+        monthKey={currentMonth.format("YYYY-MM")}
+        monthOptions={monthOptions}
+        onPickMonth={pickMonth}
         onPrev={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))}
         onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
         cells={headerCells}

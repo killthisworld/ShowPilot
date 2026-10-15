@@ -5,6 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 
@@ -47,6 +48,7 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
   const groupRefs = useRef({});
+  const [jumpedMonth, setJumpedMonth] = useState(null); // last month picked in the month dropdown
   const { data: needs } = useNeedsMe();
 
   // Upcoming shows (and undated ones), soonest first. Past shows live in
@@ -189,19 +191,23 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
 
       <div className="flex-1 min-w-0 min-h-0 flex flex-col px-2.5 pt-2 pb-2" style={{ paddingRight: "max(10px, env(safe-area-inset-right))", paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
         <div className="h-8 mb-2 flex items-center gap-1.5 shrink-0 min-w-0">
-          <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-            {groups.map((g) => (
-              <button
-                key={g.key}
-                type="button"
-                onClick={() => groupRefs.current[g.key]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
-                className="h-8 px-3 shrink-0 rounded-full bg-[#1a1a1a] border border-[#333] text-[15px] font-bold tracking-[0.06em] text-white"
+          {/* One month dropdown instead of a chip per month: picking jumps to it. */}
+          {groups.length > 0 && (() => {
+            const cur = groups.find((g) => g.key === jumpedMonth) || groups[0];
+            return (
+              <MonthDropdown
+                label={cur.label}
+                value={cur.key}
+                options={groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length, group: /^\d{4}/.test(x.key) ? x.key.slice(0, 4) : "Other" }))}
+                onSelect={(k) => { setJumpedMonth(k); groupRefs.current[k]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" }); }}
+                accent={accent}
+                ariaLabel="Jump to a month"
+                className="h-8 px-3 shrink-0 rounded-full bg-[#1a1a1a] border border-[#333] text-[15px] font-bold tracking-[0.06em] text-white hover:bg-[#222]"
                 style={{ fontFamily: SCENE_FONT }}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
+              />
+            );
+          })()}
+          <span className="flex-1" />
           <span className="h-8 px-2.5 shrink-0 rounded-lg flex items-center gap-1 text-[13px] font-bold" style={{ background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00" }}>
             <span style={{ fontFamily: SCENE_MONO }}>{totalOpen}</span> open
           </span>
