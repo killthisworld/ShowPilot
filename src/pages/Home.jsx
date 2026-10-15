@@ -16,6 +16,8 @@ import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import ConsoleStrips from "@/components/showpilot/ConsoleStrips";
 import useSidewaysConsole from "@/hooks/useSidewaysConsole";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -47,6 +49,10 @@ export default function Home() {
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
   // Phone turned sideways (and the Customize setting on): the console view.
   const sideways = useSidewaysConsole(true);
+  // Desktop (1024px+), audio: the console strips layout (TechConsoleDesk).
+  // Its bank row has ALL, so it starts there; the phone keeps its tabs.
+  const isDesktop = useIsDesktop();
+  const [deskTab, setDeskTab] = useState("all");
 
   useEffect(() => {
     const checkLogbookReminder = async () => {
@@ -296,20 +302,26 @@ export default function Home() {
     return `${fmt(monday)} – ${fmt(sunday)}`;
   }, []);
 
+  const isLighting = preferences?.account_type === "lighting";
+  const deskMode = isDesktop && !isLighting;
+  const tab = deskMode ? deskTab : activeTab;
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return shows.filter((s) => {
       // If searching, show all results across all tabs/statuses
       if (!q) {
         // Tab filter
-        if (activeTab === "starred") {
+        if (tab === "all") {
+          // Desktop console: every show, owned and linked.
+        } else if (tab === "starred") {
           if (!s.starred) return false;
-        } else if (activeTab === "linked") {
+        } else if (tab === "linked") {
           if (s.is_owned) return false;
         } else {
           if (!s.is_owned) return false;
           if (s.starred) return false;
-          if (s.status !== activeTab) return false;
+          if (s.status !== tab) return false;
         }
       } else {
         // Search mode: match band name, opener names, venue, or location
@@ -329,7 +341,7 @@ export default function Home() {
       if (stateFilter !== "all" && !s.location?.toLowerCase().includes(stateFilter.toLowerCase())) return false;
       return true;
     });
-  }, [shows, search, activeTab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
+  }, [shows, search, tab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
 
   const bankCounts = useMemo(() => {
     const counts = {};
@@ -337,7 +349,6 @@ export default function Home() {
     return counts;
   }, [shows]);
 
-  const isLighting = preferences?.account_type === "lighting";
   const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
   const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
   const openShow = (s) => navigate(s.is_owned === false ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`);
@@ -368,6 +379,130 @@ export default function Home() {
 
   const hasActiveFilters = yearFilter !== "all" || monthFilter !== "all" || genreFilter !== "all" || eventTypeFilter !== "all" || venueFilter !== "all" || cityFilter !== "all" || stateFilter !== "all";
   const clearFilters = () => { setYearFilter("all"); setMonthFilter("all"); setGenreFilter("all"); setEventTypeFilter("all"); setVenueFilter("all"); setCityFilter("all"); setStateFilter("all"); };
+
+  // The dropdown filters, shared by the phone header and the desktop console.
+  const filterSelects = (
+    <>
+      <Select value={yearFilter} onValueChange={setYearFilter}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Years</SelectItem>
+          {years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={monthFilter} onValueChange={setMonthFilter}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+          <SelectValue placeholder="Month" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Months</SelectItem>
+          {MONTHS.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={genreFilter} onValueChange={onGenreChange}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+          <SelectValue placeholder="Genre" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Genres</SelectItem>
+          {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+          <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={eventTypeFilter} onValueChange={onEventTypeChange}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
+          <SelectValue placeholder="Event Type" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Event Types</SelectItem>
+          {eventTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+          <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={venueFilter} onValueChange={setVenueFilter}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
+          <SelectValue placeholder="Venue" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Venues</SelectItem>
+          {venues.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={cityFilter} onValueChange={setCityFilter}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+          <SelectValue placeholder="City" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All Cities</SelectItem>
+          {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={stateFilter} onValueChange={setStateFilter}>
+        <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
+          <SelectValue placeholder="State" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
+          <SelectItem value="all">All States</SelectItem>
+          {states.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {hasActiveFilters && (
+        <Button size="sm" variant="ghost" className="h-8 text-white/40 hover:text-white px-2" onClick={clearFilters}>
+          <X className="w-3 h-3 mr-1" /> Clear
+        </Button>
+      )}
+    </>
+  );
+
+  const confirmDeleteModal = confirmDeleteShow && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4" onClick={() => setConfirmDeleteShow(null)}>
+      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-xs text-center" onClick={(e) => e.stopPropagation()}>
+        <p className="text-white font-semibold text-base mb-1">{confirmDeleteShow.is_owned === false ? "Remove this linked show?" : "Delete this show?"}</p>
+        <p className="text-white/40 text-sm mb-4">
+          {confirmDeleteShow.is_owned === false
+            ? "It comes off your list. The event itself isn't changed."
+            : <>{confirmDeleteShow.band_name ? `"${confirmDeleteShow.band_name}"` : "This show"} will be permanently deleted. This can't be undone.</>}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setConfirmDeleteShow(null)} className="flex-1 border-[#2a2a2a] text-white/60 hover:bg-white/5">
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-red-500 text-white hover:bg-red-600">
+            {deleting ? "Deleting..." : confirmDeleteShow.is_owned === false ? "Remove" : "Delete"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Desktop, audio: the mixing console (one screen, its own left rail).
+  if (deskMode) {
+    return (
+      <>
+        <TechConsoleDesk
+          shows={filtered}
+          loading={loading}
+          accent={accountStyle.color}
+          preferences={preferences}
+          onPreferencesUpdate={reload}
+          search={search}
+          setSearch={setSearch}
+          activeTab={deskTab}
+          setActiveTab={setDeskTab}
+          bankCounts={bankCounts}
+          totalCount={shows.length}
+          filtersNode={filterSelects}
+          hasActiveFilters={hasActiveFilters}
+          onOpen={openShow}
+          onArchive={handleArchive}
+          onDeleteRequest={requestDelete}
+        />
+        {confirmDeleteModal}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
@@ -460,76 +595,7 @@ export default function Home() {
 
           {filterOpen && (
             <div className="flex gap-2 mt-2 flex-wrap">
-              <Select value={yearFilter} onValueChange={setYearFilter}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Years</SelectItem>
-                  {years.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
-                  <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Months</SelectItem>
-                  {MONTHS.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={genreFilter} onValueChange={onGenreChange}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
-                  <SelectValue placeholder="Genre" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Genres</SelectItem>
-                  {genres.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                  <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={eventTypeFilter} onValueChange={onEventTypeChange}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
-                  <SelectValue placeholder="Event Type" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Event Types</SelectItem>
-                  {eventTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  <SelectItem value={ADD_NEW_VALUE} className="text-[#8CFF3D]">+ Add new…</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={venueFilter} onValueChange={setVenueFilter}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[90px] rounded-lg">
-                  <SelectValue placeholder="Venue" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Venues</SelectItem>
-                  {venues.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={cityFilter} onValueChange={setCityFilter}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
-                  <SelectValue placeholder="City" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All Cities</SelectItem>
-                  {cities.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={stateFilter} onValueChange={setStateFilter}>
-                <SelectTrigger className="h-8 bg-[#1a1a1a] border-[#2a2a2a] text-white text-xs w-auto min-w-[80px] rounded-lg">
-                  <SelectValue placeholder="State" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-                  <SelectItem value="all">All States</SelectItem>
-                  {states.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button size="sm" variant="ghost" className="h-8 text-white/40 hover:text-white px-2" onClick={clearFilters}>
-                  <X className="w-3 h-3 mr-1" /> Clear
-                </Button>
-              )}
+              {filterSelects}
             </div>
           )}
         </div>

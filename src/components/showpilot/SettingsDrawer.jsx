@@ -12,7 +12,9 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { signOutCurrent } from "@/lib/accounts";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
-export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
+// `avatar`: the trigger is the person's profile photo (tech desktop rail)
+// instead of the menu icon.
+export default function SettingsDrawer({ preferences, onPreferencesUpdate, avatar = false, accent = "#8CFF3D" }) {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(preferences || { genre_tags: [], mix_bus_presets: [], display_name: "", username: "" });
   const [saving, setSaving] = useState(false);
@@ -129,9 +131,17 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-          <Menu className="w-6 h-6 text-white/70" />
-        </button>
+        {avatar ? (
+          <button aria-label="Settings" className="w-11 h-11 rounded-full overflow-hidden bg-[#1a1a1a] flex items-center justify-center transition-shadow" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
+            {prefs.profile_photo_url
+              ? <img src={prefs.profile_photo_url} alt="" className="w-full h-full object-cover" />
+              : <User className="w-5 h-5 text-white/50" />}
+          </button>
+        ) : (
+          <button className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+            <Menu className="w-6 h-6 text-white/70" />
+          </button>
+        )}
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-[#0d0d0d] border-[#1f1f1f] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
         <SettingsPanel
