@@ -61,7 +61,10 @@ const formatPhoneNumber = (value) => {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
-export default function Cockpit() {
+// `embedded`: rendered inside the company phone's Me page (Profile |
+// Cockpit, job 73): always the phone layout, no page wrapper or bottom bar
+// of its own (the Me page has them).
+export default function Cockpit({ embedded = false } = {}) {
   const { preferences, reload } = usePreferences();
   // "My Pilot" is the engineer/lighting framing; other profile types get a
   // more natural label for the same underlying digital-card feature.
@@ -710,7 +713,7 @@ export default function Cockpit() {
 
   if (!draft) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
+      <div className={embedded ? "py-20 flex items-center justify-center" : "min-h-screen bg-[#0d0d0d] flex items-center justify-center"}>
         <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
       </div>
     );
@@ -1347,7 +1350,7 @@ export default function Cockpit() {
   // Desktop (1024px+, band side with the left rail): one screen, the same
   // three tabs across the top, each laid out in side-by-side panels instead
   // of one long scroll. Phones keep the layout below.
-  if (isDesktop && isBandSide) {
+  if (isDesktop && isBandSide && !embedded) {
     const tabColor = (TABS.find((t) => t.id === activeTab) || TABS[0]).color;
     const board = { backgroundColor: "#0f0f0f", backgroundImage: "radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1.3px)", backgroundSize: "22px 22px", boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" };
     const panel = "min-h-0 flex flex-col bg-[#151515] border border-[#262626] rounded-md";
@@ -1805,7 +1808,7 @@ export default function Cockpit() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+    <div className={embedded ? "" : "min-h-screen bg-[#0d0d0d] pb-24"} style={{ fontFamily: SCENE_FONT }}>
       {savedToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#8CFF3D] text-black text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
           {savedToast}
@@ -2143,7 +2146,7 @@ export default function Cockpit() {
 
       {overlays}
 
-      {["engineer", "lighting"].includes(preferences?.account_type || "engineer") ? <BottomTabs /> : <BandBottomTabs />}
+      {!embedded && (["engineer", "lighting"].includes(preferences?.account_type || "engineer") ? <BottomTabs /> : <BandBottomTabs />)}
     </div>
   );
 }

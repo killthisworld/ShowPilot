@@ -77,7 +77,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
   const view = v === "events" ? "events" : v;
   const activeKey =
     view ||
-    (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : pathname.startsWith("/me") ? "me" : null);
+    (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : pathname.startsWith("/me") || pathname.startsWith("/experience") ? "me" : null);
 
   const tab = (key, to, label, Icon, badge) => {
     const active = activeKey === key;
