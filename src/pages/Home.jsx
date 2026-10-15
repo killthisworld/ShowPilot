@@ -18,6 +18,7 @@ import ConsoleStrips from "@/components/showpilot/ConsoleStrips";
 import useSidewaysConsole from "@/hooks/useSidewaysConsole";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
+import LightingDesk from "@/components/showpilot/LightingDesk";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -481,6 +482,19 @@ export default function Home() {
       </div>
     </div>
   );
+
+  // Desktop, lighting: the TO DO list with GO (one screen, its own left rail).
+  if (isDesktop && isLighting) {
+    return (
+      <LightingDesk
+        shows={shows}
+        accent={accountStyle.color}
+        preferences={preferences}
+        onPreferencesUpdate={reload}
+        onOpenShow={openShow}
+      />
+    );
+  }
 
   // Desktop, audio: the mixing console (one screen, its own left rail).
   if (deskMode) {

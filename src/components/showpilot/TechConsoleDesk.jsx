@@ -51,9 +51,10 @@ const WebIcon = ({ size = 18 }) => (
   </svg>
 );
 
-function Rail({ accent, preferences, onPreferencesUpdate }) {
+// The tech desktop rail (audio "Console", lighting "Desk").
+export function Rail({ accent, preferences, onPreferencesUpdate, homeLabel = "Console", HomeIcon = ConsoleIcon }) {
   const tabs = [
-    { to: "/", label: "Console", Icon: ConsoleIcon, on: true },
+    { to: "/", label: homeLabel, Icon: HomeIcon, on: true },
     { to: "/calendar", label: "Calendar", Icon: CalendarDays },
     { to: "/experience", label: "Cockpit", Icon: PlaneTakeoff },
   ];
