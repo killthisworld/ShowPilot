@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Check, Clock, Reply, CheckCircle2, RefreshCw } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
+import TicketCard from "@/components/showpilot/TicketCard";
+import { eventTypeColor } from "@/lib/eventTypes";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import {
@@ -268,18 +270,28 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
                 const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : null;
                 const open = pr?.open_tasks || 0;
                 return (
-                  <button key={g.share_token || g.id} onClick={() => onOpenGig(g)} className="min-w-0 flex flex-col gap-1.5 p-2.5 rounded-[10px] bg-[#151515] border border-[#262626] text-white text-left">
-                    <span className="text-[11px] text-white/55 truncate w-full" style={{ fontFamily: SCENE_MONO }}>
-                      {[shortDate(g.date), g.venue].filter(Boolean).join(" · ").toUpperCase()}
+                  <TicketCard
+                    key={g.share_token || g.id}
+                    color={eventTypeColor(g.event_type) || accent}
+                    date={g.date}
+                    compact
+                    stubWidth={44}
+                    notch={6}
+                    shadow={false}
+                    onClick={() => onOpenGig(g)}
+                    ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
+                  >
+                    <span className="flex flex-col gap-1.5 min-w-0">
+                      <span className="text-sm font-semibold text-white truncate w-full">{g.event_name || g.band_name || "Untitled"}</span>
+                      <span className="text-[10px] text-white/55 truncate w-full" style={{ fontFamily: SCENE_MONO }}>{(g.venue || "No venue yet").toUpperCase()}</span>
+                      <span className="relative w-full h-1.5 rounded-[3px] bg-[#262626] overflow-hidden">
+                        <span className="absolute left-0 top-0 bottom-0 rounded-[3px]" style={{ width: `${pct ?? 0}%`, background: accent }} />
+                      </span>
+                      <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, color: open ? BLAZE : "#8CFF3D" }}>
+                        {pct == null ? " " : open ? `${open} TASK${open === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
+                      </span>
                     </span>
-                    <span className="text-sm font-semibold truncate w-full">{g.event_name || g.band_name || "Untitled"}</span>
-                    <span className="relative w-full h-1.5 rounded-[3px] bg-[#262626] overflow-hidden">
-                      <span className="absolute left-0 top-0 bottom-0 rounded-[3px]" style={{ width: `${pct ?? 0}%`, background: accent }} />
-                    </span>
-                    <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, color: open ? BLAZE : "#8CFF3D" }}>
-                      {pct == null ? " " : open ? `${open} TASK${open === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
-                    </span>
-                  </button>
+                  </TicketCard>
                 );
               })}
             </div>

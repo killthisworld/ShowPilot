@@ -18,6 +18,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
+import TicketCard from "@/components/showpilot/TicketCard";
 import NeedsMeHome from "@/components/showpilot/NeedsMeHome";
 import CompanyChats from "@/components/showpilot/CompanyChats";
 import { fetchMyIcons } from "@/lib/eventIcons";
@@ -561,41 +562,37 @@ export default function BandHome() {
                         const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : null;
                         const tasksOpen = pr?.open_tasks;
                         return (
-                          <div
+                          <TicketCard
                             key={gigKey(g)}
-                            role="button"
-                            tabIndex={0}
+                            color={color}
+                            date={g.date}
+                            photo={g.icon_url}
+                            dim={monthKey === "past"}
                             onClick={() => openGig(g)}
-                            onKeyDown={(e) => { if (e.key === "Enter") openGig(g); }}
-                            className="relative isolate overflow-hidden flex items-stretch gap-3 px-3.5 py-3 bg-[#151515] hover:bg-[#1a1a1a] border border-[#262626] rounded-md cursor-pointer transition-colors"
-                            style={{ boxShadow: "0 8px 16px rgba(0,0,0,0.4)", opacity: monthKey === "past" ? 0.7 : 1 }}
+                            ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
                           >
-                            <EventBarPhoto url={g.icon_url} />
-                            <span className="w-1 rounded-sm shrink-0" style={{ background: color }} />
-                            <div className="w-[46px] shrink-0 text-center">
-                              <div className="text-[10px] tracking-[0.1em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{d ? d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase() : "—"}</div>
-                              <div className="text-[28px] font-bold leading-none text-white">{d ? d.getDate() : ""}</div>
-                            </div>
-                            <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
-                            <div className="min-w-0 flex-1 flex flex-col justify-center gap-[3px]">
-                              <div className="text-xl font-semibold leading-[1.1] text-white truncate">{g.event_name || g.band_name || "Untitled Gig"}</div>
-                              <div className="text-[10.5px] tracking-[0.04em] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
-                                {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
-                                {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
-                              </div>
-                              <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5 mt-1">
-                                {pct != null && (
-                                  <>
-                                    <span className="relative w-[56px] h-1 rounded-sm bg-[#222] overflow-hidden shrink-0"><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
-                                    <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#FF6A00" : "#8CFF3D" }}>
-                                      {tasksOpen ? `${tasksOpen} TASK${tasksOpen === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
-                                    </span>
-                                  </>
-                                )}
-                                <span className="ml-auto shrink-0"><FanPageButton show={g} /></span>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
+                              <div className="min-w-0 flex-1 flex flex-col justify-center gap-[3px]">
+                                <div className="text-xl font-semibold leading-[1.1] text-white truncate">{g.event_name || g.band_name || "Untitled Gig"}</div>
+                                <div className="text-[10.5px] tracking-[0.04em] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
+                                  {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
+                                  {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
+                                </div>
+                                <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5 mt-1">
+                                  {pct != null && (
+                                    <>
+                                      <span className="relative w-[56px] h-1 rounded-sm bg-[#222] overflow-hidden shrink-0"><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
+                                      <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#FF6A00" : "#8CFF3D" }}>
+                                        {tasksOpen ? `${tasksOpen} TASK${tasksOpen === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
+                                      </span>
+                                    </>
+                                  )}
+                                  <span className="ml-auto shrink-0"><FanPageButton show={g} /></span>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </TicketCard>
                         );
                       })}
                     </div>
@@ -808,55 +805,46 @@ export default function BandHome() {
                   <p className="text-[#8CFF3D]/80 font-bold text-xs uppercase tracking-wide mb-1.5 px-1">{monthLabel(monthKey)}</p>
                 )}
                 {(monthKey !== "past" || pastOpen) && (
-                <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl divide-y divide-[#1f1f1f] overflow-hidden" style={monthKey === "past" ? { opacity: 0.6 } : undefined}>
+                <div className="flex flex-col gap-2">
                   {monthGigs.map((g) => {
-                    const color = g.is_owned ? "#8CFF3D" : "#F472B6";
                     const typeColor = eventTypeColor(g.event_type);
-                    const d = g.date ? new Date(g.date + "T00:00:00") : null;
+                    const color = typeColor || (g.is_owned ? "#8CFF3D" : "#F472B6");
                     return (
-                      <div
+                      <TicketCard
                         key={gigKey(g)}
-                        role="button"
-                        tabIndex={0}
+                        color={color}
+                        date={g.date}
+                        photo={g.icon_url}
+                        dim={monthKey === "past"}
+                        stubWidth={58}
                         onClick={() => openGig(g)}
-                        onKeyDown={(e) => { if (e.key === "Enter") openGig(g); }}
-                        className="relative isolate overflow-hidden w-full flex items-center gap-3 px-3.5 py-3 text-left hover:brightness-110 transition-all cursor-pointer"
-                        style={{ background: typeBarBackground(typeColor) }}
+                        ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
                       >
-                        <EventBarPhoto url={g.icon_url} />
-                        {typeColor && <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: typeColor }} />}
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: typeColor || color }} />
-                        <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-white text-sm font-medium truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
-                          <div className="flex items-center gap-1 text-white/35 text-xs mt-0.5 truncate">
-                            {g.venue && (
-                              <span className="flex items-center gap-0.5 truncate">
-                                <MapPin className="w-3 h-3 shrink-0" />
-                                <span className="truncate">{[g.venue, g.city].filter(Boolean).join(", ")}</span>
-                              </span>
-                            )}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white text-[15px] font-semibold truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
+                            <div className="flex items-center gap-1 text-white/50 text-xs mt-0.5 min-w-0">
+                              {g.venue && (
+                                <span className="flex items-center gap-0.5 min-w-0">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  <span className="truncate">{[g.venue, g.city].filter(Boolean).join(", ")}</span>
+                                </span>
+                              )}
+                              {!g.is_owned && (
+                                <span className="flex items-center gap-0.5 text-pink-400/80 shrink-0 ml-1">
+                                  <Link2 className="w-3 h-3" /> Linked
+                                </span>
+                              )}
+                            </div>
                             {typeColor && (
-                              <span className="shrink-0 ml-1 text-[9px] font-semibold tracking-wide px-1.5 py-px rounded" style={{ color: typeColor, background: typeColor + "1f" }}>
+                              <span className="inline-block mt-1 text-[9px] font-semibold tracking-wide px-1.5 py-px rounded" style={{ color: typeColor, background: typeColor + "1f" }}>
                                 {g.event_type.toUpperCase()}
                               </span>
                             )}
-                            {!g.is_owned && (
-                              <span className="flex items-center gap-0.5 text-pink-400/70 shrink-0 ml-1">
-                                <Link2 className="w-3 h-3" /> Linked
-                              </span>
-                            )}
                           </div>
+                          <FanPageButton show={g} />
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {d && (
-                            <span className="text-white/40 text-xs font-medium">
-                              {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </span>
-                          )}
-                        </div>
-                        <FanPageButton show={g} />
-                      </div>
+                      </TicketCard>
                     );
                   })}
                 </div>
