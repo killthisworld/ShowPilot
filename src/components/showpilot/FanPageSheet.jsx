@@ -137,7 +137,7 @@ function OwnerSheet({ showId, onClose }) {
 
   const set = (patch) => { setUpdated(false); setErr(""); setDraft((d) => ({ ...d, ...patch })); };
   const url = row ? fanUrl(row.fan_slug, row.fan_token) : "";
-  const linkPrefix = fanUrl("zz").slice(0, -2);
+  const linkPrefix = fanUrl("zz").slice(0, -3); // e.g. https://showpilot.space/rsvp
   const dirty = row && draft && JSON.stringify(draft) !== JSON.stringify(toDraft(row));
 
   const copy = async () => {
