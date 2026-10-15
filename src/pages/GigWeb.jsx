@@ -397,7 +397,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     : [
         { label: "ROLES CONFIRMED", value: `${nodes.filter((n) => n.claimed).length}/${nodes.length}`, color: "#8CFF3D" },
         { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#FF6A00" : "#8CFF3D" },
-        { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#60A5FA" },
+        { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#fff" },
       ];
   const tabCounts = {
     profile: selectedNode ? null : nodes.length,
@@ -646,9 +646,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
         <div className="flex items-center gap-1.5 mb-2">
           {[
-            { id: "profile", label: selectedRole ? "PROFILE" : "BOARD", color: "#60A5FA" },
-            { id: "tasks", label: "TASKS", color: "#FF6A00" },
-            { id: "rooms", label: "ROOMS", color: "#F472B6" },
+            // Board / Tasks / Rooms aren't profiles, so they stay uncolored.
+            { id: "profile", label: selectedRole ? "PROFILE" : "BOARD" },
+            { id: "tasks", label: "TASKS" },
+            { id: "rooms", label: "ROOMS" },
           ].map((t) => {
             const on = activeTab === t.id;
             const count = tabCounts[t.id];
@@ -658,7 +659,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 type="button"
                 onClick={() => setActiveTab(t.id)}
                 className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] transition-colors"
-                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : t.color, background: on ? t.color : t.color + "1A", border: `1px solid ${on ? t.color : t.color + "44"}` }}
+                style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : "rgba(255,255,255,0.65)", background: on ? "#fff" : "#141414", border: `1px solid ${on ? "#fff" : "#2a2a2a"}` }}
               >
                 {t.label}{count != null ? ` · ${count}` : ""}
               </button>
@@ -1746,7 +1747,6 @@ function DesktopGigWeb({
                 </>
               ) : (
                 <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#60A5FA]" />
                   <span className="text-white font-bold text-2xl">Board</span>
                   <span className="ml-auto text-white/40 text-[11px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>{nodes.length} roles</span>
                 </>
@@ -1773,7 +1773,7 @@ function DesktopGigWeb({
                 ) : (
                   <>
                     <div className="flex items-center gap-2 pb-1.5">
-                      <span className="text-[#FF6A00] font-bold tracking-[0.08em] text-lg">TASKS</span>
+                      <span className="text-white font-bold tracking-[0.08em] text-lg">TASKS</span>
                       <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length} OPEN</span>
                     </div>
                     {roleTasks.length === 0 ? (
@@ -1805,7 +1805,7 @@ function DesktopGigWeb({
 
             <div className="min-h-0 flex flex-col rounded-[3px] bg-[#19141a] border border-[#F472B6]/30 border-l-4 border-l-[#F472B6]" style={{ flex: "2 1 0", boxShadow: "0 10px 18px rgba(0,0,0,0.5)" }}>
               <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
-                <span className="text-[#F472B6] font-bold tracking-[0.08em] text-lg">ROOMS</span>
+                <span className="text-white font-bold tracking-[0.08em] text-lg">ROOMS</span>
                 <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">

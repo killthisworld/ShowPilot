@@ -49,7 +49,7 @@ export default function FlightLog({ nodes = [], tasks = [], codes = {}, onSelect
   return (
     <div className="h-full min-h-0 flex flex-col rounded-[6px] border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden" style={{ fontFamily: SCENE_MONO, boxShadow: "0 10px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
       <div className="flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[#1f1f1f] shrink-0">
-        <span className="text-[15px] font-semibold tracking-[0.14em]" style={{ color: AMBER }}>FLIGHT LOG</span>
+        <span className="text-[15px] font-semibold tracking-[0.14em] text-white">FLIGHT LOG</span>
         <span className="ml-auto text-[11px] text-white/45 tabular-nums">{landed}/{nodes.length} LANDED · {avg}% READY</span>
       </div>
 
@@ -92,7 +92,7 @@ export default function FlightLog({ nodes = [], tasks = [], codes = {}, onSelect
             const cleared = e.kind === "CLEARED";
             return (
               <div key={`${e.task.id}-${e.kind}-${i}`} className="grid grid-cols-[62px_64px_minmax(0,1fr)] gap-x-2 px-4 py-1.5 border-t border-[#161616] items-baseline">
-                <span className="text-[11px] tabular-nums" style={{ color: AMBER }}>{stamp(e.at, now)}</span>
+                <span className="text-[11px] tabular-nums text-white/55">{stamp(e.at, now)}</span>
                 <span className="text-[11px] font-semibold truncate" style={{ color: n?.style.color || "#9a9a9a" }}>{codes[e.task.section] || e.task.section}</span>
                 <span className="min-w-0 text-[12px] leading-snug">
                   <span className="font-semibold tracking-[0.06em] mr-1.5" style={{ color: cleared ? "#8CFF3D" : "rgba(255,255,255,0.55)" }}>{cleared ? "✓ CLEARED" : "FILED"}</span>
