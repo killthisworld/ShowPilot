@@ -21,7 +21,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
-import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion } from "@/components/showpilot/ProfileWeb";
+import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark } from "@/components/showpilot/ProfileWeb";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/ART", engineer: "AUD/LTG" };
@@ -66,6 +66,18 @@ function roleEditable(role, permissions) {
   if ((permissions.my_roles || []).some((r) => roleMatch.includes(r))) return true;
   if ((permissions.granted_sections || []).includes(role)) return true;
   return roleInvited(role, permissions) && !roleClaimed(role, permissions);
+}
+
+// The event web's profile circles: a tint of the role color, a ring that's
+// solid once the role is claimed and dashed while it's only invited (dimmer
+// if nobody's been invited), and a glow on the selected one.
+function roleCircle(n, active) {
+  const c = n.style.color;
+  return {
+    background: tintOnDark(c, active ? 0.26 : 0.12),
+    border: `2px ${n.claimed ? "solid" : "dashed"} ${n.claimed || n.invited ? c : `${c}66`}`,
+    boxShadow: active ? `0 0 0 3px ${c}40, 0 0 22px ${c}88` : n.claimed ? `0 0 14px ${c}38` : "none",
+  };
 }
 
 // Company profiles open as their own web; Audio/Lighting keeps its phone
@@ -499,22 +511,18 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 key={n.role}
                 type="button"
                 onClick={() => selectRole(n.role)}
-                className="absolute flex flex-col items-center justify-center gap-1 rounded-[14px] cursor-pointer px-1"
+                aria-label={`${SECTION_LABELS[n.role]}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
+                className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0"
                 style={{
-                  left: hubM.hidden ? cx : n.x, top: hubM.hidden ? cy : n.y, transform: `translate(-50%, -50%) scale(${hubM.scale})`, ...hubM.node, width: 68, height: 56, zIndex: 1,
-                  // Solid base so the spoke line behind never shows through; only the selected one lights up.
-                  backgroundColor: "#161616",
-                  backgroundImage: active ? `linear-gradient(${n.style.color}33, ${n.style.color}33)` : undefined,
-                  border: `1.5px solid ${active ? n.style.color : "#2a2a2a"}`,
-                  boxShadow: active ? `0 0 0 3px ${n.style.color}40, 0 0 16px ${n.style.color}66` : undefined,
+                  left: hubM.hidden ? cx : n.x, top: hubM.hidden ? cy : n.y, transform: `translate(-50%, -50%) scale(${hubM.scale})`, ...hubM.node, width: 72, height: 72, zIndex: 1,
+                  ...roleCircle(n, active),
                 }}
               >
-                <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: n.style.color, opacity: active ? 1 : 0.5, fontSize: ROLE_CODES[n.role].length > 5 ? 9.5 : 12, letterSpacing: ROLE_CODES[n.role].length > 5 ? "0.02em" : "0.06em" }}>{ROLE_CODES[n.role]}</span>
-                <span className="w-[40px] h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden">
-                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color, opacity: active ? 1 : 0.45 }} />
+                <span className="font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, fontSize: ROLE_CODES[n.role].length > 5 ? 13 : 15 }}>{ROLE_CODES[n.role]}</span>
+                <span className="w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
+                  <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
-                <span className={`text-[9px] leading-none ${active ? "text-white/80" : "text-white/35"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
-                {n.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: n.style.color, opacity: active ? 1 : 0.5 }} />}
+                <span className={`text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
               </button>
             );
           })}
@@ -522,9 +530,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <button
             type="button"
             onClick={() => selectRole(null)}
-            className="absolute flex flex-col items-center justify-center gap-1 rounded-[20px] bg-[#161616] border px-3 py-2.5 transition-colors overflow-hidden"
+            className="absolute flex flex-col items-center justify-center gap-1 rounded-full bg-[#161616] border px-3 transition-colors overflow-hidden"
             style={{
-              left: cx, top: cy, transform: `translate(-50%, -50%) scale(${hubM.center.scale})`, opacity: hubM.center.opacity, transition: hubM.center.transition, width: 112, height: 96, zIndex: 2,
+              left: cx, top: cy, transform: `translate(-50%, -50%) scale(${hubM.center.scale})`, opacity: hubM.center.opacity, transition: hubM.center.transition, width: 116, height: 116, zIndex: 2,
               borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
               boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA, 0 0 60px #B6FF5C44" : undefined,
@@ -541,10 +549,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               <EventTypeGlyph
                 type={gig.event_type}
                 className="absolute pointer-events-none"
-                style={{ width: 84, height: 84, right: -10, bottom: -12, color: eventTypeColor(gig.event_type), opacity: 0.2, strokeWidth: 1.5 }}
+                style={{ width: 84, height: 84, right: 2, bottom: -4, color: eventTypeColor(gig.event_type), opacity: 0.2, strokeWidth: 1.5 }}
               />
             ) : null}
-            <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+            <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-3 px-1" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
           </button>
         </div>
         )}
@@ -1505,21 +1513,18 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             key={nd.role}
             type="button"
             onClick={() => selectRole(nd.role)}
-            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-[14px] cursor-pointer px-1"
+            aria-label={`${SECTION_LABELS[nd.role]}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
+            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0"
             style={{
-              left: hubM?.hidden ? "50%" : `${nd.px}%`, top: hubM?.hidden ? "50%" : `${nd.py}%`, transform: `translate(-50%, -50%) scale(${hubM?.scale ?? 1})`, ...(hubM?.node || {}), width: Math.round(92 * k), height: Math.round(72 * k), zIndex: 1,
-              backgroundColor: "#161616",
-              backgroundImage: active ? `linear-gradient(${nd.style.color}33, ${nd.style.color}33)` : undefined,
-              border: `1.5px solid ${active ? nd.style.color : "#2a2a2a"}`,
-              boxShadow: active ? `0 0 0 3px ${nd.style.color}40, 0 0 16px ${nd.style.color}66` : undefined,
+              left: hubM?.hidden ? "50%" : `${nd.px}%`, top: hubM?.hidden ? "50%" : `${nd.py}%`, transform: `translate(-50%, -50%) scale(${hubM?.scale ?? 1})`, ...(hubM?.node || {}), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
+              ...roleCircle(nd, active),
             }}
           >
-            <span className="font-bold leading-none whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: nd.style.color, opacity: active ? 1 : 0.6, fontSize: Math.max(10, Math.round((ROLE_CODES[nd.role].length > 5 ? 12 : 14) * k)) }}>{ROLE_CODES[nd.role]}</span>
-            <span className="h-[4px] rounded-full bg-[#0d0d0d] overflow-hidden" style={{ width: Math.round(54 * k) }}>
-              <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color, opacity: active ? 1 : 0.5 }} />
+            <span className="font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, fontSize: Math.max(12, Math.round((ROLE_CODES[nd.role].length > 5 ? 14.5 : 20) * k)) }}>{ROLE_CODES[nd.role]}</span>
+            <span className="h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
+              <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />
             </span>
-            <span className={`text-[10px] leading-none ${active ? "text-white/80" : "text-white/40"}`} style={{ fontFamily: SCENE_MONO }}>{nd.percent}%</span>
-            {nd.claimed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-[#0d0d0d]" style={{ background: nd.style.color, opacity: active ? 1 : 0.5 }} />}
+            <span className={`text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO }}>{nd.percent}%</span>
           </button>
         );
       })}
@@ -1527,9 +1532,9 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
       <button
         type="button"
         onClick={() => selectRole(null)}
-        className="absolute flex flex-col items-center justify-center rounded-[18px] bg-[#161616] border px-3 overflow-hidden"
+        className="absolute flex flex-col items-center justify-center rounded-full bg-[#161616] border px-4 overflow-hidden"
         style={{
-          left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${hubM?.center.scale ?? 1})`, opacity: hubM?.center.opacity ?? 1, transition: hubM?.center.transition, width: Math.round(160 * k), height: Math.round(100 * k), zIndex: 2,
+          left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${hubM?.center.scale ?? 1})`, opacity: hubM?.center.opacity ?? 1, transition: hubM?.center.transition, width: Math.round(164 * k), height: Math.round(164 * k), zIndex: 2,
           borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
           boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
         }}
@@ -1540,9 +1545,9 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
           </>
         ) : typeColor ? (
-          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: -10, bottom: -12, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
+          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: 8, bottom: 0, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
         ) : null}
-        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-2" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-3" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
       </button>
     </div>
   );

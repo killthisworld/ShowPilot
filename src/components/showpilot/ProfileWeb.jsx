@@ -53,7 +53,7 @@ const SHORT = {
 export const shortTabLabel = (t) => SHORT[t.key] || String(t.label || "").split(/[\s&]/)[0];
 
 // A role color mixed into the dark background, for filled centers.
-function tintOnDark(hex, a) {
+export function tintOnDark(hex, a) {
   const v = parseInt(String(hex).replace("#", "").slice(0, 6), 16);
   if (!Number.isFinite(v)) return "#161616";
   const mix = (c) => Math.round(13 + (c - 13) * a).toString(16).padStart(2, "0");
