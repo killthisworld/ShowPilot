@@ -12,9 +12,9 @@ import SpaceDrift from "@/components/showpilot/SpaceDrift";
 
 // Fan accounts (jobs 77, 79, 83, 84, 85; direction in claude/fan-profile-direction.md).
 // The fan's own corner of Show Pilot, on the black drifting-space sky:
-//   Shows     every event they RSVP'd to, as big cards with the event's art
-//   Discover  only if the fan turns on recommendations: upcoming events near
-//             their home city that hosts chose to list, filterable by type
+//   Shows  three views: Coming up and Been there (their RSVPs, as big cards
+//          with the event's art) and Discover (only if the fan turns on local
+//          shows: events near their home city that hosts listed, by type)
 //   Stars  their constellation: one star per show; tap one for a summary
 //   Me     their name, look (star color, sky, first tab) and sign out
 // Every tab fits the screen: no page scrolling, phone-first.
@@ -59,11 +59,10 @@ const SKIES = [
   { id: "still", label: "Still" },
 ];
 // discover: false = personal only; city/state = home area; types = filter.
-const DEFAULT_STYLE = { star: DEFAULT_STAR, sky: "galaxy", home: "shows", discover: false, city: "", state: "", types: [] };
+const DEFAULT_STYLE = { star: DEFAULT_STAR, sky: "galaxy", discover: false, city: "", state: "", types: [] };
 
-const ALL_TABS = [
+const TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
-  { id: "discover", label: "Discover", icon: Compass, title: "DISCOVER" },
   { id: "stars", label: "Stars", icon: Sparkles, title: "MY STARS" },
   { id: "me", label: "Me", icon: User, title: "ME" },
 ];
@@ -115,15 +114,14 @@ export default function FanHome() {
   const style = { ...DEFAULT_STYLE, ...(preferences?.fan_style || {}) };
   const STAR = liftColor(style.star);
 
-  const TABS = ALL_TABS.filter((t) => t.id !== "discover" || style.discover);
   const [params, setParams] = useSearchParams();
-  const wanted = params.get("tab") || style.home;
-  const tab = TABS.some((t) => t.id === wanted) ? wanted : "shows";
-  const setTab = (id) => {
+  const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "shows";
+  const setParam = (patch) => {
     const next = new URLSearchParams(params);
-    next.set("tab", id);
+    Object.entries(patch).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
     setParams(next, { replace: true });
   };
+  const setTab = (id) => setParam({ tab: id });
 
   const [shows, setShows] = useState(null);
   const [error, setError] = useState(false);
@@ -159,6 +157,10 @@ export default function FanHome() {
   const past = (shows || []).filter((s) => s.date && s.date < today).reverse();
   const current = TABS.find((t) => t.id === tab);
   const name = preferences?.display_name || "";
+  // Which Shows view: Coming up / Been there / Discover (held in ?view=).
+  const VIEWS = ["upcoming", "past", ...(style.discover ? ["discover"] : [])];
+  const asked = params.get("view") || (params.get("tab") === "discover" ? "discover" : "");
+  const view = VIEWS.includes(asked) ? asked : upcoming.length || !style.discover ? (upcoming.length || !past.length ? "upcoming" : "past") : "discover";
 
   return (
     <div className="h-[100dvh] relative isolate overflow-hidden flex flex-col text-white" style={{ fontFamily: SCENE_FONT, backgroundColor: "#000" }}>
@@ -172,7 +174,7 @@ export default function FanHome() {
             </div>
             <h1 className="text-[32px] font-bold tracking-[0.04em] leading-none mt-1 whitespace-nowrap">{current.title}</h1>
           </div>
-          {tab === "discover" && style.state && (
+          {tab === "shows" && view === "discover" && style.state && (
             <span className="text-[12px] tracking-[0.1em] pb-1 truncate min-w-0" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
               <MapPin className="inline w-3 h-3 -mt-0.5 mr-1" />{(style.city ? `${style.city}, ${style.state}` : stateName(style.state)).toUpperCase()}
             </span>
@@ -189,18 +191,15 @@ export default function FanHome() {
             <div className="flex-1 flex items-center justify-center">
               <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${STAR}33`, borderTopColor: STAR }} />
             </div>
-          ) : tab === "discover" ? (
-            <DiscoverTab style={style} star={STAR} onStyle={saveStyle} onSetUp={() => setTab("me")} />
           ) : tab === "me" ? (
             <MeTab user={user} name={name} style={style} star={STAR} counts={{ total: shows.length, upcoming: upcoming.length, past: past.length }} onStyle={saveStyle} onName={saveName} />
           ) : error ? (
             <Notice text="Your shows couldn't load right now. Try again in a minute." />
-          ) : shows.length === 0 ? (
-            <EmptyShows email={user?.email} stars={tab === "stars"} star={STAR} />
           ) : tab === "stars" ? (
-            <StarsTab shows={shows} today={today} star={STAR} />
+            shows.length === 0 ? <EmptyShows email={user?.email} stars star={STAR} /> : <StarsTab shows={shows} today={today} star={STAR} />
           ) : (
-            <ShowsTab upcoming={upcoming} past={past} star={STAR} />
+            <ShowsTab upcoming={upcoming} past={past} star={STAR} view={view} views={VIEWS} onView={(v) => setParam({ view: v, tab: "shows" })}
+              email={user?.email} style={style} onStyle={saveStyle} onSetUp={() => setTab("me")} />
           )}
         </main>
       </div>
@@ -265,32 +264,38 @@ function EmptyShows({ email, stars, star }) {
 }
 
 // ---------- Shows ----------
-// Coming up / Been there, each a swipeable deck of big cards that fills the
-// space between the header and the tabs. Each card shows the event's art.
-function ShowsTab({ upcoming, past, star }) {
-  const [which, setWhich] = useState(upcoming.length ? "upcoming" : "past");
-  const list = which === "upcoming" ? upcoming : past;
-  const seg = (id, label, n) => {
-    const on = which === id;
-    return (
-      <button type="button" onClick={() => setWhich(id)} aria-pressed={on}
-        className="flex-1 h-10 rounded-full text-[14px] font-bold tracking-[0.04em] transition-colors"
-        style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
-        {label} · {n}
-      </button>
-    );
-  };
+// Three views on one tab: Coming up / Been there (the fan's RSVPs) and, when
+// local shows is on, Discover. Each is a swipeable deck of big flyer cards
+// that fills the space between the header and the bottom bar.
+function ShowsTab({ upcoming, past, star, view, views, onView, email, style, onStyle, onSetUp }) {
+  const LABELS = { upcoming: ["Coming up", upcoming.length], past: ["Been there", past.length], discover: ["Discover", null] };
+  const list = view === "past" ? past : upcoming;
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
-      <div className="shrink-0 flex gap-1 p-1 rounded-full" style={{ background: "rgba(16,20,52,0.7)", border: `1px solid ${LINE}` }}>
-        {seg("upcoming", "Coming up", upcoming.length)}
-        {seg("past", "Been there", past.length)}
+      <div role="tablist" aria-label="Shows" className="shrink-0 flex gap-1 p-1 rounded-full" style={{ background: "rgba(16,20,52,0.7)", border: `1px solid ${LINE}` }}>
+        {views.map((id) => {
+          const on = view === id;
+          const [label, n] = LABELS[id];
+          return (
+            <button key={id} type="button" role="tab" aria-selected={on} onClick={() => onView(id)}
+              className="flex-1 min-w-0 h-10 rounded-full flex items-center justify-center gap-1.5 text-[14px] font-bold tracking-[0.02em] whitespace-nowrap transition-colors"
+              style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
+              {id === "discover" && <Compass className="w-3.5 h-3.5 shrink-0" />}
+              {label}
+              {n !== null && <span className="text-[11px] font-bold rounded-full px-1.5 leading-[16px]" style={{ fontFamily: SCENE_MONO, background: on ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.08)" }}>{n}</span>}
+            </button>
+          );
+        })}
       </div>
-      {list.length === 0 ? (
-        <div className="flex-1 flex items-center"><Notice text={which === "upcoming" ? "Nothing coming up. Your next RSVP will show here." : "No past shows yet."} /></div>
+      {view === "discover" ? (
+        <DiscoverTab style={style} star={star} onStyle={onStyle} onSetUp={onSetUp} />
+      ) : list.length === 0 ? (
+        upcoming.length + past.length === 0
+          ? <EmptyShows email={email} star={star} />
+          : <div className="flex-1 flex items-center"><Notice text={view === "upcoming" ? "Nothing coming up. Your next RSVP will show here." : "No past shows yet."} /></div>
       ) : (
-        <Deck items={list} keyOf={(s) => s.rsvp_id} resetKey={which} star={star}
-          render={(s, single) => <ShowPanel show={s} past={which === "past"} star={star} single={single} />} />
+        <Deck items={list} keyOf={(s) => s.rsvp_id} resetKey={view} star={star}
+          render={(s, single) => <ShowPanel show={s} past={view === "past"} star={star} single={single} />} />
       )}
     </div>
   );
@@ -490,7 +495,8 @@ function DiscoverPanel({ show, star, single }) {
 
 // ---------- Stars ----------
 // Just the fan's constellation: one star per show on a spiral, joined in date
-// order. Lit = been there; outlined and pulsing = coming up. Tap a star for a
+// order. Been there = a bright star with glow and spikes; coming up = a faint
+// forming star in a dashed green ring. Tap a star for a
 // short summary. The sky fills the space between the header and the tabs.
 function StarsTab({ shows, today, star }) {
   const boxRef = useRef(null);
@@ -521,9 +527,21 @@ function StarsTab({ shows, today, star }) {
       };
     });
   }, [ordered, today, W, H]);
-  const dust = useMemo(() => Array.from({ length: 90 }, (_, i) => ({
-    x: seededRandom(i * 13 + 1) * W, y: seededRandom(i * 29 + 5) * H, r: seededRandom(i * 7 + 3) > 0.85 ? 1.3 : 0.8, o: 0.12 + seededRandom(i * 3 + 9) * 0.3,
-  })), [W, H]);
+  // Background stars: mostly faint pinpricks in slightly different star
+  // colors (blue-white, white, warm), a few brighter ones that twinkle.
+  const dust = useMemo(() => Array.from({ length: 110 }, (_, i) => {
+    const t = seededRandom(i * 7 + 3);
+    return {
+      x: seededRandom(i * 13 + 1) * W,
+      y: seededRandom(i * 29 + 5) * H,
+      r: t > 0.93 ? 1.1 : t > 0.7 ? 0.7 : 0.45,
+      o: t > 0.93 ? 0.75 : 0.18 + seededRandom(i * 3 + 9) * 0.35,
+      c: ["#ffffff", "#cdd8ff", "#fff0d8", "#dfe6ff", "#ffe1d6"][Math.floor(seededRandom(i * 17 + 2) * 5)],
+      tw: t > 0.93,
+      dur: 2.5 + seededRandom(i * 11 + 4) * 3,
+    };
+  }), [W, H]);
+  const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const [sel, setSel] = useState(null);
   const selected = stars.find((s) => s.show.rsvp_id === sel);
 
@@ -531,9 +549,31 @@ function StarsTab({ shows, today, star }) {
     <div ref={boxRef} className="relative flex-1 min-h-0 rounded-3xl overflow-hidden" style={{ background: "rgba(3,4,16,0.45)", border: `1px solid ${LINE}` }}
       onClick={(e) => { if (e.target === e.currentTarget || e.target.tagName === "svg") setSel(null); }}>
       <svg width={W} height={H} className="absolute inset-0 block" role="img" aria-label={`Your constellation: ${stars.length} stars`}>
-        {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill="#ffffff" opacity={d.o} />)}
+        <defs>
+          <radialGradient id="fan-star-glow">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="0.18" stopColor={star} stopOpacity="0.9" />
+            <stop offset="0.45" stopColor={star} stopOpacity="0.28" />
+            <stop offset="1" stopColor={star} stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="fan-star-spike">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="0.35" stopColor={star} stopOpacity="0.55" />
+            <stop offset="1" stopColor={star} stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="fan-star-soon">
+            <stop offset="0" stopColor="#ffffff" stopOpacity="0.9" />
+            <stop offset="0.25" stopColor={G} stopOpacity="0.55" />
+            <stop offset="1" stopColor={G} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        {dust.map((d, i) => (
+          <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill={d.c} opacity={d.o}>
+            {d.tw && !still && <animate attributeName="opacity" values={`${d.o};${d.o * 0.35};${d.o}`} dur={`${d.dur}s`} repeatCount="indefinite" />}
+          </circle>
+        ))}
         {stars.slice(1).map((s, i) => (
-          <line key={`l${i}`} x1={stars[i].x} y1={stars[i].y} x2={s.x} y2={s.y} stroke={star} strokeOpacity={s.lit ? 0.45 : 0.2} strokeWidth="1.2" strokeDasharray={s.lit ? undefined : "3 5"} />
+          <line key={`l${i}`} x1={stars[i].x} y1={stars[i].y} x2={s.x} y2={s.y} stroke={star} strokeOpacity={s.lit ? 0.32 : 0.16} strokeWidth="0.8" strokeDasharray={s.lit ? undefined : "2 5"} />
         ))}
         {stars.map((s) => {
           const on = s.show.rsvp_id === sel;
@@ -541,16 +581,28 @@ function StarsTab({ shows, today, star }) {
             <g key={s.show.rsvp_id} onClick={(e) => { e.stopPropagation(); setSel(on ? null : s.show.rsvp_id); }} style={{ cursor: "pointer" }}>
               <circle cx={s.x} cy={s.y} r="20" fill="transparent" />
               {s.lit ? (
-                <>
-                  <circle cx={s.x} cy={s.y} r={on ? 14 : 10} fill={star} opacity="0.16" />
-                  <circle cx={s.x} cy={s.y} r={on ? 6 : 4.5} fill={star} />
-                </>
+                // A real star: soft glow, thin diffraction spikes, white-hot core.
+                <g transform={`translate(${s.x} ${s.y}) scale(${on ? 1.25 : 1})`}>
+                  <circle r="10" fill="url(#fan-star-glow)">
+                    {!still && <animate attributeName="opacity" values="1;0.72;1" dur={`${3 + seededRandom(hashString(s.show.rsvp_id || "")) * 2.5}s`} repeatCount="indefinite" />}
+                  </circle>
+                  <ellipse rx="12" ry="0.75" fill="url(#fan-star-spike)" />
+                  <ellipse rx="0.75" ry="12" fill="url(#fan-star-spike)" />
+                  <ellipse rx="6" ry="0.5" fill="url(#fan-star-spike)" opacity="0.6" transform="rotate(45)" />
+                  <ellipse rx="6" ry="0.5" fill="url(#fan-star-spike)" opacity="0.6" transform="rotate(-45)" />
+                  <circle r="1.9" fill="#ffffff" />
+                </g>
               ) : (
-                <circle cx={s.x} cy={s.y} r={on ? 7 : 5} fill="none" stroke={G} strokeWidth="1.6">
-                  <animate attributeName="opacity" values="1;0.4;1" dur="2.4s" repeatCount="indefinite" />
-                </circle>
+                // Coming up: a faint new star, still forming.
+                <g transform={`translate(${s.x} ${s.y}) scale(${on ? 1.25 : 1})`}>
+                  <circle r="7" fill="url(#fan-star-soon)" opacity="0.55" />
+                  <circle r="1.3" fill="#ffffff" opacity="0.9" />
+                  <circle r="6.5" fill="none" stroke={G} strokeWidth="1" strokeDasharray="2 3" opacity="0.8">
+                    {!still && <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2.4s" repeatCount="indefinite" />}
+                  </circle>
+                </g>
               )}
-              {on && <circle cx={s.x} cy={s.y} r="17" fill="none" stroke={s.lit ? star : G} strokeOpacity="0.7" strokeWidth="1" />}
+              {on && <circle cx={s.x} cy={s.y} r="18" fill="none" stroke={s.lit ? star : G} strokeOpacity="0.55" strokeWidth="0.8" />}
             </g>
           );
         })}
@@ -607,7 +659,7 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
     try { await signOut(); } catch (e) { console.error(e); }
     navigate("/login", { replace: true });
   };
-  const label = "text-[11px] tracking-[0.12em] mb-1.5";
+  const label = "text-[11px] tracking-[0.12em] mb-1";
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
@@ -639,8 +691,8 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
         </div>
       </div>
 
-      <section className="flex-1 min-h-0 rounded-2xl px-4 py-3.5 flex flex-col justify-between gap-3 overflow-y-auto" style={{ background: CARD, border: `1px solid ${LINE}` }}>
-        <Choice title="SHOW PILOT FOR ME" options={[{ id: "mine", label: "Just my shows" }, { id: "local", label: "+ Local shows" }]}
+      <section className="shrink-0 rounded-2xl px-3.5 py-3 flex flex-col gap-2.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
+        <Choice title="SHOWS" options={[{ id: "mine", label: "Just mine" }, { id: "local", label: "+ Local shows" }]}
           value={style.discover ? "local" : "mine"} onPick={(v) => onStyle({ discover: v === "local" })} star={star} />
         {style.discover && <HomeCity style={style} star={star} onStyle={onStyle} />}
         <div>
@@ -648,8 +700,6 @@ function MeTab({ user, name, style, star, counts, onStyle, onName }) {
           <StarColors value={style.star} shown={star} onPick={(hex) => onStyle({ star: hex })} />
         </div>
         <Choice title="SKY" options={SKIES} value={style.sky} onPick={(v) => onStyle({ sky: v })} star={star} />
-        <Choice title="OPENS TO" options={[{ id: "shows", label: "Shows" }, ...(style.discover ? [{ id: "discover", label: "Discover" }] : []), { id: "stars", label: "Stars" }]}
-          value={style.home === "discover" && !style.discover ? "shows" : style.home} onPick={(v) => onStyle({ home: v })} star={star} />
       </section>
     </div>
   );
@@ -675,13 +725,13 @@ function StarColors({ value, shown, onPick }) {
         const on = !live && value?.toLowerCase() === c.hex.toLowerCase();
         return (
           <button key={c.hex} type="button" onClick={() => onPick(c.hex)} aria-label={c.name} aria-pressed={on}
-            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
             style={{ background: c.hex, boxShadow: on ? ring(c.hex) : "none" }}>
             {on && <Check className="w-4 h-4" style={{ color: "#0d0d0d" }} strokeWidth={3} />}
           </button>
         );
       })}
-      <label className="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 cursor-pointer" aria-label="Pick any color" title="Pick any color"
+      <label className="relative w-8 h-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer" aria-label="Pick any color" title="Pick any color"
         style={{ background: custom || "conic-gradient(#ff4d4d, #ffd84d, #6dff4d, #4dffe6, #4d7bff, #c44dff, #ff4d9e, #ff4d4d)", boxShadow: custom ? ring(custom) : "none" }}>
         <input type="color" value={custom || shown} onChange={(e) => pickCustom(e.target.value)} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
         {custom ? <Check className="w-4 h-4 pointer-events-none" style={{ color: "#0d0d0d" }} strokeWidth={3} /> : <span className="text-[18px] font-bold leading-none pointer-events-none" style={{ color: "#0d0d0d" }}>+</span>}
@@ -697,10 +747,10 @@ function HomeCity({ style, star, onStyle }) {
   useEffect(() => { setCity(style.city || ""); setSt(style.state || ""); }, [style.city, style.state]);
   const dirty = city.trim() !== (style.city || "") || st !== (style.state || "");
   const save = (e) => { e.preventDefault(); if (st) onStyle({ city: city.trim().slice(0, 60), state: st }); };
-  const field = "h-10 rounded-lg px-3 text-[16px] bg-black/50 text-white outline-none";
+  const field = "h-9 rounded-lg px-3 text-[16px] bg-black/50 text-white outline-none";
   return (
     <form onSubmit={save}>
-      <div className="text-[11px] tracking-[0.12em] mb-1.5" style={{ fontFamily: SCENE_MONO, color: DIM }}>HOME CITY</div>
+      <div className="text-[11px] tracking-[0.12em] mb-1" style={{ fontFamily: SCENE_MONO, color: DIM }}>HOME CITY</div>
       <div className="flex gap-2">
         <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" aria-label="City" maxLength={60} autoComplete="address-level2"
           className={`${field} min-w-0 flex-1`} style={{ border: `1px solid ${LINE}` }} />
@@ -708,7 +758,7 @@ function HomeCity({ style, star, onStyle }) {
           <option value="">State</option>
           {US_STATES.map(([a, n]) => <option key={a} value={a} className="bg-[#111]" title={n}>{a}</option>)}
         </select>
-        <button type="submit" disabled={!st || !dirty} aria-label="Save home city" className="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40"
+        <button type="submit" disabled={!st || !dirty} aria-label="Save home city" className="w-9 h-9 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40"
           style={{ background: dirty && st ? star : "rgba(0,0,0,0.45)", color: dirty && st ? "#0d0d0d" : star, border: `1px solid ${dirty && st ? star : LINE}` }}>
           <Check className="w-4 h-4" />
         </button>
@@ -720,13 +770,13 @@ function HomeCity({ style, star, onStyle }) {
 function Choice({ title, options, value, onPick, star }) {
   return (
     <div>
-      <div className="text-[11px] tracking-[0.12em] mb-1.5" style={{ fontFamily: SCENE_MONO, color: DIM }}>{title}</div>
-      <div className="flex gap-1 p-1 rounded-full" style={{ background: "rgba(0,0,0,0.45)", border: `1px solid ${LINE}` }}>
+      <div className="text-[11px] tracking-[0.12em] mb-1" style={{ fontFamily: SCENE_MONO, color: DIM }}>{title}</div>
+      <div className="flex gap-1 p-[3px] rounded-full" style={{ background: "rgba(0,0,0,0.45)", border: `1px solid ${LINE}` }}>
         {options.map((o) => {
           const on = value === o.id;
           return (
             <button key={o.id} type="button" onClick={() => onPick(o.id)} aria-pressed={on}
-              className="flex-1 h-9 rounded-full text-[14px] font-bold" style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
+              className="flex-1 h-8 rounded-full text-[13px] font-bold" style={{ background: on ? star : "transparent", color: on ? "#0d0d0d" : SOFT }}>
               {o.label}
             </button>
           );
