@@ -14,8 +14,9 @@ import { DJ_COLOR } from "@/lib/djTools";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
 
 // `avatar`: the trigger is the person's profile photo (desktop rail) instead
-// of the menu bars (phone header).
-export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, avatar = false }) {
+// of the menu bars (phone header). `tab`: the trigger is the "Me" tab on the
+// company phone's bottom bar (photo + label), with `accent` as its ring.
+export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, avatar = false, tab = false, accent = "#8CFF3D" }) {
   const [open, setOpen] = useState(false);
   const [prefs, setPrefs] = useState(preferences || { display_name: "" });
   const [saving, setSaving] = useState(false);
@@ -122,7 +123,16 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        {avatar ? (
+        {tab ? (
+          <button aria-label="Me: profile and settings" className="relative w-16 h-[52px] flex flex-col items-center justify-center gap-[3px] text-[11px] font-semibold text-white/55">
+            <span className="w-6 h-6 rounded-full overflow-hidden bg-[#262626] flex items-center justify-center" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
+              {prefs.profile_photo_url
+                ? <img src={prefs.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                : <User className="w-3.5 h-3.5 text-white/60" />}
+            </span>
+            <span>Me</span>
+          </button>
+        ) : avatar ? (
           <button aria-label="Settings" className="w-11 h-11 rounded-full overflow-hidden bg-[#1a1a1a] flex items-center justify-center ring-1 ring-white/15 hover:ring-[#8CFF3D] transition-shadow">
             {prefs.profile_photo_url
               ? <img src={prefs.profile_photo_url} alt="" className="w-full h-full object-cover" />

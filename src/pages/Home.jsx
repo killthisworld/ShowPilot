@@ -14,6 +14,8 @@ import { buildStatusStrip } from "@/lib/homeStats";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
+import ConsoleStrips from "@/components/showpilot/ConsoleStrips";
+import useSidewaysConsole from "@/hooks/useSidewaysConsole";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -43,6 +45,8 @@ export default function Home() {
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
+  // Phone turned sideways (and the Customize setting on): the console view.
+  const sideways = useSidewaysConsole(true);
 
   useEffect(() => {
     const checkLogbookReminder = async () => {
@@ -645,6 +649,7 @@ export default function Home() {
       )}
 
       <BottomTabs />
+      {sideways && !loading && <ConsoleStrips shows={shows} onOpen={openShow} accent={accountStyle.color} />}
     </div>
   );
 }

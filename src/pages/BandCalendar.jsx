@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { supabase } from "@/api/supabaseClient";
-import { ChevronLeft, ChevronRight, X, MapPin, Link2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, MapPin, Link2, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -13,6 +13,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
+import FanPageButton from "@/components/showpilot/FanPageButton";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -317,6 +318,38 @@ export default function BandCalendar() {
               );
             })}
           </div>
+
+          {/* The selected day's events, with what you can do from here:
+              open the event web (the Web tab's old job), chat, fan page. */}
+          {selectedDate && (gigsByDate[selectedDate] || []).length > 0 && (
+            <div className="mt-4 space-y-2" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+              <p className="text-[11px] tracking-[0.12em] text-white/50 px-1" style={{ fontFamily: SCENE_MONO }}>{moment(selectedDate).format("ddd MMM D").toUpperCase()}</p>
+              {(gigsByDate[selectedDate] || []).map((g) => {
+                const color = getGigColor(g);
+                return (
+                  <div key={g.is_owned ? g.id : g.share_token} className="rounded-xl bg-[#151515] border border-[#262626] p-3 flex flex-col gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-1 self-stretch rounded-full" style={{ background: color }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-[15px] font-semibold truncate">{g.event_name || g.band_name || "Untitled"}</p>
+                        <p className="text-white/55 text-xs truncate">{[g.venue, g.city].filter(Boolean).join(" · ") || "No venue yet"}</p>
+                      </div>
+                      <FanPageButton show={g} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => openGig(g)} className="h-11 rounded-[10px] flex items-center justify-center gap-2 text-[13px] font-bold text-[#0d0d0d]" style={{ background: color }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4L19.6 9.5L16.7 18.5H7.3L4.4 9.5Z" /><path d="M12 12L12 4M12 12L19.6 9.5M12 12L16.7 18.5M12 12L7.3 18.5M12 12L4.4 9.5" /><circle cx="12" cy="12" r="2.6" fill="currentColor" /></svg>
+                        Open web
+                      </button>
+                      <button onClick={() => navigate(`/gig/rooms?token=${g.share_token}`)} className="h-11 rounded-[10px] flex items-center justify-center gap-2 text-[13px] font-semibold text-white bg-[#1f1f1f]">
+                        <MessageCircle className="w-4 h-4" /> Chat
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

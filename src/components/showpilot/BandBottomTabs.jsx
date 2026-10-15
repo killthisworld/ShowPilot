@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, Orbit } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus } from "lucide-react";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -18,7 +18,9 @@ const TABS = [
 ];
 
 // Phones: the company phone layout's bottom bar - Needs me / Events / + /
-// Chats / Web, with "+" (quick-add a task) in the middle on every screen.
+// Chats / Me, with "+" (quick-add a task) in the middle on every screen.
+// Events opens the banner calendar; an event's web opens from there. Me is
+// your profile and settings (job 67).
 // Desktop (1024px+): a slim left rail with Home / Calendar / Cockpit plus
 // settings, and <body> is tagged so the page shifts over to make room (see
 // index.css).
@@ -67,11 +69,13 @@ export default function BandBottomTabs() {
 }
 
 function CompanyPhoneBar({ preferences, pathname, search }) {
+  const { reload } = usePreferences();
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const words = vocab(preferences?.account_type);
   const { data } = useNeedsMe();
   const unread = (data?.chats || []).reduce((n, c) => n + Number(c.unread || 0), 0);
-  const view = pathname === "/" ? new URLSearchParams(search).get("view") || "needs" : null;
+  const v = pathname === "/" ? new URLSearchParams(search).get("view") || "needs" : null;
+  const view = v === "events" ? "events" : v;
   const activeKey =
     view ||
     (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : null);
@@ -105,7 +109,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
       >
         <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
           {tab("needs", "/", "Needs me", Zap)}
-          {tab("events", "/?view=events", words.events, CalendarDays)}
+          {tab("events", "/band/calendar", words.events, CalendarDays)}
           <button
             onClick={openQuickAdd}
             aria-label="Quick-add a task"
@@ -115,7 +119,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
             <Plus className="w-7 h-7" strokeWidth={3} />
           </button>
           {tab("chats", "/?view=chats", "Chats", MessageCircle, unread)}
-          {tab("web", "/?view=web", "Web", Orbit)}
+          <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} tab accent={accent} />
         </div>
       </nav>
       <QuickAddSheet preferences={preferences} accent={accent} />

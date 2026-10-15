@@ -35,9 +35,9 @@ import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventT
 // Tapping a row doesn't navigate away, it brings the Gig Web hub forward
 // as a layer over this screen, same as always.
 //
-// On a phone this is the company phone layout (job 61): the bottom bar's
-// tabs are views of this one page, picked by ?view= - Needs me (default),
-// Events (the list below), Chats, and Web (opens the next event's Gig Web).
+// On a phone this is the company phone layout (jobs 61, 67): Needs me is the
+// default view and Chats is ?view=chats. The bar's Events tab opens the
+// banner calendar (/band/calendar); ?view=events still shows the old list.
 // Desktop keeps its one-screen board.
 export default function BandHome() {
   const navigate = useNavigate();
@@ -161,21 +161,7 @@ export default function BandHome() {
   const closeGig = () => {
     setWebVisible(false);
     setTimeout(() => setWebToken(null), 250);
-    // The Web tab is "open the web"; closing it lands back on Needs me.
-    if (!isDesktop && phoneView === "web") navigate("/", { replace: true });
   };
-
-  // Web tab: open the Gig Web of the next event coming up (or the most
-  // recent one if nothing is ahead). With no events at all it just shows
-  // the Events list.
-  useEffect(() => {
-    if (isDesktop || phoneView !== "web" || loading || webToken) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const dated = gigs.filter((g) => g.date && g.share_token);
-    const next = dated.filter((g) => g.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0]
-      || dated.sort((a, b) => b.date.localeCompare(a.date))[0];
-    if (next) openGig(next);
-  }, [isDesktop, phoneView, loading, gigs]);
 
   // Called once the celebration finishes (the formed star rises and
   // fades) - a show that's wrapped is a show that's over, so this is also

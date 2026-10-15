@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeColors from "@/components/showpilot/EventTypeColors";
 import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
+import GenreColors from "@/components/showpilot/GenreColors";
+import { useSidewaysSetting } from "@/hooks/useSidewaysConsole";
 
 // The body of the Settings drawer, in the same console language as the
 // homes: a profile readout card, mono field labels, bank-style navigation
@@ -208,6 +210,38 @@ function LoginDetails({ user }) {
   );
 }
 
+// Settings > Customize > "Console when sideways": tech profiles only, since
+// the console strips are their layout.
+function SidewaysSwitch() {
+  const [on, setOn] = useSidewaysSetting();
+  return (
+    <div className="rounded-xl bg-[#151515] border border-[#262626] p-3.5 flex items-center gap-3" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      <span aria-hidden="true" className="w-[52px] h-9 shrink-0 rounded-md border-2 border-[#8CFF3D] flex items-stretch gap-[3px] p-1">
+        {[3, 10, 6, 14].map((b, i) => (
+          <span key={i} className="flex-1 rounded-sm bg-[#2a2a2a] relative">
+            <span className="absolute left-0.5 right-0.5 h-1 rounded-[1px] bg-[#d4d4d4]" style={{ bottom: b }} />
+          </span>
+        ))}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-white text-[15px] font-semibold">Console when sideways</span>
+        <span className="block text-white/60 text-xs leading-snug mt-0.5">Turn your phone to see your shows as channel strips. Upright stays the same.</span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label="Console when sideways"
+        onClick={() => setOn(!on)}
+        className="relative w-[52px] h-[30px] shrink-0 rounded-full transition-colors"
+        style={{ background: on ? "#8CFF3D" : "#3a3a3a" }}
+      >
+        <span className="absolute top-[3px] w-6 h-6 rounded-full bg-[#f2f2f2] shadow transition-all" style={{ left: on ? 25 : 3 }} />
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPanel({
   prefs, setPrefs, user, accountStyle, onPhoto,
   navItems, onSave, saving,
@@ -216,9 +250,39 @@ export default function SettingsPanel({
 }) {
   const color = accountStyle.color;
   const AccIcon = accountStyle.icon;
+  const [tab, setTab] = useState("account");
+  const isTech = ["engineer", "lighting"].includes(prefs.account_type || "engineer");
   return (
     <div className="p-5" style={{ fontFamily: SCENE_FONT }}>
       <h2 className="text-[10px] tracking-[0.2em] text-white/40 mb-3" style={{ fontFamily: SCENE_MONO }}>SETTINGS</h2>
+
+      <div role="tablist" aria-label="Settings sections" className="grid grid-cols-2 gap-1 p-1 mb-4 rounded-xl bg-[#161616] border border-[#262626]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+        {[["account", "Account"], ["customize", "Customize"]].map(([id, text]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className="h-10 rounded-[9px] text-[15px] transition-colors"
+            style={tab === id ? { background: color, color: "#0d0d0d", fontWeight: 700 } : { color: "rgba(255,255,255,0.65)", fontWeight: 600 }}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {tab === "customize" ? (
+        <div className="space-y-3.5">
+          {isTech && <SidewaysSwitch />}
+          <EventTypeColors preferences={prefs} onSaved={onColorsSaved} />
+          <GenreColors preferences={prefs} onSaved={onColorsSaved} />
+          <div className="h-[52px] rounded-xl border border-dashed border-[#2e2e2e] flex items-center justify-center text-[13px] text-white/50" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+            More ways to customize are on the way
+          </div>
+        </div>
+      ) : (
+      <>
 
       {/* Profile readout */}
       <div className="rounded-xl border p-3 mb-4 flex items-center gap-3" style={{ background: `linear-gradient(90deg, ${color}26, #111 75%)`, borderColor: color + "55" }}>
@@ -265,8 +329,6 @@ export default function SettingsPanel({
           </button>
         ))}
       </div>
-
-      <EventTypeColors preferences={prefs} onSaved={onColorsSaved} />
 
       <button
         type="button"
@@ -321,6 +383,8 @@ export default function SettingsPanel({
       >
         <LogOut className="w-4 h-4" /> SIGN OUT
       </button>
+      </>
+      )}
     </div>
   );
 }

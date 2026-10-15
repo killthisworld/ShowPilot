@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, Clock, Reply, CheckCircle2, RefreshCw } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -111,7 +110,6 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
             <span>{dateLine} · {style.label}</span>
           </div>
         </div>
-        <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} avatar />
       </div>
 
       {/* Today / Tonight */}
