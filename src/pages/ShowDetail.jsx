@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Trash2, Plus, Mail, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
+import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import ColorPicker from "@/components/showpilot/ColorPicker";
@@ -86,6 +87,7 @@ export default function ShowDetail() {
   };
 
   const [show, setShow] = usePersistedState(`${draftKey}_show`, emptyShow);
+  const [showFanPage, setShowFanPage] = useState(false);
   const [bands, setBands] = usePersistedState(`${draftKey}_bands`, [emptyBand("N/A", 0)]);
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [activeBandIndex, setActiveBandIndex] = useState(0);
@@ -231,6 +233,14 @@ export default function ShowDetail() {
   }, [bands, activeBandIndex]);
 
   const update = (field, val) => setShow((s) => ({ ...s, [field]: val }));
+
+  // The fan page is published from its own sheet; after it closes, re-read
+  // whether it's live so the LIVE / OFF label here stays right.
+  const closeFanPage = async () => {
+    setShowFanPage(false);
+    const { data } = await supabase.from("shows").select("fan_page_enabled").eq("id", id).single();
+    if (data) setShow((s) => ({ ...s, fan_page_enabled: !!data.fan_page_enabled }));
+  };
 
   const updateBandField = (field, val, idx = activeBandIndex) => {
     setBands((prev) => {
@@ -911,6 +921,22 @@ export default function ShowDetail() {
               )}
             </div>
             <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Fan page</Label>
+            <div className="mt-1 flex items-center gap-3">
+              <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: show.fan_page_enabled ? "#8CFF3D" : "rgba(255,255,255,0.45)" }}>{show.fan_page_enabled ? "LIVE" : "OFF"}</span>
+              <button
+                type="button"
+                disabled={isNew}
+                onClick={() => setShowFanPage(true)}
+                className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {show.fan_page_enabled ? "Edit fan page" : "Set up fan page"}
+              </button>
+            </div>
+            <p className="text-white/25 text-[10px] mt-1">{isNew ? "Save the event first." : "Once it's live, a fan page ticket shows on this event's row on Home."}</p>
+            {showFanPage && <FanPageSheet showId={id} onClose={closeFanPage} />}
           </div>
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>

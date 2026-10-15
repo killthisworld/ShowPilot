@@ -170,8 +170,13 @@ export default function Home() {
       if (links && links.length > 0) {
         const details = await Promise.all(
           links.map(async (link) => {
-            const { data: gigData } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
-            return gigData ? { ...gigData, share_token: link.share_token, is_owned: false, starred: link.starred, opener_names: [] } : null;
+            const [{ data: gigData }, { data: fanLink }] = await Promise.all([
+              supabase.rpc("get_shared_gig", { p_token: link.share_token }),
+              // get_shared_gig doesn't say whether the fan page is live;
+              // the row's fan page ticket only shows when it is.
+              supabase.rpc("get_fan_link", { p_share_token: link.share_token }),
+            ]);
+            return gigData ? { ...gigData, share_token: link.share_token, is_owned: false, starred: link.starred, opener_names: [], fan_page_enabled: !!fanLink?.enabled } : null;
           })
         );
         const myIcons = await fetchMyIcons();

@@ -74,7 +74,7 @@ export default function SceneRow({ show, onArchive, onDeleteRequest }) {
           </div>
         </div>
         <span className="shrink-0 text-[11px] text-white/60" style={{ fontFamily: SCENE_MONO }}>{sceneDate(show)}</span>
-        <FanPageButton show={show} />
+        <FanPageButton show={show} ticket />
       </div>
     </div>
   );
