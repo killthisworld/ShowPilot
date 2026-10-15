@@ -21,7 +21,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
-import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark } from "@/components/showpilot/ProfileWeb";
+import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/ART", engineer: "AUD/LTG" };
@@ -489,7 +489,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         ) : (
         <div className="relative shrink-0" style={{ width: 300, height: 300 }}>
           <div className="absolute inset-0" style={{ ...hubM.wrap, zIndex: 1 }}>
-          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0, opacity: hubM.hidden ? 0 : 1, transition: hubM.node.transition }}>
+          <svg width="300" height="300" className="absolute left-0 top-0 pointer-events-none" style={{ zIndex: 0, ...hubM.fade(1) }}>
             {nodes.map((n) => (
               // Spokes stay neutral - selecting a role lights up its box, not its line.
               <line
@@ -514,7 +514,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 aria-label={`${SECTION_LABELS[n.role]}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
                 className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0"
                 style={{
-                  left: hubM.hidden ? cx : n.x, top: hubM.hidden ? cy : n.y, transform: `translate(-50%, -50%) scale(${hubM.scale})`, ...hubM.node, width: 72, height: 72, zIndex: 1,
+                  left: n.x, top: n.y, ...hubM.node(n.x - cx, n.y - cy), width: 72, height: 72, zIndex: 1,
                   ...roleCircle(n, active),
                 }}
               >
@@ -532,7 +532,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             onClick={() => selectRole(null)}
             className="absolute flex flex-col items-center justify-center gap-1 rounded-full bg-[#161616] border px-3 transition-colors overflow-hidden"
             style={{
-              left: cx, top: cy, transform: `translate(-50%, -50%) scale(${hubM.center.scale})`, opacity: hubM.center.opacity, transition: hubM.center.transition, width: 116, height: 116, zIndex: 2,
+              left: cx, top: cy, ...hubM.center, width: 116, height: 116, zIndex: 2,
               borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
               boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA, 0 0 60px #B6FF5C44" : undefined,
@@ -679,9 +679,11 @@ function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpen
   };
 
   if (!ready) {
+    // While the section loads, hold the web's place with its center circle
+    // (no spinner), so closing one web and opening the next reads as one move.
     const placeholder = (
       <div className="w-full h-full flex items-center justify-center">
-        <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${color}44`, borderTopColor: color }} />
+        <div className="rounded-full animate-pulse" style={{ width: "33%", height: "33%", background: tintOnDark(color, 0.12), border: `2px solid ${color}66` }} />
       </div>
     );
     return (
@@ -1480,15 +1482,9 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
   // The boxes scale with the space the web actually gets (full size at 520px
   // across), and the roles sit a little further out, so they never crowd the
   // center box on a narrower window.
-  const boxRef = useRef(null);
-  const [size, setSize] = useState(520);
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return undefined;
-    const ro = new ResizeObserver(([e]) => setSize(Math.round(e.contentRect.width)));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Measured before the first paint, so the web never draws big and then shrinks.
+  const [boxRef, size] = useBoxSize(520);
+  const m = hubM || spinMotion({ entering: false, leaving: false });
   const k = Math.max(0.62, Math.min(1, size / 520));
   const pts = nodes.map((nd, i) => {
     const a = (-90 + i * (360 / n)) * (Math.PI / 180);
@@ -1496,8 +1492,8 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
   });
   return (
     <div ref={boxRef} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto">
-      <div className="absolute inset-0" style={{ ...(hubM?.wrap || {}), zIndex: 1 }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: hubM?.hidden ? 0 : 1, transition: hubM?.node.transition }}>
+      <div className="absolute inset-0" style={{ ...m.wrap, zIndex: 1 }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none" style={m.fade(1)}>
         {pts.map((nd) => (
           <line
             key={nd.role} x1="50" y1="50" x2={nd.px} y2={nd.py}
@@ -1516,7 +1512,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             aria-label={`${SECTION_LABELS[nd.role]}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
             className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0"
             style={{
-              left: hubM?.hidden ? "50%" : `${nd.px}%`, top: hubM?.hidden ? "50%" : `${nd.py}%`, transform: `translate(-50%, -50%) scale(${hubM?.scale ?? 1})`, ...(hubM?.node || {}), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
+              left: `${nd.px}%`, top: `${nd.py}%`, ...m.node(((nd.px - 50) / 100) * size, ((nd.py - 50) / 100) * size), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
               ...roleCircle(nd, active),
             }}
           >
@@ -1534,7 +1530,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
         onClick={() => selectRole(null)}
         className="absolute flex flex-col items-center justify-center rounded-full bg-[#161616] border px-4 overflow-hidden"
         style={{
-          left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${hubM?.center.scale ?? 1})`, opacity: hubM?.center.opacity ?? 1, transition: hubM?.center.transition, width: Math.round(164 * k), height: Math.round(164 * k), zIndex: 2,
+          left: "50%", top: "50%", ...m.center, width: Math.round(164 * k), height: Math.round(164 * k), zIndex: 2,
           borderColor: selectedRole === null ? "#D2FF85" : "#2a2a2a", borderWidth: selectedRole === null ? 2 : 1,
           boxShadow: selectedRole === null ? "0 0 0 3px #C6FF6B66, 0 0 30px #C6FF6BAA" : undefined,
         }}
