@@ -290,14 +290,19 @@ function ShowsTab({ upcoming, past, star, view, views, onView, email, style, onS
   );
 }
 
-// A swipeable row of full-height cards with dots (or "3 / 20" for long lists).
+// A swipeable row of full-height cards with a crossfader under it (job 89):
+// one tick per card; drag the knob (or tap a tick) to slide through the
+// flyers, and swiping the cards moves the knob with them.
 function Deck({ items, keyOf, render, resetKey, star }) {
   const deckRef = useRef(null);
   const [index, setIndex] = useState(0);
-  useEffect(() => { setIndex(0); deckRef.current?.scrollTo({ left: 0 }); }, [resetKey]);
+  const [pos, setPos] = useState(0); // 0..1, follows the scroll exactly
+  useEffect(() => { setIndex(0); setPos(0); deckRef.current?.scrollTo({ left: 0 }); }, [resetKey]);
   const onScroll = () => {
     const el = deckRef.current;
     if (!el || !el.firstElementChild) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setPos(max > 0 ? el.scrollLeft / max : 0);
     const w = el.firstElementChild.getBoundingClientRect().width + 12;
     setIndex(Math.max(0, Math.min(items.length - 1, Math.round(el.scrollLeft / w))));
   };
@@ -307,14 +312,101 @@ function Deck({ items, keyOf, render, resetKey, star }) {
       <div ref={deckRef} onScroll={onScroll} className="flex-1 min-h-0 flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
         {items.map((it) => <React.Fragment key={keyOf(it)}>{render(it, single)}</React.Fragment>)}
       </div>
-      {items.length > 12 ? (
-        <div className="shrink-0 text-center text-[12px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{index + 1} / {items.length}</div>
-      ) : items.length > 1 && (
-        <div className="shrink-0 flex justify-center gap-1.5" aria-hidden="true">
-          {items.map((it, i) => <span key={keyOf(it)} className="h-1.5 rounded-full transition-all" style={{ width: i === index ? 18 : 6, background: i === index ? star : "#3a3f6e" }} />)}
-        </div>
-      )}
+      {!single && <Crossfader count={items.length} index={index} pos={pos} deckRef={deckRef} star={star} />}
     </>
+  );
+}
+
+function Crossfader({ count, index, pos, deckRef, star }) {
+  const trackRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
+  const lastTick = useRef(index);
+  const EDGE = 26; // px from each end of the track to the first / last tick (fits the knob)
+
+  // Center card i in the deck (smooth unless told otherwise).
+  const goTo = (i, smooth = true) => {
+    const el = deckRef.current;
+    const card = el?.children[Math.max(0, Math.min(count - 1, i))];
+    if (!el || !card) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const left = i <= 0 ? 0 : i >= count - 1 ? max : card.offsetLeft - el.offsetLeft + card.offsetWidth / 2 - el.clientWidth / 2;
+    el.scrollTo({ left: Math.max(0, Math.min(max, left)), behavior: smooth ? "smooth" : "auto" });
+  };
+  const fracAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - r.left - EDGE) / (r.width - EDGE * 2)));
+  };
+  // While dragging, the deck follows the knob 1:1 (snapping off), with a
+  // tiny buzz on phones that support it each time the knob passes a tick.
+  const follow = (clientX) => {
+    const el = deckRef.current;
+    if (!el) return;
+    const f = fracAt(clientX);
+    el.scrollLeft = f * (el.scrollWidth - el.clientWidth);
+    const tick = Math.round(f * (count - 1));
+    if (tick !== lastTick.current) { lastTick.current = tick; try { navigator.vibrate?.(4); } catch { /* not supported */ } }
+  };
+  const onDown = (e) => {
+    if (e.button > 0) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const el = deckRef.current;
+    if (el) el.style.scrollSnapType = "none";
+    lastTick.current = index;
+    setDragging(true);
+    follow(e.clientX);
+  };
+  const onMove = (e) => { if (dragging) follow(e.clientX); };
+  const onUp = (e) => {
+    if (!dragging) return;
+    setDragging(false);
+    const i = Math.round(fracAt(e.clientX) * (count - 1));
+    const el = deckRef.current;
+    if (el) el.style.scrollSnapType = "";
+    goTo(i);
+  };
+  const onKey = (e) => {
+    const next = { ArrowRight: index + 1, ArrowUp: index + 1, ArrowLeft: index - 1, ArrowDown: index - 1, Home: 0, End: count - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    goTo(Math.max(0, Math.min(count - 1, next)));
+  };
+  const ticks = count <= 40;
+
+  return (
+    <div ref={trackRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+      className="shrink-0 relative h-9 rounded-full select-none touch-none cursor-pointer"
+      style={{ background: "rgba(10,12,32,0.85)", border: `1px solid ${LINE}` }}>
+      {/* the slot the knob rides in */}
+      <span aria-hidden="true" className="absolute top-1/2 -translate-y-1/2 h-[4px] rounded-full"
+        style={{ left: EDGE, right: EDGE, background: "#04050d", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.05)" }} />
+      {/* one tick per show, above and below the slot; the current one lit */}
+      {ticks && Array.from({ length: count }, (_, i) => {
+        const on = i === index;
+        const left = `calc(${EDGE}px + ${(count === 1 ? 0 : i / (count - 1)) * 100}% - ${(count === 1 ? 0 : i / (count - 1)) * EDGE * 2}px)`;
+        return (
+          <React.Fragment key={i}>
+            <span aria-hidden="true" className="absolute top-[5px] w-px h-[6px] -translate-x-1/2" style={{ left, background: on ? star : "#4a5090", boxShadow: on ? `0 0 4px ${star}` : "none" }} />
+            <span aria-hidden="true" className="absolute bottom-[5px] w-px h-[6px] -translate-x-1/2" style={{ left, background: on ? star : "#4a5090", boxShadow: on ? `0 0 4px ${star}` : "none" }} />
+          </React.Fragment>
+        );
+      })}
+      {/* the fader cap */}
+      <span role="slider" tabIndex={0} aria-label="Move between shows" aria-valuemin={1} aria-valuemax={count} aria-valuenow={index + 1}
+        aria-valuetext={`Show ${index + 1} of ${count}`} onKeyDown={onKey}
+        className="absolute top-1/2 w-10 h-[26px] rounded-[7px] outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+        style={{
+          left: `calc(${EDGE}px + ${pos * 100}% - ${pos * EDGE * 2}px)`,
+          transform: `translate(-50%, -50%) scale(${dragging ? 1.06 : 1})`,
+          transition: dragging ? "transform 120ms" : "transform 160ms",
+          background: "linear-gradient(180deg, #343a70 0%, #1b1f45 48%, #121532 52%, #1d2250 100%)",
+          border: `1px solid ${star}88`,
+          boxShadow: `0 2px 6px rgba(0,0,0,0.7), 0 0 ${dragging ? 16 : 10}px ${star}${dragging ? "66" : "33"}`,
+        }}>
+        <span aria-hidden="true" className="absolute left-1/2 top-[4px] bottom-[4px] w-[2px] -translate-x-1/2 rounded-full" style={{ background: star, boxShadow: `0 0 6px ${star}` }} />
+        <span aria-hidden="true" className="absolute left-[7px] top-[7px] bottom-[7px] w-px" style={{ background: "rgba(255,255,255,0.12)" }} />
+        <span aria-hidden="true" className="absolute right-[7px] top-[7px] bottom-[7px] w-px" style={{ background: "rgba(255,255,255,0.12)" }} />
+      </span>
+    </div>
   );
 }
 
