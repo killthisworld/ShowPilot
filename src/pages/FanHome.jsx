@@ -7,6 +7,8 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { fanPath } from "@/lib/fanUrl";
 import { hashString, seededRandom } from "@/lib/constellation";
 import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
+import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
+import SpaceDrift from "@/components/showpilot/SpaceDrift";
 
 // Fan accounts (jobs 77 + 79; direction in claude/fan-profile-direction.md).
 // The fan's own corner of Show Pilot, with its own main tabs:
@@ -16,11 +18,13 @@ import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
 // Phone-first, in the event sky's colors.
 
 const STAR = "#E4E0FF";
-const SKY = "#0b0e24";
 const LINE = "#2b2f5a";
 const SOFT = "#b7bbe6";
 const DIM = "#7e83b8";
 const G = "#8CFF3D";
+// Panels are slightly see-through so the space behind shows at the edges.
+const CARD = "rgba(16,20,52,0.82)";
+const CARD_DEEP = "rgba(11,14,38,0.88)";
 
 const TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
@@ -84,7 +88,16 @@ export default function FanHome() {
   const current = TABS.find((t) => t.id === tab);
 
   return (
-    <div className="min-h-screen text-white" style={{ fontFamily: SCENE_FONT, background: `radial-gradient(ellipse at 50% 0%, #141a44 0%, ${SKY} 40%, #05060f 100%)` }}>
+    <div className="min-h-screen relative isolate text-white" style={{ fontFamily: SCENE_FONT, backgroundColor: "#000" }}>
+      {/* The same black, drifting space as sign-in and About: a still galaxy
+          toned toward black, stars drifting past on top. Reduced motion: still. */}
+      <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute" style={{ width: "112vw", height: "112vh", left: "-6vw", top: "-6vh", filter: "saturate(0.35) brightness(0.8) contrast(1.15)" }}>
+          <GalaxyCanvas seed="showpilot-fan" />
+        </div>
+        <SpaceDrift />
+        <span className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.55), rgba(0,0,0,0) 70%)" }} />
+      </div>
       <div className="max-w-lg mx-auto px-4 pt-6 pb-28">
         <header>
           <div className="text-[11px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>SHOW PILOT · FAN</div>
@@ -99,7 +112,7 @@ export default function FanHome() {
         ) : tab === "me" ? (
           <MeTab user={user} total={shows.length} upcoming={upcoming.length} past={past.length} />
         ) : error ? (
-          <p className="mt-10 text-[15px] leading-relaxed rounded-xl px-4 py-4" style={{ background: "#12163a", border: `1px solid ${LINE}`, color: SOFT }}>
+          <p className="mt-10 text-[15px] leading-relaxed rounded-xl px-4 py-4" style={{ background: CARD, border: `1px solid ${LINE}`, color: SOFT }}>
             Your shows couldn't load right now. Try again in a minute.
           </p>
         ) : shows.length === 0 ? (
@@ -132,7 +145,7 @@ export default function FanHome() {
 // The fan's main tabs, pinned to the bottom (phone-first; centered on desktop).
 function FanTabs({ tab, onTab }) {
   return (
-    <nav aria-label="Fan" className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-lg" style={{ background: "rgba(5,6,15,0.92)", borderTop: `1px solid ${LINE}`, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
+    <nav aria-label="Fan" className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-lg" style={{ background: "rgba(0,0,0,0.85)", borderTop: `1px solid ${LINE}`, paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}>
       <div className="max-w-lg mx-auto h-16 flex items-center justify-around px-4" style={{ fontFamily: SCENE_FONT }}>
         {TABS.map((t) => {
           const on = t.id === tab;
@@ -158,7 +171,7 @@ function FanTabs({ tab, onTab }) {
 
 function EmptyShows({ email, stars }) {
   return (
-    <div className="mt-10 rounded-2xl px-5 py-8 text-center" style={{ background: "#12163a", border: `1px dashed ${LINE}` }}>
+    <div className="mt-10 rounded-2xl px-5 py-8 text-center" style={{ background: CARD, border: `1px dashed ${LINE}` }}>
       <Star className="w-8 h-8 mx-auto" style={{ color: STAR }} />
       <h2 className="text-[24px] font-bold mt-3 leading-tight">{stars ? "Your sky is empty, for now" : "No shows yet"}</h2>
       <p className="text-[15px] mt-2 leading-relaxed" style={{ color: SOFT }}>
@@ -190,9 +203,9 @@ function ShowCard({ show, past = false }) {
   const title = showTitle(show);
 
   return (
-    <article className="rounded-2xl overflow-hidden" style={{ background: "#12163a", border: `1px solid ${past ? "#23264a" : LINE}`, opacity: past ? 0.8 : 1 }}>
+    <article className="rounded-2xl overflow-hidden" style={{ background: CARD, border: `1px solid ${past ? "#23264a" : LINE}`, opacity: past ? 0.8 : 1 }}>
       <div className="flex">
-        <div className="w-[76px] shrink-0 flex flex-col items-center justify-center py-4" style={{ background: "#0e1230", borderRight: `2px dashed ${LINE}` }}>
+        <div className="w-[76px] shrink-0 flex flex-col items-center justify-center py-4" style={{ background: CARD_DEEP, borderRight: `2px dashed ${LINE}` }}>
           {parts ? (
             <>
               <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{parts.mon}</span>
@@ -270,7 +283,7 @@ function StarsTab({ shows, today }) {
         <Tile n={stars.length - litCount} label="WAITING" color={G} />
       </div>
 
-      <div className="relative mt-4 rounded-2xl overflow-hidden" style={{ background: "#070920", border: `1px solid ${LINE}` }}>
+      <div className="relative mt-4 rounded-2xl overflow-hidden" style={{ background: "rgba(5,6,20,0.55)", border: `1px solid ${LINE}` }}>
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={`Your sky: ${stars.length} stars, ${litCount} lit`}>
           {dust.map((d, i) => <circle key={`d${i}`} cx={d.x} cy={d.y} r={d.r} fill="#ffffff" opacity={d.o} />)}
           {stars.slice(1).map((s, i) => (
@@ -309,7 +322,7 @@ function StarsTab({ shows, today }) {
 
 function Tile({ n, label, color = "#ffffff" }) {
   return (
-    <div className="rounded-xl px-3 py-2.5" style={{ background: "#12163a", border: `1px solid ${LINE}` }}>
+    <div className="rounded-xl px-3 py-2.5" style={{ background: CARD, border: `1px solid ${LINE}` }}>
       <div className="text-[26px] font-bold leading-none" style={{ color }}>{n}</div>
       <div className="text-[11px] tracking-[0.12em] mt-1" style={{ fontFamily: SCENE_MONO, color: SOFT }}>{label}</div>
     </div>
@@ -321,7 +334,7 @@ function StarCard({ s }) {
   const n = daysUntil(s.show.date);
   const { page, sky } = linksFor(s.show);
   return (
-    <div className="mt-4 rounded-2xl px-4 py-4 flex flex-col gap-2" style={{ background: "#12163a", border: `1px solid ${s.lit ? LINE : `${G}55`}` }}>
+    <div className="mt-4 rounded-2xl px-4 py-4 flex flex-col gap-2" style={{ background: CARD, border: `1px solid ${s.lit ? LINE : `${G}55`}` }}>
       <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: s.lit ? STAR : G }}>
         {s.lit ? `BEEN THERE · ${parts?.long?.toUpperCase() || ""}` : `${countdownLabel(n)}${parts ? ` · ${parts.long.toUpperCase()}` : ""}`}
       </span>
@@ -359,7 +372,7 @@ function MeTab({ user, total, upcoming, past }) {
   };
   return (
     <div className="mt-6 flex flex-col gap-4">
-      <div className="rounded-2xl px-4 py-5 flex items-center gap-4" style={{ background: "#12163a", border: `1px solid ${LINE}` }}>
+      <div className="rounded-2xl px-4 py-5 flex items-center gap-4" style={{ background: CARD, border: `1px solid ${LINE}` }}>
         <span className="w-16 h-16 rounded-full shrink-0 flex items-center justify-center text-[28px] font-bold" style={{ background: "#1b2052", border: `2px solid ${STAR}`, color: STAR, boxShadow: `0 0 18px ${STAR}40` }}>
           {(email[0] || "?").toUpperCase()}
         </span>
@@ -375,11 +388,11 @@ function MeTab({ user, total, upcoming, past }) {
         <Tile n={past} label="BEEN THERE" color={STAR} />
       </div>
 
-      <p className="text-[14px] leading-relaxed rounded-xl px-4 py-3" style={{ background: "#0e1230", border: `1px solid ${LINE}`, color: SOFT }}>
+      <p className="text-[14px] leading-relaxed rounded-xl px-4 py-3" style={{ background: CARD_DEEP, border: `1px solid ${LINE}`, color: SOFT }}>
         Shows appear here when you RSVP with <span className="text-white font-semibold break-all">{email}</span>. Using another email for RSVPs? Add it as a second account below.
       </p>
 
-      <section className="rounded-2xl px-4 pt-4 pb-0" style={{ background: "#12163a", border: `1px solid ${LINE}` }}>
+      <section className="rounded-2xl px-4 pt-4 pb-0" style={{ background: CARD, border: `1px solid ${LINE}` }}>
         <AccountSwitcher currentUserId={user?.id} />
       </section>
 
