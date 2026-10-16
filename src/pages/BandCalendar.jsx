@@ -109,7 +109,6 @@ export default function BandCalendar() {
 
 
   const monthItems = gigs.filter((x) => x.date && moment(x.date).isSame(currentMonth, "month"));
-  const monthTypes = [...new Set(monthItems.map((x) => (x.event_type || "").trim()).filter(Boolean))];
   const todayStart = moment().startOf("day");
   const nextUp = gigs.filter((x) => x.date && !moment(x.date).isBefore(todayStart)).sort((a, b) => a.date.localeCompare(b.date))[0];
   const headerCells = [
@@ -203,14 +202,6 @@ export default function BandCalendar() {
                     );
                   })}
                 </div>
-                {monthTypes.length > 0 && (
-                  <div className="flex items-center gap-1.5 pt-2.5 flex-wrap shrink-0">
-                    {monthTypes.map((t) => {
-                      const c = eventTypeColor(t);
-                      return c ? <span key={t} className="text-[10px] tracking-[0.08em] px-[7px] py-[2px] rounded-[3px]" style={{ fontFamily: SCENE_MONO, color: c, background: c + "1f" }}>{t.toUpperCase()}</span> : null;
-                    })}
-                  </div>
-                )}
               </div>
 
               <div className="w-[340px] shrink-0 min-h-0 flex flex-col bg-[#151515] border border-[#262626] rounded-md" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
@@ -269,7 +260,6 @@ export default function BandCalendar() {
         onPrev={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))}
         onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
         cells={headerCells}
-        types={monthTypes}
       />
 
       {loading ? (
