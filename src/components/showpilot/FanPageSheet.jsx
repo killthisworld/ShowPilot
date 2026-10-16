@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowDown, ArrowUp, Check, ChevronRight, Eye, EyeOff, FileText, ImagePlus, MapPin, Paperclip, Pencil, Plus, Share2, Ticket, Users, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Eye, EyeOff, FileText, ImagePlus, MapPin, Paperclip, Pencil, Plus, Share2, Ticket, Users, X } from "lucide-react";
 import { shareLink } from "@/lib/share";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { uploadIconImage } from "@/lib/eventIcons";
@@ -156,7 +156,7 @@ function OwnerSheet({ showId, onClose }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape" || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      if (editing && !desktop) setEditing(null); else close();
+      if (editing) setEditing(null); else close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -421,6 +421,11 @@ function OwnerSheet({ showId, onClose }) {
   // The open part's editor: a panel with its name, the eye and Done.
   const editorPanel = (k) => (
     <>
+      {desktop && (
+        <button type="button" onClick={() => setEditing(null)} className="mb-3 -ml-1 h-9 pl-2 pr-3.5 rounded-lg flex items-center gap-1.5 text-[14px] font-bold hover:bg-white/5" style={{ color: G }}>
+          <ArrowLeft className="w-4 h-4" /> All parts
+        </button>
+      )}
       <div className="flex items-center gap-2">
         <span className="text-[22px] font-bold text-white leading-tight flex-1 min-w-0 truncate">{PARTS[k]}</span>
         {isField(k) && <EyeToggle shown={isShown(k)} onToggle={() => showField(k, !isShown(k))} label={PARTS[k]} />}
