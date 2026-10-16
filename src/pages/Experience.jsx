@@ -18,6 +18,7 @@ import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import Soundwave from "@/components/showpilot/Soundwave";
 import { usePreferences } from "@/hooks/usePreferences";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
+import StarSummary from "@/components/showpilot/StarSummary";
 
 const SOUNDWAVE_TEMPLATES = {
   black: { bg: "#000000", wave: "#FFFFFF", label: "Black / White" },
@@ -1746,14 +1747,11 @@ export default function Cockpit({ embedded = false } = {}) {
                                 </div>
                               ))}
                             </div>
-                            {peek && (
-                              <div className="absolute left-1/2 bottom-4 -translate-x-1/2 z-20 bg-[#111]/95 border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-center min-w-[240px] max-w-[90%]">
-                                <p className="text-white font-semibold truncate">{peek.event_name || peek.band_name || "Untitled"}</p>
-                                <p className="text-[11px] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
-                                  {[peek.date ? new Date(peek.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null, peek.venue, peek.city].filter(Boolean).join(" · ")}
-                                </p>
-                              </div>
-                            )}
+                            <StarSummary
+                              show={peek}
+                              color={peek ? (peek.is_linked ? "#F472B6" : hashColor(peek.venue || peek.band_name || "show")) : null}
+                              onClose={() => setPreviewShow(null)}
+                            />
                           </div>
                         )}
                       </div>

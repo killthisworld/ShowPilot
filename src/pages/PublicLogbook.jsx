@@ -5,6 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, X, MapPin, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
+import StarSummary from "@/components/showpilot/StarSummary";
 
 export default function PublicLogbook() {
   const navigate = useNavigate(); const goBack = useGoBack();
@@ -288,36 +289,11 @@ export default function PublicLogbook() {
         </>
       )}
 
-      {selectedShow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setSelectedShow(null)}>
-          <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-white font-bold text-xl">{selectedShow.band_name || "Untitled"}</h2>
-                {selectedShow.event_type && <p className="text-white/40 text-xs mt-0.5">{selectedShow.event_type}</p>}
-              </div>
-              <button onClick={() => setSelectedShow(null)} className="text-white/40 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5 text-sm">
-              {selectedShow.venue && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <MapPin className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{selectedShow.venue}{selectedShow.city ? `, ${[selectedShow.city, selectedShow.state].filter(Boolean).join(", ")}` : ""}</span>
-                </div>
-              )}
-              {selectedShow.date && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <Calendar className="w-4 h-4 text-white/30 shrink-0" />
-                  <span>{new Date(selectedShow.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <StarSummary
+        show={selectedShow}
+        color={selectedShow ? (selectedShow.is_linked ? "#F472B6" : hashColor(selectedShow.venue || selectedShow.band_name || "show")) : null}
+        onClose={() => setSelectedShow(null)}
+      />
     </div>
   );
 }
