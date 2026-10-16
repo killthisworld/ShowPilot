@@ -242,7 +242,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const selectRole = (role) => {
     const apply = () => {
       setSelectedRole(role);
-      setActiveTab(pendingTab.current || "profile");
+      // Back at the event, a tech owner's first tab is SHOW (the editor, web
+      // folded); land on TASKS instead so the event web is what you see.
+      const backToOwnWeb = !role && !isDesktop && isTechProductionAccount && permissions?.is_owner;
+      setActiveTab(pendingTab.current || (backToOwnWeb ? "tasks" : "profile"));
       pendingTab.current = null;
       setProfileExpanded(false);
     };
@@ -664,13 +667,6 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         <div className="flex items-center gap-2 mb-2">
           {selectedNode ? (
             <>
-              <button
-                type="button"
-                onClick={() => selectRole(null)}
-                className="flex items-center gap-1 text-white/40 hover:text-white text-xs font-semibold shrink-0 -ml-1 pl-1 pr-2 py-1 rounded-full hover:bg-white/5 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Overview
-              </button>
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
               <span className="text-white font-semibold text-base truncate">{SECTION_LABELS[selectedRole]}</span>
               <span className="text-white/30 text-xs shrink-0 ml-auto">
@@ -715,6 +711,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               webSlot={webSlot}
               leaving={leaving}
               onBack={() => selectRole(null)}
+              homeIcon={myIcon}
               onOpenRole={selectRole}
               onOpenFanPage={() => setShowFanSheet(true)}
               showContent={activeTab === "profile"}
@@ -776,7 +773,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // it to RoleWorkspace's "web" layout, which spins its tabs into `webSlot`
 // (the hub's place on the page) and renders the open tab here. Keyed by
 // role, so switching profiles starts fresh.
-function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true, initialTab = null }) {
+function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true, initialTab = null, homeIcon = null }) {
   const p = useRoleProfile({ role, token, onChanged });
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const ready = !(p.loading || p.checkingAuth || p.notFound || !p.gig);
@@ -826,6 +823,7 @@ function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpen
         layout="web"
         role={role}
         p={p}
+        homeIcon={homeIcon}
         webSlot={webSlot}
         leaving={leaving}
         onBack={onBack}
@@ -1228,14 +1226,12 @@ function MyIconControl({ gig, myIcon, onChanged }) {
 // filled to how much of that section is done, and its open tasks. Click a
 // strip to open that profile, same as its node on the web.
 function ProfileStrips({ nodes, tasks, onSelectRole }) {
-  const SEGMENTS = 10;
   return (
     <div className="grid gap-1.5 p-1.5 rounded-[10px] bg-[#0a0a0a] border border-[#1f1f1f]" style={{ gridTemplateColumns: `repeat(${nodes.length}, minmax(0, 1fr))`, fontFamily: SCENE_MONO }}>
       {nodes.map((n) => {
         const Icon = n.style.icon;
         const c = n.style.color;
         const open = tasks.filter((t) => t.section === n.role && t.status !== "done").length;
-        const lit = Math.round((Math.max(0, Math.min(100, n.percent)) / 100) * SEGMENTS);
         const status = n.claimed ? "CLAIMED" : n.invited ? "INVITED" : "OPEN";
         return (
           <button
@@ -1246,31 +1242,22 @@ function ProfileStrips({ nodes, tasks, onSelectRole }) {
             className="group min-w-0 flex flex-col rounded-[6px] overflow-hidden bg-[#141414] border border-[#232323] hover:border-white/25 transition-colors text-left"
           >
             {/* Scribble strip */}
-            <div className="flex items-center justify-center gap-1 px-1 py-1.5" style={{ background: c }}>
+            <div className="flex items-center justify-center gap-1 px-1 py-1" style={{ background: c }}>
               <Icon className="hidden sm:block w-3.5 h-3.5 shrink-0" style={{ color: "#0d0d0d" }} />
               <span className="text-[9px] sm:text-[10.5px] font-bold tracking-[0.02em] sm:tracking-[0.04em] truncate" style={{ color: "#0d0d0d" }}>{ROLE_CODES[n.role] || n.style.label}</span>
             </div>
-            {/* Status LED */}
-            <div className="flex items-center justify-center gap-1.5 pt-2 pb-1.5">
+            {/* Status LED + fill + open tasks, one short row */}
+            <div className="flex items-center justify-center gap-1.5 px-1 py-1.5">
               <span
                 className="w-2 h-2 rounded-full shrink-0"
+                title={status}
                 style={n.claimed ? { background: c, boxShadow: `0 0 6px ${c}` } : n.invited ? { border: `1.5px solid ${c}` } : { background: "#2a2a2a" }}
               />
-              <span className="hidden sm:inline text-[9.5px] tracking-[0.08em] text-white/55">{status}</span>
+              <span className="text-[12px] sm:text-[13px] font-semibold text-white tabular-nums leading-none">{n.percent}<span className="text-[9px] text-white/45">%</span></span>
+              {open > 0 && <span className="text-[9px] leading-none px-1 py-[2px] rounded-[3px] bg-white/10 text-white tabular-nums" title={`${open} open task${open === 1 ? "" : "s"}`}>{open}</span>}
             </div>
-            {/* Meter */}
-            <div className="flex-1 flex flex-col sm:flex-row items-center sm:items-end justify-center gap-1.5 sm:gap-2 px-1 sm:px-2 pb-1.5">
-              <div className="flex flex-col-reverse gap-[3px] w-3 shrink-0">
-                {Array.from({ length: SEGMENTS }).map((_, i) => (
-                  <span key={i} className="h-[5px] rounded-[1px]" style={{ background: i < lit ? c : "#262626", opacity: i < lit ? 0.55 + (0.45 * (i + 1)) / SEGMENTS : 1 }} />
-                ))}
-              </div>
-              <span className="text-[13px] sm:text-[15px] font-semibold text-white tabular-nums leading-none mb-[-1px]">{n.percent}<span className="text-[10px] text-white/45">%</span></span>
-            </div>
-            {/* Tasks */}
-            <div className="border-t border-[#232323] py-1.5 text-center text-[9px] sm:text-[10px] tracking-[0.04em] sm:tracking-[0.06em]" style={{ color: open ? "#fff" : "rgba(255,255,255,0.35)" }}>
-              {open ? <>{open}<span className="hidden sm:inline"> TASK{open === 1 ? "" : "S"}</span><span className="sm:hidden"> TO DO</span></> : <span>—</span>}
-            </div>
+            {/* Meter: a thin bar filled to how much of the section is done */}
+            <div className="h-[3px] bg-[#262626]"><div className="h-full" style={{ width: `${Math.max(0, Math.min(100, n.percent))}%`, background: c }} /></div>
           </button>
         );
       })}
@@ -1809,17 +1796,6 @@ function DesktopGigWeb({
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
         <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
           <div className="relative min-h-0 flex flex-col items-center justify-center gap-4">
-            {selectedRole && (
-              <button
-                type="button"
-                onClick={() => selectRole(null)}
-                aria-label="Back to the event web"
-                className="absolute top-0 right-0 z-10 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full bg-[#161616]/90 border border-[#2a2a2a] text-white/75 hover:text-white hover:border-white/40 text-[13px] font-bold tracking-[0.06em] transition-colors"
-                style={{ fontFamily: SCENE_MONO }}
-              >
-                <ArrowLeft className="w-4 h-4" /> BACK
-              </button>
-            )}
             <div className="w-full flex-1 min-h-0 flex items-center">
               {roleWeb ? (
                 <div ref={setWebSlot} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto" />
@@ -1872,6 +1848,7 @@ function DesktopGigWeb({
                   webSlot={webSlot}
                   leaving={leaving}
                   onBack={() => selectRole(null)}
+                  homeIcon={myIcon}
                   onOpenRole={selectRole}
                   onOpenFanPage={openFanPage}
                   showInvite={false}

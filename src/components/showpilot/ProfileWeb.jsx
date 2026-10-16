@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
+import { eventTypeColor } from "@/lib/eventTypes";
 
 // Webs within webs (design: claude/design-principle-feature-dcas-and-cluster-nav.md).
 // The event web has the event in the middle and its profiles around it.
@@ -103,8 +105,12 @@ const STATE_WORD = { done: "filled in", partial: "partly filled in", empty: "not
 const CORNERS = [[9, 9], [91, 9], [9, 91], [91, 91]];
 
 export default function ProfileWeb({
-  color, title, sub, tabs = [], activeKey, onPick, dcas = [], onBack, leaving = false,
+  color, title, sub, tabs = [], activeKey, onPick, dcas = [], onBack, leaving = false, home = null,
 }) {
+  // home: { title, imageUrl, eventType, onClick } - the event itself, as the
+  // top-left corner box with its picture. Tapping it returns to the event web
+  // (it replaces the old Back / Overview buttons). Features then use the
+  // other three corners.
   const reduced = prefersReducedMotion();
   const entered = useEntrance(reduced ? 0 : 1);
   const ms = reduced ? 0 : SPIN_MS;
@@ -161,8 +167,31 @@ export default function ProfileWeb({
         })}
 
         {CORNERS.map(([cx, cy], i) => {
-          const d = dcas[i];
           const base = { left: `${cx}%`, top: `${cy}%`, ...m.node(((cx - 50) / 100) * size, ((cy - 50) / 100) * size) };
+          if (home && i === 0) {
+            const hs = dcaSize + 6;
+            const glyphColor = eventTypeColor(home.eventType) || "#9a9a9a";
+            return (
+              <button
+                key="home"
+                type="button"
+                onClick={home.onClick || onBack}
+                aria-label={`${home.title || "Event"}. Back to the event web`}
+                title="Back to the event web"
+                className="absolute rounded-[12px] overflow-hidden p-0 flex items-end justify-center"
+                style={{ ...base, width: hs, height: hs, background: "#1a1a1a", border: "2px solid #FFFFFF", boxShadow: "0 0 0 2px #FFFFFF33, 0 0 16px #FFFFFF66" }}
+              >
+                {home.imageUrl ? (
+                  <img src={home.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <EventTypeGlyph type={home.eventType} className="absolute" style={{ width: "70%", height: "70%", left: "15%", top: "8%", color: glyphColor, opacity: 0.55, strokeWidth: 1.5 }} />
+                )}
+                <span className="absolute inset-0" style={{ background: "linear-gradient(rgba(13,13,13,0) 35%, rgba(13,13,13,0.85))" }} />
+                <span className="relative w-full px-1 pb-[3px] font-bold leading-none text-white text-center truncate" style={{ fontSize: Math.round(8.5 * k), textShadow: "0 1px 3px #000" }}>{home.title || "Event"}</span>
+              </button>
+            );
+          }
+          const d = dcas[home ? i - 1 : i];
           if (!d) {
             return (
               <span

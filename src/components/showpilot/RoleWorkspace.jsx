@@ -147,7 +147,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null, homeIcon = null }) {
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -1020,6 +1020,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             dcas={dcas}
             onBack={onBack}
             leaving={leaving}
+            home={{ title: gig.event_name || gig.band_name, imageUrl: homeIcon || gig.icon_url, eventType: gig.event_type, onClick: onBack }}
           />,
           webSlot
         )
