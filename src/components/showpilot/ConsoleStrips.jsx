@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, MessageCircle, Ticket, Camera, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -50,6 +50,7 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
   const groupRefs = useRef({});
   const [jumpedMonth, setJumpedMonth] = useState(null); // last month picked in the month dropdown
   const { data: needs } = useNeedsMe();
+  const navigate = useNavigate();
 
   // Upcoming shows (and undated ones), soonest first. Past shows live in
   // the Logbook, not on the console.
@@ -241,7 +242,8 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
                 <div
                   key={key}
                   ref={i === 0 ? (el) => { groupRefs.current[g.key] = el; } : undefined}
-                  className="shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate snap-start"
+                  onClick={(e) => { if (!e.target.closest("a, button, input, label")) navigate(`/gig/web?token=${s.share_token}`); }}
+                  className="shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate snap-start cursor-pointer"
                   style={{ width: stripW, background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}
                 >
                   {photo && (
@@ -253,15 +255,15 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
                   )}
 
                   {/* Show */}
-                  <button type="button" onClick={() => onOpen(s)} className="shrink-0 px-2.5 pt-1.5 pb-2 flex flex-col gap-[2px] text-left" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c", textShadow: photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
+                  <Link to={`/gig/web?token=${s.share_token}`} className="shrink-0 px-2.5 pt-1.5 pb-2 flex flex-col gap-[2px] text-left" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c", textShadow: photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
                     <span className="text-[12px] leading-tight" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
                     <span className="text-[16px] font-semibold leading-snug truncate w-full">{s.event_name || s.band_name || "Untitled"}</span>
                     <span className="text-[12px] leading-tight text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
-                  </button>
+                  </Link>
 
                   {/* Tasks */}
                   <div className="shrink-0 px-2 py-1.5" style={{ background: glass, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                    <button type="button" onClick={() => onOpen(s)} aria-label={open ? `${open} open tasks` : "No open tasks"} className="w-full h-8 flex items-center gap-1.5 px-2 rounded-lg" style={{ background: open ? "#341c0b" : "#0f1d08", border: `1.5px solid ${open ? "#FF6A00" : "#8CFF3D"}`, color: open ? "#FF6A00" : "#8CFF3D" }}>
+                    <button type="button" onClick={() => navigate(`/gig/web?token=${s.share_token}`)} aria-label={open ? `${open} open tasks` : "No open tasks"} className="w-full h-8 flex items-center gap-1.5 px-2 rounded-lg" style={{ background: open ? "#341c0b" : "#0f1d08", border: `1.5px solid ${open ? "#FF6A00" : "#8CFF3D"}`, color: open ? "#FF6A00" : "#8CFF3D" }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 12l3 3 5-6" /></svg>
                       {open > 0 && <span className="text-[15px] font-semibold" style={{ fontFamily: SCENE_MONO }}>{open}</span>}
                       <span className="text-[13px] font-bold" style={{ fontFamily: SCENE_FONT, letterSpacing: "0.05em" }}>{open ? (open === 1 ? "TASK OPEN" : "TASKS OPEN") : "ALL CLEAR"}</span>

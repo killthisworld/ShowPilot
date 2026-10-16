@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CalendarDays, PlaneTakeoff, MessageCircle, Ticket, Camera, Plus, Search, SlidersHorizontal, MoreHorizontal, Archive, Trash2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneTitle } from "@/lib/sceneStyle";
@@ -388,9 +388,15 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
   const ts = photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none";
   const d = s.date ? new Date(s.date + "T00:00:00") : null;
   const webTo = `/gig/web?token=${s.share_token}`;
+  const navigate = useNavigate();
+  // The whole strip opens the event's web, except its own buttons and links.
+  const openWeb = (e) => {
+    if (e.target.closest("a, button, input, label")) return;
+    navigate(webTo);
+  };
 
   return (
-    <div className="w-[192px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate" style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}>
+    <div onClick={openWeb} className="w-[192px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate cursor-pointer hover:brightness-110 transition-[filter]" style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}>
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
@@ -401,11 +407,11 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
 
       {/* Show */}
       <div className="relative shrink-0" style={{ height: H.name, borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0))" : "#1c1c1c" }}>
-        <button type="button" onClick={() => onOpen(s)} className="w-full h-full px-2.5 pt-2 pb-2 flex flex-col gap-[3px] text-left hover:bg-white/[0.03]" style={{ textShadow: ts }}>
+        <Link to={webTo} title="Open the event web" className="w-full h-full px-2.5 pt-2 pb-2 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
           <span className="text-[13px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
           <span className="text-[18px] font-semibold leading-[1.15] line-clamp-2 w-full">{sceneTitle(s)}</span>
           <span className="text-[13px] text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
-        </button>
+        </Link>
         <button type="button" aria-label="More" aria-expanded={menuOpen} onClick={() => onMenu(!menuOpen)} className="absolute top-1 right-1 w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10">
           <MoreHorizontal className="w-4 h-4" />
         </button>
