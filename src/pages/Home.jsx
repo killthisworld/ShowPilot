@@ -15,8 +15,6 @@ import { buildStatusStrip } from "@/lib/homeStats";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
-import ConsoleStrips from "@/components/showpilot/ConsoleStrips";
-import useSidewaysConsole from "@/hooks/useSidewaysConsole";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
 import LightingDesk from "@/components/showpilot/LightingDesk";
@@ -49,8 +47,6 @@ export default function Home() {
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
-  // Phone turned sideways (and the Customize setting on): the console view.
-  const sideways = useSidewaysConsole(true);
   // Desktop (1024px+), audio: the console strips layout (TechConsoleDesk).
   // Its bank row has ALL, so it starts there; the phone keeps its tabs.
   const isDesktop = useIsDesktop();
@@ -735,7 +731,6 @@ export default function Home() {
       )}
 
       <BottomTabs />
-      {sideways && !loading && <ConsoleStrips shows={shows} onOpen={openShow} accent={accountStyle.color} />}
     </div>
   );
 }
