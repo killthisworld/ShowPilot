@@ -103,6 +103,7 @@ function OwnerSheet({ showId, onClose }) {
   const desktop = useIsDesktop();
   const [tab, setTab] = useState("page"); // page | guests | share | setup
   const [editing, setEditing] = useState(null); // which part of the page is open
+  const [stats, setStats] = useState(null); // local shows stats (job 92)
 
   const SELECT = "fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state";
   const toDraft = (data) => {
@@ -141,6 +142,7 @@ function OwnerSheet({ showId, onClose }) {
       setRow(data);
       setDraft(toDraft(data));
     });
+    supabase.rpc("get_discover_stats", { p_show_id: showId }).then(({ data }) => { if (alive && data) setStats(data); });
     return () => { alive = false; };
   }, [showId]);
 
@@ -574,6 +576,20 @@ function OwnerSheet({ showId, onClose }) {
             ? `Fan accounts in ${row?.city || "this event's city"}${row?.state ? `, ${row.state}` : ""} who turned on local shows see it in Discover as a flyer card. It drops off after the show.`
             : "Only people with the link see this page. Turn this on to also show it to fans nearby in Show Pilot's local shows.")}
         {draft.discover && !row?.state && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no city or state yet, so it can't be matched to fans nearby. Add them in the event itself.</p>}
+        {(row?.fan_page?.discover === true || (stats && stats.seen > 0)) && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {[["SEEN BY", stats?.seen, stats?.seen_7d, "fans landed on your card in Discover"], ["TAPPED THROUGH", stats?.tapped, stats?.tapped_7d, "opened your fan page from it"]].map(([l, all, week, hint]) => (
+              <div key={l} className="rounded-xl px-3 py-2.5 bg-[#0a0c1c] border border-[#1c2042]" title={hint}>
+                <div className="text-[10.5px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: DIM }}>{l}</div>
+                <div className="mt-0.5 flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold leading-none text-white" style={{ fontFamily: SCENE_MONO }}>{all ?? "–"}</span>
+                  <span className="text-[13px]" style={{ color: SOFT }}>{all === 1 ? "fan" : "fans"}</span>
+                </div>
+                <div className="mt-1 text-[12px]" style={{ color: week ? G : DIM }}>{week ? `+${week} this week` : "none this week"}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </>)}
       {rsvp && section("RSVP email", <>
           {label("SUBJECT", "mt-3")}

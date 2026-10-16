@@ -293,7 +293,7 @@ function ShowsTab({ upcoming, past, star, view, views, onView, email, style, onS
 // A swipeable row of full-height cards with a crossfader under it (job 89):
 // one tick per card; drag the knob (or tap a tick) to slide through the
 // flyers, and swiping the cards moves the knob with them.
-function Deck({ items, keyOf, render, resetKey, star }) {
+function Deck({ items, keyOf, render, resetKey, star, onActive }) {
   const deckRef = useRef(null);
   const [index, setIndex] = useState(0);
   const [pos, setPos] = useState(0); // 0..1, follows the scroll exactly
@@ -307,6 +307,8 @@ function Deck({ items, keyOf, render, resetKey, star }) {
     setIndex(Math.max(0, Math.min(items.length - 1, Math.round(el.scrollLeft / w))));
   };
   const single = items.length === 1;
+  const activeKey = items[index] ? keyOf(items[index]) : null;
+  useEffect(() => { if (activeKey && onActive) onActive(activeKey); }, [activeKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <div ref={deckRef} onScroll={onScroll} className="flex-1 min-h-0 flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
@@ -474,6 +476,22 @@ function ShowPanel({ show, past, star, single }) {
 function DiscoverTab({ style, star, onStyle, onSetUp }) {
   const [list, setList] = useState(null);
   const [failed, setFailed] = useState(false);
+  // Listing stats for hosts (job 92): count each card a fan lands on once a
+  // day ("seen"), batched; taps through to the fan page are logged on tap.
+  const seen = useRef(new Set());
+  const pending = useRef([]);
+  const flush = useRef(null);
+  const markSeen = (key) => {
+    if (!key || seen.current.has(key)) return;
+    seen.current.add(key);
+    pending.current.push(key);
+    clearTimeout(flush.current);
+    flush.current = setTimeout(() => {
+      const keys = pending.current.splice(0, 50);
+      if (keys.length) supabase.rpc("log_discover_hits", { p_keys: keys, p_kind: "seen" }).then(({ error }) => { if (error) console.error(error); });
+    }, 700);
+  };
+  useEffect(() => () => clearTimeout(flush.current), []);
   useEffect(() => {
     if (!style.state) return undefined;
     let alive = true;
@@ -537,7 +555,7 @@ function DiscoverTab({ style, star, onStyle, onSetUp }) {
             : `No shows listed near ${style.city || stateName(style.state)} yet. When hosts list their events, they'll show up here.`} />
         </div>
       ) : (
-        <Deck items={shown} keyOf={(s) => s.show_key} resetKey={`${picked.join(",")}|${style.city}|${style.state}`} star={star}
+        <Deck items={shown} keyOf={(s) => s.show_key} resetKey={`${picked.join(",")}|${style.city}|${style.state}`} star={star} onActive={markSeen}
           render={(s, single) => <DiscoverPanel show={s} star={star} single={single} />} />
       )}
     </div>
@@ -565,7 +583,8 @@ function DiscoverPanel({ show, star, single }) {
       {place && <span className="flex items-center gap-1.5 text-[14px] truncate" style={{ color: SOFT }}><MapPin className="w-3.5 h-3.5 shrink-0" /><span className="truncate">{place}</span></span>}
       {meta && <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: "#c3c7ee" }}>{meta}</span>}
       {page && (
-        <Link to={page} className="mt-2 h-11 rounded-xl flex items-center justify-center gap-1.5 text-[15px] font-bold whitespace-nowrap"
+        <Link to={page} onClick={() => { supabase.rpc("log_discover_hits", { p_keys: [show.show_key], p_kind: "tapped" }).then(({ error }) => { if (error) console.error(error); }); }}
+          className="mt-2 h-11 rounded-xl flex items-center justify-center gap-1.5 text-[15px] font-bold whitespace-nowrap"
           style={show.going ? { background: "rgba(0,0,0,0.5)", color: star, border: `1px solid ${LINE}` } : { background: G, color: "#0d0d0d" }}>
           {show.going ? "See event" : show.entry === "rsvp" ? "RSVP" : "Get tickets"} <ExternalLink className="w-4 h-4" />
         </Link>
