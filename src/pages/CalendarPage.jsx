@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Star, ClipboardList, Copy, X, Check, Plus, Link2 } from "lucide-react";
+import { Star, ClipboardList, Copy, X, Check, Plus, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import StatusBadge from "@/components/showpilot/StatusBadge";
@@ -316,21 +316,17 @@ export default function CalendarPage() {
     const gridDays = daysInMonth.length > 35 && daysInMonth[35].isSame(currentMonth, "month") ? daysInMonth : daysInMonth.slice(0, Math.min(daysInMonth.length, 35));
     const gridRows = Math.ceil(gridDays.length / 7);
     const goToday = () => { setCurrentMonth(moment()); setSelectedDate(todayKey); };
-    const arrow = "h-[38px] w-[38px] flex items-center justify-center rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white";
     return (
       <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
         {modals}
         <div className="flex items-center gap-3.5 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
-          <button type="button" onClick={() => setCurrentMonth((m) => m.clone().subtract(1, "month"))} className={arrow} aria-label="Previous month"><ChevronLeft className="w-[18px] h-[18px]" /></button>
           <MonthDropdown
             label={currentMonth.format("MMMM YYYY")}
             value={currentMonth.format("YYYY-MM")}
             options={monthOptions}
             onSelect={pickMonth}
-            align="center"
-            className="justify-center px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em] min-w-[250px]"
+            className="-ml-2 px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em]"
           />
-          <button type="button" onClick={() => setCurrentMonth((m) => m.clone().add(1, "month"))} className={arrow} aria-label="Next month"><ChevronRight className="w-[18px] h-[18px]" /></button>
           <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
           <div className="flex-1 max-w-[440px] ml-auto hidden xl:block"><StatusStrip cells={headerCells} /></div>
           <button type="button" onClick={() => newShowOnDate(activeKey)} style={{ marginLeft: "auto" }} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">

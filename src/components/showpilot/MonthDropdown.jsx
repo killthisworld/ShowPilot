@@ -94,7 +94,7 @@ export default function MonthDropdown({
           role="listbox"
           aria-label={ariaLabel}
           onKeyDown={onListKey}
-          className="fixed z-[200] overflow-y-auto rounded-xl bg-[#161616] border border-[#2e2e2e] shadow-[0_18px_40px_rgba(0,0,0,0.65)] py-1.5"
+          className="fixed z-[200] overflow-y-auto rounded-xl bg-[#161616] border border-[#2e2e2e] shadow-[0_18px_40px_rgba(0,0,0,0.65)] pb-1.5"
           style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxH, fontFamily: SCENE_FONT }}
         >
           {options.map((o) => {
@@ -160,4 +160,31 @@ export function calendarMonthOptions({ dates = [], counts = {}, before = 12, aft
     });
   }
   return out;
+}
+
+const isMonthKey = (k) => /^\d{4}-\d{2}$/.test(k || "");
+
+// Home pages group shows by month, but the jump list should still offer
+// every month (this one through a year out, plus any month that has shows),
+// not just the months that happen to have shows. `groups` is
+// [{ key, label, count }]; non-month groups ("past", "undated") keep their
+// place first / last. Months without shows are listed dimmed.
+export function jumpMonthOptions(groups = []) {
+  const dated = groups.filter((g) => isMonthKey(g.key));
+  const counts = Object.fromEntries(dated.map((g) => [g.key, g.count || 0]));
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const first = [thisMonth, ...dated.map((g) => g.key)].sort()[0];
+  const range = calendarMonthOptions({ dates: dated.map((g) => `${g.key}-01`), counts, before: 0, after: 12 })
+    .filter((o) => o.key >= first);
+  const other = groups.filter((g) => !isMonthKey(g.key)).map((g) => ({ key: g.key, label: g.label, count: g.count, group: "Other" }));
+  return [...other.filter((o) => o.key === "past"), ...range, ...other.filter((o) => o.key !== "past")];
+}
+
+// Where a jump lands: that month if it has a group, else the next month
+// that does, else the last one.
+export function nearestMonthKey(key, keys = []) {
+  if (keys.includes(key)) return key;
+  const dated = keys.filter(isMonthKey).sort();
+  return dated.find((k) => k > key) || dated[dated.length - 1] || keys[0];
 }

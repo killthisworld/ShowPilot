@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, PlaneTakeoff } from "lucide-react";
-import MonthDropdown from "@/components/showpilot/MonthDropdown";
+import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
@@ -322,10 +322,11 @@ export default function BandHome() {
 
   // Each month heading is a dropdown of every month group; picking one jumps
   // to it (scrolls the month columns on desktop, the list on phones).
-  const monthJumpOptions = monthGroups.map(([k, list]) => ({
-    key: k, label: monthLabel(k), count: list.length, group: /^\d{4}/.test(k) ? k.slice(0, 4) : "Other",
-  }));
-  const jumpToMonth = (key) => {
+  // Every month is listed, not just the ones with shows; an empty month
+  // jumps to the next month that has some.
+  const monthJumpOptions = jumpMonthOptions(monthGroups.map(([k, list]) => ({ key: k, label: monthLabel(k), count: list.length })));
+  const jumpToMonth = (picked) => {
+    const key = nearestMonthKey(picked, monthGroups.map(([k]) => k));
     if (key === "past" && !pastOpen) setShowPast(true);
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const el = document.querySelector(`[data-home-month="${key}"]`);

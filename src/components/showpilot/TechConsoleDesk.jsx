@@ -11,7 +11,7 @@ import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TechRail from "@/components/showpilot/TechRail";
-import MonthDropdown from "@/components/showpilot/MonthDropdown";
+import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
 // channel strip, grouped by month like console banks, read top to bottom
@@ -311,8 +311,8 @@ export default function TechConsoleDesk({
                       <MonthDropdown
                         label={g.label}
                         value={g.key}
-                        options={groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length, group: /^\d{4}/.test(x.key) ? x.key.slice(0, 4) : "Other" }))}
-                        onSelect={(k) => groupRefs.current[k]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
+                        options={jumpMonthOptions(groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length })))}
+                        onSelect={(picked) => groupRefs.current[nearestMonthKey(picked, groups.map((x) => x.key))]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
                         accent={gi % 2 ? "#60A5FA" : accent}
                         ariaLabel="Jump to a month"
                         className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em]"

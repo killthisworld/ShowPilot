@@ -5,7 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
-import MonthDropdown from "@/components/showpilot/MonthDropdown";
+import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 
@@ -199,8 +199,8 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
               <MonthDropdown
                 label={cur.label}
                 value={cur.key}
-                options={groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length, group: /^\d{4}/.test(x.key) ? x.key.slice(0, 4) : "Other" }))}
-                onSelect={(k) => { setJumpedMonth(k); groupRefs.current[k]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" }); }}
+                options={jumpMonthOptions(groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length })))}
+                onSelect={(picked) => { const k = nearestMonthKey(picked, groups.map((x) => x.key)); setJumpedMonth(k); groupRefs.current[k]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" }); }}
                 accent={accent}
                 ariaLabel="Jump to a month"
                 className="h-8 px-3 shrink-0 rounded-full bg-[#1a1a1a] border border-[#333] text-[15px] font-bold tracking-[0.06em] text-white hover:bg-[#222]"
