@@ -34,6 +34,7 @@ import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
 import GigWeb from '@/pages/GigWeb';
 import FanEvent from '@/pages/FanEvent';
+import FanUnsubscribe from '@/pages/FanUnsubscribe';
 import VenueProfile from '@/pages/VenueProfile';
 import RoleFullProfile from '@/pages/RoleFullProfile';
 import GigRooms from '@/pages/GigRooms';
@@ -84,6 +85,7 @@ const AuthenticatedApp = () => {
       {/* Older links and QR codes that are already out there */}
       <Route path="/e/:token" element={<FanEvent />} />
       <Route path="/e/:token/sky" element={<EventSky />} />
+      <Route path="/fan/unsubscribe" element={<FanUnsubscribe />} />
       <Route path="/gig/venue" element={<VenueProfile />} />
       <Route path="/gig/role" element={<RoleFullProfile />} />
       <Route path="/gig/rooms" element={<GigRooms />} />

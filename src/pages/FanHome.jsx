@@ -862,6 +862,14 @@ function HomeCity({ style, star, onStyle }) {
           <Check className="w-4 h-4" />
         </button>
       </div>
+      {/* Weekly "new shows near you" email (job 93): on unless turned off. */}
+      <button type="button" role="switch" aria-checked={style.digest !== false} onClick={() => onStyle({ digest: style.digest === false })}
+        className="mt-2 w-full flex items-center justify-between gap-3 text-left">
+        <span className="text-[13px] leading-snug" style={{ color: SOFT }}>Email me new shows nearby <span style={{ color: DIM }}>· Thursdays</span></span>
+        <span className="relative w-9 h-5 rounded-full shrink-0 transition-colors" style={{ background: style.digest !== false ? star : "#262b52" }}>
+          <span className="absolute top-[2px] w-4 h-4 rounded-full transition-[left]" style={{ left: style.digest !== false ? 18 : 2, background: style.digest !== false ? "#0d0d0d" : "rgba(255,255,255,0.6)" }} />
+        </span>
+      </button>
     </form>
   );
 }
