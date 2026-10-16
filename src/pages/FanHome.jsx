@@ -57,7 +57,7 @@ const DEFAULT_STYLE = { star: DEFAULT_STAR, discover: false, city: "", state: ""
 
 const TABS = [
   { id: "shows", label: "Shows", icon: Ticket, title: "MY SHOWS" },
-  { id: "stars", label: "Stars", icon: Sparkles, title: "MY STARS" },
+  { id: "stars", label: "Sky", icon: Sparkles, title: "MY SKY" },
   { id: "me", label: "Me", icon: User, title: "ME" },
 ];
 
@@ -703,6 +703,11 @@ function StarsTab({ shows, today, star }) {
                 </g>
               )}
               {on && <circle cx={s.x} cy={s.y} r="18" fill="none" stroke={s.lit ? star : G} strokeOpacity="0.55" strokeWidth="0.8" />}
+              {s.show.notches_new > 0 && (
+                <circle cx={s.x + 9} cy={s.y - 9} r="3" fill={G}>
+                  {!still && <animate attributeName="opacity" values="1;0.35;1" dur="1.6s" repeatCount="indefinite" />}
+                </circle>
+              )}
             </g>
           );
         })}
@@ -737,9 +742,24 @@ function StarSummary({ s, star, onClose }) {
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-8 h-8 rounded-full text-[16px] leading-none" style={{ color: SOFT, border: `1px solid ${LINE}` }}>×</button>
       </div>
+      {/* Countdown progress (job 78): one tick per notch, lit once it's turned. */}
+      {s.show.notches_total > 0 && (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="flex gap-1" aria-hidden="true">
+            {Array.from({ length: s.show.notches_total }, (_, i) => (
+              <span key={i} className="w-4 h-1.5 rounded-full" style={{ background: i < s.show.notches_open ? G : "#2b2f5a", boxShadow: i < s.show.notches_open ? `0 0 6px ${G}88` : "none" }} />
+            ))}
+          </span>
+          <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: s.show.notches_new ? G : DIM }}>
+            {s.show.notches_new ? `${s.show.notches_new} NEW UNLOCK${s.show.notches_new > 1 ? "S" : ""}` : `${s.show.notches_open} OF ${s.show.notches_total} NOTCHES`}
+          </span>
+        </div>
+      )}
+      {/* Same access as the key: this event's sky, its notches and unlocks. */}
       {sky && (
-        <Link to={sky} className="inline-flex items-center gap-1 mt-1.5 text-[13px] font-semibold" style={{ color: s.lit ? star : G }}>
-          {s.lit ? "Visit the sky" : "Open your key"} ›
+        <Link to={sky} className="mt-2.5 h-10 rounded-xl flex items-center justify-center gap-1.5 text-[14px] font-bold"
+          style={{ background: s.lit ? "rgba(0,0,0,0.5)" : G, color: s.lit ? star : "#0d0d0d", border: s.lit ? `1px solid ${LINE}` : "none" }}>
+          <KeyRound className="w-4 h-4" /> Open this sky
         </Link>
       )}
     </div>

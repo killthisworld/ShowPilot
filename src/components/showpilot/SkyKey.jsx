@@ -55,7 +55,9 @@ function useArcs(seedText) {
   }, [seedText]);
 }
 
-export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone }) {
+// `notches` (job 78): one mark per countdown notch along the top of the key,
+// lit once that notch has turned; the last is the show-day pass.
+export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches = null }) {
   const arcs = useArcs(seed);
   const ringRefs = useRef([]);
   const arcRefs = useRef([]);
@@ -157,6 +159,19 @@ export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone }) {
             ))}
           </g>
         ))}
+        {/* Countdown notches */}
+        {notches?.length > 0 && notches.map((lit, i) => {
+          const span = Math.min(110, (notches.length - 1) * 22);
+          const a = notches.length === 1 ? 0 : -span / 2 + (i * span) / (notches.length - 1);
+          const [x0, y0] = polar(127, a);
+          const [x1, y1] = polar(137, a);
+          const pass = i === notches.length - 1;
+          return pass ? (
+            <circle key={i} cx={(x0 + x1) / 2} cy={(y0 + y1) / 2} r={4.2} fill={lit ? color : "none"} stroke={lit ? color : "rgba(255,255,255,0.35)"} strokeWidth="1.6" style={lit ? { filter: `drop-shadow(0 0 5px ${color})` } : undefined} />
+          ) : (
+            <line key={i} x1={x0} y1={y0} x2={x1} y2={y1} stroke={lit ? color : "rgba(255,255,255,0.3)"} strokeWidth="4" strokeLinecap="round" style={lit ? { filter: `drop-shadow(0 0 5px ${color})` } : undefined} />
+          );
+        })}
         {/* The lock */}
         <g ref={lockRef}>
         <circle cx={C} cy={C} r={46} fill="#0b0e24" stroke={failed ? "rgba(248,113,113,0.5)" : "rgba(255,255,255,0.14)"} />

@@ -104,8 +104,9 @@ function OwnerSheet({ showId, onClose }) {
   const [tab, setTab] = useState("page"); // page | guests | share | setup
   const [editing, setEditing] = useState(null); // which part of the page is open
   const [stats, setStats] = useState(null); // local shows stats (job 92)
+  const [countdownStats, setCountdownStats] = useState(null); // per-notch sent / opened (job 78)
 
-  const SELECT = "fan_token, fan_slug, fan_page_enabled, fan_page, promoter_info, event_name, band_name, icon_url, date, venue, city, state";
+  const SELECT = "fan_token, fan_slug, fan_page_enabled, fan_page, fan_countdown, promoter_info, event_name, band_name, icon_url, date, venue, city, state";
   const toDraft = (data) => {
     const cfg = data.fan_page || {};
     return {
@@ -131,6 +132,15 @@ function OwnerSheet({ showId, onClose }) {
       // Fan Discover (job 85): list this event for fans nearby. Off by default.
       discover: cfg.discover === true,
       qr: cfg.qr || null,
+      // Countdown (job 78): its own column, so unlocks never reach the public page early.
+      countdown: {
+        enabled: data.fan_countdown?.enabled === true,
+        notches: Array.isArray(data.fan_countdown?.notches) ? data.fan_countdown.notches.slice(0, 5).map((n) => ({
+          id: String(n.id || `n${Math.random().toString(36).slice(2, 8)}`), days_before: Math.max(0, Math.min(30, Number(n.days_before) || 0)),
+          type: n.type === "unlock" ? "unlock" : "reminder", subject: n.subject || "", message: n.message || "", kind: n.kind || "",
+          title: n.title || "", body: n.body || "", image_url: n.image_url || "", link_url: n.link_url || "",
+        })) : [],
+      },
     };
   };
 
@@ -143,6 +153,7 @@ function OwnerSheet({ showId, onClose }) {
       setDraft(toDraft(data));
     });
     supabase.rpc("get_discover_stats", { p_show_id: showId }).then(({ data }) => { if (alive && data) setStats(data); });
+    supabase.rpc("get_countdown_stats", { p_show_id: showId }).then(({ data }) => { if (alive && data) setCountdownStats(data); });
     return () => { alive = false; };
   }, [showId]);
 
@@ -256,6 +267,15 @@ function OwnerSheet({ showId, onClose }) {
           qr: draft.qr,
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
+        fan_countdown: {
+          enabled: draft.countdown.enabled,
+          notches: draft.countdown.notches.slice(0, 5).map((n) => ({
+            id: n.id, days_before: n.days_before, type: n.type,
+            subject: n.subject.trim().slice(0, 150), message: n.message.trim().slice(0, 1500),
+            kind: n.type === "unlock" ? n.kind || "note" : "", title: n.title.trim().slice(0, 80), body: n.body.trim().slice(0, 2000),
+            image_url: n.image_url, link_url: n.link_url.trim(),
+          })),
+        },
       })
       .eq("id", showId)
       .select(SELECT)
@@ -680,10 +700,147 @@ function OwnerSheet({ showId, onClose }) {
     </div>
   ));
 
+  // ---- Countdown (job 78): up to 5 notches, each an email to RSVP'd fans ----
+  const cd = draft?.countdown || { enabled: false, notches: [] };
+  const setCd = (patch) => set({ countdown: { ...cd, ...patch } });
+  const setNotch = (id, patch) => setCd({ notches: cd.notches.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
+  const newNotchId = () => `n${Math.random().toString(36).slice(2, 8)}`;
+  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", ...extra });
+  const QUICK = {
+    reminder: () => [blankNotch(1, "reminder", { subject: `Get ready for ${title}` })],
+    full: () => [
+      blankNotch(14, "reminder"),
+      blankNotch(7, "unlock", { kind: "note", title: "A note from the artist" }),
+      blankNotch(3, "unlock", { kind: "setlist", title: "Setlist tease" }),
+      blankNotch(1, "unlock", { kind: "doors", title: "Doors & parking" }),
+      blankNotch(0, "reminder", { subject: `Tonight: ${title}` }),
+    ],
+  };
+  const sortedNotches = [...cd.notches].sort((a, b) => b.days_before - a.days_before);
+  const dayCounts = cd.notches.reduce((m, n) => ({ ...m, [n.days_before]: (m[n.days_before] || 0) + 1 }), {});
+  const notchDate = (d) => {
+    if (!row?.date) return null;
+    const t = new Date(row.date + "T00:00:00");
+    t.setDate(t.getDate() - d);
+    return t;
+  };
+  const DAY_PICKS = [[0, "Morning of"], [1, "Day before"], [3, "3 days"], [7, "1 week"], [14, "2 weeks"]];
+  const KINDS = [["note", "Artist note"], ["setlist", "Setlist tease"], ["playlist", "Playlist"], ["bts", "Behind the scenes"], ["doors", "Doors & parking"], ["merch", "Merch first look"]];
+  const [uploadingNotch, setUploadingNotch] = useState(null);
+  const notchImageRef = useRef(null);
+  const pickNotchImage = async (e) => {
+    const file = e.target.files?.[0];
+    const id = uploadingNotch;
+    e.target.value = "";
+    if (!file || !id) { setUploadingNotch(null); return; }
+    if (file.size > 4 * 1024 * 1024) { setErr("Images must be under 4 MB."); setUploadingNotch(null); return; }
+    try { const url = await uploadIconImage(file); setNotch(id, { image_url: url }); } catch { setErr("Couldn't upload the image."); }
+    setUploadingNotch(null);
+  };
+  const chip = (on, label, onClick, key) => (
+    <button key={key} type="button" onClick={onClick} aria-pressed={on} className="px-3 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap"
+      style={on ? { background: "rgba(140,255,61,0.14)", color: G, boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.5)" } : { color: SOFT, boxShadow: `inset 0 0 0 1px ${EDGE_LINE}` }}>{label}</button>
+  );
+
+  const countdownTab = draft && (
+    <div className="space-y-3">
+      <input ref={notchImageRef} type="file" accept="image/*" className="hidden" onChange={pickNotchImage} />
+      {section("Countdown", <>
+        {segmented([[false, "Off"], [true, "On"]], !!cd.enabled, (k) => setCd({ enabled: k, notches: k && !cd.notches.length ? QUICK.reminder() : cd.notches }), "Countdown")}
+        {note(cd.enabled
+          ? "Each notch is an email to everyone who RSVP'd, sent at 10 AM Eastern on its day. An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away."
+          : "Keep fans excited before the show with up to 5 emails, each one turning a notch on their key. Off by default.")}
+        {cd.enabled && !rsvp && <p className="mt-2 text-[14px] leading-relaxed text-[#FF6A00]">Countdown emails go to people who RSVP. Switch how fans get in to RSVP under Setup, or the countdown won't send.</p>}
+        {cd.enabled && !row?.date && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no date yet, so the countdown can't be scheduled.</p>}
+        {cd.enabled && draft.hidden.includes("date") && <p className="mt-2 text-[14px] text-[#FF6A00]">The date is hidden on the fan page, so the countdown won't run. Show the date to use it.</p>}
+        {cd.enabled && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="text-[12px] self-center" style={{ color: DIM, fontFamily: SCENE_MONO }}>QUICK START</span>
+            {chip(false, "Day-before reminder", () => setCd({ notches: QUICK.reminder() }), "q1")}
+            {chip(false, "Full countdown (5)", () => setCd({ notches: QUICK.full() }), "q2")}
+          </div>
+        )}
+      </>)}
+
+      {cd.enabled && sortedNotches.map((n, idx) => {
+        const when = notchDate(n.days_before);
+        const passed = when && new Date(when.getTime() + 10 * 3600 * 1000) < new Date();
+        const st = countdownStats?.[n.id];
+        const unlock = n.type === "unlock";
+        return (
+          <section key={n.id} className="rounded-2xl p-4" style={{ background: PANEL, border: `1px solid ${unlock ? "rgba(140,255,61,0.35)" : EDGE_LINE}` }}>
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0" style={{ background: unlock ? G : "#1c2042", color: unlock ? "#0d0d0d" : "#fff", fontFamily: SCENE_MONO }}>{idx + 1}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[16px] font-bold text-white truncate">{unlock ? "Unlock" : "Reminder"} · {n.days_before === 0 ? "morning of" : `${n.days_before} ${n.days_before === 1 ? "day" : "days"} before`}</span>
+                <span className="block text-[12px]" style={{ color: passed ? "#FF6A00" : DIM, fontFamily: SCENE_MONO }}>
+                  {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · 10 AM ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}
+                  {st ? ` · SENT ${st.sent} · OPENED ${st.opened}` : ""}
+                </span>
+              </span>
+              <button type="button" onClick={() => setCd({ notches: cd.notches.filter((x) => x.id !== n.id) })} aria-label="Remove notch" className="p-2 rounded-lg text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
+            </div>
+
+            {label("WHEN", "mt-3")}
+            <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+              {DAY_PICKS.map(([d, l]) => chip(n.days_before === d, l, () => setNotch(n.id, { days_before: d }), d))}
+              <label className="flex items-center gap-1.5 ml-1">
+                <input type="number" inputMode="numeric" min={0} max={30} value={n.days_before} aria-label="Days before the show"
+                  onChange={(e) => setNotch(n.id, { days_before: Math.max(0, Math.min(30, Number(e.target.value.replace(/[^0-9]/g, "")) || 0)) })}
+                  className="w-[64px] bg-[#0a0c1c] border border-[#262b52] rounded-lg px-2 py-1.5 text-white text-[14px] text-right focus:outline-none focus:border-[#8CFF3D]/60" style={{ fontFamily: SCENE_MONO }} />
+                <span className="text-[13px]" style={{ color: SOFT }}>days before</span>
+              </label>
+            </div>
+            {dayCounts[n.days_before] > 1 && <p className="mt-1.5 text-[13px] text-[#FF6A00]">Two notches go out the same day. Fans get both emails.</p>}
+            {passed && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>This day has passed, so it won't email. Fans see it as already turned in the sky.</p>}
+
+            {label("TYPE", "mt-3")}
+            {segmented([["reminder", "Reminder"], ["unlock", "Unlock"]], n.type, (k) => setNotch(n.id, { type: k, kind: k === "unlock" ? (n.kind || "note") : n.kind }), "Notch type")}
+
+            {label("EMAIL SUBJECT", "mt-3")}
+            <input className={`${inputCls} mt-1.5`} maxLength={150} value={n.subject} onChange={(e) => setNotch(n.id, { subject: e.target.value })}
+              placeholder={unlock ? `A notch just turned: ${title}` : n.days_before === 0 ? `Tonight: ${title}` : n.days_before === 1 ? `Tomorrow: ${title}` : `${n.days_before} days to go: ${title}`} />
+            {label("MESSAGE (OPTIONAL)", "mt-3")}
+            <textarea className={`${inputCls} mt-1.5 min-h-[80px]`} maxLength={1500} value={n.message} onChange={(e) => setNotch(n.id, { message: e.target.value })}
+              placeholder={unlock ? "A line to go with the unlock" : "Anything fans should know. Date, doors, venue and their key are added automatically."} />
+
+            {unlock && (
+              <div className="mt-3 rounded-xl p-3" style={{ background: "#0a0c1c", border: "1px solid #1c2042" }}>
+                <div className="text-[11.5px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: G }}>WHAT IT UNLOCKS IN THE SKY</div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {KINDS.map(([k, l]) => chip(n.kind === k, l, () => setNotch(n.id, { kind: k }), k))}
+                </div>
+                <input className={`${inputCls} mt-2.5`} maxLength={80} value={n.title} onChange={(e) => setNotch(n.id, { title: e.target.value })} placeholder="Title fans see, e.g. Three songs we've never played live" />
+                <textarea className={`${inputCls} mt-2 min-h-[90px]`} maxLength={2000} value={n.body} onChange={(e) => setNotch(n.id, { body: e.target.value })} placeholder="The text that unlocks" />
+                <div className="mt-2 flex items-center gap-2.5">
+                  {n.image_url && <img src={n.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-[#262b52]" />}
+                  <button type="button" disabled={!!uploadingNotch} onClick={() => { setUploadingNotch(n.id); notchImageRef.current?.click(); }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#05060f] border border-[#262b52] text-white/85 text-[14px] font-semibold disabled:opacity-50">
+                    <ImagePlus className="w-4 h-4" /> {uploadingNotch === n.id ? "Uploading..." : n.image_url ? "Replace image" : "Add an image"}
+                  </button>
+                  {n.image_url && <button type="button" onClick={() => setNotch(n.id, { image_url: "" })} className="text-[13px] text-white/50 hover:text-white">Remove</button>}
+                </div>
+                <input className={`${inputCls} mt-2`} inputMode="url" value={n.link_url} onChange={(e) => setNotch(n.id, { link_url: e.target.value })} placeholder="Link (playlist, merch, video), optional" />
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      {cd.enabled && cd.notches.length < 5 && (
+        <button type="button" onClick={() => setCd({ notches: [...cd.notches, blankNotch([7, 3, 14, 1, 0, 2, 5, 10, 21, 30].find((d) => !dayCounts[d]) ?? 0, "reminder")] })}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[15px] font-bold" style={{ color: G, border: `1px dashed ${EDGE_LINE}` }}>
+          <Plus className="w-4 h-4" /> Add a notch ({cd.notches.length}/5)
+        </button>
+      )}
+    </div>
+  );
+
   const TABS = [
     { id: "page", label: "Page" },
     { id: "guests", label: "Guests" },
     { id: "share", label: "Share" },
+    { id: "countdown", label: "Countdown" },
     { id: "setup", label: "Setup" },
   ];
   const tabBar = (
@@ -692,7 +849,7 @@ function OwnerSheet({ showId, onClose }) {
         const sel = tab === t.id;
         return (
           <button key={t.id} type="button" role="tab" aria-selected={sel} onClick={() => { setTab(t.id); if (t.id !== "page" && !desktop) setEditing(null); }}
-            className="flex-1 h-9 rounded-full text-[14px] font-bold tracking-[0.04em] transition-colors" style={{ background: sel ? G : "transparent", color: sel ? "#0d0d0d" : SOFT }}>
+            className="flex-auto h-9 rounded-full text-[13px] font-bold tracking-[0.01em] transition-colors whitespace-nowrap px-2.5" style={{ background: sel ? G : "transparent", color: sel ? "#0d0d0d" : SOFT }}>
             {t.label}
           </button>
         );
@@ -759,7 +916,7 @@ function OwnerSheet({ showId, onClose }) {
     </div>
   );
   const starfield = { background: `radial-gradient(1px 1px at 12% 18%, #ffffff55, transparent), radial-gradient(1px 1px at 72% 32%, #ffffff40, transparent), radial-gradient(1px 1px at 40% 78%, #ffffff35, transparent), radial-gradient(1px 1px at 88% 82%, #ffffff40, transparent), ${NAVY}` };
-  const tabContent = { guests: guestsTab, share: shareTab, setup: setupTab };
+  const tabContent = { guests: guestsTab, share: shareTab, setup: setupTab, countdown: countdownTab };
 
   if (desktop) {
     // Desktop: tabs across the top; the live preview always on the left, the
@@ -770,7 +927,7 @@ function OwnerSheet({ showId, onClose }) {
         <div className="relative w-full max-w-[1120px] h-[min(94vh,880px)] flex flex-col rounded-[22px] overflow-hidden" style={{ ...starfield, border: `1px solid ${EDGE_LINE}`, boxShadow: "0 24px 70px rgba(0,0,0,0.7)" }}>
           <div className="px-6 pt-5 pb-3.5 space-y-3.5" style={{ borderBottom: `1px solid ${EDGE_LINE}` }}>
             {header}
-            {row && <div className="max-w-[520px]">{tabBar}</div>}
+            {row && <div className="max-w-[640px]">{tabBar}</div>}
           </div>
           {loading || (
             <div className="flex-1 min-h-0 grid grid-cols-[minmax(380px,460px)_1fr]">

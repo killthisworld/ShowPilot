@@ -107,6 +107,85 @@ function SkyStar({ star, color, isMe, revealDelay, onSelect, selected, scale = 1
   );
 }
 
+// ---------- Countdown (job 78) ----------
+const KIND_LABEL = {
+  note: "Note from the artist", setlist: "Setlist tease", playlist: "Pre-show playlist",
+  bts: "Behind the scenes", doors: "Doors & parking", merch: "Merch first look",
+};
+const notchWhen = (d) => (d === 0 ? "SHOW DAY" : d === 1 ? "DAY BEFORE" : d === 7 ? "1 WEEK" : d === 14 ? "2 WEEKS" : `${d} DAYS`);
+const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
+
+// A row of notches under the title: turned ones glow, unlocks can be opened,
+// locked ones show the day they turn. The show-day pass sits at the end.
+function CountdownStrip({ notches, passOpen, showDay, color, seen, onOpen }) {
+  const turned = notches.filter((n) => n.open).length;
+  return (
+    <div className="shrink-0 px-5 pb-1">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>COUNTDOWN · {turned} OF {notches.length} TURNED</span>
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {notches.map((n) => {
+          const unlock = n.type === "unlock";
+          const isNew = n.open && unlock && !n.seen && !seen[n.id];
+          const clickable = n.open && unlock;
+          return (
+            <button key={n.id} type="button" disabled={!clickable} onClick={() => clickable && onOpen(n)}
+              aria-label={n.open ? (unlock ? `Open ${KIND_LABEL[n.kind] || "unlock"}` : "Reminder sent") : `Turns ${shortDate(n.opens_at)}`}
+              className="relative shrink-0 min-w-[86px] max-w-[150px] rounded-xl px-2.5 py-2 text-left"
+              style={{
+                background: n.open ? (unlock ? `${color}1f` : "rgba(255,255,255,0.06)") : "rgba(8,10,28,0.7)",
+                border: `1px solid ${n.open ? (unlock ? `${color}99` : "rgba(255,255,255,0.18)") : "rgba(255,255,255,0.1)"}`,
+                boxShadow: isNew ? `0 0 14px ${color}66` : "none",
+              }}>
+              <span className="block text-[10px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: n.open ? color : "rgba(255,255,255,0.45)" }}>{notchWhen(n.days_before)}</span>
+              <span className="block text-[13px] font-bold leading-tight mt-0.5 text-white truncate">
+                {n.open ? (unlock ? (n.title || KIND_LABEL[n.kind] || "Unlocked") : "Reminder") : `🔒 ${shortDate(n.opens_at)}`}
+              </span>
+              {isNew && <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full text-[9px] font-bold tracking-[0.08em] text-[#0d0d0d]" style={{ background: color, fontFamily: SCENE_MONO }}>NEW</span>}
+            </button>
+          );
+        })}
+        <span className="shrink-0 min-w-[86px] rounded-xl px-2.5 py-2" style={{ background: passOpen ? `${color}1f` : "rgba(8,10,28,0.7)", border: `1px solid ${passOpen ? `${color}99` : "rgba(255,255,255,0.1)"}` }}>
+          <span className="block text-[10px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: passOpen ? color : "rgba(255,255,255,0.45)" }}>SHOW DAY</span>
+          <span className="block text-[13px] font-bold leading-tight mt-0.5 text-white">{passOpen ? "Your pass" : `🔒 ${shortDate(showDay + "T12:00:00")}`}</span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// What a turned Unlock notch reveals: text, an image and/or a link.
+function UnlockPanel({ notch, color, onClose }) {
+  const link = typeof notch.link_url === "string" && /^https?:\/\//i.test(notch.link_url.trim()) ? notch.link_url.trim() : notch.link_url ? `https://${String(notch.link_url).trim()}` : "";
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="absolute inset-0 z-20 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={notch.title || KIND_LABEL[notch.kind] || "Unlocked"}>
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative w-full max-w-md max-h-[86%] overflow-y-auto rounded-t-[22px] sm:rounded-[22px] p-5" style={{ background: "#0b0e24", border: "1px solid #2b2f5a", boxShadow: `0 0 40px ${color}22` }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color }}>{notchWhen(notch.days_before)} · {(KIND_LABEL[notch.kind] || "UNLOCKED").toUpperCase()}</div>
+            <h2 className="mt-1 text-[24px] font-bold leading-tight">{notch.title || KIND_LABEL[notch.kind] || "Something new"}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-9 h-9 rounded-full text-white/70 border border-white/20">×</button>
+        </div>
+        {notch.image_url && <img src={notch.image_url} alt="" className="mt-4 w-full rounded-xl object-cover max-h-[320px] border border-white/10" />}
+        {notch.body && <p className="mt-4 text-[16px] leading-relaxed text-white/90 whitespace-pre-line">{notch.body}</p>}
+        {link && (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center h-12 rounded-xl text-[16px] font-bold text-[#0d0d0d]" style={{ background: color }}>
+            {notch.kind === "playlist" ? "Play it" : notch.kind === "merch" ? "See the merch" : "Open the link"} ›
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EventSky() {
   const { token: tokenKey } = useParams();
   const resolved = useFanToken(tokenKey);
@@ -171,6 +250,20 @@ export default function EventSky() {
   const revealing = phase === "unlocking" || open;
 
   const onKeyDone = useCallback(() => setPhase("open"), []);
+  // Countdown (job 78): notches in order, then the show-day pass.
+  const countdown = sky?.countdown || null;
+  const notches = countdown?.notches || [];
+  const passOpen = countdown ? Date.now() >= new Date(countdown.show_opens_at).getTime() : false;
+  const keyNotches = countdown ? [...notches.map((n) => !!n.open), passOpen] : null;
+  const [unlockOpen, setUnlockOpen] = useState(null);
+  const [seenNow, setSeenNow] = useState({});
+  const openUnlock = (n) => {
+    setUnlockOpen(n);
+    if (!n.seen && !seenNow[n.id]) {
+      setSeenNow((m) => ({ ...m, [n.id]: true }));
+      supabase.rpc("open_countdown_notch", { p_token: token, p_key: key, p_notch: n.id }).then(({ error }) => { if (error) console.error(error); });
+    }
+  };
   // The key is drawn at 280px; on narrow or short screens (and in-app
   // browsers) shrink it so it and its message always fit.
   const [keyScale, setKeyScale] = useState(1);
@@ -210,7 +303,7 @@ export default function EventSky() {
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
           <div style={{ width: 280 * keyScale, height: 280 * keyScale }}>
             <div style={{ transform: `scale(${keyScale})`, transformOrigin: "top left" }}>
-              <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} />
+              <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} notches={keyNotches} />
             </div>
           </div>
           {phase === "verifying" && <p className="mt-6 text-lg text-white/60">Checking your key…</p>}
@@ -234,6 +327,10 @@ export default function EventSky() {
             <h1 className="font-bold leading-[0.95] line-clamp-2" style={{ fontSize: "clamp(26px, 8.5vw, 34px)" }}>{ev?.event_name || ev?.band_name || "Tonight"}</h1>
             {(dateLabel || ev?.venue) && <p className="mt-1.5 text-[15px] text-white/65 truncate">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>}
           </div>
+
+          {countdown && notches.length > 0 && (
+            <CountdownStrip notches={notches} passOpen={passOpen} showDay={countdown.show_day} color={color} seen={seenNow} onOpen={openUnlock} />
+          )}
 
           {/* Stars fill the space between the title and the footer. */}
           <div ref={fieldRef} className="relative flex-1 min-h-[160px] mx-7 my-3" onClick={() => setSelected(null)}>
@@ -271,6 +368,8 @@ export default function EventSky() {
           </div>
         </div>
       )}
+
+      {unlockOpen && <UnlockPanel notch={unlockOpen} color={color} onClose={() => setUnlockOpen(null)} />}
     </div>
   );
 }
