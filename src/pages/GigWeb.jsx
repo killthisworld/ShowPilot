@@ -27,9 +27,10 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
 import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
+import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 
 // Short console-style codes for the role channel buttons.
-const ROLE_CODES = { venue: "VENUE", manager: "MGMT/ART", engineer: "AUD/LTG" };
+const ROLE_CODES = { venue: "VENUE", manager: "MGMT", band: "ARTIST", engineer: "AUDIO", lighting: "LIGHTS" };
 
 // Same account-type split every other main page uses to choose between the
 // two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
@@ -41,22 +42,44 @@ const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 // intentionally match SharedGig's SECTION_COLORS and Home's progress bar,
 // so this hub reads as another view of the same show rather than a new
 // visual language to learn.
-const ROLE_ORDER = ["venue", "manager", "engineer"];
+const ROLE_ORDER = WEB_ROLES;
 
 // get_gigs_progress keys the combined Manager/Artist section "manager_band";
 // everywhere else in this file (permissions, invited_role, routing) it's
 // just "manager" - this is the one place that mismatch has to be bridged.
 const PROGRESS_KEY = { venue: "venue", manager: "manager_band", engineer: "engineer" };
 
-const SECTION_LABELS = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
+// Manager and Artist (and Audio and Lighting) share one section, so each
+// circle shows its own fill from the fields that belong to it.
+function roleFill(role, gig, percentOf) {
+  const has = (v) => !!String(v ?? "").trim();
+  const frac = (vals) => (vals.length ? vals.filter(has).length / vals.length : 0);
+  const mi = gig.manager_info || {};
+  const ei = gig.engineer_info || {};
+  if (role === "manager") {
+    const list = (mi.checklist || []).filter((c) => c.label);
+    const parts = [frac([mi.contact_name, mi.contact_phone, mi.contact_email])];
+    if (list.length) parts.push(list.filter((c) => c.done).length / list.length);
+    return parts.reduce((a, b) => a + b, 0) / parts.length;
+  }
+  if (role === "band") {
+    const acts = (gig.bands || []).filter((b) => b.band_name);
+    if (!acts.length) return 0;
+    const times = mi.set_times || {};
+    return (1 + acts.filter((b) => has(times[b.band_name])).length / acts.length) / 2;
+  }
+  if (role === "engineer") return frac([(ei.audio || {}).contact_name, (ei.audio || {}).contact_phone, (ei.audio || {}).contact_email]);
+  if (role === "lighting") return frac([(ei.lighting || {}).contact_name, (ei.lighting || {}).contact_phone, (ei.lighting || {}).contact_email]);
+  return percentOf;
+}
+
+const SECTION_LABELS = WEB_LABELS;
 
 function roleClaimed(role, permissions) {
-  if (role === "engineer") return !!(permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting"));
-  return !!permissions?.claimed_roles?.includes(role);
+  return !!permissions?.claimed_roles?.some((r) => HOLDERS[role].includes(r));
 }
 function roleInvited(role, permissions) {
-  if (role === "engineer") return !!(permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting"));
-  return !!permissions?.invited_roles?.includes(role);
+  return !!permissions?.invited_roles?.some((r) => HOLDERS[role].includes(r));
 }
 
 // Mirrors set_gig_task_status's own permission check exactly - owner, holds
@@ -67,9 +90,8 @@ function roleInvited(role, permissions) {
 function roleEditable(role, permissions) {
   if (!permissions) return false;
   if (permissions.is_owner) return true;
-  const roleMatch = role === "engineer" ? ["engineer", "lighting"] : [role];
-  if ((permissions.my_roles || []).some((r) => roleMatch.includes(r))) return true;
-  if ((permissions.granted_sections || []).includes(role)) return true;
+  if ((permissions.my_roles || []).some((r) => SECTION_HOLDERS[role].includes(r))) return true;
+  if ((permissions.granted_sections || []).includes(sectionOf(role))) return true;
   return roleInvited(role, permissions) && !roleClaimed(role, permissions);
 }
 
@@ -236,7 +258,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // per room and cached rather than pulled for every role up front.
   useEffect(() => {
     if ((activeTab !== "rooms" && !isDesktop) || !selectedRole || !user) return;
-    const room = rooms.find((r) => r.section === selectedRole);
+    const room = rooms.find((r) => r.section === sectionOf(selectedRole));
     if (!room || roomMembers[room.id]) return;
     supabase.rpc("get_conversation_member_profiles", { p_conversation_id: room.id }).then(({ data, error }) => {
       if (!error) setRoomMembers((prev) => ({ ...prev, [room.id]: data || [] }));
@@ -389,10 +411,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const nodes = roles.map((role, i) => {
     const angle = (-90 + i * (360 / roles.length)) * (Math.PI / 180);
     const baseStyle = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
-    const percent = Math.round((progress[PROGRESS_KEY[role]]?.percent || 0) * 100);
+    const percent = Math.round(roleFill(role, gig, progress[PROGRESS_KEY[sectionOf(role)]]?.percent || 0) * 100);
     const claimed = roleClaimed(role, permissions);
     const invited = roleInvited(role, permissions);
-    const hasTasks = (gig.tasks || []).some((t) => t.section === role);
+    const hasTasks = (gig.tasks || []).some((t) => t.section === sectionOf(role));
     // Lit = someone is on it, or something is filled in. Opening a profile
     // always shows its color so you know where you are.
     const lit = claimed || invited || percent > 0 || hasTasks;
@@ -414,7 +436,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const hubM = spinMotion({ entering: !hubEntered, leaving });
 
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
-  const openTasksFor = (role) => openTasks.filter((t) => t.section === role).length;
+  const openTasksFor = (role) => openTasks.filter((t) => t.section === sectionOf(role)).length;
   const avgPercent = nodes.length ? Math.round(nodes.reduce((a, n) => a + n.percent, 0) / nodes.length) : 0;
   const stripCells = selectedNode
     ? [
@@ -787,7 +809,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // (the hub's place on the page) and renders the open tab here. Keyed by
 // role, so switching profiles starts fresh.
 function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true, initialTab = null, homeIcon = null }) {
-  const p = useRoleProfile({ role, token, onChanged });
+  const p = useRoleProfile({ role: sectionOf(role), token, onChanged });
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const ready = !(p.loading || p.checkingAuth || p.notFound || !p.gig);
   const color = ACCOUNT_TYPE_STYLES[role]?.color || "#8CFF3D";
@@ -1355,7 +1377,7 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
 // their own tab rather than nested inside Board/Profile.
 function TasksTabPanel({ nodes, selectedRole, tasks, permissions, isOwner, onAddTask, onCompleteTask, onSelectRole, onOpenTask, userId }) {
   if (selectedRole) {
-    const roleTasks = (tasks || []).filter((t) => t.section === selectedRole && t.status !== "done");
+    const roleTasks = (tasks || []).filter((t) => t.section === sectionOf(selectedRole) && t.status !== "done");
     if (roleTasks.length === 0) {
       return <p className="text-white/25 text-xs text-center py-3">Nothing outstanding for this section right now.</p>;
     }
@@ -1566,7 +1588,7 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
     );
   }
 
-  const section = selectedRole || "general";
+  const section = selectedRole ? sectionOf(selectedRole) : "general";
   const room = rooms.find((r) => r.section === section);
   if (!room) {
     return <p className="text-white/30 text-sm text-center py-6">You'll see this room once you're connected to a section on this gig.</p>;
@@ -1765,7 +1787,7 @@ function DesktopGigWeb({
     setWorkspaceRole(role === "engineer" ? null : role);
   };
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
-  const roleTasks = selectedRole ? openTasks.filter((t) => t.section === selectedRole) : openTasks;
+  const roleTasks = selectedRole ? openTasks.filter((t) => t.section === sectionOf(selectedRole)) : openTasks;
   const canDo = selectedRole && roleEditable(selectedRole, permissions);
   const done = async (id) => {
     if (completingId) return;

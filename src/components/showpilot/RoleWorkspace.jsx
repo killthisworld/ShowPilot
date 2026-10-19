@@ -7,6 +7,7 @@ import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
+import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
@@ -22,8 +23,8 @@ import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", engineer: "#8CFF3D" };
-const ROLE_TITLE = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
+const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engineer: "#8CFF3D", lighting: "#8CFF3D" };
+const ROLE_TITLE = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio", lighting: "Lighting" };
 
 // ---------- small helpers ----------
 const has = (v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && String(v).trim() !== "");
@@ -149,6 +150,8 @@ function SideRow({ left, right, rightColor, highlight }) {
 // Shape: { name, setName }. `p` then edits the template instead of an event.
 export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null, homeIcon = null }) {
   const navigate = useNavigate();
+  // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
+  const section = SECTION_OF[role] || role;
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -363,6 +366,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       crewTab("lighting", "Lighting tech", "Who is on lights"),
       requestsTab("engineer"),
     ];
+  };
+  const engineerTabsFor = (which) => {
+    const all = engineerTabs();
+    return all.filter((t) => t.key === which || t.key === "requests");
   };
   const engineerSide = () => {
     const run = buildRunOfShow(gig);
@@ -598,7 +605,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             {!run.length && !untimed.length && (
               <p className="text-[14px] text-white/40">Add acts and set times in Lineup & set times. The venue's schedule and your arrival join them here.</p>
             )}
-            {(untimed.length > 0 || !run.length) && active !== "lineup" && (
+            {(untimed.length > 0 || !run.length) && active !== "lineup" && tabs.some((t) => t.key === "lineup") && (
               <button type="button" onClick={() => setActive("lineup")} className={sideBtn} style={{ color, borderColor: color + "66" }}>
                 {untimed.length ? "Add set times" : "Open lineup"}
               </button>
@@ -624,7 +631,18 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     };
   };
 
-  const builders = { venue: venueTabs, manager: managerTabs, engineer: engineerTabs };
+  // Manager and Artist each get their half of the manager pages; Audio and
+  // Lighting each get their own crew page. A template (one section saved
+  // whole) still uses every page of its section.
+  const MANAGER_PAGES = ["contact", "advance", "guests", "requests"];
+  const ARTIST_PAGES = ["lineup", "travel", "merch", "requests"];
+  const builders = {
+    venue: venueTabs,
+    manager: () => (template ? managerTabs() : managerTabs().filter((t) => MANAGER_PAGES.includes(t.key))),
+    band: () => managerTabs().filter((t) => ARTIST_PAGES.includes(t.key)),
+    engineer: () => (template ? engineerTabs() : engineerTabsFor("audio")),
+    lighting: () => engineerTabsFor("lighting"),
+  };
   const tabs = useMemo(
     () => {
       const list = builders[role]();
@@ -632,7 +650,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       // Current tasks: this section's owner-assigned to-dos, with the ones
       // you've claimed first. It sits at the top of the profile's web,
       // ahead of the section's own parts, so the holder sees them first.
-      const myTasks = (gig.tasks || []).filter((t) => t.section === role);
+      const myTasks = (gig.tasks || []).filter((t) => t.section === section);
       const open = myTasks.filter((t) => t.status !== "done");
       const mine = open.filter((t) => p.user && t.claimed_by === p.user.id);
       return [
@@ -663,16 +681,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       isOwner={!!p.permissions?.is_owner}
       canWork={openTask.section === "engineer" ? !!p.canEditSection?.("engineer") || !!p.canEditSection?.("lighting") : !!p.canEditSection?.(openTask.section)}
       onClose={() => setOpenTaskId(null)}
-      onClaim={async () => { await p.claimTask(openTask.id, true); if (openTask.section === role) setActive("tasks"); }}
+      onClaim={async () => { await p.claimTask(openTask.id, true); if (openTask.section === section) setActive("tasks"); }}
       onRelease={() => p.claimTask(openTask.id, false)}
       onDone={async () => { await p.markTaskDone(openTask.id, true); setOpenTaskId(null); }}
       onSaveDetails={(d) => p.setTaskDetails(openTask.id, d)}
     />
   ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);
-  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : role === "engineer" ? engineerSide() : managerSide();
+  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : (role === "engineer" || role === "lighting") ? engineerSide() : managerSide();
   // Load a saved template into this event / save this section as one.
-  const templateTools = ed && !template && p.user && role !== "engineer" ? (
+  const templateTools = ed && !template && p.user && role !== "engineer" && role !== "lighting" && role !== "band" ? (
     <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
   ) : null;
   const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks");
@@ -684,22 +702,21 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const included = () => true;
   const others = template ? [] : COMPANY_ROLES.filter((r) => r !== role && included(r)).map((r) => {
     const parts = counted(builders[r]());
-    const openReqs = (gig.requirements || []).filter((q) => q.section === r && q.status !== "confirmed").length;
-    return { role: r, done: parts.filter((t) => t.state === "done").length, total: parts.length, openReqs, mine: !!p.canEditSection?.(r) };
+    const openReqs = (gig.requirements || []).filter((q) => q.section === SECTION_OF[r] && q.status !== "confirmed").length;
+    return { role: r, done: parts.filter((t) => t.state === "done").length, total: parts.length, openReqs, mine: !!p.canEditSection?.(SECTION_OF[r]) };
   });
   // Everything that's waiting on the person looking: open tasks the owner
   // pointed at any section they hold.
-  const mySections = COMPANY_ROLES.filter((r) => p.canEditSection?.(r));
+  const mySections = COMPANY_ROLES.filter((r) => p.canEditSection?.(SECTION_OF[r]));
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
 
   if (layout === "web") {
     // Features (DCAs) sit in the web's four corners; empty corners are open slots.
-    const dcas = role === "manager"
-      ? [
-          ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null,
-          onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
-        ]
-      : [];
+    const dcas = role === "band"
+      ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null]
+      : role === "manager"
+        ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
+        : [];
     const stateWord = { done: ["FILLED IN", G], partial: ["IN PROGRESS", AMBER], empty: ["NOT STARTED", "rgba(255,255,255,0.45)"] };
     const sw = stateWord[current?.state] || stateWord.empty;
     const web = webSlot
@@ -735,8 +752,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     ) : null;
 
     if (!ed) {
-      const sectionTasks = (gig.tasks || []).filter((t) => t.section === role);
-      const theirOpenReqs = reqs(role).filter((q) => q.status !== "confirmed");
+      const sectionTasks = (gig.tasks || []).filter((t) => t.section === section);
+      const theirOpenReqs = reqs(section).filter((q) => q.status !== "confirmed");
       const myCompany = mySections.filter((r) => COMPANY_ROLES.includes(r) && r !== role);
       return (
         <>
@@ -872,8 +889,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Someone else's section: just where they're at and what's needed from
   // the viewer - not their working details.
   if (!ed) {
-    const sectionTasks = (gig.tasks || []).filter((t) => t.section === role);
-    const theirOpenReqs = reqs(role).filter((q) => q.status !== "confirmed");
+    const sectionTasks = (gig.tasks || []).filter((t) => t.section === section);
+    const theirOpenReqs = reqs(section).filter((q) => q.status !== "confirmed");
     return (
       <Shell modal={modal} onClose={onClose}>
         {header}
@@ -1028,7 +1045,7 @@ function Shell({ modal, onClose, children }) {
   );
 }
 
-const COMPANY_ROLES = ["venue", "manager", "engineer"];
+const COMPANY_ROLES = ["venue", "manager", "band", "engineer", "lighting"];
 const SECTION_NAME = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // Owner-assigned to-dos (gig_tasks). The section holder ticks them off;
