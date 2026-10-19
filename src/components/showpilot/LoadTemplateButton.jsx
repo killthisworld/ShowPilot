@@ -18,8 +18,6 @@ import { templateSubtitle } from "@/lib/roleTemplates";
 const KIND = {
   venue: { word: "venue", style: ACCOUNT_TYPE_STYLES.venue },
   artist: { word: "artist", style: ACCOUNT_TYPE_STYLES.band },
-  promoter: { word: "promoter", style: ACCOUNT_TYPE_STYLES.promoter },
-  booking_agent: { word: "booking agent", style: ACCOUNT_TYPE_STYLES.booking_agent },
   manager: { word: "manager", style: ACCOUNT_TYPE_STYLES.manager },
 };
 

@@ -2,13 +2,13 @@
 //
 // Launch focus (decided 2026-10-19): audio / lighting techs, manager / artist
 // and venue, centered on communication between them. Promoter and booking
-// agent are being removed. The fan side is switched off so it can run as its
+// agent have been removed. The fan side is switched off so it can run as its
 // own product later; its code, data and any emails already scheduled stay.
 //
 // To bring something back, change it here. Accounts that already have a
 // hidden type keep working as before.
 export const FAN_SIDE_OPEN = false;
 
-export const HIDDEN_ACCOUNT_TYPES = ["promoter", "booking_agent", ...(FAN_SIDE_OPEN ? [] : ["fan"])];
+export const HIDDEN_ACCOUNT_TYPES = FAN_SIDE_OPEN ? [] : ["fan"];
 
 export const isProfileOpen = (accountType) => !HIDDEN_ACCOUNT_TYPES.includes(accountType);

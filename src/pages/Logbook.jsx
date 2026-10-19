@@ -471,7 +471,7 @@ export default function Logbook() {
                     <p className="text-white/25 text-[10px] uppercase tracking-wide pt-2 pb-0.5">Pending Invites</p>
                     {collaborators.pending_invites.map((inv) => {
                       const roleLabels = {
-                        venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent",
+                        venue: "Venue",
                         manager: "Manager", band: "Artist", engineer: "Audio Engineer", lighting: "Lighting Tech",
                       };
                       return (

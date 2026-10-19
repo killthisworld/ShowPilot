@@ -19,9 +19,9 @@ import { Field, RequirementsList, BandDetails, ROLE_COLORS, ROLE_OPTIONS } from 
 // (get_shared_gig / get_gig_section_permissions) and save RPCs
 // (update_gig_section, update_shared_gig) that SharedGig.jsx's inline
 // accordion sections already use, so this works identically for the
-// show's owner and for whichever invited promoter/agent/manager/engineer
+// show's owner and for whichever invited manager/engineer
 // actually holds that section.
-export const ROLE_SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist", engineer: "Audio / Lighting" };
+export const ROLE_SECTION_LABELS = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // All of the data-loading, editing and saving logic for one role's
 // section, lifted out of the page component so it can be mounted twice
@@ -146,10 +146,6 @@ export function useRoleProfile({ role, token, onChanged }) {
         console: gig.console, power_notes: gig.power_notes, venue_checklist: gig.venue_checklist,
         venue_documents: gig.venue_documents, venue_info: gig.venue_info || {},
       });
-    } else if (role === "promoter") {
-      await saveSection("promoter", gig.promoter_info || {});
-    } else if (role === "booking_agent") {
-      await saveSection("booking_agent", gig.booking_agent_info || {});
     } else if (role === "manager") {
       setSaving(true);
       try {
@@ -244,8 +240,6 @@ export function RoleProfileBody({
   iemMonitorColors, onSignIn, showVenueLink = true,
 }) {
   const title = ROLE_SECTION_LABELS[role];
-  const promoterInfo = gig.promoter_info || {};
-  const bookingInfo = gig.booking_agent_info || {};
   const managerInfo = gig.manager_info || {};
 
   return (
@@ -299,49 +293,6 @@ export function RoleProfileBody({
               <ChevronRight className="w-4 h-4 text-white/30 shrink-0" />
             </a>
           )}
-        </>
-      )}
-
-      {role === "promoter" && (
-        <>
-          <Field label="Contact Name" value={promoterInfo.contact_name} onChange={(v) => updateSection("promoter_info", "contact_name", v)} editable={editable} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={promoterInfo.contact_phone} onChange={(v) => updateSection("promoter_info", "contact_phone", v)} editable={editable} placeholder="Phone" />
-            <Field label="Email" value={promoterInfo.contact_email} onChange={(v) => updateSection("promoter_info", "contact_email", v)} editable={editable} placeholder="Email" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={editable} placeholder="e.g. 7:00 PM" />
-            <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={editable} placeholder="e.g. 250" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Ticket Price" value={promoterInfo.ticket_price} onChange={(v) => updateSection("promoter_info", "ticket_price", v)} editable={editable} placeholder="$20" />
-            <Field label="Ticket Link" value={promoterInfo.ticket_link} onChange={(v) => updateSection("promoter_info", "ticket_link", v)} editable={editable} placeholder="URL" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Settlement Notes</Label>
-            {editable ? (
-              <Textarea value={promoterInfo.settlement_notes || ""} onChange={(e) => updateSection("promoter_info", "settlement_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Payment terms" />
-            ) : (
-              <p className="mt-1 text-white/70 text-sm">{promoterInfo.settlement_notes || <span className="text-white/25">Not filled in yet</span>}</p>
-            )}
-          </div>
-          <DocumentsUploader documents={promoterInfo.documents} onChange={(docs) => updateSection("promoter_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/promoter`} editable={editable} />
-          <RequirementsList requirements={(gig.requirements || []).filter((r) => r.section === "promoter")} editable={editable} onAdd={(name, value) => addRequirement("promoter", name, value)} onUpdateStatus={updateRequirementStatus} onDelete={deleteRequirement} />
-        </>
-      )}
-
-      {role === "booking_agent" && (
-        <>
-          <Field label="Contact Name" value={bookingInfo.contact_name} onChange={(v) => updateSection("booking_agent_info", "contact_name", v)} editable={editable} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={bookingInfo.contact_phone} onChange={(v) => updateSection("booking_agent_info", "contact_phone", v)} editable={editable} placeholder="Phone" />
-            <Field label="Email" value={bookingInfo.contact_email} onChange={(v) => updateSection("booking_agent_info", "contact_email", v)} editable={editable} placeholder="Email" />
-          </div>
-          <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={editable} placeholder="Guarantee, percentage, etc." />
-          <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={editable} placeholder="Signed / Pending" />
-          <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={editable} placeholder="Name, phone, or email" />
-          <DocumentsUploader documents={bookingInfo.documents} onChange={(docs) => updateSection("booking_agent_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/booking_agent`} editable={editable} />
-          <RequirementsList requirements={(gig.requirements || []).filter((r) => r.section === "booking_agent")} editable={editable} onAdd={(name, value) => addRequirement("booking_agent", name, value)} onUpdateStatus={updateRequirementStatus} onDelete={deleteRequirement} />
         </>
       )}
 

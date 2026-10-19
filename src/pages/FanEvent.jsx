@@ -352,7 +352,7 @@ export default function FanEvent() {
             <img src="/icon-192.png" alt="" width={28} height={28} className="w-7 h-7 rounded-[7px]" style={{ boxShadow: "0 0 0 1px rgba(140,255,61,0.45), 0 0 14px rgba(140,255,61,0.25)" }} />
             <span className="text-base font-bold tracking-[0.06em] text-white/80">THIS SHOW RUNS ON SHOWPILOT</span>
           </div>
-          <p className="mt-2 max-w-[320px] text-[15px] font-medium leading-tight text-white/50">The artist, venue, promoter and crew all work from one shared event.</p>
+          <p className="mt-2 max-w-[320px] text-[15px] font-medium leading-tight text-white/50">The artist, venue and crew all work from one shared event.</p>
           <a href="/register" className="inline-flex mt-3.5 px-3.5 py-[9px] rounded-lg text-[15px] font-bold tracking-[0.06em]" style={{ background: "#8CFF3D1a", border: "1px solid #8CFF3D66", color: "#8CFF3D" }}>
             FAN, VENUE OR CREW? JOIN SHOWPILOT
           </a>

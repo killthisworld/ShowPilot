@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, Ticket, FileSignature, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle, MessageSquare } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle, MessageSquare } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
@@ -29,8 +29,6 @@ export const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 // and color together become a language the user only has to learn once.
 export const SECTION_COLORS = {
   venue: "#60A5FA",
-  promoter: "#60A5FA",
-  booking_agent: "#C026D3",
   manager: "#EF4444",
   engineer: "#8CFF3D",
 };
@@ -247,7 +245,7 @@ export function Field({ label, value, onChange, editable, placeholder, type = "t
   );
 }
 
-const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking", manager: "Manager/Artist", engineer: "Audio/Lighting" };
+const SECTION_LABELS = { venue: "Venue", manager: "Manager/Artist", engineer: "Audio/Lighting" };
 const REQUIREMENT_STATUS_STYLES = {
   requested: { label: "Requested", color: "#EAB308" },
   confirmed: { label: "Confirmed", color: "#8CFF3D" },
@@ -858,7 +856,7 @@ export default function SharedGig() {
   };
 
   // Loads the viewer's own single saved template (from My Templates) into
-  // the matching section - venue/promoter/booking_agent/manager each keep
+  // the matching section - venue/manager each keep
   // one reusable template, unlike the engineer/lighting multi-template
   // library above. Uploaded documents merge in rather than overwrite, so
   // loading twice doesn't duplicate files already on the gig.
@@ -882,34 +880,6 @@ export default function SharedGig() {
       console: t.console || g.console,
       power_notes: t.power_notes || g.power_notes,
       venue_documents: mergeDocuments(g.venue_documents, t.documents),
-    }));
-  };
-  const loadOwnPromoterTemplate = async () => {
-    const t = await fetchMySectionTemplate();
-    setGig((g) => ({
-      ...g,
-      promoter_info: {
-        ...(g.promoter_info || {}),
-        contact_name: t.contact_name || (g.promoter_info || {}).contact_name,
-        contact_phone: t.contact_phone || (g.promoter_info || {}).contact_phone,
-        contact_email: t.contact_email || (g.promoter_info || {}).contact_email,
-        settlement_notes: t.settlement_notes || (g.promoter_info || {}).settlement_notes,
-        documents: mergeDocuments((g.promoter_info || {}).documents, t.documents),
-      },
-    }));
-  };
-  const loadOwnBookingTemplate = async () => {
-    const t = await fetchMySectionTemplate();
-    setGig((g) => ({
-      ...g,
-      booking_agent_info: {
-        ...(g.booking_agent_info || {}),
-        contact_name: t.contact_name || (g.booking_agent_info || {}).contact_name,
-        contact_phone: t.contact_phone || (g.booking_agent_info || {}).contact_phone,
-        contact_email: t.contact_email || (g.booking_agent_info || {}).contact_email,
-        deal_terms: t.deal_terms || (g.booking_agent_info || {}).deal_terms,
-        documents: mergeDocuments((g.booking_agent_info || {}).documents, t.documents),
-      },
     }));
   };
   const loadOwnManagerTemplate = async () => {
@@ -983,7 +953,7 @@ export default function SharedGig() {
   };
   const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
   const isSectionIncluded = (key) => !gig?.included_sections || gig.included_sections.includes(key);
-  const ACCOUNT_TYPE_TO_SECTION = { band: "manager", venue: "venue", promoter: "promoter", booking_agent: "booking_agent", manager: "manager" };
+  const ACCOUNT_TYPE_TO_SECTION = { band: "manager", venue: "venue", manager: "manager" };
   const isMyOwnerSection = (key) => permissions?.is_owner && ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] === key;
   const isMyOwnerEngineerSection = () => permissions?.is_owner && ["engineer", "lighting"].includes(preferences?.account_type);
   const myEngineerRole = () => (permissions?.my_roles?.includes("lighting") && !permissions?.my_roles?.includes("engineer") ? "lighting" : "engineer");
@@ -1047,8 +1017,6 @@ export default function SharedGig() {
     }
     setSectionSaving((s) => ({ ...s, manager: false }));
   };
-  const savePromoterSection = () => saveSection("promoter", gig.promoter_info || {});
-  const saveBookingSection = () => saveSection("booking_agent", gig.booking_agent_info || {});
   const saveEngineerSection = () => saveSection(myEngineerRole(), gig.engineer_info || {});
 
   // Requirements are small enough that each action saves immediately -
@@ -1136,8 +1104,6 @@ export default function SharedGig() {
   const title = gig.event_name || gig.band_name || "Untitled Gig";
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const managerInfo = gig.manager_info || {};
-  const promoterInfo = gig.promoter_info || {};
-  const bookingInfo = gig.booking_agent_info || {};
 
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
@@ -1327,79 +1293,6 @@ export default function SharedGig() {
             requirements={(gig.requirements || []).filter((r) => r.section === "venue")}
             editable={canEditSection("venue")}
             onAdd={(name, value) => addRequirement("venue", name, value)}
-            onUpdateStatus={updateRequirementStatus}
-            onDelete={deleteRequirement}
-          />
-        </GigSection>
-        </div>
-        )}
-
-        {isSectionIncluded("promoter") && (
-        <div id="section-promoter">
-        <GigSection title={`Promoter${(permissions?.my_roles?.includes("promoter") || isMyOwnerSection("promoter")) ? " (You)" : ""}`} icon={Ticket} color={SECTION_COLORS.promoter} locked={isLocked("promoter")} editable={canEditSection("promoter")} isOwner={permissions?.is_owner} onInvite={() => openInvite("promoter", "Promoter")} onSave={savePromoterSection} saving={sectionSaving.promoter} saved={sectionSaved.promoter}>
-          {myAccountType === "promoter" && canEditSection("promoter") && (
-            <div className="flex justify-end -mb-1">
-              <button onClick={loadOwnPromoterTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
-                <FolderOpen className="w-3 h-3" /> Load My Template
-              </button>
-            </div>
-          )}
-          <Field label="Contact Name" value={promoterInfo.contact_name} onChange={(v) => updateSection("promoter_info", "contact_name", v)} editable={canEditSection("promoter")} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={promoterInfo.contact_phone} onChange={(v) => updateSection("promoter_info", "contact_phone", v)} editable={canEditSection("promoter")} placeholder="Phone" />
-            <Field label="Email" value={promoterInfo.contact_email} onChange={(v) => updateSection("promoter_info", "contact_email", v)} editable={canEditSection("promoter")} placeholder="Email" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Door Time" value={promoterInfo.door_time} onChange={(v) => updateSection("promoter_info", "door_time", v)} editable={canEditSection("promoter")} placeholder="e.g. 7:00 PM" />
-            <Field label="Capacity" value={promoterInfo.capacity} onChange={(v) => updateSection("promoter_info", "capacity", v)} editable={canEditSection("promoter")} placeholder="e.g. 250" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Ticket Price" value={promoterInfo.ticket_price} onChange={(v) => updateSection("promoter_info", "ticket_price", v)} editable={canEditSection("promoter")} placeholder="$20" />
-            <Field label="Ticket Link" value={promoterInfo.ticket_link} onChange={(v) => updateSection("promoter_info", "ticket_link", v)} editable={canEditSection("promoter")} placeholder="URL" />
-          </div>
-          <div>
-            <Label className="text-white/50 text-xs">Settlement Notes</Label>
-            {canEditSection("promoter") ? (
-              <Textarea value={promoterInfo.settlement_notes || ""} onChange={(e) => updateSection("promoter_info", "settlement_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Payment terms" />
-            ) : (
-              <p className="mt-1 text-white/70 text-sm">{promoterInfo.settlement_notes || <span className="text-white/25">Not filled in yet</span>}</p>
-            )}
-          </div>
-          <DocumentsUploader documents={promoterInfo.documents} onChange={(docs) => updateSection("promoter_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/promoter`} editable={canEditSection("promoter")} />
-          <RequirementsList
-            requirements={(gig.requirements || []).filter((r) => r.section === "promoter")}
-            editable={canEditSection("promoter")}
-            onAdd={(name, value) => addRequirement("promoter", name, value)}
-            onUpdateStatus={updateRequirementStatus}
-            onDelete={deleteRequirement}
-          />
-        </GigSection>
-        </div>
-        )}
-
-        {isSectionIncluded("booking_agent") && (
-        <div id="section-booking_agent">
-        <GigSection title={`Booking Agent${(permissions?.my_roles?.includes("booking_agent") || isMyOwnerSection("booking_agent")) ? " (You)" : ""}`} icon={FileSignature} color={SECTION_COLORS.booking_agent} locked={isLocked("booking_agent")} editable={canEditSection("booking_agent")} isOwner={permissions?.is_owner} onInvite={() => openInvite("booking_agent", "Booking Agent")} onSave={saveBookingSection} saving={sectionSaving.booking_agent} saved={sectionSaved.booking_agent}>
-          {myAccountType === "booking_agent" && canEditSection("booking_agent") && (
-            <div className="flex justify-end -mb-1">
-              <button onClick={loadOwnBookingTemplate} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
-                <FolderOpen className="w-3 h-3" /> Load My Template
-              </button>
-            </div>
-          )}
-          <Field label="Contact Name" value={bookingInfo.contact_name} onChange={(v) => updateSection("booking_agent_info", "contact_name", v)} editable={canEditSection("booking_agent")} placeholder="Name" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Phone" value={bookingInfo.contact_phone} onChange={(v) => updateSection("booking_agent_info", "contact_phone", v)} editable={canEditSection("booking_agent")} placeholder="Phone" />
-            <Field label="Email" value={bookingInfo.contact_email} onChange={(v) => updateSection("booking_agent_info", "contact_email", v)} editable={canEditSection("booking_agent")} placeholder="Email" />
-          </div>
-          <Field label="Deal Terms" value={bookingInfo.deal_terms} onChange={(v) => updateSection("booking_agent_info", "deal_terms", v)} editable={canEditSection("booking_agent")} placeholder="Guarantee, percentage, etc." />
-          <Field label="Contract Status" value={bookingInfo.contract_status} onChange={(v) => updateSection("booking_agent_info", "contract_status", v)} editable={canEditSection("booking_agent")} placeholder="Signed / Pending" />
-          <Field label="Agency Contact" value={bookingInfo.agency_contact} onChange={(v) => updateSection("booking_agent_info", "agency_contact", v)} editable={canEditSection("booking_agent")} placeholder="Name, phone, or email" />
-          <DocumentsUploader documents={bookingInfo.documents} onChange={(docs) => updateSection("booking_agent_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/booking_agent`} editable={canEditSection("booking_agent")} />
-          <RequirementsList
-            requirements={(gig.requirements || []).filter((r) => r.section === "booking_agent")}
-            editable={canEditSection("booking_agent")}
-            onAdd={(name, value) => addRequirement("booking_agent", name, value)}
             onUpdateStatus={updateRequirementStatus}
             onDelete={deleteRequirement}
           />

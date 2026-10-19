@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Star } from "lucide-react";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 
-const ROLE_ORDER = ["venue", "promoter", "booking_agent", "manager", "engineer"];
+const ROLE_ORDER = ["venue", "manager", "engineer"];
 
 // Slow, deliberate collapse - each role spirals inward (not a flat slide)
 // so it reads like matter falling into a forming star rather than icons

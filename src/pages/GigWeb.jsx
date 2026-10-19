@@ -29,7 +29,7 @@ import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, use
 import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 // Short console-style codes for the role channel buttons.
-const ROLE_CODES = { venue: "VENUE", promoter: "PROMO", booking_agent: "AGENT", manager: "MGMT/ART", engineer: "AUD/LTG" };
+const ROLE_CODES = { venue: "VENUE", manager: "MGMT/ART", engineer: "AUD/LTG" };
 
 // Same account-type split every other main page uses to choose between the
 // two bottom tab bars (SharedGig.jsx's isTechProductionAccount, HomeRouter's
@@ -41,14 +41,14 @@ const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 // intentionally match SharedGig's SECTION_COLORS and Home's progress bar,
 // so this hub reads as another view of the same show rather than a new
 // visual language to learn.
-const ROLE_ORDER = ["venue", "promoter", "booking_agent", "manager", "engineer"];
+const ROLE_ORDER = ["venue", "manager", "engineer"];
 
 // get_gigs_progress keys the combined Manager/Artist section "manager_band";
 // everywhere else in this file (permissions, invited_role, routing) it's
 // just "manager" - this is the one place that mismatch has to be bridged.
-const PROGRESS_KEY = { venue: "venue", promoter: "promoter", booking_agent: "booking_agent", manager: "manager_band", engineer: "engineer" };
+const PROGRESS_KEY = { venue: "venue", manager: "manager_band", engineer: "engineer" };
 
-const SECTION_LABELS = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist", engineer: "Audio / Lighting" };
+const SECTION_LABELS = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 function roleClaimed(role, permissions) {
   if (role === "engineer") return !!(permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting"));
@@ -637,7 +637,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               left: cx, top: cy, ...hubM.center, width: 116, height: 116, zIndex: 2,
               borderColor: selectedRole === null ? "#FFFFFF" : "#2a2a2a",
               borderWidth: selectedRole === null ? 2 : 1,
-              // Lit white so the event never blends into a profile's color (Audio green, Promoter blue...).
+              // Lit white so the event never blends into a profile's color (Audio green, Venue blue...).
               boxShadow: selectedRole === null ? "0 0 0 3px #FFFFFF55, 0 0 30px #FFFFFFAA, 0 0 60px #FFFFFF44" : undefined,
             }}
           >
@@ -863,7 +863,7 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded,
   const p = useRoleProfile({ role, token, onChanged });
   // Invite is offered to the same people who can already edit this
   // section - the owner, or whoever holds/was granted it - so a manager
-  // or promoter already in the seat can bring in a co-contact without
+  // or venue already in the seat can bring in a co-contact without
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
   const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;

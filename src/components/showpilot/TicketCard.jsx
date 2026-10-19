@@ -2,7 +2,7 @@ import React from "react";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
-// How company profiles (venue, promoter, booking agent, manager/artist) see
+// How company profiles (venue, manager/artist) see
 // an event on their home: a ticket. Audio sees channel strips and lighting
 // its desk; this is the company side's own shape (job 71).
 //

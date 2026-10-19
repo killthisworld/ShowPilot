@@ -11,19 +11,15 @@ export const isCompanyType = (accountType) => !!accountType && !TECH_TYPES.inclu
 // Manager section, same as everywhere else in the app.
 export const SECTION_FOR_TYPE = {
   venue: "venue",
-  promoter: "promoter",
-  booking_agent: "booking_agent",
   manager: "manager",
   band: "manager",
   engineer: "engineer",
   lighting: "engineer",
 };
 
-// Same five sections and colors as Gig Rooms / the gig board.
+// Same three sections and colors as Gig Rooms / the gig board.
 export const SECTIONS = [
   { id: "venue", label: "Venue", color: "#60A5FA" },
-  { id: "promoter", label: "Promoter", color: "#60A5FA" },
-  { id: "booking_agent", label: "Booking", color: "#C026D3" },
   { id: "manager", label: "Manager/Artist", color: "#EF4444" },
   { id: "engineer", label: "Audio/Lighting", color: "#8CFF3D" },
 ];

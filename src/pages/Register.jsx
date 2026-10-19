@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Ticket, FileSignature, Music, Headphones, Briefcase, Lightbulb, ChevronLeft, Star } from "lucide-react";
+import { MapPin, Music, Headphones, Briefcase, Lightbulb, ChevronLeft, Star } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -13,10 +13,9 @@ import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, Auth
 // does everywhere else in the app. "band" is shown as Artist.
 const ALL_ROLE_GROUPS = [
   {
-    label: "Event hosts",
+    label: "Venue side",
     roles: [
       { value: "venue", label: "Venue", icon: MapPin },
-      { value: "promoter", label: "Promoter", icon: Ticket },
     ],
   },
   {
@@ -24,7 +23,6 @@ const ALL_ROLE_GROUPS = [
     roles: [
       { value: "band", label: "Artist", icon: Music },
       { value: "manager", label: "Manager", icon: Briefcase },
-      { value: "booking_agent", label: "Booking Agent", icon: FileSignature },
     ],
   },
   {
@@ -42,8 +40,8 @@ const ALL_ROLE_GROUPS = [
     ],
   },
 ];
-// Venue, promoter and booking agent are paused (see lib/hiddenProfiles.js):
-// they are left out here, and a group with nothing left disappears.
+// Roles that are switched off (the fan side, see lib/hiddenProfiles.js) are left
+// out here, and a group with nothing left disappears.
 const ROLE_GROUPS = ALL_ROLE_GROUPS
   .map((g) => ({ ...g, roles: g.roles.filter((r) => isProfileOpen(r.value)) }))
   .filter((g) => g.roles.length > 0);

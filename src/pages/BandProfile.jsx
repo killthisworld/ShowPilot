@@ -27,8 +27,6 @@ const BAND_DEFAULT = {
 // lines up with the fields it's meant to eventually fill in.
 const SECTION_TEMPLATE_DEFAULTS = {
   venue: { city: "", state: "", wifi_network: "", wifi_password: "", console: "", power_notes: "", documents: [] },
-  promoter: { contact_name: "", contact_phone: "", contact_email: "", settlement_notes: "", documents: [] },
-  booking_agent: { contact_name: "", contact_phone: "", contact_email: "", deal_terms: "", documents: [] },
   manager: { contact_name: "", contact_title: "", contact_phone: "", contact_email: "", advancing_notes: "", guest_list: "", documents: [] },
 };
 
@@ -397,7 +395,7 @@ export default function BandProfile() {
               </>
             )}
 
-            {(accountType === "promoter" || accountType === "booking_agent" || accountType === "manager") && (
+            {accountType === "manager" && (
               <>
                 <div>
                   <Label className="text-white/50 text-xs">Contact Name</Label>
@@ -419,18 +417,6 @@ export default function BandProfile() {
                     <Input value={template.contact_email || ""} onChange={(e) => update("contact_email", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white" placeholder="Email" />
                   </div>
                 </div>
-                {accountType === "promoter" && (
-                  <div>
-                    <Label className="text-white/50 text-xs">Settlement Notes</Label>
-                    <Textarea value={template.settlement_notes || ""} onChange={(e) => update("settlement_notes", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white text-sm min-h-[70px]" placeholder="Standard payment terms" />
-                  </div>
-                )}
-                {accountType === "booking_agent" && (
-                  <div>
-                    <Label className="text-white/50 text-xs">Deal Terms</Label>
-                    <Textarea value={template.deal_terms || ""} onChange={(e) => update("deal_terms", e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white text-sm min-h-[70px]" placeholder="Standard guarantee, percentage, etc." />
-                  </div>
-                )}
                 {accountType === "manager" && (
                   <>
                     <div>

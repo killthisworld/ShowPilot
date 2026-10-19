@@ -27,8 +27,6 @@ import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 const ROLES = [
   { id: "venue", label: "VENUE", color: "#60A5FA", soft: "#60A5FA" },
-  { id: "promoter", label: "PROMOTER", color: "#60A5FA", soft: "#60A5FA" },
-  { id: "booking_agent", label: "BOOKING", color: "#C026D3", soft: "#E879F9" },
   { id: "manager", label: "MANAGER", color: "#EF4444", soft: "#F87171" },
   { id: "engineer", label: "AUDIO/LX", color: "#8CFF3D", soft: "#8CFF3D" },
 ];

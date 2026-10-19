@@ -14,8 +14,6 @@ import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 const SECTION_OPTIONS = [
   { key: "venue", label: "Venue", color: "#60A5FA" },
-  { key: "promoter", label: "Promoter", color: "#60A5FA" },
-  { key: "booking_agent", label: "Booking Agent", color: "#C026D3" },
   { key: "manager", label: "Manager / Artist", color: "#EF4444" },
   { key: "engineer", label: "Audio / Lighting", color: "#8CFF3D" },
 ];
@@ -26,8 +24,6 @@ const SECTION_OPTIONS = [
 const ACCOUNT_TYPE_TO_SECTION = {
   band: "manager",
   venue: "venue",
-  promoter: "promoter",
-  booking_agent: "booking_agent",
   manager: "manager",
 };
 

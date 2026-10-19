@@ -18,13 +18,11 @@ import { addGenreTag } from "@/lib/eventTypes";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
-// accounts; company accounts (venue, promoter, booking agent, manager /
+// accounts; company accounts (venue, manager /
 // artist) edit their section templates in the same workspace tabs they
 // use on an event (RoleWorkspace in template mode).
 const GROUP = {
   venue: { style: ACCOUNT_TYPE_STYLES.venue, label: "Venue", plural: "Venues" },
-  promoter: { style: ACCOUNT_TYPE_STYLES.promoter, label: "Promoter", plural: "Promoter" },
-  booking_agent: { style: ACCOUNT_TYPE_STYLES.booking_agent, label: "Booking Agent", plural: "Booking Agent" },
   manager: { style: ACCOUNT_TYPE_STYLES.manager, label: "Manager", plural: "Manager / Artist" },
   artist: { style: ACCOUNT_TYPE_STYLES.band, label: "Artist", plural: "Artists" },
 };
@@ -35,8 +33,6 @@ const EMPTY_NOTE = {
   },
   company: {
     venue: "Your room once: address, load-in, schedule, house gear, hospitality. Load it on every show.",
-    promoter: "Contact, doors, ticket tiers, guest allocation and the costs you settle every night.",
-    booking_agent: "Contact and your usual offer: deal type, guarantee, split, radius, costs.",
     manager: "Contact, advance checklist, vehicle, standing guest list and merch.",
     artist: "Members, genres, stage plot and notes. Load it as an act in the lineup, or into a performer intake.",
   },

@@ -2,12 +2,10 @@ import React from "react";
 
 // Segment order is fixed so position always maps to the same role across
 // every card - lets someone scanning a long list learn "2nd segment =
-// Promoter" once and use it everywhere. Manager and Band/Performer info
+// Venue" once and use it everywhere. Manager and Band/Performer info
 // share one segment since either can fill in the same underlying data.
 const SEGMENTS = [
   { key: "venue", color: "#60A5FA", label: "Venue" },
-  { key: "promoter", color: "#60A5FA", label: "Promoter" },
-  { key: "booking_agent", color: "#C026D3", label: "Booking" },
   { key: "manager_band", color: "#EF4444", label: "Manager/Artist" },
 ];
 
@@ -15,8 +13,6 @@ const SEGMENTS = [
 // for the combined section ("manager_band" here vs "manager" there).
 const INCLUDED_SECTION_KEY = {
   venue: "venue",
-  promoter: "promoter",
-  booking_agent: "booking_agent",
   manager_band: "manager",
 };
 

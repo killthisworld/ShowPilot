@@ -42,24 +42,6 @@ export function buildStatusStrip(accountType, gigs = [], progress = {}) {
         { label: "NEED INFO", value: owned.filter((g) => blank(g.wifi_network) || blank(g.console) || blank(g.power_notes)).length, color: AMBER },
         { label: "UPCOMING", value: upcoming.length, color: "#FB923C" },
       ];
-    case "promoter": {
-      const onSale = owned.filter((g) => !blank(g.promoter_info?.ticket_link));
-      const cap = owned.reduce((a, g) => a + (parseInt(String(g.promoter_info?.capacity || "").replace(/[^0-9]/g, ""), 10) || 0), 0);
-      return [
-        { label: "ON SALE", value: onSale.length, color: GREEN },
-        { label: "NO TICKET LINK", value: owned.length - onSale.length, color: AMBER },
-        { label: "TOTAL CAP", value: cap >= 1000 ? `${(cap / 1000).toFixed(1)}K` : cap, color: "#fff" },
-      ];
-    }
-    case "booking_agent": {
-      const signed = owned.filter((g) => /signed/i.test(g.booking_agent_info?.contract_status || "") && !/unsigned/i.test(g.booking_agent_info?.contract_status || ""));
-      const awaiting = owned.filter((g) => !blank(g.booking_agent_info?.contract_status) && !signed.includes(g));
-      return [
-        { label: "SIGNED", value: signed.length, color: GREEN },
-        { label: "AWAITING", value: awaiting.length, color: BLUE },
-        { label: "NO DEAL YET", value: owned.filter((g) => blank(g.booking_agent_info?.deal_terms)).length, color: AMBER },
-      ];
-    }
     case "band":
     case "manager":
       return [
@@ -86,7 +68,6 @@ export function buildStatusStrip(accountType, gigs = [], progress = {}) {
 // The colored bank buttons under the filters on the non-tech home. Every
 // role gets ALL plus the buckets it actually works through, derived from
 // the same fields as the status strip. `test` runs against one gig.
-const isSigned = (g) => /signed/i.test(g.booking_agent_info?.contract_status || "") && !/unsigned/i.test(g.booking_agent_info?.contract_status || "");
 const isOwnedUpcoming = (g) => g.is_owned !== false && g.date && g.date >= todayStr();
 const venueReady = (g) => !blank(g.wifi_network) && !blank(g.console) && !blank(g.power_notes);
 
@@ -99,20 +80,6 @@ export function getRoleBanks(accountType, accentColor) {
         { id: "todo", label: "TO DO", color: AMBER, test: (g) => isOwnedUpcoming(g) && !venueReady(g) },
         { id: "ready", label: "READY", color: GREEN, test: (g) => isOwnedUpcoming(g) && venueReady(g) },
         { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
-      ];
-    case "promoter":
-      return [
-        all,
-        { id: "notix", label: "NO TIX", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.promoter_info?.ticket_link) },
-        { id: "sale", label: "ON SALE", color: GREEN, test: (g) => isOwnedUpcoming(g) && !blank(g.promoter_info?.ticket_link) },
-        { id: "settle", label: "SETTLE", color: "#F472B6", test: (g) => g.is_owned !== false && g.date && g.date < todayStr() && blank(g.promoter_info?.settlement_notes) },
-      ];
-    case "booking_agent":
-      return [
-        all,
-        { id: "nodeal", label: "NO DEAL", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.booking_agent_info?.deal_terms) },
-        { id: "sent", label: "SENT", color: BLUE, test: (g) => isOwnedUpcoming(g) && !blank(g.booking_agent_info?.contract_status) && !isSigned(g) },
-        { id: "signed", label: "SIGNED", color: GREEN, test: (g) => isOwnedUpcoming(g) && isSigned(g) },
       ];
     default: // band, manager
       return [

@@ -1,5 +1,5 @@
-// Templates for the company sections of an event (venue, promoter, booking
-// agent, manager / artist). A template is the reusable part of that
+// Templates for the company sections of an event (venue, manager /
+// artist). A template is the reusable part of that
 // section: the same fields the event workspace edits (RoleWorkspace), minus
 // anything that only makes sense for one night (dates, sales, holds,
 // contract stage, deposits, set times, hotel). Stored in saved_templates
@@ -11,37 +11,29 @@
 // template loads on an engineer's show (showTemplates.js) and in the venue
 // workspace.
 
-export const COMPANY_TEMPLATE_ROLES = ["venue", "promoter", "booking_agent", "manager"];
+export const COMPANY_TEMPLATE_ROLES = ["venue", "manager"];
 
 // Which workspace tabs a template shows / carries.
 export const TEMPLATE_TABS = {
   venue: ["address", "load_in", "schedule", "wifi_power", "house_gear", "hospitality", "documents"],
-  promoter: ["contact", "doors", "tickets", "marketing", "guests", "settlement", "documents"],
-  booking_agent: ["contact", "deal", "documents"],
   manager: ["contact", "advance", "travel", "guests", "merch", "documents"],
 };
 
 // Where each role keeps its data on the event.
 export const SECTION_KEY = {
   venue: "venue_info",
-  promoter: "promoter_info",
-  booking_agent: "booking_agent_info",
   manager: "manager_info",
 };
 
 // Event-level fields that belong to a role.
 const GIG_KEYS = {
   venue: ["venue", "city", "state", "wifi_network", "wifi_password", "console", "power_notes", "venue_documents"],
-  promoter: [],
-  booking_agent: [],
   manager: [],
 };
 
 // One-night fields that never go into a template.
 const EVENT_ONLY = {
   venue: [],
-  promoter: ["ticket_link", "announce_date", "on_sale_date", "final_push_date"],
-  booking_agent: ["hold_level", "holds_notes", "confirm_by", "contract_stage", "contract_status", "contract_dates", "deposit_amount", "deposit_due", "deposit_received", "balance_notes"],
   manager: ["set_times", "arrival_time", "hotel"],
 };
 
@@ -58,7 +50,6 @@ function cleanSection(role, section) {
     if ((EVENT_ONLY[role] || []).includes(k)) continue;
     out[k] = v;
   }
-  if (role === "promoter" && Array.isArray(out.tiers)) out.tiers = out.tiers.map(({ sold, ...t }) => t);
   if (role === "manager" && Array.isArray(out.checklist)) out.checklist = out.checklist.map((c) => ({ ...c, done: false }));
   return out;
 }
@@ -92,8 +83,6 @@ export function gigFromTemplate(role, name, data = {}) {
 export function suggestTemplateName(role, gig = {}) {
   const s = gig[SECTION_KEY[role]] || {};
   if (role === "venue") return gig.venue || "";
-  if (role === "promoter") return s.company || s.contact_name || "";
-  if (role === "booking_agent") return s.agency_contact || s.contact_name || "";
   if (role === "manager") return gig.band_name || s.contact_name || "";
   return "";
 }
@@ -104,8 +93,6 @@ export function templateSubtitle(role, data = {}) {
   const g = data.gig || {};
   const parts = {
     venue: [[g.city || data.city, g.state || data.state].filter(Boolean).join(", "), s.capacity && `cap ${s.capacity}`, (g.console || data.console)],
-    promoter: [s.contact_name, s.capacity && `cap ${s.capacity}`, Array.isArray(s.tiers) && s.tiers.length ? `${s.tiers.length} ticket tier${s.tiers.length === 1 ? "" : "s"}` : null],
-    booking_agent: [s.contact_name, s.deal_terms || s.deal_type],
     manager: [s.contact_name, Array.isArray(s.checklist) && s.checklist.length ? `${s.checklist.length}-item advance` : null, s.merch_split && `merch ${s.merch_split}`],
   }[role] || [];
   return parts.filter(Boolean).join(" · ");

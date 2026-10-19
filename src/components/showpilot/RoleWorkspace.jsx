@@ -12,18 +12,18 @@ import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // Desktop workspace for one company role's section of an event (venue,
-// promoter, booking agent, manager/artist), laid out like Fan page
+// manager/artist), laid out like Fan page
 // settings: the section's parts as tabs on the left (ticked when filled
 // in), the open part's editor in the middle, and a live summary that
 // matters to that role on the right with Save. Works on the same data and
 // save as RoleFullProfile's useRoleProfile hook (`p`): new fields live in
-// each section's own JSON (promoter_info, booking_agent_info, manager_info)
+// each section's own JSON (venue_info, manager_info)
 // and, for the venue, in shows.venue_info.
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-const ROLE_COLOR = { venue: "#60A5FA", promoter: "#60A5FA", booking_agent: "#D946EF", manager: "#F87171" };
-const ROLE_TITLE = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist" };
+const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171" };
+const ROLE_TITLE = { venue: "Venue", manager: "Manager / Artist" };
 
 // ---------- small helpers ----------
 const has = (v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && String(v).trim() !== "");
@@ -162,10 +162,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Section data and setters for each role.
   const vi = gig.venue_info || {};
   const setVi = (k, v) => p.update("venue_info", { ...(gig.venue_info || {}), [k]: v });
-  const pi = gig.promoter_info || {};
-  const setPi = (k, v) => p.updateSection("promoter_info", k, v);
-  const bi = gig.booking_agent_info || {};
-  const setBi = (k, v) => p.updateSection("booking_agent_info", k, v);
   const mi = gig.manager_info || {};
   const setMi = (k, v) => p.updateSection("manager_info", k, v);
 
@@ -340,383 +336,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     };
   };
 
-  // ======== PROMOTER ========
-  const promoterTabs = () => {
-    const tiers = pi.tiers || [];
-    const setTier = (i, k, v) => setPi("tiers", tiers.map((t, idx) => (idx === i ? { ...t, [k]: v } : t)));
-    const expenses = pi.expenses || [];
-    const setExp = (i, k, v) => setPi("expenses", expenses.map((t, idx) => (idx === i ? { ...t, [k]: v } : t)));
-    const alloc = pi.guest_alloc || {};
-    const setAlloc = (k, v) => setPi("guest_alloc", { ...alloc, [k]: v });
-    const expTotal = expenses.reduce((a, e) => a + (num(e.amount) || 0), 0);
-    return [
-      {
-        key: "contact", label: "Contact",
-        summary: [pi.contact_name, pi.company].filter(Boolean).join(" · ") || "Who runs this show",
-        state: stateOf(countFilled([pi.contact_name, pi.contact_phone, pi.contact_email]), 3),
-        render: () => (
-          <>
-            <Grid><In label="Name" value={pi.contact_name} onChange={(v) => setPi("contact_name", v)} disabled={off} /><In label="Company" value={pi.company} onChange={(v) => setPi("company", v)} disabled={off} placeholder="Southbound Presents" /></Grid>
-            <Grid><In label="Phone" value={pi.contact_phone} onChange={(v) => setPi("contact_phone", v)} disabled={off} /><In label="Email" value={pi.contact_email} onChange={(v) => setPi("contact_email", v)} disabled={off} /></Grid>
-          </>
-        ),
-      },
-      {
-        key: "doors", label: "Doors & capacity",
-        summary: [pi.door_time && `Doors ${pi.door_time}`, pi.capacity && `Cap ${pi.capacity}`].filter(Boolean).join(" · ") || "Door time and capacity",
-        state: stateOf(countFilled([pi.door_time, pi.capacity]), 2),
-        render: () => (
-          <>
-            <Grid><In label="Door time" value={pi.door_time} onChange={(v) => setPi("door_time", v)} disabled={off} placeholder="7:00 PM" /><In label="Capacity" value={pi.capacity} onChange={(v) => setPi("capacity", v)} disabled={off} placeholder="250" /></Grid>
-            <Area label="Door notes" value={pi.door_notes} onChange={(v) => setPi("door_notes", v)} disabled={off} placeholder="Will call at the box office, wristbands for 21+" />
-          </>
-        ),
-      },
-      {
-        key: "tickets", label: "Tickets",
-        summary: tiers.length ? `${tiers.length} tier${tiers.length === 1 ? "" : "s"}${pi.ticket_link ? " · link set" : ""}` : pi.ticket_price ? `${pi.ticket_price}` : "Tiers, link, comps",
-        state: stateOf(countFilled([tiers.length ? tiers : pi.ticket_price, pi.ticket_link]), 2),
-        render: () => (
-          <>
-            <TableBox>
-              <div className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>TIER</span><span>PRICE</span><span>QTY</span><span>SOLD</span><span /></div>
-              {tiers.map((t, i) => (
-                <div key={t.id || i} className="grid grid-cols-[minmax(0,1fr)_100px_90px_90px_40px] gap-3 px-4 py-2 items-center">
-                  <input value={t.name || ""} onChange={(e) => setTier(i, "name", e.target.value)} disabled={off} placeholder="Advance" className={inputCls} aria-label="Tier name" />
-                  <input value={t.price || ""} onChange={(e) => setTier(i, "price", e.target.value)} disabled={off} placeholder="$20" className={inputCls} aria-label="Price" />
-                  <input value={t.qty || ""} onChange={(e) => setTier(i, "qty", e.target.value)} disabled={off} placeholder="120" className={inputCls} aria-label="Quantity" />
-                  <input value={t.sold || ""} onChange={(e) => setTier(i, "sold", e.target.value)} disabled={off} placeholder="0" className={inputCls} aria-label="Sold" />
-                  {ed && <button type="button" onClick={() => setPi("tiers", tiers.filter((_, idx) => idx !== i))} aria-label="Remove tier" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
-                </div>
-              ))}
-              {tiers.length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No tiers yet. Add early bird, advance, day of, or a single price.</p>}
-            </TableBox>
-            <AddButton color={color} disabled={off} onClick={() => setPi("tiers", [...tiers, { id: uid(), name: "", price: "", qty: "", sold: "" }])}>Add a tier</AddButton>
-            <Grid cols={3}>
-              {!template && <In label="Ticket link" value={pi.ticket_link} onChange={(v) => setPi("ticket_link", v)} disabled={off} placeholder="https://" />}
-              <In label="Headline price" value={pi.ticket_price} onChange={(v) => setPi("ticket_price", v)} disabled={off} placeholder="$20" />
-              <In label="Comps held" value={pi.comps} onChange={(v) => setPi("comps", v)} disabled={off} placeholder="12" />
-            </Grid>
-            <Grid><In label="Break-even (tickets)" value={pi.break_even} onChange={(v) => setPi("break_even", v)} disabled={off} placeholder="160" /><In label="Fees" value={pi.fees} onChange={(v) => setPi("fees", v)} disabled={off} placeholder="Passed to buyer" /></Grid>
-          </>
-        ),
-      },
-      {
-        key: "marketing", label: "Marketing",
-        summary: [pi.announce_date && `Announce ${shortDate(pi.announce_date)}`, pi.on_sale_date && `On sale ${shortDate(pi.on_sale_date)}`].filter(Boolean).join(" · ") || "Announce, on-sale, press",
-        state: stateOf(countFilled([pi.announce_date, pi.on_sale_date, pi.marketing_notes]), 3),
-        render: () => (
-          <>
-            {!template && <Grid cols={3}>
-              <In type="date" label="Announce" value={pi.announce_date} onChange={(v) => setPi("announce_date", v)} disabled={off} />
-              <In type="date" label="On sale" value={pi.on_sale_date} onChange={(v) => setPi("on_sale_date", v)} disabled={off} />
-              <In type="date" label="Final push" value={pi.final_push_date} onChange={(v) => setPi("final_push_date", v)} disabled={off} />
-            </Grid>}
-            <Area label="Press, assets and links" value={pi.marketing_notes} onChange={(v) => setPi("marketing_notes", v)} disabled={off} placeholder="Need hi-res photo and bio from the artist; radio spot booked" rows={4} />
-          </>
-        ),
-      },
-      {
-        key: "guests", label: "Guest list allocation",
-        summary: ["artist", "venue", "promoter"].filter((k) => has(alloc[k])).map((k) => `${k[0].toUpperCase() + k.slice(1)} ${alloc[k]}`).join(" · ") || "Who gets how many spots",
-        state: stateOf(countFilled([alloc.artist, alloc.venue, alloc.promoter]), 3),
-        render: () => (
-          <>
-            <p className="text-[15px] text-white/55 -mt-2">The artist's number shows on their guest list as their limit.</p>
-            <Grid cols={3}>
-              <In label="Artist" value={alloc.artist} onChange={(v) => setAlloc("artist", v)} disabled={off} placeholder="10" />
-              <In label="Venue" value={alloc.venue} onChange={(v) => setAlloc("venue", v)} disabled={off} placeholder="6" />
-              <In label="Promoter" value={alloc.promoter} onChange={(v) => setAlloc("promoter", v)} disabled={off} placeholder="4" />
-            </Grid>
-          </>
-        ),
-      },
-      {
-        key: "settlement", label: "Settlement",
-        summary: expenses.length ? `${expenses.length} costs · ${money(expTotal)}` : pi.settlement_notes ? "Notes added" : "Costs and the split on the night",
-        state: stateOf(countFilled([expenses, pi.settlement_notes]), 2),
-        render: () => (
-          <>
-            <TableBox>
-              <div className="grid grid-cols-[minmax(0,1fr)_140px_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>SHOW COST</span><span>AMOUNT</span><span /></div>
-              {expenses.map((x, i) => (
-                <div key={x.id || i} className="grid grid-cols-[minmax(0,1fr)_140px_40px] gap-3 px-4 py-2 items-center">
-                  <input value={x.label || ""} onChange={(e) => setExp(i, "label", e.target.value)} disabled={off} placeholder="Sound and lights" className={inputCls} aria-label="Cost" />
-                  <input value={x.amount || ""} onChange={(e) => setExp(i, "amount", e.target.value)} disabled={off} placeholder="$400" className={inputCls} aria-label="Amount" />
-                  {ed && <button type="button" onClick={() => setPi("expenses", expenses.filter((_, idx) => idx !== i))} aria-label="Remove cost" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
-                </div>
-              ))}
-              {expenses.length > 0 && <div className="flex justify-between px-4 py-2.5 text-[16px] font-semibold"><span>Total costs</span><span style={{ fontFamily: SCENE_MONO }}>{money(expTotal)}</span></div>}
-            </TableBox>
-            <AddButton color={color} disabled={off} onClick={() => setPi("expenses", [...expenses, { id: uid(), label: "", amount: "" }])}>Add a cost</AddButton>
-            <Area label="Settlement notes" value={pi.settlement_notes} onChange={(v) => setPi("settlement_notes", v)} disabled={off} placeholder="Cash at end of night, settle with the TM in the office" />
-          </>
-        ),
-      },
-      docsTab(pi.documents, (docs) => setPi("documents", docs), "promoter"),
-      requestsTab("promoter"),
-    ];
-  };
-
-  const promoterSide = () => {
-    const tiers = pi.tiers || [];
-    const sold = tiers.reduce((a, t) => a + (num(t.sold) || 0), 0);
-    const gross = tiers.reduce((a, t) => a + (num(t.sold) || 0) * (num(t.price) || 0), 0);
-    const cap = num(pi.capacity) || num(vi.capacity);
-    const comps = num(pi.comps) || 0;
-    const be = num(pi.break_even);
-    const pct = cap ? Math.min(100, (sold / cap) * 100) : 0;
-    const dates = [
-      ["Announce", pi.announce_date], ["On sale", pi.on_sale_date], ["Final push", pi.final_push_date], ["Show", gig.date],
-    ].filter(([, d]) => d);
-    return {
-      body: (
-        <>
-          <SideLabel>SALES SNAPSHOT</SideLabel>
-          <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4 flex flex-col gap-2.5">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[40px] leading-none" style={{ fontFamily: SCENE_MONO, color }}>{sold}</span>
-              <span className="text-[17px] text-white/60">{cap ? `of ${cap} sold · ${Math.round(pct)}%` : "sold"}</span>
-            </div>
-            {cap > 0 && (
-              <>
-                <div className="relative h-3.5 rounded-full bg-[#1f1f1f] overflow-hidden">
-                  <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: color }} />
-                  <div className="absolute inset-y-0" style={{ left: `${pct}%`, width: `${Math.min(100 - pct, (comps / cap) * 100)}%`, background: `${color}66` }} />
-                  {be > 0 && <div className="absolute inset-y-0 w-0.5 bg-[#8CFF3D]" style={{ left: `${Math.min(100, (be / cap) * 100)}%` }} />}
-                </div>
-                {be > 0 && <div className="text-[13px]" style={{ color: sold >= be ? G : AMBER }}>{sold >= be ? `Past break-even by ${sold - be} tickets.` : `${be - sold} tickets to break even.`}</div>}
-              </>
-            )}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[[money(gross), "gross"], [comps, "comps"], [cap ? Math.max(0, cap - sold - comps) : "—", "left"]].map(([v, l]) => (
-                <div key={l} className="bg-[#111] border border-[#1f1f1f] rounded-lg py-2"><div className="text-[17px]" style={{ fontFamily: SCENE_MONO }}>{v}</div><div className="text-[13px] text-white/50">{l}</div></div>
-              ))}
-            </div>
-            {tiers.length === 0 && <p className="text-[13px] text-white/40">Add ticket tiers with what's sold to see sales here.</p>}
-          </div>
-          <SideLabel className="mt-1">KEY DATES</SideLabel>
-          {dates.length ? dates.map(([l, d]) => {
-            const n = daysUntil(d);
-            return <SideRow key={l} left={`${l} · ${shortDate(d)}`} right={countdown(d)} rightColor={n !== null && n < 0 ? G : n !== null && n <= 7 ? AMBER : undefined} />;
-          }) : <p className="text-[14px] text-white/35">Set announce and on-sale dates under Marketing.</p>}
-        </>
-      ),
-      action: pi.ticket_link ? { label: copied === "link" ? "COPIED" : "COPY TICKET LINK", onClick: () => copy(pi.ticket_link, "link") } : null,
-    };
-  };
-
-  // ======== BOOKING AGENT ========
-  const STAGES = [
-    ["offer_sent", "Offer sent"], ["accepted", "Offer accepted"], ["contract_sent", "Contract out for signature"], ["signed", "Signed"], ["deposit", "Deposit received"],
-  ];
-  const DEAL_TYPES = [["flat", "Flat guarantee"], ["vs", "Guarantee vs %"], ["door", "Door split"], ["bonus", "Plus bonus"]];
-  const dealSummary = (b) => {
-    const g = has(b.guarantee) ? b.guarantee : null;
-    const pc = has(b.percent) ? `${String(b.percent).replace(/%$/, "")}%` : null;
-    const costs = has(b.costs) ? ` after ${b.costs} costs` : "";
-    if (b.deal_type === "flat" && g) return `${g} flat`;
-    if (b.deal_type === "vs" && g && pc) return `${g} vs ${pc} of net${costs}`;
-    if (b.deal_type === "door" && pc) return `${pc} of the door${costs}`;
-    if (b.deal_type === "bonus" && g) return `${g} plus ${b.bonus || "bonus"}`;
-    return null;
-  };
-  const setDeal = (k, v) => {
-    const next = { ...bi, [k]: v };
-    const s = dealSummary(next);
-    p.update("booking_agent_info", s ? { ...next, deal_terms: s } : next);
-  };
-  const bookingTabs = () => {
-    const stageIdx = STAGES.findIndex(([k]) => k === bi.contract_stage);
-    const setStage = (k) => {
-      const label = STAGES.find(([key]) => key === k)?.[1];
-      const dates = { ...(bi.contract_dates || {}) };
-      if (!dates[k]) dates[k] = new Date().toISOString().slice(0, 10);
-      p.update("booking_agent_info", { ...bi, contract_stage: k, contract_status: label, contract_dates: dates });
-    };
-    return [
-      {
-        key: "contact", label: "Contact",
-        summary: [bi.contact_name, bi.agency_contact].filter(Boolean).join(" · ") || "Agent and agency",
-        state: stateOf(countFilled([bi.contact_name, bi.contact_phone || bi.contact_email, bi.agency_contact]), 3),
-        render: () => (
-          <>
-            <Grid><In label="Agent" value={bi.contact_name} onChange={(v) => setBi("contact_name", v)} disabled={off} /><In label="Agency" value={bi.agency_contact} onChange={(v) => setBi("agency_contact", v)} disabled={off} placeholder="Northstar Agency" /></Grid>
-            <Grid><In label="Phone" value={bi.contact_phone} onChange={(v) => setBi("contact_phone", v)} disabled={off} /><In label="Email" value={bi.contact_email} onChange={(v) => setBi("contact_email", v)} disabled={off} /></Grid>
-          </>
-        ),
-      },
-      {
-        key: "deal", label: "Offer & deal",
-        summary: bi.deal_terms || "Guarantee, split, radius",
-        state: stateOf(countFilled([bi.deal_type, bi.guarantee || bi.percent, bi.deal_terms]), 3),
-        render: () => {
-          const price = num((pi.tiers || []).find((t) => has(t.price))?.price) || num(pi.ticket_price);
-          const cap = num(pi.capacity) || num(vi.capacity);
-          const g = num(bi.guarantee) || 0;
-          const pc = (num(bi.percent) || 0) / 100;
-          const costs = num(bi.costs) || 0;
-          const walk = (n) => {
-            const net = Math.max(0, n * price - costs);
-            if (bi.deal_type === "flat") return [g, "guarantee"];
-            if (bi.deal_type === "door") return [pc * net, "split"];
-            if (bi.deal_type === "vs") return pc * net > g ? [pc * net, `${Math.round(pc * 100)}% wins`] : [g, "guarantee wins"];
-            return [g, "guarantee"];
-          };
-          const canCalc = price > 0 && cap > 0 && bi.deal_type;
-          return (
-            <>
-              <div role="radiogroup" aria-label="Deal type" className="grid grid-cols-4 gap-1 p-1 bg-[#111] border border-[#1f1f1f] rounded-[10px]">
-                {DEAL_TYPES.map(([k, l]) => {
-                  const on = bi.deal_type === k;
-                  return <button key={k} type="button" role="radio" aria-checked={on} disabled={off} onClick={() => setDeal("deal_type", k)} className="py-2 rounded-md text-[15px] font-bold" style={{ background: on ? color : "transparent", color: on ? "#0d0d0d" : "rgba(255,255,255,0.6)" }}>{l}</button>;
-                })}
-              </div>
-              <Grid cols={3}>
-                <In label="Guarantee" value={bi.guarantee} onChange={(v) => setDeal("guarantee", v)} disabled={off} placeholder="$1,500" />
-                <In label={bi.deal_type === "bonus" ? "Bonus" : "Percentage"} value={bi.deal_type === "bonus" ? bi.bonus : bi.percent} onChange={(v) => setDeal(bi.deal_type === "bonus" ? "bonus" : "percent", v)} disabled={off} placeholder={bi.deal_type === "bonus" ? "$250 at sell-out" : "70"} />
-                <In label="Show costs" value={bi.costs} onChange={(v) => setDeal("costs", v)} disabled={off} placeholder="$900" />
-                <In label="Radius clause" value={bi.radius} onChange={(v) => setBi("radius", v)} disabled={off} placeholder="60 miles · 45 days" />
-                <In label="Merch split" value={bi.merch_split} onChange={(v) => setBi("merch_split", v)} disabled={off} placeholder="85 / 15 soft goods" />
-                <In label="Deal terms" value={bi.deal_terms} onChange={(v) => setBi("deal_terms", v)} disabled={off} placeholder="Filled in from the fields above" />
-              </Grid>
-              {canCalc && (
-                <div className="bg-[#111] border border-[#1f1f1f] rounded-xl px-4 py-3">
-                  <div className={labelCls} style={{ fontFamily: SCENE_MONO }}>WHAT THE ARTIST WALKS WITH · {money(price)} TICKETS, CAP {cap}</div>
-                  <div className="grid grid-cols-3 gap-3 mt-2">
-                    {[Math.round(cap * 0.6), Math.round(cap * 0.8), cap].map((n, i) => {
-                      const [v, why] = walk(n);
-                      return (
-                        <div key={n}>
-                          <div className="text-[14px] text-white/50">{i === 2 ? `Sell out (${n})` : `If ${n} sell`}</div>
-                          <div className="text-[20px]" style={{ fontFamily: SCENE_MONO, color: i === 2 ? color : undefined }}>{money(v)}</div>
-                          <div className="text-[13px] text-white/45">{why}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {!canCalc && <p className="text-[14px] text-white/40">Pick a deal type; once the promoter adds capacity and a ticket price, this shows what the artist walks with at different crowd sizes.</p>}
-            </>
-          );
-        },
-      },
-      {
-        key: "holds", label: "Holds",
-        summary: [bi.hold_level, bi.confirm_by && `confirm by ${shortDate(bi.confirm_by)}`].filter(Boolean).join(" · ") || "Hold and confirm-by date",
-        state: stateOf(countFilled([bi.hold_level, bi.confirm_by]), 2),
-        render: () => (
-          <>
-            <div role="radiogroup" aria-label="Hold" className="grid grid-cols-4 gap-1 p-1 bg-[#111] border border-[#1f1f1f] rounded-[10px]">
-              {["1st hold", "2nd hold", "3rd hold", "Confirmed"].map((l) => {
-                const on = bi.hold_level === l;
-                return <button key={l} type="button" role="radio" aria-checked={on} disabled={off} onClick={() => setBi("hold_level", l)} className="py-2 rounded-md text-[15px] font-bold" style={{ background: on ? color : "transparent", color: on ? "#0d0d0d" : "rgba(255,255,255,0.6)" }}>{l}</button>;
-              })}
-            </div>
-            <Grid><In type="date" label="Confirm by" value={bi.confirm_by} onChange={(v) => setBi("confirm_by", v)} disabled={off} /></Grid>
-            <Area label="Other holds and routing" value={bi.holds_notes} onChange={(v) => setBi("holds_notes", v)} disabled={off} placeholder="Oct 31 Atlanta confirmed, Nov 2 Louisville 2nd hold" />
-          </>
-        ),
-      },
-      {
-        key: "contract", label: "Contract",
-        summary: stageIdx >= 0 ? STAGES[stageIdx][1] : bi.contract_status || "Where the paperwork stands",
-        state: stageIdx >= 3 ? "done" : stageIdx >= 0 || has(bi.contract_status) ? "partial" : "empty",
-        render: () => (
-          <>
-            <p className="text-[15px] text-white/55 -mt-2">Click the step the deal has reached. Today's date is noted on each step.</p>
-            <div className="flex flex-col gap-2">
-              {STAGES.map(([k, l], i) => {
-                const done = i <= stageIdx;
-                return (
-                  <button key={k} type="button" disabled={off} onClick={() => setStage(k)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-left" style={{ background: i === stageIdx ? `${color}14` : "#111", border: `1px solid ${i === stageIdx ? `${color}88` : "#1f1f1f"}` }}>
-                    <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center" style={{ background: done ? G : "transparent", border: done ? "none" : "2px solid #3a3a3a" }}>{done && <Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3} />}</span>
-                    <span className="flex-1 text-[17px] font-semibold">{l}</span>
-                    <span className="text-[12px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{(bi.contract_dates || {})[k] ? shortDate(bi.contract_dates[k]).toUpperCase() : ""}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ),
-      },
-      {
-        key: "deposit", label: "Deposit & payments",
-        summary: [bi.deposit_amount, bi.deposit_due && `due ${shortDate(bi.deposit_due)}`, bi.deposit_received && "received"].filter(Boolean).join(" · ") || "Deposit and balance",
-        state: bi.deposit_received ? "done" : stateOf(countFilled([bi.deposit_amount, bi.deposit_due]), 3),
-        render: () => (
-          <>
-            <Grid><In label="Deposit" value={bi.deposit_amount} onChange={(v) => setBi("deposit_amount", v)} disabled={off} placeholder="$750 (50%)" /><In type="date" label="Due" value={bi.deposit_due} onChange={(v) => setBi("deposit_due", v)} disabled={off} /></Grid>
-            <label className="flex items-center gap-2.5 text-[16px] text-white/80">
-              <input type="checkbox" checked={!!bi.deposit_received} onChange={(e) => setBi("deposit_received", e.target.checked)} disabled={off} className="w-[18px] h-[18px]" style={{ accentColor: color }} />
-              Deposit received
-            </label>
-            <Area label="Balance and payment notes" value={bi.balance_notes} onChange={(v) => setBi("balance_notes", v)} disabled={off} placeholder="Balance in cash at settlement" />
-          </>
-        ),
-      },
-      docsTab(bi.documents, (docs) => setBi("documents", docs), "booking_agent"),
-      requestsTab("booking_agent"),
-    ];
-  };
-
-  const bookingSide = () => {
-    const stageIdx = STAGES.findIndex(([k]) => k === bi.contract_stage);
-    const deadlines = [["Confirm hold", bi.confirm_by], ["Deposit", bi.deposit_received ? null : bi.deposit_due], ["Show", gig.date]].filter(([, d]) => d);
-    const summary = [
-      `${gig.event_name || gig.band_name || "Show"} · ${gig.date ? shortDate(gig.date) : ""} · ${gig.venue || ""}`,
-      bi.deal_terms && `Deal: ${bi.deal_terms}`,
-      bi.radius && `Radius: ${bi.radius}`,
-      bi.merch_split && `Merch: ${bi.merch_split}`,
-      bi.deposit_amount && `Deposit: ${bi.deposit_amount}${bi.deposit_due ? ` due ${shortDate(bi.deposit_due)}` : ""}`,
-      stageIdx >= 0 && `Status: ${STAGES[stageIdx][1]}`,
-    ].filter(Boolean).join("\n");
-    return {
-      body: (
-        <>
-          <SideLabel>DEAL PIPELINE</SideLabel>
-          <ol className="flex flex-col">
-            {STAGES.map(([k, l], i) => {
-              const done = i < stageIdx || (i === stageIdx && i === STAGES.length - 1);
-              const cur = i === stageIdx && !done;
-              return (
-                <li key={k} className="flex gap-3 items-start">
-                  <span className="flex flex-col items-center">
-                    <span className="w-5 h-5 rounded-full box-border" style={{ background: done || (i <= stageIdx && !cur) ? G : "transparent", border: cur ? `3px solid ${color}` : done || i <= stageIdx ? "none" : "2px solid #3a3a3a" }} />
-                    {i < STAGES.length - 1 && <span className="w-0.5 h-7" style={{ background: i < stageIdx ? G : "#2a2a2a" }} />}
-                  </span>
-                  <span>
-                    <span className="block text-[17px] font-semibold leading-tight" style={{ color: cur ? color : i <= stageIdx ? "#fff" : "rgba(255,255,255,0.5)" }}>{l}</span>
-                    {(bi.contract_dates || {})[k] && <span className="block text-[13px] text-white/45">{shortDate(bi.contract_dates[k])}</span>}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          <SideLabel className="mt-1">DEADLINES</SideLabel>
-          {deadlines.length ? deadlines.map(([l, d]) => {
-            const n = daysUntil(d);
-            const warn = n !== null && n >= 0 && n <= 7;
-            return <SideRow key={l} left={`${l} · ${shortDate(d)}`} right={countdown(d)} rightColor={warn ? AMBER : undefined} highlight={warn ? AMBER : null} />;
-          }) : <p className="text-[14px] text-white/35">Add a confirm-by date and deposit due date.</p>}
-        </>
-      ),
-      action: { label: copied === "deal" ? "COPIED" : "COPY DEAL SUMMARY", onClick: () => copy(summary, "deal") },
-    };
-  };
-
   // ======== MANAGER / ARTIST ========
   const DEFAULT_CHECKLIST = [
     ["Load-in time and dock", "Venue"], ["Soundcheck slot", "Venue"], ["Input list and stage plot sent", "Audio"],
-    ["Set time and length", "Promoter"], ["Hospitality rider accepted", "Venue"], ["Parking for van and trailer", "Venue"], ["Settlement contact on the night", "Promoter"],
+    ["Set time and length", "Venue"], ["Hospitality rider accepted", "Venue"], ["Parking for van and trailer", "Venue"], ["Settlement contact on the night", "Venue"],
   ];
   const managerTabs = () => {
     const checklist = mi.checklist || [];
     const setItem = (i, k, v) => setMi("checklist", checklist.map((c, idx) => (idx === i ? { ...c, [k]: v } : c)));
     const guests = mi.guests || [];
     const setGuests = (list) => p.update("manager_info", { ...mi, guests: list, guest_list: list.filter((g) => g.name).map((g) => (num(g.plus) > 0 ? `${g.name} +${num(g.plus)}` : g.name)).join(", ") });
-    const limit = num((pi.guest_alloc || {}).artist);
     const used = guests.reduce((a, g) => a + (g.name ? 1 + (num(g.plus) || 0) : 0), 0);
     const setTimes = mi.set_times || {};
     const doneCount = checklist.filter((c) => c.done).length;
@@ -797,7 +426,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   <input type="checkbox" checked={!!c.done} onChange={(e) => setItem(i, "done", e.target.checked)} disabled={off} className="w-[18px] h-[18px]" style={{ accentColor: G }} aria-label={`Confirmed: ${c.label || "item"}`} />
                   <input value={c.label || ""} onChange={(e) => setItem(i, "label", e.target.value)} disabled={off} placeholder="What needs confirming" className={inputCls} aria-label="Checklist item" />
                   <select value={c.who || ""} onChange={(e) => setItem(i, "who", e.target.value)} disabled={off} className={inputCls} aria-label="Who confirms">
-                    {["", "Venue", "Promoter", "Booking Agent", "Audio", "Lighting", "Artist"].map((w) => <option key={w} value={w}>{w || "Who"}</option>)}
+                    {["", "Venue", "Audio", "Lighting", "Artist"].map((w) => <option key={w} value={w}>{w || "Who"}</option>)}
                   </select>
                   {ed && <button type="button" onClick={() => setMi("checklist", checklist.filter((_, idx) => idx !== i))} aria-label="Remove item" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
                 </div>
@@ -810,7 +439,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 <button type="button" onClick={() => setMi("checklist", DEFAULT_CHECKLIST.map(([label, who]) => ({ id: uid(), label, who, done: false })))} className="text-[15px] font-semibold text-white/75 hover:text-white px-3.5 py-2 rounded-lg border border-[#2a2a2a]">Start with the usual advance</button>
               )}
             </div>
-            <Area label="Advancing notes" value={mi.advancing_notes} onChange={(v) => setMi("advancing_notes", v)} disabled={off} placeholder="Anything else agreed with the venue or promoter" />
+            <Area label="Advancing notes" value={mi.advancing_notes} onChange={(v) => setMi("advancing_notes", v)} disabled={off} placeholder="Anything else agreed with the venue" />
           </>
         ),
       },
@@ -828,11 +457,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       },
       {
         key: "guests", label: "Guest list",
-        summary: guests.length ? `${used}${limit ? ` of ${limit}` : ""} spots used` : mi.guest_list || "Names for the door",
+        summary: guests.length ? `${used} on the list` : mi.guest_list || "Names for the door",
         state: guests.length || has(mi.guest_list) ? "done" : "empty",
         render: () => (
           <>
-            <p className="text-[15px] text-white/55 -mt-2">{limit ? `The promoter gave the artist ${limit} spots. ${used} used so far.` : "The promoter can set how many spots the artist gets under their Guest list allocation."}</p>
             <TableBox>
               {guests.map((g, i) => (
                 <div key={g.id || i} className="grid grid-cols-[minmax(0,1fr)_90px_40px] gap-3 px-4 py-2 items-center">
@@ -843,7 +471,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               ))}
               {guests.length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">{mi.guest_list ? `Current list: ${mi.guest_list}` : "No guests yet."}</p>}
             </TableBox>
-            <AddButton color={color} disabled={off || (limit > 0 && used >= limit)} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
+            <AddButton color={color} disabled={off} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
           </>
         ),
       },
@@ -930,7 +558,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     };
   };
 
-  const builders = { venue: venueTabs, promoter: promoterTabs, booking_agent: bookingTabs, manager: managerTabs };
+  const builders = { venue: venueTabs, manager: managerTabs };
   const tabs = useMemo(
     () => {
       const list = builders[role]();
@@ -976,7 +604,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     />
   ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);
-  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : role === "promoter" ? promoterSide() : role === "booking_agent" ? bookingSide() : managerSide();
+  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : managerSide();
   // Load a saved template into this event / save this section as one.
   const templateTools = ed && !template && p.user ? (
     <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
@@ -1334,8 +962,8 @@ function Shell({ modal, onClose, children }) {
   );
 }
 
-const COMPANY_ROLES = ["venue", "promoter", "booking_agent", "manager"];
-const SECTION_NAME = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist", engineer: "Audio / Lighting" };
+const COMPANY_ROLES = ["venue", "manager"];
+const SECTION_NAME = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // Owner-assigned to-dos (gig_tasks). The section holder ticks them off;
 // set_gig_task_status does its own permission check.
@@ -1413,8 +1041,6 @@ function TaskList({ tasks, editable, onToggle, color, showSection = false }) {
 // Right column while editing a template: what it does and what stays out.
 const TEMPLATE_LEFT_OUT = {
   venue: "Nothing is left out: every part of the venue section carries over.",
-  promoter: "Left out: ticket link, announce / on-sale / final-push dates and tickets sold. Those change every show.",
-  booking_agent: "Left out: holds, contract stage and deposits. Those belong to one show.",
   manager: "Left out: the lineup, set times, arrival time and hotel. Advance items start unticked on each show.",
 };
 function templateSide(role, color) {

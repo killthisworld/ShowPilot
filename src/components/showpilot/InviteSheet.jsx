@@ -11,10 +11,9 @@ import { isProfileOpen } from "@/lib/hiddenProfiles";
 
 const G = "#8CFF3D";
 
-// Who can be invited, in the profile-color (rainbow) order: red, yellow,
-// green, blue, violet. Colors + icons come from accountTypeStyle so the
+// Who can be invited, in the profile-color order: red, blue, green. Colors + icons come from accountTypeStyle so the
 // pads match the Pilot header, the progress bar and the event web.
-const ROLE_ORDER = ["band", "manager", "venue", "engineer", "lighting", "promoter", "booking_agent"];
+const ROLE_ORDER = ["band", "manager", "venue", "engineer", "lighting"];
 const ROLES = ROLE_ORDER.map((value) => ({ value, ...ACCOUNT_TYPE_STYLES[value] }));
 const roleOf = (v) => ROLES.find((r) => r.value === v) || { value: v, label: v, color: "#9A9A9A", icon: UserPlus };
 
@@ -22,13 +21,11 @@ const roleOf = (v) => ROLES.find((r) => r.value === v) || { value: v, label: v, 
 // owner can also hand them edit access to other sections, per invite.
 const SECTIONS = [
   { value: "venue", label: "Venue", color: ACCOUNT_TYPE_STYLES.venue.color },
-  { value: "promoter", label: "Promoter", color: ACCOUNT_TYPE_STYLES.promoter.color },
-  { value: "booking_agent", label: "Booking Agent", color: ACCOUNT_TYPE_STYLES.booking_agent.color },
   { value: "manager", label: "Manager / Artist", color: ACCOUNT_TYPE_STYLES.manager.color },
   { value: "engineer", label: "Audio / Lighting", color: ACCOUNT_TYPE_STYLES.engineer.color },
 ];
 const ROLE_HOME_SECTION = {
-  venue: "venue", promoter: "promoter", booking_agent: "booking_agent",
+  venue: "venue",
   manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer",
 };
 

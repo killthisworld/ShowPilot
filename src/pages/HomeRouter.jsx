@@ -7,7 +7,7 @@ import FanHome from "@/pages/FanHome";
 // Routes to the right home screen based on account type. Engineer and
 // Lighting Tech share the full New/Frequent/Worked tracking Home page, since
 // both are technical-production roles hired to work specific shows. Every
-// other profile type (Band, Venue, Promoter, Booking Agent, Manager) shares
+// other profile type (Band, Venue, Manager) shares
 // the simpler "linked shows" home experience for now - specialized
 // per-profile features come later. Defaults to the existing Engineer Home
 // for every case except an explicit non-technical-production type -

@@ -2,21 +2,19 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, MapPin, Ticket, FileSignature, User, Headphones, Users } from "lucide-react";
+import { ArrowLeft, MapPin, User, Headphones, Users } from "lucide-react";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 
 // Matches SharedGig.jsx's palette exactly, plus a neutral for the
 // everyone-welcome General room - same color language the rest of the
-// app already uses for these five sections.
+// app already uses for these three sections.
 export const ROOM_META = {
   general: { label: "General", icon: Users, color: "#9CA3AF" },
   venue: { label: "Venue", icon: MapPin, color: "#60A5FA" },
-  promoter: { label: "Promoter", icon: Ticket, color: "#60A5FA" },
-  booking_agent: { label: "Booking", icon: FileSignature, color: "#C026D3" },
   manager: { label: "Manager/Artist", icon: User, color: "#EF4444" },
   engineer: { label: "Audio/Lighting", icon: Headphones, color: "#8CFF3D" },
 };
-export const ROOM_ORDER = ["general", "venue", "promoter", "booking_agent", "manager", "engineer"];
+export const ROOM_ORDER = ["general", "venue", "manager", "engineer"];
 
 export default function GigRooms() {
   const navigate = useNavigate(); const goBack = useGoBack();
