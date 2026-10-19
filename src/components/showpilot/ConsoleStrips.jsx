@@ -19,7 +19,7 @@ import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 // sideways" on the Company Phone Layout canvas (job 67).
 
 const ROLES = [
-  { id: "venue", label: "VENUE", color: "#F2FF00", soft: "#c9d400" },
+  { id: "venue", label: "VENUE", color: "#60A5FA", soft: "#60A5FA" },
   { id: "promoter", label: "PROMOTER", color: "#60A5FA", soft: "#60A5FA" },
   { id: "booking_agent", label: "BOOKING", color: "#C026D3", soft: "#E879F9" },
   { id: "manager", label: "MANAGER", color: "#EF4444", soft: "#F87171" },

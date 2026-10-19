@@ -21,7 +21,7 @@ export const SECTION_FOR_TYPE = {
 
 // Same five sections and colors as Gig Rooms / the gig board.
 export const SECTIONS = [
-  { id: "venue", label: "Venue", color: "#F2FF00" },
+  { id: "venue", label: "Venue", color: "#60A5FA" },
   { id: "promoter", label: "Promoter", color: "#60A5FA" },
   { id: "booking_agent", label: "Booking", color: "#C026D3" },
   { id: "manager", label: "Manager/Artist", color: "#EF4444" },

@@ -13,7 +13,7 @@ import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 
 const SECTION_OPTIONS = [
-  { key: "venue", label: "Venue", color: "#F2FF00" },
+  { key: "venue", label: "Venue", color: "#60A5FA" },
   { key: "promoter", label: "Promoter", color: "#60A5FA" },
   { key: "booking_agent", label: "Booking Agent", color: "#C026D3" },
   { key: "manager", label: "Manager / Artist", color: "#EF4444" },

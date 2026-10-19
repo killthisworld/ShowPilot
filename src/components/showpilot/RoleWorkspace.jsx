@@ -22,7 +22,7 @@ import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-const ROLE_COLOR = { venue: "#F2FF00", promoter: "#60A5FA", booking_agent: "#D946EF", manager: "#F87171" };
+const ROLE_COLOR = { venue: "#60A5FA", promoter: "#60A5FA", booking_agent: "#D946EF", manager: "#F87171" };
 const ROLE_TITLE = { venue: "Venue", promoter: "Promoter", booking_agent: "Booking Agent", manager: "Manager / Artist" };
 
 // ---------- small helpers ----------
