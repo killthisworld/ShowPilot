@@ -4,7 +4,7 @@ import { Ticket } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
+import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 
 const G = "#8CFF3D";
 
@@ -39,7 +39,7 @@ export default function FanPageButton({ show, className = "", ticket = false }) 
   useEffect(() => { setLive(show.fan_page_enabled === true); }, [show.fan_page_enabled]);
 
   const owned = show.is_owned !== false;
-  if (!FAN_SIDE_OPEN) return null;
+  if (!FAN_RSVP_OPEN) return null;
   if (owned ? !show.id : !show.share_token) return null;
   if (ticket && !live && !open) return null;
 

@@ -9,6 +9,10 @@
 // hidden type keep working as before.
 export const FAN_SIDE_OPEN = false;
 
+// The public RSVP page (showpilot.space/rsvp/<link>) and the owner-side
+// Fan page editor stay on: events already use them. No fan accounts.
+export const FAN_RSVP_OPEN = true;
+
 export const HIDDEN_ACCOUNT_TYPES = FAN_SIDE_OPEN ? [] : ["fan"];
 
 export const isProfileOpen = (accountType) => !HIDDEN_ACCOUNT_TYPES.includes(accountType);

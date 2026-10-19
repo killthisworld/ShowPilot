@@ -26,7 +26,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 // Lazy so the web doesn't load the editor's PDF/canvas code until needed.
 const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
 import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
-import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
+import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", manager: "MGMT/ART", engineer: "AUD/LTG" };
@@ -431,7 +431,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     const cap = "text-[8px] tracking-[0.08em] leading-none";
     return (
       <div className="flex items-center gap-1 shrink-0 ml-auto">
-        {FAN_SIDE_OPEN && (permissions?.is_owner || token) && (
+        {FAN_RSVP_OPEN && (permissions?.is_owner || token) && (
           <button type="button" onClick={() => setShowFanSheet(true)} aria-label={permissions?.is_owner ? "Edit fan page" : "View fan page"} className={`${act} text-[#8CFF3D]/70 hover:text-[#8CFF3D]`}>
             <Ticket className="w-4 h-4" />
             <span className={cap} style={{ fontFamily: SCENE_MONO }}>FAN PAGE</span>
@@ -540,7 +540,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
         onOpenTask={setOpenTaskId} webFocus={webFocus}
-        roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_SIDE_OPEN ? () => setShowFanSheet(true) : undefined}
+        roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
     );
   }
@@ -714,7 +714,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               onBack={() => selectRole(null)}
               homeIcon={myIcon}
               onOpenRole={selectRole}
-              onOpenFanPage={FAN_SIDE_OPEN ? () => setShowFanSheet(true) : undefined}
+              onOpenFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
               showContent={activeTab === "profile"}
               initialTab={webFocus.role === selectedRole && webFocus.n ? "tasks" : null}
             />
