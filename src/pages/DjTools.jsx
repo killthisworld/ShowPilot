@@ -43,6 +43,7 @@ export default function DjTools() {
   const [files, setFiles] = useState({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [newForShow, setNewForShow] = useState("");
   const [myShows, setMyShows] = useState([]);
   const [error, setError] = useState("");
 
@@ -54,8 +55,14 @@ export default function DjTools() {
     const { data, error: e } = await supabase.from("dj_set_requests").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at");
     if (e) { setError("Couldn't load your set links."); return; }
     setRequests(data || []);
-    const wanted = new URLSearchParams(window.location.search).get("event");
-    setSelectedId((cur) => cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
+    const qs = new URLSearchParams(window.location.search);
+    const wanted = qs.get("event");
+    // Coming from an event's DJ Tools corner: open that event's set link, or
+    // start one for it.
+    const fromShow = qs.get("show");
+    const forShow = fromShow ? data?.find((r) => r.show_id === fromShow) : null;
+    if (fromShow && !forShow) { setNewForShow(fromShow); setCreating(true); }
+    setSelectedId((cur) => forShow ? forShow.id : cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
   }, []);
 
   const loadSlots = useCallback(async (requestId) => {
@@ -205,7 +212,7 @@ export default function DjTools() {
 
         <main className="min-w-0">
           {creating ? (
-            <NewRequest myShows={myShows} onCancel={() => setCreating(false)} onCreate={createRequest} />
+            <NewRequest myShows={myShows} initialShowId={newForShow} onCancel={() => setCreating(false)} onCreate={createRequest} />
           ) : selected ? (
             <RequestDetail
               key={selected.id} request={selected} slots={slots} files={files} driveConnected={!!drive.connected}
@@ -252,12 +259,13 @@ function DriveBadge({ drive, onConnect, onDisconnect }) {
   );
 }
 
-function NewRequest({ myShows, onCancel, onCreate }) {
+function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
   const [showId, setShowId] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [venue, setVenue] = useState("");
   const [due, setDue] = useState("");
+  useEffect(() => { if (initialShowId && myShows.some((x) => x.id === initialShowId)) pick(initialShowId); }, [initialShowId, myShows]);
   const pick = (id) => {
     setShowId(id);
     const s = myShows.find((x) => x.id === id);

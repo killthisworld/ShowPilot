@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, FolderOpen, Plus, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
-import DjLineupPanel from "@/components/showpilot/DjLineupPanel";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
@@ -148,6 +148,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
 export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null, homeIcon = null }) {
+  const navigate = useNavigate();
   const color = ROLE_COLOR[role] || G;
   const gig = p.gig;
   const ed = p.editable;
@@ -433,7 +434,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
-            <p className="text-[14px] text-white/50 -mt-2">Acts in playing order. Times flow to the day sheet, run of show and each set upload page. Press Save after reordering.</p>
+            <p className="text-[14px] text-white/50 -mt-2">Acts in playing order. Times flow to the day sheet and run of show. Press Save after reordering.</p>
             <TableBox>
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
@@ -475,7 +476,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
             </TableBox>
             <AddButton color={color} disabled={!p.canEdit} onClick={p.addBand}>Add an act</AddButton>
-            {gig.id && <DjLineupPanel gig={gig} setTimes={setTimes} color={color} canEdit={p.canEdit} />}
           </>
         ),
       },
@@ -696,7 +696,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // Features (DCAs) sit in the web's four corners; empty corners are open slots.
     const dcas = role === "manager"
       ? [
-          ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => setActive("lineup") } : null,
+          ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null,
           onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
         ]
       : [];
