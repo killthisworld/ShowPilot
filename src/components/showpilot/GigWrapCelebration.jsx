@@ -54,7 +54,7 @@ export default function GigWrapCelebration({ wrap, onDone }) {
   const [phase, setPhase] = useState("spiral"); // spiral -> burst -> reveal -> flight
 
   const roles = useMemo(
-    () => ROLE_ORDER.filter((role) => !wrap.included_sections || wrap.included_sections.includes(role)),
+    () => ROLE_ORDER,
     [wrap]
   );
 

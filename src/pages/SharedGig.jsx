@@ -952,7 +952,8 @@ export default function SharedGig() {
     return !!invited && !claimed;
   };
   const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
-  const isSectionIncluded = (key) => !gig?.included_sections || gig.included_sections.includes(key);
+  // Every event has all three profiles (venue, manager / artist, audio / lighting).
+  const isSectionIncluded = () => true;
   const ACCOUNT_TYPE_TO_SECTION = { band: "manager", venue: "venue", manager: "manager" };
   const isMyOwnerSection = (key) => permissions?.is_owner && ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] === key;
   const isMyOwnerEngineerSection = () => permissions?.is_owner && ["engineer", "lighting"].includes(preferences?.account_type);

@@ -380,7 +380,7 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
   const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : 0;
   const lvl = pct >= 80 ? "#8CFF3D" : pct >= 40 ? "#FF6A00" : "#E879F9";
   const open = Number(pr?.open_tasks || 0);
-  const included = s.included_sections?.length ? s.included_sections : ROLES.map((r) => r.id);
+  const included = ROLES.map((r) => r.id);
   const glass = photo ? "rgba(10,10,10,0.55)" : "transparent";
   const line = photo ? "rgba(255,255,255,0.12)" : "#262626";
   const btnBg = photo ? "rgba(20,20,20,0.8)" : "#222";

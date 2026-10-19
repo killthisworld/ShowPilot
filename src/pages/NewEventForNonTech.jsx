@@ -12,12 +12,6 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 
-const SECTION_OPTIONS = [
-  { key: "venue", label: "Venue", color: "#60A5FA" },
-  { key: "manager", label: "Manager / Artist", color: "#EF4444" },
-  { key: "engineer", label: "Audio / Lighting", color: "#8CFF3D" },
-];
-
 // Maps each account type to the section it always owns on any event it
 // creates - that section is locked in (can't be unchecked) since it
 // belongs to the creator by definition.
@@ -35,7 +29,6 @@ export default function NewEventForNonTech() {
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState("");
   const [date, setDate] = useState(location.state?.prefillDate || "");
-  const [selectedSections, setSelectedSections] = useState([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -53,11 +46,6 @@ export default function NewEventForNonTech() {
       console.error(e);
       setError("Couldn't save the new event type. Please try again.");
     }
-  };
-
-  const toggleSection = (key) => {
-    if (key === mySection) return;
-    setSelectedSections((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
   // Optional icon picked up front: previewed locally, uploaded on Create.
@@ -88,7 +76,8 @@ export default function NewEventForNonTech() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
-      const includedSections = Array.from(new Set([mySection, ...selectedSections]));
+      // Every event has all three profiles; empty ones just stay unlit on the web.
+      const includedSections = ["venue", "manager", "engineer"];
       // A failed image upload shouldn't block creating the event - it just
       // starts without one and can be added from Gig Web's Overview.
       let iconUrl = null;
@@ -160,40 +149,6 @@ export default function NewEventForNonTech() {
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 bg-[#0d0d0d] border-[#222] text-white [color-scheme:dark] w-44" />
-          </div>
-        </div>
-
-        <div className="bg-[#111] rounded-2xl p-4">
-          <p className="text-white/50 text-xs mb-3">Which sections does this event need? Your own section is always included - add whichever others are relevant.</p>
-          <div className="space-y-2">
-            {SECTION_OPTIONS.map((opt) => {
-              const isMine = opt.key === mySection;
-              const isSelected = isMine || selectedSections.includes(opt.key);
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => toggleSection(opt.key)}
-                  disabled={isMine}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-colors disabled:cursor-not-allowed"
-                  style={{
-                    borderColor: isSelected ? opt.color : "#2a2a2a",
-                    backgroundColor: isSelected ? opt.color + "14" : "transparent",
-                  }}
-                >
-                  <span className="text-sm font-medium" style={{ color: isSelected ? opt.color : "rgba(255,255,255,0.5)" }}>
-                    {opt.label}
-                    {isMine ? " (You)" : ""}
-                  </span>
-                  <div
-                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-                    style={{ borderColor: isSelected ? opt.color : "#3a3a3a", backgroundColor: isSelected ? opt.color : "transparent" }}
-                  >
-                    {isSelected && <div className="w-2 h-2 rounded-full bg-black" />}
-                  </div>
-                </button>
-              );
-            })}
           </div>
         </div>
 

@@ -232,7 +232,7 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
               const lvl = pct >= 80 ? "#8CFF3D" : pct >= 40 ? "#FF6A00" : "#E879F9";
               const open = Number(pr?.open_tasks || 0);
               const unread = Number(unreadByToken[s.share_token] || 0);
-              const included = s.included_sections?.length ? s.included_sections : ROLES.map((r) => r.id);
+              const included = ROLES.map((r) => r.id);
               const on = rolesByShow[s.id];
               const glass = photo ? "rgba(10,10,10,0.6)" : "transparent";
               const btnBg = photo ? "rgba(20,20,20,0.85)" : "#242424";

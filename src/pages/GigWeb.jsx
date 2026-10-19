@@ -37,7 +37,7 @@ const ROLE_CODES = { venue: "VENUE", manager: "MGMT/ART", engineer: "AUD/LTG" };
 // doesn't have to import a whole page just for this one check.
 const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 
-// The 5 roles a gig always has, in radial order. Position/color here
+// The 3 roles a gig always has, in radial order. Position/color here
 // intentionally match SharedGig's SECTION_COLORS and Home's progress bar,
 // so this hub reads as another view of the same show rather than a new
 // visual language to learn.
@@ -85,9 +85,12 @@ function roleCircle(n, active) {
   };
 }
 
-// Company profiles open as their own web; Audio/Lighting keeps its phone
-// profile under the event web (it has no workspace tabs yet).
-const isRoleWeb = (role) => !!role && role !== "engineer";
+// The color of a profile nobody is on yet and nothing is filled in for.
+const UNLIT = "#6B7280";
+
+// Every profile opens as its own web: the profile in the center, its pages
+// and features around it.
+const isRoleWeb = (role) => !!role;
 
 // Renders standalone at /gig/web?token=... (reached from SharedGig's "Gig
 // Web" button - a real page, real back button) and also embeds directly
@@ -369,8 +372,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     );
   }
 
-  const isIncluded = (role) => !gig.included_sections || gig.included_sections.includes(role);
-  const roles = ROLE_ORDER.filter(isIncluded);
+  // Every event always shows all three profiles, so the web stays even. A
+  // profile nobody is invited to (and nothing is filled in for) stays unlit.
+  const roles = ROLE_ORDER;
   const title = gig.event_name || gig.band_name || "Untitled Gig";
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
@@ -384,16 +388,24 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const cx = 150, cy = 150, r = 112;
   const nodes = roles.map((role, i) => {
     const angle = (-90 + i * (360 / roles.length)) * (Math.PI / 180);
-    const style = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
+    const baseStyle = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
     const percent = Math.round((progress[PROGRESS_KEY[role]]?.percent || 0) * 100);
+    const claimed = roleClaimed(role, permissions);
+    const invited = roleInvited(role, permissions);
+    const hasTasks = (gig.tasks || []).some((t) => t.section === role);
+    // Lit = someone is on it, or something is filled in. Opening a profile
+    // always shows its color so you know where you are.
+    const lit = claimed || invited || percent > 0 || hasTasks;
+    const style = lit || role === selectedRole ? baseStyle : { ...baseStyle, color: UNLIT };
     return {
       role,
       x: Math.round((cx + r * Math.cos(angle)) * 10) / 10,
       y: Math.round((cy + r * Math.sin(angle)) * 10) / 10,
       style,
       percent,
-      claimed: roleClaimed(role, permissions),
-      invited: roleInvited(role, permissions),
+      lit,
+      claimed,
+      invited,
     };
   });
 

@@ -22,8 +22,8 @@ import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171" };
-const ROLE_TITLE = { venue: "Venue", manager: "Manager / Artist" };
+const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", engineer: "#8CFF3D" };
+const ROLE_TITLE = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // ---------- small helpers ----------
 const has = (v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && String(v).trim() !== "");
@@ -164,6 +164,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const setVi = (k, v) => p.update("venue_info", { ...(gig.venue_info || {}), [k]: v });
   const mi = gig.manager_info || {};
   const setMi = (k, v) => p.updateSection("manager_info", k, v);
+  const ei = gig.engineer_info || {};
 
   const reqs = (section) => (gig.requirements || []).filter((r) => r.section === section);
   const requestsTab = (section) => {
@@ -333,6 +334,71 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         </>
       ),
       action: { label: copied === "sheet" ? "COPIED" : "COPY DAY SHEET", onClick: () => copy(sheet, "sheet") },
+    };
+  };
+
+  // ======== AUDIO / LIGHTING ========
+  const engineerTabs = () => {
+    const crewTab = (key, label, hint) => {
+      const info = ei[key] || {};
+      const setE = (k, v) => p.updateEngineerRole(key, k, v);
+      return {
+        key, label,
+        summary: [info.contact_name, info.contact_phone].filter(Boolean).join(" · ") || hint,
+        state: stateOf(countFilled([info.contact_name, info.contact_phone, info.contact_email]), 3),
+        render: () => (
+          <>
+            <In label="Name" value={info.contact_name} onChange={(v) => setE("contact_name", v)} disabled={off} placeholder="Name" />
+            <Grid>
+              <In label="Phone" value={info.contact_phone} onChange={(v) => setE("contact_phone", v)} disabled={off} placeholder="Phone" />
+              <In label="Email" value={info.contact_email} onChange={(v) => setE("contact_email", v)} disabled={off} placeholder="Email" />
+            </Grid>
+          </>
+        ),
+      };
+    };
+    return [
+      crewTab("audio", "Audio engineer", "Who is on sound"),
+      crewTab("lighting", "Lighting tech", "Who is on lights"),
+      requestsTab("engineer"),
+    ];
+  };
+  const engineerSide = () => {
+    const run = buildRunOfShow(gig);
+    const crew = [["Audio", ei.audio], ["Lighting", ei.lighting]].filter(([, i]) => i && (i.contact_name || i.contact_phone || i.contact_email));
+    return {
+      body: (
+        <>
+          <SideLabel>WHAT THE CREW SEES{gig.date ? ` · ${shortDate(gig.date).toUpperCase()}` : ""}</SideLabel>
+          <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4 flex flex-col gap-2">
+            <div className="text-[22px] font-bold leading-tight">{[gig.venue, gig.city].filter(Boolean).join(", ") || "Venue not set yet"}</div>
+            {vi.load_in_location && <div className="text-[14px] text-white/55 leading-snug">Load in at {vi.load_in_location}.</div>}
+            {run.length > 0 ? (
+              <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-y-1.5 mt-1 text-[16px]">
+                {run.map((r, i) => (
+                  <React.Fragment key={i}>
+                    <span className="text-[13px]" style={{ fontFamily: SCENE_MONO, color: "rgba(255,255,255,0.6)" }}>{r.time || "--"}</span>
+                    <span>{r.label}</span>
+                  </React.Fragment>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[14px] text-white/35">Times from the venue and artist show up here once they are filled in.</p>
+            )}
+          </div>
+          <SideLabel className="mt-1">CREW ON THIS EVENT</SideLabel>
+          <div className="bg-[#151515] border border-[#262626] rounded-[10px] p-4 flex flex-col gap-2">
+            {crew.length === 0 && <p className="text-[14px] text-white/40">No audio or lighting contacts yet.</p>}
+            {crew.map(([label, i]) => (
+              <div key={label} className="text-[15px]">
+                <span className="text-[12px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{label.toUpperCase()}</span>
+                <div className="font-semibold">{i.contact_name || "-"}</div>
+                <div className="text-white/55 text-[14px]">{[i.contact_phone, i.contact_email].filter(Boolean).join(" · ")}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ),
     };
   };
 
@@ -558,7 +624,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     };
   };
 
-  const builders = { venue: venueTabs, manager: managerTabs };
+  const builders = { venue: venueTabs, manager: managerTabs, engineer: engineerTabs };
   const tabs = useMemo(
     () => {
       const list = builders[role]();
@@ -604,9 +670,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     />
   ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);
-  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : managerSide();
+  const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : role === "engineer" ? engineerSide() : managerSide();
   // Load a saved template into this event / save this section as one.
-  const templateTools = ed && !template && p.user ? (
+  const templateTools = ed && !template && p.user && role !== "engineer" ? (
     <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
   ) : null;
   const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks");
@@ -615,7 +681,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
 
   // The other company sections on this event, as simple progress lines.
-  const included = (r) => !gig.included_sections || gig.included_sections.includes(r);
+  const included = () => true;
   const others = template ? [] : COMPANY_ROLES.filter((r) => r !== role && included(r)).map((r) => {
     const parts = counted(builders[r]());
     const openReqs = (gig.requirements || []).filter((q) => q.section === r && q.status !== "confirmed").length;
@@ -623,7 +689,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   });
   // Everything that's waiting on the person looking: open tasks the owner
   // pointed at any section they hold.
-  const mySections = [...COMPANY_ROLES, "engineer"].filter((r) => p.canEditSection?.(r));
+  const mySections = COMPANY_ROLES.filter((r) => p.canEditSection?.(r));
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
 
   if (layout === "web") {
@@ -962,7 +1028,7 @@ function Shell({ modal, onClose, children }) {
   );
 }
 
-const COMPANY_ROLES = ["venue", "manager"];
+const COMPANY_ROLES = ["venue", "manager", "engineer"];
 const SECTION_NAME = { venue: "Venue", manager: "Manager / Artist", engineer: "Audio / Lighting" };
 
 // Owner-assigned to-dos (gig_tasks). The section holder ticks them off;
