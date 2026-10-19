@@ -7,6 +7,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { shareLink } from "@/lib/share";
 import useIsDesktop from "@/hooks/useIsDesktop";
+import { isProfileOpen } from "@/lib/hiddenProfiles";
 
 const G = "#8CFF3D";
 
@@ -159,7 +160,7 @@ export default function InviteSheet({ showId, trigger, elevated = false }) {
   // ---------- pieces ----------
   const rolePads = (
     <div className={`grid ${desktop ? "grid-cols-2" : "grid-cols-2"} gap-2`}>
-      {ROLES.map((r) => {
+      {ROLES.filter((r) => isProfileOpen(r.value)).map((r) => {
         const on = selected.includes(r.value);
         const Icon = r.icon;
         const c = counts[r.value];
@@ -215,7 +216,7 @@ export default function InviteSheet({ showId, trigger, elevated = false }) {
             />
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="text-[12px] text-white/45 mr-0.5">Also edits:</span>
-              {SECTIONS.filter((s) => s.value !== home).map((s) => {
+              {SECTIONS.filter((s) => s.value !== home && isProfileOpen(s.value)).map((s) => {
                 const on = picked.includes(s.value);
                 return (
                   <button

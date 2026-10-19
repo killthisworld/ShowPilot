@@ -6,11 +6,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { setPendingAccountType } from "@/lib/pendingAccountType";
+import { isProfileOpen } from "@/lib/hiddenProfiles";
 import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, AuthFoot } from "@/components/showpilot/AuthShell";
 
 // Colors come from accountTypeStyle so a role looks the same here as it
 // does everywhere else in the app. "band" is shown as Artist.
-const ROLE_GROUPS = [
+const ALL_ROLE_GROUPS = [
   {
     label: "Event hosts",
     roles: [
@@ -41,6 +42,11 @@ const ROLE_GROUPS = [
     ],
   },
 ];
+// Venue, promoter and booking agent are paused (see lib/hiddenProfiles.js):
+// they are left out here, and a group with nothing left disappears.
+const ROLE_GROUPS = ALL_ROLE_GROUPS
+  .map((g) => ({ ...g, roles: g.roles.filter((r) => isProfileOpen(r.value)) }))
+  .filter((g) => g.roles.length > 0);
 const ROLES = ROLE_GROUPS.flatMap((g) => g.roles);
 const roleColor = (value) => ACCOUNT_TYPE_STYLES[value]?.color || "#8CFF3D";
 
