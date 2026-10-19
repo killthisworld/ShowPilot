@@ -10,6 +10,7 @@ import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TechRail from "@/components/showpilot/TechRail";
+import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 // Lighting tech desktop (1024px+): one numbered TO DO list of the tasks,
 // event updates and unread chats from your shows, worked like a cue list.
@@ -215,7 +216,7 @@ export default function LightingDesk({ shows, accent = "#8CFF3D", preferences, o
     { label: "Event chat", color: "#E879F9", to: `/gig/rooms?token=${cur.share_token}` },
     { label: "Open web", color: "#8CFF3D", to: `/gig/web?token=${cur.share_token}` },
     { label: "Show details", color: "#60A5FA", onClick: () => (curShow ? onOpenShow(curShow) : navigate(`/gig/web?token=${cur.share_token}`)) },
-    { label: "Fan page", color: "#F2FF00", onClick: () => setFanShow(curShow || { id: cur.show_id, share_token: cur.share_token, is_owned: false }) },
+    ...(FAN_SIDE_OPEN ? [{ label: "Fan page", color: "#F2FF00", onClick: () => setFanShow(curShow || { id: cur.show_id, share_token: cur.share_token, is_owned: false }) }] : []),
     { label: "Share crew link", color: "#c6ccd2", onClick: shareCrew, wide: true },
   ] : [];
 

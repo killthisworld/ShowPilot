@@ -26,6 +26,7 @@ import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEventType } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 
 
@@ -965,7 +966,7 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
             </div>
             <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
           </div>
-          <div>
+          {FAN_SIDE_OPEN && <div>
             <Label className="text-white/50 text-xs">Fan page</Label>
             <div className="mt-1 flex items-center gap-3">
               <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: show.fan_page_enabled ? "#8CFF3D" : "rgba(255,255,255,0.45)" }}>{show.fan_page_enabled ? "LIVE" : "OFF"}</span>
@@ -980,7 +981,7 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
             </div>
             <p className="text-white/25 text-[10px] mt-1">{isNew ? "Save the event first." : "Once it's live, a fan page ticket shows on this event's row on Home."}</p>
             {showFanPage && <FanPageSheet showId={id} onClose={closeFanPage} />}
-          </div>
+          </div>}
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />

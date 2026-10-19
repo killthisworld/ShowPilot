@@ -12,6 +12,7 @@ import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TechRail from "@/components/showpilot/TechRail";
 import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
+import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
 // channel strip, grouped by month like console banks, read top to bottom
@@ -467,9 +468,11 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
               <MessageCircle className="w-[18px] h-[18px]" />
               {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
             </Link>
-            <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="h-[38px] rounded-lg flex items-center justify-center text-white hover:brightness-125" style={{ background: btnBg }}>
-              <Ticket className="w-[18px] h-[18px]" />
-            </button>
+            {FAN_SIDE_OPEN && (
+              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="h-[38px] rounded-lg flex items-center justify-center text-white hover:brightness-125" style={{ background: btnBg }}>
+                <Ticket className="w-[18px] h-[18px]" />
+              </button>
+            )}
             <Link to={webTo} aria-label="Open web" title="Open web" className="h-[38px] rounded-lg flex items-center justify-center text-white hover:brightness-125" style={{ background: btnBg }}>
               <WebIcon size={20} />
             </Link>

@@ -46,6 +46,7 @@ import DjTools from '@/pages/DjTools';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
 import { NavTracker } from '@/lib/navHistory';
+import { FAN_SIDE_OPEN } from '@/lib/hiddenProfiles';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -80,11 +81,12 @@ const AuthenticatedApp = () => {
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />
       <Route path="/gig/web" element={<GigWeb />} />
-      <Route path="/rsvp/:token" element={<FanEvent />} />
-      <Route path="/rsvp/:token/sky" element={<EventSky />} />
+      {/* Public fan pages: off while the fan side is switched off (lib/hiddenProfiles.js). */}
+      {FAN_SIDE_OPEN && <Route path="/rsvp/:token" element={<FanEvent />} />}
+      {FAN_SIDE_OPEN && <Route path="/rsvp/:token/sky" element={<EventSky />} />}
       {/* Older links and QR codes that are already out there */}
-      <Route path="/e/:token" element={<FanEvent />} />
-      <Route path="/e/:token/sky" element={<EventSky />} />
+      {FAN_SIDE_OPEN && <Route path="/e/:token" element={<FanEvent />} />}
+      {FAN_SIDE_OPEN && <Route path="/e/:token/sky" element={<EventSky />} />}
       <Route path="/fan/unsubscribe" element={<FanUnsubscribe />} />
       <Route path="/gig/venue" element={<VenueProfile />} />
       <Route path="/gig/role" element={<RoleFullProfile />} />
@@ -115,8 +117,8 @@ const AuthenticatedApp = () => {
       </Route>
       {/* Custom fan links: showpilot.space/<name>. Every real page above wins; this only
           catches a single unknown word, and FanEvent shows "not available" if it isn't one. */}
-      <Route path="/:token" element={<FanEvent />} />
-      <Route path="/:token/sky" element={<EventSky />} />
+      {FAN_SIDE_OPEN && <Route path="/:token" element={<FanEvent />} />}
+      {FAN_SIDE_OPEN && <Route path="/:token/sky" element={<EventSky />} />}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
