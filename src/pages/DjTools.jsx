@@ -1,11 +1,8 @@
 import { createPortal } from "react-dom";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
-import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronRight, Copy, Disc3, ExternalLink, FileAudio,
-  FolderOpen, Loader2, Plus, RefreshCw, Trash2,
-} from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronRight, Copy, Disc3, ExternalLink, FileAudio, FolderOpen, Loader2, Plus, RefreshCw, Trash2, Share2, Save } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
@@ -33,6 +30,39 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
 
+// Opens the phone's share sheet (Messages, WhatsApp, Mail...) where there is one,
+// and copies the text instead everywhere else. Resolves "shared", "copied" or "".
+async function shareText({ title, text, url }) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try { await navigator.share({ title, text, url }); return "shared"; }
+    catch (e) { if (e?.name === "AbortError") return ""; }
+  }
+  return (await copyText([text, url].filter(Boolean).join("\n"))) ? "copied" : "";
+}
+
+// Saves a text field a moment after typing stops, saves it for certain when
+// the box closes, and reports whether it has unsaved changes so the page can
+// show a Save button that flushes everything at once.
+function useAutosave({ id, value, saved, save, report, register, delay = 800 }) {
+  const latest = useRef({ value, saved, save });
+  latest.current = { value, saved, save };
+  const dirty = String(value).trim() !== String(saved).trim();
+  const flush = useCallback(async () => {
+    const { value: v, saved: sv, save: sf } = latest.current;
+    if (String(v).trim() !== String(sv).trim()) await sf(v);
+  }, []);
+  useEffect(() => { report(id, dirty); }, [dirty, id, report]);
+  useEffect(() => { register(id, flush); return () => register(id, null); }, [id, flush, register]);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const t = setTimeout(flush, delay);
+    return () => clearTimeout(t);
+  }, [value, dirty, flush, delay]);
+  // Leaving the page or closing the box with something still unsaved.
+  useEffect(() => () => { flush(); }, [flush]);
+  return dirty;
+}
+
 // DJ Tools: connect Google Drive, make a set link per event, build the running
 // order, send each artist their own link, and see what's come in.
 // `embedded` shows it as a box over the event (opened from the Artist web's DJ
@@ -55,19 +85,19 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
     driveCall("status").then((d) => setDrive({ ...d, loading: false })).catch((e) => setDrive({ loading: false, error: e.message }));
   }, []);
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (initial = false) => {
     const { data, error: e } = await supabase.from("dj_set_requests").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at");
     if (e) { setError("Couldn't load your set links."); return; }
     setRequests(data || []);
     const qs = new URLSearchParams(window.location.search);
     const wanted = qs.get("event");
     // Coming from an event's DJ Tools corner: open that event's set link, or
-    // start one for it.
-    const fromShow = showId || qs.get("show");
+    // start one for it. Only the first time, so Refresh never moves you.
+    const fromShow = initial ? (showId || qs.get("show")) : null;
     const forShow = fromShow ? data?.find((r) => r.show_id === fromShow) : null;
     if (fromShow && !forShow) { setNewForShow(fromShow); setCreating(true); }
     setSelectedId((cur) => forShow ? forShow.id : cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
-  }, []);
+  }, [showId]);
 
   const loadSlots = useCallback(async (requestId) => {
     if (!requestId) { setSlots([]); setFiles({}); return; }
@@ -85,7 +115,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
   useEffect(() => {
     (async () => {
       loadDrive();
-      await loadRequests();
+      await loadRequests(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase.from("shows").select("id, event_name, band_name, date, venue").eq("owner_id", user.id)
@@ -106,6 +136,21 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
   }, [selectedId, loadSlots]);
 
   const selected = requests.find((r) => r.id === selectedId) || null;
+
+  // Refresh brings in new submissions and the status of every link on the list.
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([loadRequests(false), loadSlots(selectedId)]);
+    setUpdatedAt(new Date());
+    setTimeout(() => setRefreshing(false), 400);
+  }, [loadRequests, loadSlots, selectedId]);
+  // ...and it happens by itself every half minute while the page is showing.
+  useEffect(() => {
+    const t = setInterval(() => { if (document.visibilityState === "visible" && selectedId) loadSlots(selectedId); }, 30000);
+    return () => clearInterval(t);
+  }, [selectedId, loadSlots]);
 
   const connectDrive = async () => {
     try { const { url } = await driveCall("start", { return_to: returnTo || "/dj" }); window.location.assign(url); }
@@ -166,10 +211,12 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
     await Promise.all(next.map((s, k) => supabase.from("dj_set_slots").update({ position: k + 1 }).eq("id", s.id)));
   };
 
-  const copyAll = async () => {
+  const allLinksText = () => {
     const lines = slots.map((s, i) => `${i + 1}. ${s.artist_name || "Artist"}${s.set_start ? ` (${s.set_start}${s.set_end ? `–${s.set_end}` : ""})` : ""}: ${slotLink(s.token)}`);
-    return copyText(`${selected.title}: send your set here\n\n${lines.join("\n")}`);
+    return `${selected.title}: send your set here\n\n${lines.join("\n")}`;
   };
+  const copyAll = async () => copyText(allLinksText());
+  const shareAll = async () => shareText({ title: `${selected.title}: send your set`, text: allLinksText() });
 
   const back = () => (embedded ? onClose?.() : goBack());
   useEffect(() => {
@@ -237,7 +284,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
             <RequestDetail
               key={selected.id} request={selected} slots={slots} files={files} driveConnected={!!drive.connected}
               onUpdate={updateRequest} onDelete={deleteRequest} onAddSlot={addSlot} onUpdateSlot={updateSlot}
-              onRemoveSlot={removeSlot} onMoveSlot={moveSlot} onCopyAll={copyAll} onRefresh={() => loadSlots(selected.id)}
+              onRemoveSlot={removeSlot} onMoveSlot={moveSlot} onCopyAll={copyAll} onShareAll={shareAll} onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt}
             />
           ) : null}
         </main>
@@ -324,12 +371,30 @@ function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
   );
 }
 
-function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDelete, onAddSlot, onUpdateSlot, onRemoveSlot, onMoveSlot, onCopyAll, onRefresh }) {
+function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDelete, onAddSlot, onUpdateSlot, onRemoveSlot, onMoveSlot, onCopyAll, onShareAll, onRefresh, refreshing, updatedAt }) {
   const [title, setTitle] = useState(request.title);
   const [note, setNote] = useState(request.note || "");
   const [venue, setVenue] = useState(request.venue || "");
   const [copiedAll, setCopiedAll] = useState(false);
+  const [sharedAll, setSharedAll] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Everything typed on this page saves by itself; Save makes it certain.
+  const [dirtyMap, setDirtyMap] = useState({});
+  const flushers = useRef({});
+  const reportDirty = useCallback((id, d) => setDirtyMap((m) => (!!m[id] === d ? m : { ...m, [id]: d })), []);
+  const register = useCallback((id, fn) => { if (fn) flushers.current[id] = fn; else delete flushers.current[id]; }, []);
+  const [saveState, setSaveState] = useState("idle");
+  const anyDirty = Object.values(dirtyMap).some(Boolean);
+  const saveAll = async () => {
+    setSaveState("saving");
+    await Promise.all(Object.values(flushers.current).map((fn) => fn()));
+    setSaveState("saved");
+    setTimeout(() => setSaveState("idle"), 2000);
+  };
+  const auto = { report: reportDirty, register };
+  useAutosave({ id: "title", value: title, saved: request.title, save: (v) => v.trim() && onUpdate({ title: v.trim() }), ...auto });
+  useAutosave({ id: "venue", value: venue, saved: request.venue || "", save: (v) => onUpdate({ venue: v.trim() || null }), ...auto });
+  useAutosave({ id: "note", value: note, saved: request.note || "", save: (v) => onUpdate({ note: v.trim() || null }), ...auto });
   const counts = useMemo(() => ({
     submitted: slots.filter((s) => s.status === "submitted").length,
     total: slots.length,
@@ -342,23 +407,30 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
       <div className="rounded-2xl border border-[#222] bg-[#121212] p-5 grid gap-3">
         <div className="flex flex-wrap items-start gap-3">
           <input id="req-title" className={`${input} text-2xl font-bold flex-1 min-w-[240px]`} maxLength={120} value={title}
-            onChange={(e) => setTitle(e.target.value)} onBlur={() => title.trim() && title !== request.title && onUpdate({ title: title.trim() })} />
+            onChange={(e) => setTitle(e.target.value)} />
           {request.drive_folder_id && (
             <a href={folderUrl(request.drive_folder_id)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#2a2a2a] text-white/80 hover:text-white text-sm font-semibold">
               <FolderOpen className="w-4 h-4" /> Event folder in Drive
             </a>
           )}
+          <button type="button" onClick={saveAll} disabled={saveState === "saving"} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold tracking-[0.04em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+            {saveState === "saved" ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {saveState === "saved" ? "SAVED" : saveState === "saving" ? "SAVING..." : "SAVE"}
+          </button>
         </div>
+        <p className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: anyDirty ? AMBER : "rgba(255,255,255,0.4)" }}>
+          {anyDirty ? "UNSAVED CHANGES · SAVING..." : "EVERYTHING IS SAVED. CHANGES SAVE AS YOU TYPE."}
+        </p>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="grid gap-1"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>DATE</span>
             <input id="req-date" type="date" className={input} value={request.event_date || ""} onChange={(e) => onUpdate({ event_date: e.target.value || null })} /></label>
           <label className="grid gap-1"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>VENUE</span>
-            <input id="req-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} onBlur={() => venue !== (request.venue || "") && onUpdate({ venue: venue.trim() || null })} /></label>
+            <input id="req-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} /></label>
           <label className="grid gap-1"><span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: overdue ? RED : "rgba(255,255,255,0.45)" }}>SETS DUE BY{overdue ? " · OVERDUE" : ""}</span>
             <input id="req-due" type="datetime-local" className={input} value={toLocalInput(request.due_at)} onChange={(e) => onUpdate({ due_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
         </div>
         <label className="grid gap-1"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NOTE FOR EVERY ARTIST</span>
-          <textarea id="req-note" rows={2} maxLength={2000} className={input} value={note} onChange={(e) => setNote(e.target.value)} onBlur={() => note !== (request.note || "") && onUpdate({ note: note.trim() || null })}
+          <textarea id="req-note" rows={2} maxLength={2000} className={input} value={note} onChange={(e) => setNote(e.target.value)}
             placeholder="e.g. 48 kHz / 24-bit please, tracks named in play order" /></label>
         {!driveConnected && (
           <p className="text-sm" style={{ color: AMBER }}>Connect Google Drive (top right) so artists can send WAVs. Until then they can only fill in track lists.</p>
@@ -370,11 +442,18 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           <h2 className="text-2xl font-bold leading-none">Running order</h2>
           <span className="text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>{counts.submitted}/{counts.total} SUBMITTED</span>
           <div className="ml-auto flex flex-wrap gap-2">
-            <button type="button" onClick={onRefresh} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-white/70 hover:text-white text-sm"><RefreshCw className="w-3.5 h-3.5" /> Refresh</button>
+            {updatedAt && <span className="self-center text-[10px] tracking-[0.08em] text-white/35" style={{ fontFamily: SCENE_MONO }}>UPDATED {updatedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toUpperCase()}</span>}
+            <button type="button" onClick={onRefresh} disabled={refreshing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-white/70 hover:text-white text-sm disabled:opacity-60"><RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} /> {refreshing ? "Refreshing" : "Refresh"}</button>
             {slots.length > 0 && (
               <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold" style={{ borderColor: DJ_COLOR + "66", color: DJ_COLOR }}>
                 {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
+              </button>
+            )}
+            {slots.length > 0 && (
+              <button type="button" onClick={async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold" style={{ borderColor: DJ_COLOR + "66", color: DJ_COLOR }}>
+                {sharedAll ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />} {sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all"}
               </button>
             )}
           </div>
@@ -383,7 +462,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         {slots.length === 0 && <p className="text-white/45 text-sm py-2">Add each artist in the order they play. Every artist gets their own link.</p>}
         <ol className="flex flex-col gap-2">
           {slots.map((s, i) => (
-            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files}
+            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} auto={auto}
               onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)} />
           ))}
         </ol>
@@ -407,15 +486,17 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   );
 }
 
-function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
+function SlotRow({ s, i, count, files, eventTitle, auto, onUpdate, onRemove, onMove }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(s.artist_name || "");
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState("");
+  useAutosave({ id: `slot-${s.id}`, value: name, saved: s.artist_name || "", save: (v) => onUpdate({ artist_name: v.trim() }), ...auto });
   const st = STATUS[s.status] || STATUS.waiting;
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
   const withFiles = tracks.filter((t) => t.file_id && files[t.file_id]);
   const total = withFiles.reduce((sum, t) => sum + (Number(files[t.file_id].duration_sec) || 0), 0);
-  const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[76px] tabular-nums outline-none focus:border-[#8CFF3D]/60";
+  const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[118px] min-w-[118px] shrink-0 tabular-nums outline-none focus:border-[#8CFF3D]/60";
 
   return (
     <li className="rounded-xl border border-[#222] bg-[#161616]">
@@ -426,7 +507,7 @@ function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
         </div>
         <span className="text-lg font-bold tabular-nums w-7" style={{ color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>
         <input id={`slot-name-${s.id}`} className="bg-[#0d0d0d] border border-[#262626] rounded-md px-2.5 py-1.5 text-white font-semibold flex-1 min-w-[160px] outline-none focus:border-[#8CFF3D]/60"
-          placeholder="Artist name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== s.artist_name && onUpdate({ artist_name: name.trim() })} />
+          placeholder="Artist name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
         <input id={`slot-start-${s.id}`} type="time" aria-label="Set starts" className={timeIn} value={s.set_start || ""} onChange={(e) => onUpdate({ set_start: e.target.value || null })} />
         <span className="text-white/30">–</span>
         <input id={`slot-end-${s.id}`} type="time" aria-label="Set ends" className={timeIn} value={s.set_end || ""} onChange={(e) => onUpdate({ set_end: e.target.value || null })} />
@@ -435,6 +516,10 @@ function SlotRow({ s, i, count, files, onUpdate, onRemove, onMove }) {
         <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border" style={{ borderColor: G + "55", color: G }}>
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied ? "Copied" : "Copy link"}
+        </button>
+        <button type="button" onClick={async () => { const r = await shareText({ title: `${eventTitle}: send your set`, text: `${eventTitle}: send your set here${name ? ` (${name})` : ""}`, url: slotLink(s.token) }); if (r) { setShared(r); setTimeout(() => setShared(""), 1500); } }}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border" style={{ borderColor: DJ_COLOR + "66", color: DJ_COLOR }}>
+          {shared ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />} {shared === "copied" ? "Copied" : shared ? "Shared" : "Share"}
         </button>
         <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="p-1.5 text-white/50 hover:text-white">{open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</button>
       </div>
