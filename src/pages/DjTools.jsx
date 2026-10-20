@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -34,7 +35,10 @@ async function copyText(text) {
 
 // DJ Tools: connect Google Drive, make a set link per event, build the running
 // order, send each artist their own link, and see what's come in.
-export default function DjTools() {
+// `embedded` shows it as a box over the event (opened from the Artist web's DJ
+// Tools corner) instead of a page: `showId` picks that event's set link, `onClose`
+// is the back button, and `returnTo` is where Google sends you after connecting.
+export default function DjTools({ embedded = false, showId = null, onClose, returnTo = null }) {
   const navigate = useNavigate(); const goBack = useGoBack();
   const [drive, setDrive] = useState({ loading: true });
   const [requests, setRequests] = useState([]);
@@ -59,7 +63,7 @@ export default function DjTools() {
     const wanted = qs.get("event");
     // Coming from an event's DJ Tools corner: open that event's set link, or
     // start one for it.
-    const fromShow = qs.get("show");
+    const fromShow = showId || qs.get("show");
     const forShow = fromShow ? data?.find((r) => r.show_id === fromShow) : null;
     if (fromShow && !forShow) { setNewForShow(fromShow); setCreating(true); }
     setSelectedId((cur) => forShow ? forShow.id : cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
@@ -104,7 +108,7 @@ export default function DjTools() {
   const selected = requests.find((r) => r.id === selectedId) || null;
 
   const connectDrive = async () => {
-    try { const { url } = await driveCall("start", { return_to: "/dj" }); window.location.assign(url); }
+    try { const { url } = await driveCall("start", { return_to: returnTo || "/dj" }); window.location.assign(url); }
     catch (e) { setError(e.message); }
   };
   const disconnectDrive = async () => {
@@ -167,12 +171,28 @@ export default function DjTools() {
     return copyText(`${selected.title}: send your set here\n\n${lines.join("\n")}`);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><Loader2 className="w-6 h-6 text-[#8CFF3D] animate-spin" /></div>;
+  const back = () => (embedded ? onClose?.() : goBack());
+  useEffect(() => {
+    if (!embedded) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [embedded, onClose]);
+  const box = (children) => (embedded
+    ? createPortal(
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6 bg-black/75" onClick={onClose} role="dialog" aria-modal="true" aria-label="DJ Tools">
+          <div className="w-full max-w-[1100px] h-[min(94vh,900px)] overflow-y-auto bg-[#0d0d0d] border border-[#2a2a2a] rounded-[18px]" onClick={(e) => e.stopPropagation()}>{children}</div>
+        </div>,
+        document.body,
+      )
+    : children);
 
-  return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white" style={{ fontFamily: SCENE_FONT }}>
+  if (loading) return box(<div className={`${embedded ? "h-full min-h-[300px]" : "min-h-screen"} bg-[#0d0d0d] flex items-center justify-center`}><Loader2 className="w-6 h-6 text-[#8CFF3D] animate-spin" /></div>);
+
+  return box(
+    <div className={`${embedded ? "" : "min-h-screen"} bg-[#0d0d0d] text-white`} style={{ fontFamily: SCENE_FONT }}>
       <header className="flex flex-wrap items-center gap-4 px-6 py-3 border-b border-[#1a1a1a]">
-        <button type="button" onClick={() => goBack()} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
+        <button type="button" onClick={back} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
         <Disc3 className="w-7 h-7" style={{ color: DJ_COLOR }} />
         <div>
           <h1 className="text-3xl font-bold leading-none tracking-wide">DJ Tools</h1>
@@ -222,7 +242,7 @@ export default function DjTools() {
           ) : null}
         </main>
       </div>
-    </div>
+    </div>,
   );
 }
 

@@ -27,6 +27,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
 import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
+import DjTools from "@/pages/DjTools";
 import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 
 // Short console-style codes for the role channel buttons.
@@ -277,6 +278,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
   // Which profile / page the main space should jump to, and open.
   const [focus, setFocus] = useState({ role: null, key: null, n: 0 });
+  // DJ Tools opens as a box over the event, so closing it lands back on the Artist web.
+  const [djOpen, setDjOpen] = useState(() => !tokenProp && params.get("dj") === "1");
   const selectRole = (role, key = null) => {
     const apply = () => {
       setSelectedRole(role);
@@ -489,6 +492,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
   const overlays = (
     <>
+      {djOpen && gig?.id && (
+        <DjTools embedded showId={gig.id} returnTo={`/gig/web?token=${token}&role=band&dj=1`} onClose={() => setDjOpen(false)} />
+      )}
       {openTask && (
         <TaskSheet
           task={openTask}
@@ -572,7 +578,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
-        onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type}
+        onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type} openDj={() => setDjOpen(true)}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
     );
@@ -769,6 +775,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               onBack={() => selectRole(null)}
               homeIcon={myIcon}
               onOpenFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
+              onOpenDj={() => setDjOpen(true)}
               focus={focus}
               ownerType={preferences?.account_type}
               isOwner={!!permissions?.is_owner}
@@ -792,7 +799,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // on each profile as their own page. Each section (venue, manager, audio) has
 // its own copy of the data and its own SAVE, so Manager and Artist share one,
 // and Audio and Lighting share one.
-function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, focus, ownerType, isOwner, onAddTask, showInvite = true }) {
+function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true }) {
   const pv = useRoleProfile({ role: "venue", token, onChanged });
   const pm = useRoleProfile({ role: "manager", token, onChanged });
   const pe = useRoleProfile({ role: "engineer", token, onChanged });
@@ -853,262 +860,10 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, le
           homeIcon={homeIcon}
           onOpenRole={selectRole}
           onOpenFanPage={onOpenFanPage}
+          onOpenDj={onOpenDj}
           onInvite={showInvite && byRole[role].editable ? () => invite.openInvite(inviteKeyOf(role), SECTION_LABELS[role]) : null}
         />
       ))}
-      <InviteModal
-        inviteFor={invite.inviteFor}
-        inviteRoleChoice={invite.inviteRoleChoice}
-        inviteUrl={invite.inviteUrl}
-        inviteCopied={invite.inviteCopied}
-        generatingInvite={invite.generatingInvite}
-        onClose={invite.closeInvite}
-        onChooseEngineerRole={invite.chooseEngineerRole}
-        onGenerate={invite.generateInvite}
-        onCopy={invite.copyInviteUrl}
-        onShare={invite.shareInviteUrl}
-      />
-    </div>
-  );
-}
-
-// A company profile's own web: loads the section (useRoleProfile) and hands
-// it to RoleWorkspace's "web" layout, which spins its tabs into `webSlot`
-// (the hub's place on the page) and renders the open tab here. Keyed by
-// role, so switching profiles starts fresh.
-function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpenRole, onOpenFanPage, showContent = true, showInvite = true, initialTab = null, homeIcon = null }) {
-  const p = useRoleProfile({ role: sectionOf(role), token, onChanged });
-  const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
-  const ready = !(p.loading || p.checkingAuth || p.notFound || !p.gig);
-  const color = ACCOUNT_TYPE_STYLES[role]?.color || "#8CFF3D";
-
-  const goSignIn = (toRegister) => {
-    const currentPath = window.location.pathname + window.location.search;
-    try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
-    window.location.href = `${toRegister ? "/register" : "/login"}?redirect=${encodeURIComponent(currentPath)}`;
-  };
-
-  if (!ready) {
-    // While the section loads, hold the web's place with its center circle
-    // (no spinner), so closing one web and opening the next reads as one move.
-    const placeholder = (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="rounded-full animate-pulse" style={{ width: "33%", height: "33%", background: tintOnDark(color, 0.12), border: `2px solid ${color}66` }} />
-      </div>
-    );
-    return (
-      <>
-        {webSlot && createPortal(placeholder, webSlot)}
-        {showContent && (p.notFound ? <p className="text-white/40 text-sm text-center py-6">Couldn't load this section.</p> : <div className="py-8" />)}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {showContent && ((showInvite && p.editable) || !p.user) && (
-        <div className="flex flex-wrap justify-end gap-2 mb-3">
-          {!p.user && (
-            <>
-              <button type="button" onClick={() => goSignIn(false)} className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-white/25 text-white/75 hover:text-white">Sign in</button>
-              <button type="button" onClick={() => goSignIn(true)} className="text-[11px] font-bold px-3 py-1.5 rounded-full text-[#0d0d0d]" style={{ background: color }}>Create account</button>
-            </>
-          )}
-          {showInvite && p.editable && (
-            <button type="button" onClick={() => invite.openInvite(inviteKeyOf(role), SECTION_LABELS[role])}
-              className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
-              <UserPlus className="w-3.5 h-3.5" /> Invite
-            </button>
-          )}
-        </div>
-      )}
-      <RoleWorkspace
-        layout="web"
-        role={role}
-        p={p}
-        homeIcon={homeIcon}
-        webSlot={webSlot}
-        leaving={leaving}
-        onBack={onBack}
-        onOpenRole={onOpenRole}
-        onOpenFanPage={onOpenFanPage}
-        showContent={showContent}
-        initialTab={initialTab}
-      />
-      <InviteModal
-        inviteFor={invite.inviteFor}
-        inviteRoleChoice={invite.inviteRoleChoice}
-        inviteUrl={invite.inviteUrl}
-        inviteCopied={invite.inviteCopied}
-        generatingInvite={invite.generatingInvite}
-        onClose={invite.closeInvite}
-        onChooseEngineerRole={invite.chooseEngineerRole}
-        onGenerate={invite.generateInvite}
-        onCopy={invite.copyInviteUrl}
-        onShare={invite.shareInviteUrl}
-      />
-    </>
-  );
-}
-
-// The Profile tab for a selected role - the full editable
-// fields/documents/requirements body (RoleFullProfile.jsx's, mounted here
-// as its own independent copy via the shared hook), collapsed behind an
-// "Open Full Profile" button by default so landing on a role doesn't drop
-// straight into a long form. `expanded`/`setExpanded` are lifted to Gig
-// Web itself so selecting a different role always resets back to
-// collapsed. `onChanged` refetches Gig Web's own gig/progress so the
-// web's rings and the overview board never sit stale after a save made
-// right here. That role's open tasks live on their own Tasks tab now,
-// not here - see TasksTabPanel below.
-function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded, onOpenWorkspace, compact }) {
-  const p = useRoleProfile({ role, token, onChanged });
-  // Invite is offered to the same people who can already edit this
-  // section - the owner, or whoever holds/was granted it - so a manager
-  // or venue already in the seat can bring in a co-contact without
-  // routing every invite through the owner.
-  const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
-  const inviteSectionKey = inviteKeyOf(role);
-  const isDesktop = useIsDesktop();
-  const opensOwnWindow = isDesktop && role !== "engineer";
-
-  const goSignIn = (toRegister) => {
-    const currentPath = window.location.pathname + window.location.search;
-    try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
-    window.location.href = `${toRegister ? "/register" : "/login"}?redirect=${encodeURIComponent(currentPath)}`;
-  };
-
-  if (p.loading || p.checkingAuth) {
-    return (
-      <div className="flex justify-center py-8">
-        <div className="w-5 h-5 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (p.notFound || !p.gig) {
-    return <p className="text-white/40 text-sm text-center py-6">Couldn't load this section.</p>;
-  }
-
-  const inviteModal = (
-    <InviteModal
-      inviteFor={invite.inviteFor}
-      inviteRoleChoice={invite.inviteRoleChoice}
-      inviteUrl={invite.inviteUrl}
-      inviteCopied={invite.inviteCopied}
-      generatingInvite={invite.generatingInvite}
-      onClose={invite.closeInvite}
-      onChooseEngineerRole={invite.chooseEngineerRole}
-      onGenerate={invite.generateInvite}
-      onCopy={invite.copyInviteUrl}
-      onShare={invite.shareInviteUrl}
-    />
-  );
-
-  // Desktop board header: just two small buttons, so the board's space
-  // goes to the tasks instead of one big "open workspace" block.
-  if (compact) {
-    return (
-      <div className="flex items-center gap-2">
-        {p.editable && (
-          <button type="button" onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
-            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
-            <UserPlus className="w-3.5 h-3.5" /> Invite
-          </button>
-        )}
-        {opensOwnWindow ? (
-          <button type="button" onClick={() => onOpenWorkspace?.(role)}
-            className="flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-full border hover:brightness-125"
-            style={{ borderColor: `${color}73`, background: `${color}14`, color }}>
-            {p.editable ? "Open workspace" : "See where they're at"} <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        ) : (
-          <button type="button" onClick={() => setExpanded(true)}
-            className="flex items-center gap-1 text-[12px] font-bold px-3 py-1.5 rounded-full border border-white/20 text-white/70 hover:text-white">
-            Open full profile <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        )}
-        {inviteModal}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {p.editable && (
-        <div className="flex justify-end mb-3">
-          <button
-            type="button"
-            onClick={() => invite.openInvite(inviteSectionKey, SECTION_LABELS[role])}
-            className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors"
-          >
-            <UserPlus className="w-3 h-3" /> Invite
-          </button>
-        </div>
-      )}
-
-      {expanded ? (
-        <div className="pt-4 border-t border-[#1f1f1f]">
-          <RoleProfileBody
-            role={role}
-            token={token}
-            gig={p.gig}
-            permissions={p.permissions}
-            user={p.user}
-            editable={p.editable}
-            canEdit={p.canEdit}
-            update={p.update}
-            updateSection={p.updateSection}
-            updateEngineerRole={p.updateEngineerRole}
-            updateBand={p.updateBand}
-            addBand={p.addBand}
-            removeBand={p.removeBand}
-            expandedBands={p.expandedBands}
-            toggleExpanded={p.toggleExpanded}
-            addRequirement={p.addRequirement}
-            updateRequirementStatus={p.updateRequirementStatus}
-            deleteRequirement={p.deleteRequirement}
-            iemMonitorColors={p.iemMonitorColors}
-            onSignIn={goSignIn}
-          />
-          {p.editable && (
-            <button
-              onClick={p.handleSave}
-              disabled={p.saving}
-              className="w-full mt-4 font-bold text-sm rounded-2xl px-4 py-3 disabled:opacity-50"
-              style={{ background: color, color: "#0d0d0d" }}
-            >
-              {p.saved ? "Saved ✓" : p.saving ? "Saving..." : "Save"}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="w-full mt-3 text-white/40 hover:text-white text-xs font-semibold py-2 text-center transition-colors"
-          >
-            Show summary only
-          </button>
-        </div>
-      ) : opensOwnWindow ? (
-        // Desktop company roles: the section opens as its own workspace
-        // in a separate window, so this board stays the bulletin overview.
-        <button
-          type="button"
-          onClick={() => (onOpenWorkspace ? onOpenWorkspace(role) : window.open(`/gig/role?token=${token}&role=${role}`, `showpilot-${token}-${role}`))}
-          className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold rounded-2xl px-4 py-3 border transition-colors hover:brightness-125"
-          style={{ borderColor: `${color}73`, background: `${color}14`, color }}
-        >
-          {p.editable ? `Open ${SECTION_LABELS[role]} workspace` : `See where ${SECTION_LABELS[role]} is at`} {onOpenWorkspace ? <ChevronRight className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="w-full flex items-center justify-center gap-1.5 text-sm font-semibold rounded-2xl px-4 py-3 border border-white/15 text-white/70 hover:text-white hover:border-white/30 transition-colors"
-        >
-          Open Full Profile <ChevronRight className="w-4 h-4" />
-        </button>
-      )}
-
       <InviteModal
         inviteFor={invite.inviteFor}
         inviteRoleChoice={invite.inviteRoleChoice}
@@ -1845,18 +1600,10 @@ function DesktopGigWeb({
   gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
   token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
   profileExpanded, setProfileExpanded, roleWeb, hubM, leaving, webSlot, setWebSlot, openFanPage,
-  onOpenTask, focus = { role: null, key: null, n: 0 }, ownerType,
+  onOpenTask, focus = { role: null, key: null, n: 0 }, ownerType, openDj,
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
-  // Clicking a profile on the web opens its bulletin board here. Its
-  // workspace pops up over the board (like the Fan page editor) only from
-  // the board's "Open workspace" button; closing it lands back on that board.
-  const [workspaceRole, setWorkspaceRole] = useState(null);
-  const switchWorkspace = (role) => {
-    selectRole(role);
-    setWorkspaceRole(role === "engineer" ? null : role);
-  };
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
   const roleTasks = selectedRole ? openTasks.filter((t) => t.section === sectionOf(selectedRole)) : openTasks;
   const canDo = selectedRole && roleEditable(selectedRole, permissions);
@@ -1956,6 +1703,7 @@ function DesktopGigWeb({
                   onBack={() => selectRole(null)}
                   homeIcon={myIcon}
                   onOpenFanPage={openFanPage}
+                  onOpenDj={openDj}
                   focus={focus}
                   ownerType={ownerType}
                   isOwner={isOwner}
@@ -1984,37 +1732,7 @@ function DesktopGigWeb({
         </div>
       </div>
       {overlays}
-      {workspaceRole && (
-        <RoleWorkspaceModal
-          key={workspaceRole}
-          role={workspaceRole}
-          token={token}
-          onChanged={loadGig}
-          onClose={() => setWorkspaceRole(null)}
-          onOpenRole={switchWorkspace}
-        />
-      )}
     </div>
   );
 }
 
-// The role workspace as a pop-up over the desktop board - its own copy
-// of the section's data (useRoleProfile), refreshing the board on save.
-function RoleWorkspaceModal({ role, token, onChanged, onClose, onOpenRole }) {
-  const p = useRoleProfile({ role, token, onChanged });
-  if (p.loading || p.checkingAuth || p.notFound || !p.gig) {
-    return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/65" onClick={onClose} />
-        <div className="relative w-full max-w-[1320px] h-[min(94vh,880px)] flex items-center justify-center bg-[#0d0d0d] border border-[#2a2a2a] rounded-[18px]">
-          {p.loading || p.checkingAuth ? (
-            <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
-          ) : (
-            <p className="text-white/40 text-sm">Couldn't load this section.</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-  return <RoleWorkspace modal role={role} p={p} onClose={onClose} onOpenRole={onOpenRole} />;
-}

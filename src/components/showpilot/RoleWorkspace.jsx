@@ -148,7 +148,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -743,7 +743,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             activeKey={active}
             onPick={(k) => reveal(k)}
             dcas={role === "band"
-              ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null]
+              ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null]
               : role === "manager"
                 ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
                 : []}
@@ -813,7 +813,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   if (layout === "web") {
     // Features (DCAs) sit in the web's four corners; empty corners are open slots.
     const dcas = role === "band"
-      ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null]
+      ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null]
       : role === "manager"
         ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
         : [];
