@@ -75,6 +75,16 @@ function roleFill(role, gig, percentOf) {
 
 const SECTION_LABELS = WEB_LABELS;
 
+// What the invite sheet calls each section.
+const inviteKeyOf = (role) => (sectionOf(role) === "engineer" ? "engineer_lighting" : sectionOf(role));
+
+// The three sections an event's tasks can be filed under.
+const TASK_SECTIONS = [
+  { role: "venue", label: "Venue" },
+  { role: "manager", label: "Manager / Artist" },
+  { role: "engineer", label: "Audio / Lighting" },
+];
+
 function roleClaimed(role, permissions) {
   return !!permissions?.claimed_roles?.some((r) => HOLDERS[role].includes(r));
 }
@@ -847,7 +857,7 @@ function RoleWebPanel({ role, token, onChanged, webSlot, leaving, onBack, onOpen
             </>
           )}
           {showInvite && p.editable && (
-            <button type="button" onClick={() => invite.openInvite(role, SECTION_LABELS[role])}
+            <button type="button" onClick={() => invite.openInvite(inviteKeyOf(role), SECTION_LABELS[role])}
               className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
               <UserPlus className="w-3.5 h-3.5" /> Invite
             </button>
@@ -900,7 +910,7 @@ function ProfileTabPanel({ role, token, onChanged, color, expanded, setExpanded,
   // or venue already in the seat can bring in a co-contact without
   // routing every invite through the owner.
   const invite = useGigInvite({ gigId: p.gig?.id, user: p.user });
-  const inviteSectionKey = role === "engineer" ? "engineer_lighting" : role;
+  const inviteSectionKey = inviteKeyOf(role);
   const isDesktop = useIsDesktop();
   const opensOwnWindow = isDesktop && role !== "engineer";
 
@@ -1405,7 +1415,7 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes, o
     if (!title.trim() || !section || submitting) return;
     setSubmitting(true);
     try {
-      await onAddTask(section, title.trim(), details);
+      await onAddTask(sectionOf(section), title.trim(), details);
       setTitle("");
       setDetails("");
       setAdding(false);
@@ -1449,19 +1459,22 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes, o
             className="w-full bg-[#111] border border-[#222] rounded-lg px-3 py-2 text-white text-sm leading-snug placeholder:text-white/25 outline-none focus:border-[#333]"
           />
           <div className="flex items-center gap-1.5 flex-wrap">
-            {nodes.map((n) => (
-              <button
-                key={n.role}
-                type="button"
-                onClick={() => setSection(n.role)}
-                className="text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors"
-                style={section === n.role
-                  ? { color: n.style.color, background: n.style.color + "22", borderColor: n.style.color + "60" }
-                  : { color: "rgba(255,255,255,0.4)", borderColor: "#222" }}
-              >
-                {n.style.label}
-              </button>
-            ))}
+            {TASK_SECTIONS.map((t) => {
+              const c = ACCOUNT_TYPE_STYLES[t.role]?.color || "#8CFF3D";
+              return (
+                <button
+                  key={t.role}
+                  type="button"
+                  onClick={() => setSection(t.role)}
+                  className="text-[10px] font-semibold px-2 py-1 rounded-full border transition-colors"
+                  style={section === t.role
+                    ? { color: c, background: c + "22", borderColor: c + "60" }
+                    : { color: "rgba(255,255,255,0.4)", borderColor: "#222" }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => { setAdding(false); setTitle(""); setDetails(""); }} className="text-white/40 hover:text-white text-xs font-semibold px-2 py-1">
