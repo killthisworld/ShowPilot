@@ -28,6 +28,7 @@ import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
 import MyTemplates from '@/pages/MyTemplates';
+import VenueRecords from '@/pages/VenueRecords';
 import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
@@ -108,6 +109,7 @@ const AuthenticatedApp = () => {
         {/* Old single-template page; templates for every profile live in My Templates now. */}
         <Route path="/band-profile" element={<Navigate to="/my-templates" replace />} />
         <Route path="/my-templates" element={<MyTemplates />} />
+        <Route path="/records" element={<VenueRecords />} />
         <Route path="/event/new" element={<NewEventForNonTech />} />
         <Route path="/logbook" element={<Logbook />} />
         <Route path="/eventbrite/callback" element={<EventbriteCallback />} />

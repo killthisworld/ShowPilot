@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Link2, Archive } from "lucide-react";
+import { Menu, User, LogOut, Star, Link2, Archive, FileArchive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -128,6 +128,8 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
         { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
         { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
         { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/my-templates"); } },
+        // Venue business records (job 104): agreements, riders, advance, insurance.
+        ...(prefs?.account_type === "venue" ? [{ icon: FileArchive, label: "Records", sub: "Agreements, riders, advance and insurance from your events", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/records"); } }] : []),
         // DJ Tools isn't listed here: it lives on the Manager / Artist
         // profile web (its DJ Tools feature corner -> Lineup & set times).
       ]}

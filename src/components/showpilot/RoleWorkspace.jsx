@@ -11,6 +11,9 @@ import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
+import EventDeal, { dealTabState, dealTabSummary } from "@/components/showpilot/EventDeal";
+import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
+import { useEventBusiness } from "@/lib/eventBusiness";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -169,6 +172,27 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const mi = gig.manager_info || {};
   const setMi = (k, v) => p.updateSection("manager_info", k, v);
   const ei = gig.engineer_info || {};
+
+  // Business pages (job 104): the deal and the paperwork. Only the event
+  // owner, the venue side and the manager / artist side get them; the
+  // server decides (get_event_business), crew never see these tabs.
+  const bizOn = !template && !!gig.id && !!p.user && (role === "venue" || role === "manager");
+  const { biz, reload: reloadBiz } = useEventBusiness(bizOn ? gig.id : null, bizOn);
+  const bizTabs = () => {
+    if (!bizOn || !biz?.can_view) return [];
+    const deal = {
+      key: "deal", label: "Deal",
+      summary: dealTabSummary(biz.deal),
+      state: dealTabState(biz.deal),
+      render: () => <EventDeal gig={gig} biz={biz} onChanged={reloadBiz} color={ROLE_COLOR.venue} />,
+    };
+    return [deal, {
+      key: "paperwork", label: "Paperwork",
+      summary: paperworkSummary(biz.records, gig.date),
+      state: paperworkState(biz.records),
+      render: () => <EventPaperwork gig={gig} biz={biz} onChanged={reloadBiz} color={color} />,
+    }];
+  };
 
   const reqs = (section) => (gig.requirements || []).filter((r) => r.section === section);
   const requestsTab = (section) => {
@@ -645,8 +669,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   };
   const tabs = useMemo(
     () => {
-      const list = builders[role]();
+      let list = builders[role]();
       if (template) return list.filter((t) => (TEMPLATE_TABS[role] || []).includes(t.key));
+      const extra = bizTabs();
+      if (extra.length) {
+        const at = list.findIndex((t) => t.key === "requests");
+        list = at === -1 ? [...list, ...extra] : [...list.slice(0, at), ...extra, ...list.slice(at)];
+      }
       // Current tasks: this section's owner-assigned to-dos, with the ones
       // you've claimed first. It sits at the top of the profile's web,
       // ahead of the section's own parts, so the holder sees them first.
@@ -665,7 +694,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       ];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role, gig, ed, p.canEdit]
+    [role, gig, ed, p.canEdit, biz]
   );
   const [active, setActive] = useState(initialTab || null);
   // "pages" layout (the event's main space): this profile is one dropdown, its
