@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, FolderOpen, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
@@ -148,7 +148,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, showContent = true, initialTab = null, template = null, homeIcon = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -668,6 +668,24 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     [role, gig, ed, p.canEdit]
   );
   const [active, setActive] = useState(initialTab || null);
+  // "pages" layout (the event's main space): this profile is one dropdown, its
+  // pages are dropdowns inside it. The web is only a way to reach them.
+  const [blockOpen, setBlockOpen] = useState(!!defaultOpen);
+  const blockRef = useRef(null);
+  const rowRefs = useRef({});
+  const reveal = (key) => {
+    setBlockOpen(true);
+    if (key) setActive(key);
+    setTimeout(() => {
+      const el = (key && rowRefs.current[key]) || blockRef.current;
+      el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 60);
+  };
+  useEffect(() => {
+    if (layout !== "pages" || !focus || !focus.n) return;
+    reveal(focus.key || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.n]);
   // The task summary, for this workspace's tasks (claim / let go / done /
   // details go through useRoleProfile, so the event web refreshes too).
   const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
@@ -709,6 +727,88 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // pointed at any section they hold.
   const mySections = COMPANY_ROLES.filter((r) => p.canEditSection?.(SECTION_OF[r]));
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
+
+  if (layout === "pages") {
+    const dotColor = { done: G, partial: AMBER, empty: "rgba(255,255,255,0.22)" };
+    const real = counted(tabs);
+    const filled = real.filter((t) => t.state === "done").length;
+    const openTaskCount = (gig.tasks || []).filter((t) => t.section === section && t.status !== "done").length;
+    const web = webSlot
+      ? createPortal(
+          <ProfileWeb
+            color={color}
+            title={ROLE_TITLE[role]}
+            sub={ed ? "CAN EDIT" : "VIEW ONLY"}
+            tabs={tabs}
+            activeKey={active}
+            onPick={(k) => reveal(k)}
+            dcas={role === "band"
+              ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => navigate(`/dj?show=${gig.id}`) } : null]
+              : role === "manager"
+                ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
+                : []}
+            onBack={onBack}
+            leaving={leaving}
+            home={{ title: gig.event_name || gig.band_name, imageUrl: homeIcon || gig.icon_url, eventType: gig.event_type, onClick: onBack }}
+          />,
+          webSlot
+        )
+      : null;
+    return (
+      <>
+        {web}
+        {taskSheet}
+        <div ref={blockRef} className="rounded-2xl bg-[#111] text-white" style={{ fontFamily: SCENE_FONT, border: `1px solid ${selected ? color + "99" : "#1f1f1f"}`, boxShadow: selected ? `0 0 0 1px ${color}33, 0 0 18px ${color}22` : undefined, scrollMarginTop: 12 }}>
+          <div className="flex items-center gap-1 pr-2">
+            <button type="button" onClick={() => setBlockOpen((o) => !o)} aria-expanded={blockOpen} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[19px] font-bold leading-none tracking-wide truncate" style={{ color: blockOpen || selected ? color : undefined }}>{ROLE_TITLE[role]}</span>
+                <span className="block mt-1 text-[11px] leading-none tracking-[0.08em] text-white/45 truncate" style={{ fontFamily: SCENE_MONO }}>
+                  {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ")}
+                </span>
+              </span>
+              <ChevronDown className="w-4 h-4 shrink-0 text-white/40 transition-transform" style={{ transform: blockOpen ? "rotate(180deg)" : undefined }} />
+            </button>
+            {onInvite && (
+              <button type="button" onClick={onInvite} aria-label={`Invite to ${ROLE_TITLE[role]}`} className="shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-full border border-white/20 text-white/65 hover:text-white hover:border-white/40">
+                <UserPlus className="w-3.5 h-3.5" /> Invite
+              </button>
+            )}
+          </div>
+          {blockOpen && (
+            <div className="px-3 pb-3 flex flex-col gap-1.5">
+              {tabs.map((t) => {
+                const on = active === t.key;
+                return (
+                  <div key={t.key} ref={(el) => { rowRefs.current[t.key] = el; }} className="rounded-xl border bg-[#151515]" style={{ borderColor: on ? color + "66" : "#232323", scrollMarginTop: 12 }}>
+                    <button type="button" onClick={() => setActive(on ? null : t.key)} aria-expanded={on} className="w-full flex items-center gap-3 px-3.5 py-3 text-left">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor[t.state] || dotColor.empty }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[16px] font-semibold leading-tight truncate">{t.label}</span>
+                        {!on && t.summary && <span className="block text-[13px] text-white/40 leading-tight truncate mt-0.5">{t.summary}</span>}
+                      </span>
+                      <ChevronDown className="w-4 h-4 shrink-0 text-white/35 transition-transform" style={{ transform: on ? "rotate(180deg)" : undefined }} />
+                    </button>
+                    {on && (
+                      <div className="px-3.5 pb-3.5 flex flex-col gap-4 min-w-0 overflow-x-auto">
+                        {t.key === "tasks" ? t.render() : <fieldset disabled={!ed} className="contents">{t.render()}</fieldset>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {ed && (
+                <button type="button" onClick={p.handleSave} disabled={p.saving} className="mt-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+                  {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : `SAVE ${ROLE_TITLE[role].toUpperCase()}`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
 
   if (layout === "web") {
     // Features (DCAs) sit in the web's four corners; empty corners are open slots.

@@ -275,13 +275,16 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     });
   }, [activeTab, selectedRole, rooms, user, roomMembers, isDesktop]);
 
-  const selectRole = (role) => {
+  // Which profile / page the main space should jump to, and open.
+  const [focus, setFocus] = useState({ role: null, key: null, n: 0 });
+  const selectRole = (role, key = null) => {
     const apply = () => {
       setSelectedRole(role);
+      if (role) setFocus((f) => ({ role, key, n: f.n + 1 }));
       // Back at the event, a tech owner's first tab is SHOW (the editor, web
       // folded); land on TASKS instead so the event web is what you see.
       const backToOwnWeb = !role && !isDesktop && isTechProductionAccount && permissions?.is_owner;
-      setActiveTab(pendingTab.current || (backToOwnWeb ? "tasks" : "profile"));
+      setActiveTab(pendingTab.current || (backToOwnWeb ? "event" : "profile"));
       pendingTab.current = null;
       setProfileExpanded(false);
     };
@@ -334,20 +337,11 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     if (error) throw error;
     mergeTask(taskId, data);
   };
-  // After a claim: that profile's web, opened on Current tasks (the Audio /
-  // Lighting section has no web of its own, so it lands on its task board).
+  // After a claim: that profile's Current tasks page, opened in the main space.
   const goToCurrentTasks = (section) => {
     setOpenTaskId(null);
-    if (isRoleWeb(section)) {
-      setWebFocus((f) => ({ role: section, n: f.n + 1 }));
-      pendingTab.current = "profile";
-      if (selectedRole !== section) selectRole(section);
-      else setActiveTab("profile");
-    } else {
-      pendingTab.current = "tasks";
-      if (selectedRole !== section) selectRole(section);
-      else setActiveTab("tasks");
-    }
+    pendingTab.current = "profile";
+    selectRole(section, "tasks");
   };
 
   // Both go straight through the shows table (same RLS-gated pattern
@@ -461,11 +455,6 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       ];
   const showTabMode = isTechProductionAccount && !!permissions?.is_owner && !selectedRole && !!gig?.id;
   const editingShow = showTabMode && activeTab === "profile" && !isDesktop;
-  const tabCounts = {
-    profile: selectedNode || showTabMode ? null : nodes.length,
-    tasks: selectedNode ? openTasksFor(selectedNode.role) : openTasks.length,
-    rooms: null,
-  };
 
   const actionButtons = (() => {
     // Each action is an icon with a word under it, so none of them
@@ -583,7 +572,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
-        onOpenTask={setOpenTaskId} webFocus={webFocus}
+        onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
     );
@@ -725,13 +714,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
         <div className="flex items-center gap-1.5 mb-2">
           {[
-            // Board / Tasks / Rooms aren't profiles, so they stay uncolored.
-            { id: "profile", label: selectedRole ? "PROFILE" : showTabMode ? "SHOW" : "BOARD" },
-            { id: "tasks", label: "TASKS" },
+            // Board / Event / Rooms aren't profiles, so they stay uncolored.
+            { id: "profile", label: showTabMode ? "SHOW" : "BOARD" },
+            ...(showTabMode ? [{ id: "event", label: "EVENT" }] : []),
             { id: "rooms", label: "ROOMS" },
           ].map((t) => {
             const on = activeTab === t.id;
-            const count = tabCounts[t.id];
             return (
               <button
                 key={t.id}
@@ -740,60 +728,14 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] transition-colors"
                 style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : "rgba(255,255,255,0.65)", background: on ? "#fff" : "#141414", border: `1px solid ${on ? "#fff" : "#2a2a2a"}` }}
               >
-                {t.label}{count != null ? ` · ${count}` : ""}
+                {t.label}
               </button>
             );
           })}
         </div>
 
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
-          {roleWeb && (
-            <RoleWebPanel
-              key={`${selectedRole}:${webFocus.role === selectedRole ? webFocus.n : 0}`}
-              role={selectedRole}
-              token={token}
-              onChanged={loadGig}
-              webSlot={webSlot}
-              leaving={leaving}
-              onBack={() => selectRole(null)}
-              homeIcon={myIcon}
-              onOpenRole={selectRole}
-              onOpenFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
-              showContent={activeTab === "profile"}
-              initialTab={webFocus.role === selectedRole && webFocus.n ? "tasks" : null}
-            />
-          )}
-          {activeTab === "profile" ? (
-            roleWeb ? null : selectedRole ? (
-              <ProfileTabPanel
-                role={selectedRole}
-                token={token}
-                onChanged={loadGig}
-                color={selectedNode?.style.color || "#8CFF3D"}
-                expanded={profileExpanded}
-                setExpanded={setProfileExpanded}
-              />
-            ) : showTabMode ? (
-              <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
-                <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
-              </Suspense>
-            ) : (
-              <OverviewBoard nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
-            )
-          ) : activeTab === "tasks" ? (
-            <TasksTabPanel
-              nodes={nodes}
-              selectedRole={selectedRole}
-              tasks={gig.tasks}
-              permissions={permissions}
-              isOwner={!!permissions?.is_owner}
-              onAddTask={addTask}
-              onCompleteTask={completeTask}
-              onSelectRole={selectRole}
-              onOpenTask={setOpenTaskId}
-              userId={user?.id}
-            />
-          ) : (
+        {activeTab === "rooms" ? (
+          <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
             <RoomsTabPanel
               selectedRole={selectedRole}
               roleLabel={selectedNode?.style.label}
@@ -803,13 +745,129 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               rooms={rooms}
               roomMembers={roomMembers}
             />
-          )}
-        </div>
+          </div>
+        ) : editingShow ? (
+          <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
+            <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
+                <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+              </Suspense>
+          </div>
+        ) : (
+          <div className="mb-4 flex flex-col gap-3">
+            {!selectedRole && (
+              <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3">
+                <OverviewBoard hideStrips nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+              </div>
+            )}
+            <EventSections
+              token={token}
+              onChanged={loadGig}
+              selectedRole={selectedRole}
+              selectRole={selectRole}
+              webSlot={webSlot}
+              leaving={leaving}
+              onBack={() => selectRole(null)}
+              homeIcon={myIcon}
+              onOpenFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
+              focus={focus}
+              ownerType={preferences?.account_type}
+              isOwner={!!permissions?.is_owner}
+              onAddTask={addTask}
+              showInvite
+            />
+          </div>
+        )}
       </div>
 
       {user && (isTechProductionAccount ? <BottomTabs /> : <BandBottomTabs />)}
 
       {overlays}
+    </div>
+  );
+}
+
+// The event's main space: every profile as a dropdown (your own on top and
+// open), each opening to its pages, with the fields editable right there. The
+// web above it only shows where you are and jumps you to a spot; tasks live
+// on each profile as their own page. Each section (venue, manager, audio) has
+// its own copy of the data and its own SAVE, so Manager and Artist share one,
+// and Audio and Lighting share one.
+function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, focus, ownerType, isOwner, onAddTask, showInvite = true }) {
+  const pv = useRoleProfile({ role: "venue", token, onChanged });
+  const pm = useRoleProfile({ role: "manager", token, onChanged });
+  const pe = useRoleProfile({ role: "engineer", token, onChanged });
+  const byRole = { venue: pv, manager: pm, band: pm, engineer: pe, lighting: pe };
+  const invite = useGigInvite({ gigId: pv.gig?.id, user: pv.user });
+  const user = pv.user;
+  const ready = [pv, pm, pe].every((x) => !x.loading && !x.checkingAuth && !x.notFound && x.gig);
+
+  if (!ready) {
+    return [pv, pm, pe].some((x) => x.notFound)
+      ? <p className="text-white/40 text-sm text-center py-6">Couldn't load this event.</p>
+      : <div className="py-8" />;
+  }
+
+  const goSignIn = (toRegister) => {
+    const currentPath = window.location.pathname + window.location.search;
+    try { sessionStorage.setItem("post_auth_redirect", currentPath); } catch {}
+    window.location.href = `${toRegister ? "/register" : "/login"}?redirect=${encodeURIComponent(currentPath)}`;
+  };
+
+  // Yours first: the profiles you hold on this event, or the type of account you have.
+  const mine = WEB_ROLES.filter((r) => (pv.permissions?.my_roles || []).includes(r));
+  if (!mine.length && WEB_ROLES.includes(ownerType)) mine.push(ownerType);
+  const order = [...mine, ...WEB_ROLES.filter((r) => !mine.includes(r))];
+
+  // Open tasks sitting in a section you can work.
+  const forMe = (pv.gig.tasks || []).filter((t) => t.status !== "done" && WEB_ROLES.some((r) => sectionOf(r) === t.section && byRole[r].editable));
+  const firstTaskRole = forMe.length ? order.find((r) => sectionOf(r) === forMe[0].section && byRole[r].editable) : null;
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {!user && (
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-white/60 bg-[#111] border border-[#1f1f1f] rounded-xl px-3 py-2.5">
+          <span className="mr-auto">Sign in to edit your part of this event.</span>
+          <button type="button" onClick={() => goSignIn(false)} className="text-[11px] font-semibold px-3 py-1.5 rounded-full border border-white/25 text-white/75 hover:text-white">Sign in</button>
+          <button type="button" onClick={() => goSignIn(true)} className="text-[11px] font-bold px-3 py-1.5 rounded-full text-[#0d0d0d] bg-[#8CFF3D]">Create account</button>
+        </div>
+      )}
+      {forMe.length > 0 && firstTaskRole && (
+        <button type="button" onClick={() => selectRole(firstTaskRole, "tasks")} className="flex items-center gap-2 text-left text-[14px] font-semibold px-3.5 py-2.5 rounded-xl border" style={{ color: "#FF6A00", borderColor: "#FF6A0066", background: "#FF6A001a" }}>
+          {forMe.length} open task{forMe.length === 1 ? "" : "s"} for you
+          <ChevronRight className="w-4 h-4 ml-auto" />
+        </button>
+      )}
+      {isOwner && <TasksSection nodes={[]} tasks={[]} isOwner onAddTask={onAddTask} userId={user?.id} />}
+      {order.map((role) => (
+        <RoleWorkspace
+          key={role}
+          layout="pages"
+          role={role}
+          p={byRole[role]}
+          webSlot={selectedRole === role ? webSlot : null}
+          selected={selectedRole === role}
+          defaultOpen={mine.includes(role)}
+          focus={focus && focus.role === role ? focus : null}
+          leaving={leaving}
+          onBack={onBack}
+          homeIcon={homeIcon}
+          onOpenRole={selectRole}
+          onOpenFanPage={onOpenFanPage}
+          onInvite={showInvite && byRole[role].editable ? () => invite.openInvite(inviteKeyOf(role), SECTION_LABELS[role]) : null}
+        />
+      ))}
+      <InviteModal
+        inviteFor={invite.inviteFor}
+        inviteRoleChoice={invite.inviteRoleChoice}
+        inviteUrl={invite.inviteUrl}
+        inviteCopied={invite.inviteCopied}
+        generatingInvite={invite.generatingInvite}
+        onClose={invite.closeInvite}
+        onChooseEngineerRole={invite.chooseEngineerRole}
+        onGenerate={invite.generateInvite}
+        onCopy={invite.copyInviteUrl}
+        onShare={invite.shareInviteUrl}
+      />
     </div>
   );
 }
@@ -1332,7 +1390,7 @@ function ProfileStrips({ nodes, tasks, onSelectRole }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails, hideStrips }) {
   // Desktop board: the event's name / date / icon editor is one compact row
   // (always open, no dropdown) so the role tiles and tasks lead. Phones keep
   // the full editor, as before.
@@ -1357,7 +1415,7 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
           <span>{invitedCount} INVITED</span>
         </div>
       )}
-      <ProfileStrips nodes={nodes} tasks={gig?.tasks || []} onSelectRole={onSelectRole} />
+      {!hideStrips && <ProfileStrips nodes={nodes} tasks={gig?.tasks || []} onSelectRole={onSelectRole} />}
 
       {permissions?.is_owner && gig?.id && !hideInvite && (
         <div className="mt-3 pt-3 border-t border-[#1f1f1f]">
@@ -1408,7 +1466,7 @@ function TasksSection({ nodes, tasks, isOwner, onAddTask, onSelectRole, notes, o
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
-  const [section, setSection] = useState(nodes[0]?.role || "");
+  const [section, setSection] = useState(TASK_SECTIONS[0].role);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
@@ -1787,7 +1845,7 @@ function DesktopGigWeb({
   gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
   token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
   profileExpanded, setProfileExpanded, roleWeb, hubM, leaving, webSlot, setWebSlot, openFanPage,
-  onOpenTask, webFocus = { role: null, n: 0 },
+  onOpenTask, focus = { role: null, key: null, n: 0 }, ownerType,
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
@@ -1875,9 +1933,6 @@ function DesktopGigWeb({
                       {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
                     </span>
                   </span>
-                  <span className="ml-auto shrink-0">
-                    <ProfileTabPanel compact role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
-                  </span>
                 </>
               ) : (
                 <>
@@ -1887,49 +1942,27 @@ function DesktopGigWeb({
               )}
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
-              {roleWeb ? (
-                <RoleWebPanel
-                  key={`${selectedRole}:${webFocus.role === selectedRole ? webFocus.n : 0}`}
-                  role={selectedRole}
+              <div className="flex flex-col gap-4">
+                {!selectedRole && (
+                  <OverviewBoard hideInvite hideStrips foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                )}
+                <EventSections
                   token={token}
                   onChanged={loadGig}
+                  selectedRole={selectedRole}
+                  selectRole={selectRole}
                   webSlot={webSlot}
                   leaving={leaving}
                   onBack={() => selectRole(null)}
                   homeIcon={myIcon}
-                  onOpenRole={selectRole}
                   onOpenFanPage={openFanPage}
+                  focus={focus}
+                  ownerType={ownerType}
+                  isOwner={isOwner}
+                  onAddTask={addTask}
                   showInvite={false}
-                  initialTab={webFocus.role === selectedRole && webFocus.n ? "tasks" : null}
                 />
-              ) : selectedRole ? (
-                profileExpanded ? (
-                  <ProfileTabPanel role={selectedRole} token={token} onChanged={loadGig} color={selectedNode?.style.color || "#8CFF3D"} expanded={profileExpanded} setExpanded={setProfileExpanded} onOpenWorkspace={setWorkspaceRole} />
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2 pb-1.5">
-                      <span className="text-white font-bold tracking-[0.08em] text-lg">TASKS</span>
-                      <span className="text-white/50 text-[11px]" style={{ fontFamily: SCENE_MONO }}>· {roleTasks.length} OPEN</span>
-                    </div>
-                    {roleTasks.length === 0 ? (
-                      <p className="text-white/30 text-sm px-0.5">Nothing outstanding for {SECTION_LABELS[selectedRole]} right now.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-x-3.5 gap-y-4 pt-1.5">
-                        {roleTasks.map((t, i) => (
-                          <TaskNote key={t.id} i={i} title={t.title} color={selectedNode?.style.color || "#8CFF3D"} label={selectedNode?.style.label || t.section} claimedBy={claimText(t, user?.id)} onClick={() => onOpenTask?.(t.id)} onDone={canDo && (!t.claimed_by || t.claimed_by === user?.id) ? () => done(t.id) : undefined} doneBusy={completingId === t.id} />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )
-              ) : (
-                <>
-                  <OverviewBoard hideInvite foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
-                  <div className="mt-5 pt-4 border-t border-dashed border-[#2a2a2a]">
-                    <TasksSection notes nodes={nodes} tasks={openTasks} isOwner={isOwner} onAddTask={addTask} onSelectRole={selectRole} onOpenTask={onOpenTask} userId={user?.id} />
-                  </div>
-                </>
-              )}
+              </div>
             </div>
           </div>
 
