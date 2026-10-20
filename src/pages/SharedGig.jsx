@@ -14,6 +14,8 @@ import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
 
 export const ROLE_COLORS = {
@@ -698,6 +700,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
 }
 
 export default function SharedGig() {
+  const isDesktop = useIsDesktop();
   const navigate = useNavigate(); const goBack = useGoBack();
   const params = new URLSearchParams(window.location.search);
   const urlToken = params.get("token");
@@ -917,6 +920,8 @@ export default function SharedGig() {
 
   const canEdit = !!user;
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  // On a tech phone the event is just these dropdowns: no web, tasks in a box from the header.
+  const techPhone = isTechProductionAccount && !isDesktop;
   const myAccountType = preferences?.account_type;
   const busPresets = preferences?.mix_bus_presets || [];
   const iemMonitorColors = {
@@ -1110,23 +1115,27 @@ export default function SharedGig() {
     <div className="min-h-screen bg-[#0d0d0d] pb-16">
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <button onClick={() => goBack()} className="p-1 text-white/60 hover:text-white shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="min-w-0">
               <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
-              <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>
+              {!techPhone && <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
-              className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
-              title="View this gig as a role hub"
-            >
-              Gig Web
-            </button>
+            {techPhone ? (
+              <TasksButton token={resolvedToken} />
+            ) : (
+              <button
+                onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
+                className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
+                title="View this gig as a role hub"
+              >
+                Gig Web
+              </button>
+            )}
           {canEdit && (
             <>
               <button
@@ -1134,14 +1143,14 @@ export default function SharedGig() {
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                DMs
+                <span className={techPhone ? "sr-only" : ""}>DMs</span>
               </button>
               <button
                 onClick={() => navigate(`/gig/rooms?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
-                Rooms
+                <span className={techPhone ? "sr-only" : ""}>Rooms</span>
               </button>
               <button
                 onClick={handleSave}
@@ -1149,7 +1158,7 @@ export default function SharedGig() {
                 className="flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready) ? "Save" : "Save to Linked"}
+                {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready || techPhone) ? "Save" : "Save to Linked"}
               </button>
             </>
           )}

@@ -28,6 +28,7 @@ const ShowDetail = lazy(() => import("@/pages/ShowDetail"));
 import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, useBoxSize } from "@/components/showpilot/ProfileWeb";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 import DjTools from "@/pages/DjTools";
+import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 
 // Short console-style codes for the role channel buttons.
@@ -229,6 +230,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     setLoading(false);
   };
   useEffect(() => { loadGig(); }, [token]);
+  // Tech phones (audio / lighting) have no web. An event you were invited to
+  // is the shared event page's dropdowns; your own event is the show page.
+  const techPhone = !tokenProp && isTechProductionAccount && !isDesktop;
+  useEffect(() => {
+    if (techPhone && permissions && !permissions.is_owner && token) navigate(`/gig/shared?token=${token}`, { replace: true });
+  }, [techPhone, permissions, token]);
   useEffect(() => {
     if (landedRef.current || !permissions) return;
     landedRef.current = true;
@@ -581,6 +588,50 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type} openDj={() => setDjOpen(true)}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
+    );
+  }
+
+  if (techPhone) {
+    // Waiting to hear whether this is your own event or one you were invited to.
+    if (!permissions || !permissions.is_owner) {
+      return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></div>;
+    }
+    return (
+      <div className="min-h-screen bg-[#0d0d0d] pb-24" style={{ fontFamily: SCENE_FONT }}>
+        <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+          <div className="px-4 py-3 max-w-lg mx-auto flex items-center gap-3">
+            <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+            <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={36} />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
+              <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ")}</p>
+            </div>
+            <TasksButton token={token} />
+          </div>
+        </div>
+        <div className="px-4 pt-3 max-w-lg mx-auto">
+          <div className="flex items-center gap-1.5 mb-3">
+            {[{ id: "profile", label: "SHOW" }, { id: "rooms", label: "ROOMS" }].map((t) => {
+              const on = (activeTab === "rooms" ? "rooms" : "profile") === t.id;
+              return (
+                <button key={t.id} type="button" onClick={() => setActiveTab(t.id)} className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] transition-colors"
+                  style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : "rgba(255,255,255,0.65)", background: on ? "#fff" : "#141414", border: `1px solid ${on ? "#fff" : "#2a2a2a"}` }}>{t.label}</button>
+              );
+            })}
+          </div>
+          {activeTab === "rooms" ? (
+            <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
+              <RoomsTabPanel selectedRole={null} roleLabel={undefined} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
+            </div>
+          ) : (
+            <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
+              <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+            </Suspense>
+          )}
+        </div>
+        {user && <BottomTabs />}
+        {overlays}
+      </div>
     );
   }
 

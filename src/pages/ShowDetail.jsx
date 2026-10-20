@@ -990,7 +990,7 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
         </div>
 
         <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">
-          <CollapsibleSection title="Venue Info" icon={Info} defaultOpen={isDesktop}>
+          <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
             <VenueInfoFields
               value={show}
               onChange={update}
@@ -1000,7 +1000,7 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
         </div>
 
         <div ref={bandPrintRef} className="relative lg:col-start-2 xl:col-start-3 xl:row-start-1">
-          <CollapsibleSection title="Performer" icon={Music} defaultOpen={isDesktop} badge={(() => {
+          <CollapsibleSection title="Performer" icon={Music} color="#EF4444" defaultOpen={isDesktop} badge={(() => {
             const namedCount = bands.filter((b) => b.band_name && b.band_name.trim() !== "").length;
             return namedCount > 0 ? namedCount : undefined;
           })()}>
