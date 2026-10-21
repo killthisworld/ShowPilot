@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
@@ -151,7 +151,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -712,6 +712,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   };
   useEffect(() => {
     if (layout !== "pages" || !focus || !focus.n) return;
+    // Solo (desktop): the profile's circle shows its page list, a page shows that page.
+    if (solo) { setBlockOpen(true); setActive(focus.key || null); return; }
     reveal(focus.key || null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.n]);
@@ -783,6 +785,59 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           webSlot
         )
       : null;
+    // Desktop: the web picks what shows here. A profile shows its page list;
+    // a page shows on its own, with a way back to the list.
+    if (solo) {
+      const page = tabs.find((t) => t.key === active) || null;
+      return (
+        <>
+          {web}
+          {taskSheet}
+          <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
+            {page ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setActive(null)} className="flex items-center gap-1 text-[14px] font-semibold text-white/55 hover:text-white shrink-0">
+                    <ChevronLeft className="w-4 h-4" /> All {ROLE_TITLE[role]} pages
+                  </button>
+                  <span className="ml-auto flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
+                    <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
+                    {page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
+                  </span>
+                </div>
+                <h2 className="text-[26px] font-bold leading-none">{page.label}</h2>
+                <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">
+                  {page.key === "tasks" ? page.render() : <fieldset disabled={!ed} className="contents">{page.render()}</fieldset>}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
+                  {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {tabs.map((t) => (
+                    <button key={t.key} type="button" onClick={() => setActive(t.key)} className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-[#232323] bg-[#151515] hover:border-white/25 text-left">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor[t.state] || dotColor.empty }} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[16px] font-semibold leading-tight truncate">{t.label}</span>
+                        {t.summary && <span className="block text-[13px] text-white/40 leading-tight truncate mt-0.5">{t.summary}</span>}
+                      </span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-white/30" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {ed && (
+              <button type="button" onClick={p.handleSave} disabled={p.saving} className="mt-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+                {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : `SAVE ${ROLE_TITLE[role].toUpperCase()}`}
+              </button>
+            )}
+          </div>
+        </>
+      );
+    }
     return (
       <>
         {web}

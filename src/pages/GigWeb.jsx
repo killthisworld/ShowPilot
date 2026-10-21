@@ -850,7 +850,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // on each profile as their own page. Each section (venue, manager, audio) has
 // its own copy of the data and its own SAVE, so Manager and Artist share one,
 // and Audio and Lighting share one.
-function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true }) {
+// `solo` (desktop): the web is the navigation, so the main box shows only
+// what's picked on it: nothing but the board items on the event web, one
+// profile when its circle is picked, one page when a page is picked.
+function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true, solo = false }) {
   const pv = useRoleProfile({ role: "venue", token, onChanged });
   const pm = useRoleProfile({ role: "manager", token, onChanged });
   const pe = useRoleProfile({ role: "engineer", token, onChanged });
@@ -889,22 +892,23 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, le
           <button type="button" onClick={() => goSignIn(true)} className="text-[11px] font-bold px-3 py-1.5 rounded-full text-[#0d0d0d] bg-[#8CFF3D]">Create account</button>
         </div>
       )}
-      {forMe.length > 0 && firstTaskRole && (
+      {!(solo && selectedRole) && forMe.length > 0 && firstTaskRole && (
         <button type="button" onClick={() => selectRole(firstTaskRole, "tasks")} className="flex items-center gap-2 text-left text-[14px] font-semibold px-3.5 py-2.5 rounded-xl border" style={{ color: "#FF6A00", borderColor: "#FF6A0066", background: "#FF6A001a" }}>
           {forMe.length} open task{forMe.length === 1 ? "" : "s"} for you
           <ChevronRight className="w-4 h-4 ml-auto" />
         </button>
       )}
-      {isOwner && <TasksSection nodes={[]} tasks={[]} isOwner onAddTask={onAddTask} userId={user?.id} />}
-      {order.map((role) => (
+      {isOwner && !(solo && selectedRole) && <TasksSection nodes={[]} tasks={[]} isOwner onAddTask={onAddTask} userId={user?.id} />}
+      {(solo ? order.filter((r) => r === selectedRole) : order).map((role) => (
         <RoleWorkspace
           key={role}
           layout="pages"
+          solo={solo}
           role={role}
           p={byRole[role]}
           webSlot={selectedRole === role ? webSlot : null}
           selected={selectedRole === role}
-          defaultOpen={mine.includes(role)}
+          defaultOpen={solo || mine.includes(role)}
           focus={focus && focus.role === role ? focus : null}
           leaving={leaving}
           onBack={onBack}
@@ -1760,6 +1764,7 @@ function DesktopGigWeb({
                   isOwner={isOwner}
                   onAddTask={addTask}
                   showInvite={false}
+                  solo
                 />
               </div>
             </div>
