@@ -544,11 +544,11 @@ export default function BandHome() {
     const pagerBtn = "w-10 h-10 rounded-[10px] bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white";
     return (
       <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
-        <div className="flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
           <h1 className="text-white font-bold text-3xl tracking-wide shrink-0">
             Show<span style={{ color: accountStyle.color }}>Pilot</span>
           </h1>
-          <div className="relative w-[340px] ml-3" ref={searchRef}>
+          <div className="relative w-[300px] min-w-[150px] shrink ml-1" ref={searchRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
             <Input
               value={search}
@@ -571,22 +571,16 @@ export default function BandHome() {
           <Button variant="outline" size="sm" onClick={() => setFilterOpen(!filterOpen)} className={`h-10 px-3 gap-2 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#111] text-white/60"}`}>
             <SlidersHorizontal className="w-4 h-4" /> Filters
           </Button>
-          <div className="flex-1" />
-          <button onClick={handleCreateEvent} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
-            <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New event
-          </button>
-        </div>
-
-        <div className="px-6 pt-3 flex items-center gap-2 flex-wrap shrink-0">
+          {/* Status banks sit up top beside search and filters. */}
           {roleBanks.length > 1 && (
-            <>
+            <div className="flex items-center gap-1.5 shrink-0">
               {roleBanks.map((bank) => {
                 const active = activeBankDef.id === bank.id;
                 return (
                   <button
                     key={bank.id}
                     onClick={() => setActiveBank(bank.id)}
-                    className="h-10 px-4 rounded-[20px] text-lg font-bold tracking-[0.04em] flex items-center gap-2 transition-colors"
+                    className="h-10 px-3.5 rounded-[20px] text-base font-bold tracking-[0.04em] flex items-center gap-1.5 shrink-0 transition-colors"
                     style={{ background: active ? bank.color : bank.color + "20", border: `1.5px solid ${active ? bank.color : bank.color + "55"}`, color: active ? "#0d0d0d" : bank.color }}
                   >
                     {bank.label}
@@ -594,8 +588,15 @@ export default function BandHome() {
                   </button>
                 );
               })}
-            </>
+            </div>
           )}
+          <div className="flex-1" />
+          <button onClick={handleCreateEvent} aria-label="New event" className="flex items-center gap-2 h-11 px-3.5 xl:px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
+            <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /><span className="hidden xl:inline">New event</span>
+          </button>
+        </div>
+
+        <div className="px-6 pt-3 flex items-center gap-2 flex-wrap shrink-0">
           {/* Four months at a time: back / forward four, back to now. */}
           <div className="ml-auto flex items-center gap-1.5">
             {(monthPage !== 0 || showUndated) && (
