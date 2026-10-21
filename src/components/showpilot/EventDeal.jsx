@@ -67,7 +67,9 @@ function StatusLine({ deal, color }) {
   );
 }
 
-export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA" }) {
+// `compact` (inside Paperwork, job 116): no privacy note or event / lineup
+// info, just the terms and the buttons.
+export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA", compact = false }) {
   const deal = biz?.deal || null;
   const canEdit = !!biz?.venue;
   const canRespond = !!biz?.manager && !canEdit;
@@ -89,7 +91,7 @@ export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA" }) {
   };
 
   const lineup = lineupRows(gig);
-  const privacy = (
+  const privacy = compact ? null : (
     <p className="flex items-center gap-1.5 text-[13px] text-white/45"><Lock className="w-3.5 h-3.5 shrink-0" /> Only the venue, the manager / artist and the event owner can see the deal. Crew can't.</p>
   );
 
@@ -99,6 +101,7 @@ export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA" }) {
       <div className="flex flex-col gap-4">
         {privacy}
         <StatusLine deal={deal} color={color} />
+        {!compact && <>
         <div className="flex flex-col gap-1.5">
           <span className={labelCls} style={{ fontFamily: SCENE_MONO }}>EVENT</span>
           <p className="text-[15px] text-white/80">{[gig.event_name || gig.band_name, fmtDate(gig.date), gig.venue].filter(Boolean).join(" · ") || "Add the event name and date first"}</p>
@@ -111,6 +114,7 @@ export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA" }) {
             </div>
           ) : <p className="text-[14px] text-white/40">No acts in the lineup yet. The manager / artist adds them under Lineup & set times.</p>}
         </div>
+        </>}
         <In label="Doors" value={terms.doors} onChange={(v) => set("doors", v)} placeholder="7:00 PM" />
 
         <div className="flex flex-col gap-1.5">
@@ -170,7 +174,7 @@ export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA" }) {
     <div className="flex flex-col gap-4">
       {privacy}
       <StatusLine deal={deal} color={color} />
-      <SnapshotView snapshot={preview} dense />
+      <SnapshotView snapshot={compact ? { ...preview, sections: (preview.sections || []).filter((x) => !/^(event|status)$/i.test(x.heading || "")) } : preview} dense />
       {err && <p className="text-[14px] text-red-400">{err}</p>}
       {canRespond && deal.status === "sent" && (
         asking ? (

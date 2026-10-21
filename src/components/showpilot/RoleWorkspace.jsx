@@ -11,7 +11,6 @@ import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
-import EventDeal, { dealTabState, dealTabSummary } from "@/components/showpilot/EventDeal";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness } from "@/lib/eventBusiness";
 
@@ -173,24 +172,18 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const setMi = (k, v) => p.updateSection("manager_info", k, v);
   const ei = gig.engineer_info || {};
 
-  // Business pages (job 104): the deal and the paperwork. Only the event
-  // owner, the venue side and the manager / artist side get them; the
-  // server decides (get_event_business), crew never see these tabs.
+  // Business page (job 104, 116): Paperwork, with the deal inside it. Only
+  // the event owner, the venue side and the manager / artist side get it;
+  // the server decides (get_event_business), crew never see this tab.
   const bizOn = !template && !!gig.id && !!p.user && (role === "venue" || role === "manager");
   const { biz, reload: reloadBiz } = useEventBusiness(bizOn ? gig.id : null, bizOn);
   const bizTabs = () => {
     if (!bizOn || !biz?.can_view) return [];
-    const deal = {
-      key: "deal", label: "Deal",
-      summary: dealTabSummary(biz.deal),
-      state: dealTabState(biz.deal),
-      render: () => <EventDeal gig={gig} biz={biz} onChanged={reloadBiz} color={ROLE_COLOR.venue} />,
-    };
-    return [deal, {
+    return [{
       key: "paperwork", label: "Paperwork",
-      summary: paperworkSummary(biz.records, gig.date),
-      state: paperworkState(biz.records),
-      render: () => <EventPaperwork gig={gig} biz={biz} onChanged={reloadBiz} color={color} />,
+      summary: paperworkSummary(biz.records, biz.deal),
+      state: paperworkState(biz.records, biz.deal),
+      render: () => <EventPaperwork gig={gig} biz={biz} onChanged={reloadBiz} color={color} userId={p.user?.id} />,
     }];
   };
 

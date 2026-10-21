@@ -11,6 +11,7 @@ import { VENUE_CHECKLIST_ITEMS } from "@/components/showpilot/VenueInfoFields";
 export const RECORD_BUCKET = "business-records";
 
 export const RECORD_KINDS = {
+  deal: { label: "Deal", short: "DEAL" },
   agreement: { label: "Performance agreement", short: "AGREEMENT" },
   rider: { label: "Rider", short: "RIDER" },
   advance: { label: "Advance confirmations", short: "ADVANCE" },
@@ -93,6 +94,20 @@ export async function fileRecord(showId, { kind, title, snapshot = {}, file = nu
   });
   if (error) throw error;
   return data;
+}
+
+// Delete a record (job 116): the venue side, the event owner, or whoever
+// uploaded it. The file goes first (storage can't be cleaned up from SQL),
+// then the record.
+export async function deleteRecord(record) {
+  if (record?.file_path) {
+    // Storage only removes what you're allowed to; the record's own check
+    // below decides, so an already-missing file never blocks the delete.
+    const { error } = await supabase.storage.from(RECORD_BUCKET).remove([record.file_path]);
+    if (error) throw error;
+  }
+  const { error } = await supabase.rpc("delete_business_record", { p_id: record.id });
+  if (error) throw error;
 }
 
 export async function recordFileUrl(path) {
