@@ -484,7 +484,13 @@ export default function BandHome() {
   );
 
   if (isDesktop) {
-    const MONTH_COLORS = ["#8CFF3D", "#60A5FA", "#F472B6", "#F59E0B"];
+    // Month banks like the tech desktop console: heading = month name (year
+    // only when it isn't this year), a divider between banks, and the
+    // profile's color alternating with white so neighbouring banks read apart.
+    const thisYear = String(new Date().getFullYear());
+    const bankLabel = (key) =>
+      key === "undated" ? "NO DATE" : key === "past" ? "PAST" :
+      new Date(key + "-01T00:00:00").toLocaleDateString("en-US", key.startsWith(thisYear) ? { month: "long" } : { month: "long", year: "numeric" }).toUpperCase();
     const open = sortedGigs.filter((g) => !g.date || g.date >= new Date().toISOString().slice(0, 10)).length;
     // Past stays tucked at the end as its own column, closed unless asked
     // for - same rule as the phone list.
@@ -560,23 +566,23 @@ export default function BandHome() {
           ) : columns.length === 0 ? (
             <p className="h-full flex items-center justify-center text-white/30 text-lg">No shows match your search or filters</p>
           ) : (
-            <div className="h-full flex gap-[22px] p-[18px] pb-3.5 overflow-x-auto">
+            <div className="h-full flex p-[18px] pb-3.5 overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
               {columns.map(([monthKey, monthGigs], ci) => {
-                const accent = monthKey === "past" ? "#9A9A9A" : monthKey === "undated" ? "#9A9A9A" : MONTH_COLORS[ci % MONTH_COLORS.length];
+                const accent = monthKey === "past" || monthKey === "undated" ? "#9A9A9A" : ci % 2 ? "#FFFFFF" : accountStyle.color;
+                const last = ci === columns.length - 1;
                 return (
-                  <div key={monthKey} data-home-month={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 44px) / 3)", minWidth: 340 }}>
-                    <div className="flex items-center gap-2 px-1 pb-2.5 shrink-0">
+                  <div key={monthKey} data-home-month={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 56px) / 3)", minWidth: 340, ...(last ? {} : { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" }) }}>
+                    <div className="h-[34px] flex items-center gap-2 pb-2 shrink-0">
                       <MonthDropdown
-                        label={monthLabel(monthKey)}
+                        label={bankLabel(monthKey)}
                         value={monthKey}
                         options={monthJumpOptions}
                         onSelect={jumpToMonth}
                         accent={accent}
                         ariaLabel="Jump to a month"
-                        className="-ml-1 px-1 py-0.5 text-[19px] font-bold tracking-[0.08em] uppercase min-w-0"
-                        style={{ color: accent }}
+                        className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em] min-w-0"
+                        style={{ fontFamily: SCENE_FONT, color: accent }}
                       />
-                      <span className="text-[11px] text-white/50" style={{ fontFamily: SCENE_MONO }}>· {monthGigs.length}</span>
                       {monthKey === "past" && (
                         <button onClick={() => setShowPast(false)} className="ml-auto text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
                       )}
