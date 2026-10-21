@@ -181,13 +181,13 @@ export default function ProfileWeb({
                 className="absolute rounded-[12px] overflow-hidden p-0 flex items-end justify-center"
                 style={{ ...base, width: hs, height: hs, background: "#1a1a1a", border: "2px solid #FFFFFF", boxShadow: "0 0 0 2px #FFFFFF33, 0 0 16px #FFFFFF66" }}
               >
+                {/* Just the picture (job 125). */}
                 {home.imageUrl ? (
                   <img src={home.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
-                  <EventTypeGlyph type={home.eventType} className="absolute" style={{ width: "70%", height: "70%", left: "15%", top: "8%", color: glyphColor, opacity: 0.55, strokeWidth: 1.5 }} />
+                  <EventTypeGlyph type={home.eventType} className="absolute" style={{ width: "64%", height: "64%", left: "18%", top: "18%", color: glyphColor, opacity: 0.6, strokeWidth: 1.5 }} />
                 )}
-                <span className="absolute inset-0" style={{ background: "linear-gradient(rgba(13,13,13,0) 35%, rgba(13,13,13,0.85))" }} />
-                <span className="relative w-full px-1 pb-[3px] font-bold leading-none text-white text-center truncate" style={{ fontSize: Math.round(8.5 * k), textShadow: "0 1px 3px #000" }}>{home.title || "Event"}</span>
+                <span className="sr-only">{home.title || "Event"}</span>
               </button>
             );
           }
@@ -215,7 +215,6 @@ export default function ProfileWeb({
               className="absolute rounded-[12px] flex flex-col items-center justify-center gap-1 p-0"
               style={{ ...base, width: dcaSize + 8, height: dcaSize + 8, background: "#161616", border: `1.5px solid ${d.color}`, boxShadow: `0 0 12px ${d.color}40`, color: "#f2f2f2" }}
             >
-              <span className="tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO, fontSize: Math.round(8 * k) }}>DCA</span>
               <span className="rounded-full" style={{ width: Math.round(34 * k), height: 3, background: d.color, boxShadow: `0 0 8px ${d.color}` }} />
               <span className="font-bold leading-none text-center" style={{ fontSize: Math.round(11.5 * k) }}>{d.label}</span>
               {d.badge > 0 && (

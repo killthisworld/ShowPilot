@@ -5,6 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, Chevron
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
+import { artistFromTemplate } from "@/lib/showTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { SECTION_OF } from "@/lib/eventRoles";
@@ -737,11 +738,23 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
   // Venue and Manager can fill their section from a saved template; it only
   // changes the screen until the section's Save.
-  const canLoadTpl = ed && !template && !!p.user && (role === "venue" || role === "manager");
+  // Artist (job 125): an Artist template goes into the lineup as that act
+  // (fills the act with the same name, or an empty one, else adds it).
+  const canLoadTpl = ed && !template && !!p.user && (role === "venue" || role === "manager" || role === "band");
+  const loadArtistAct = (n, data) => {
+    const act = artistFromTemplate(n, data);
+    const bands = [...(gig.bands || [])];
+    const key = String(act.band_name || "").trim().toLowerCase();
+    let i = bands.findIndex((b) => key && String(b.band_name || "").trim().toLowerCase() === key);
+    if (i === -1) i = bands.findIndex((b) => !String(b.band_name || "").trim());
+    if (i === -1) bands.push({ role: "N/A", ...act, sort_order: bands.length });
+    else bands[i] = { ...bands[i], ...act };
+    p.update("bands", bands);
+  };
   const tplPicker = canLoadTpl ? (
     <>
-      <LoadTemplateButton category={role} hideTrigger open={tplOpen} onOpenChange={setTplOpen}
-        onLoad={(n, data) => { applyTemplate(role, data, gig, p.update); setTplLoaded(n); }} />
+      <LoadTemplateButton category={role === "band" ? "artist" : role} hideTrigger open={tplOpen} onOpenChange={setTplOpen}
+        onLoad={(n, data) => { if (role === "band") loadArtistAct(n, data); else applyTemplate(role, data, gig, p.update); setTplLoaded(n); }} />
       {tplLoaded && createPortal(
         <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] px-4 py-2.5 rounded-xl bg-[#111] border border-[#2a2a2a] text-[14px] text-white shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
           Loaded <b>{tplLoaded}</b>. Press Save to keep it.

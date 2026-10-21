@@ -745,19 +745,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           >
             {selectedRole === null && <span className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 40%, rgba(255,255,255,0.22), rgba(255,255,255,0.05) 70%)" }} />}
             {/* The event's icon as a faded backdrop: an uploaded image (dimmed, with a dark wash so text stays crisp) or the type glyph in its color. */}
+            {/* Just the event's picture (job 125): its photo, or its type's glyph. The name is in the header. */}
             {(myIcon || gig.icon_url) ? (
-              <>
-                <img src={myIcon || gig.icon_url} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
-                <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
-              </>
-            ) : eventTypeColor(gig.event_type) ? (
-              <EventTypeGlyph
-                type={gig.event_type}
-                className="absolute pointer-events-none"
-                style={{ width: 84, height: 84, right: 2, bottom: -4, color: eventTypeColor(gig.event_type), opacity: 0.2, strokeWidth: 1.5 }}
-              />
-            ) : null}
-            <div className="relative text-[15px] font-semibold text-white text-center leading-tight tracking-wide line-clamp-3 px-1" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+              <img src={myIcon || gig.icon_url} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+            ) : (
+              <EventTypeGlyph type={gig.event_type} className="relative pointer-events-none" style={{ width: "48%", height: "48%", color: eventTypeColor(gig.event_type) || "#FFFFFF", opacity: 0.6, strokeWidth: 1.5 }} />
+            )}
+            <span className="sr-only">{title}</span>
           </button>
         </div>
         )}
@@ -1635,15 +1629,13 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
           boxShadow: selectedRole === null ? "0 0 0 3px #FFFFFF55, 0 0 30px #FFFFFFAA" : undefined,
         }}
       >
+        {/* Just the event's picture (job 125): its photo, or its type's glyph. The name is in the header. */}
         {iconUrl ? (
-          <>
-            <img src={iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.4 }} />
-            <span className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(rgba(13,13,13,0.35), rgba(13,13,13,0.6))" }} />
-          </>
-        ) : typeColor ? (
-          <EventTypeGlyph type={gig.event_type} className="absolute pointer-events-none" style={{ width: 90, height: 90, right: 8, bottom: 0, color: typeColor, opacity: 0.2, strokeWidth: 1.5 }} />
-        ) : null}
-        <div className="relative font-semibold text-white text-center leading-tight tracking-wide line-clamp-3" style={{ fontSize: Math.max(14, Math.round(20 * k)), textShadow: "0 1px 4px rgba(0,0,0,0.85)" }}>{title}</div>
+          <img src={iconUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+        ) : (
+          <EventTypeGlyph type={gig.event_type} className="relative pointer-events-none" style={{ width: "46%", height: "46%", color: typeColor || "#FFFFFF", opacity: 0.6, strokeWidth: 1.5 }} />
+        )}
+        <span className="sr-only">{title}</span>
       </button>
     </div>
   );
