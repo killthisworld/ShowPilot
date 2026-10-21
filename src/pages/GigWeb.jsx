@@ -471,6 +471,14 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#fff" },
       ];
   const showTabMode = isTechProductionAccount && !!permissions?.is_owner && !selectedRole && !!gig?.id;
+  // Rooms on the web: desktop and tech only. Company phones use the Chats tab.
+  const roomsOnWeb = isDesktop || isTechProductionAccount;
+  const webTabs = [
+    // Board / Event / Rooms aren't profiles, so they stay uncolored.
+    { id: "profile", label: showTabMode ? "SHOW" : "BOARD" },
+    ...(showTabMode ? [{ id: "event", label: "EVENT" }] : []),
+    ...(roomsOnWeb ? [{ id: "rooms", label: "ROOMS" }] : []),
+  ];
   const editingShow = showTabMode && activeTab === "profile" && !isDesktop;
 
   const actionButtons = (() => {
@@ -773,13 +781,11 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           )}
         </div>
 
+        {/* Company profiles on a phone chat from the Chats tab, so the web
+            has no Rooms tab there (job 73); with only Board left, no tab row. */}
+        {webTabs.length > 1 && (
         <div className="flex items-center gap-1.5 mb-2">
-          {[
-            // Board / Event / Rooms aren't profiles, so they stay uncolored.
-            { id: "profile", label: showTabMode ? "SHOW" : "BOARD" },
-            ...(showTabMode ? [{ id: "event", label: "EVENT" }] : []),
-            { id: "rooms", label: "ROOMS" },
-          ].map((t) => {
+          {webTabs.map((t) => {
             const on = activeTab === t.id;
             return (
               <button
@@ -794,8 +800,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             );
           })}
         </div>
+        )}
 
-        {activeTab === "rooms" ? (
+        {activeTab === "rooms" && roomsOnWeb ? (
           <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
             <RoomsTabPanel
               selectedRole={selectedRole}

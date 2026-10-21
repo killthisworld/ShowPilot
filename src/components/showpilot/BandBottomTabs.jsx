@@ -8,7 +8,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
-import { openQuickAdd } from "@/lib/needsMe";
+import { openQuickAdd, visibleChats } from "@/lib/needsMe";
 
 // Desktop rail destinations (unchanged).
 const TABS = [
@@ -71,7 +71,7 @@ export default function BandBottomTabs() {
 function CompanyPhoneBar({ preferences, pathname, search }) {
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const { data } = useNeedsMe();
-  const unread = (data?.chats || []).reduce((n, c) => n + Number(c.unread || 0), 0);
+  const unread = visibleChats(data?.chats).reduce((n, c) => n + Number(c.unread || 0), 0);
   const v = pathname === "/" ? new URLSearchParams(search).get("view") || "needs" : null;
   const view = v === "events" ? "events" : v;
   const activeKey =

@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { X, Search, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -226,20 +225,26 @@ export default function QuickAddSheet({ preferences, accent }) {
                   <button
                     key={e.id}
                     onClick={() => { setEv(e); setStep("task"); setError(""); }}
-                    className="flex items-center gap-3 min-h-16 px-3 py-2.5 rounded-xl bg-[#181818] border border-[#262626] text-white text-left active:bg-[#202020]"
+                    className="relative isolate overflow-hidden shrink-0 flex items-center gap-3 min-h-[84px] pl-4 pr-3 py-3 rounded-xl border border-[#262626] text-white text-left active:opacity-80"
                     style={{ opacity: isPast ? 0.7 : 1 }}
                   >
+                    {/* The event's photo across the whole bar (job 73). */}
+                    {e.icon_url ? (
+                      <img src={e.icon_url} alt="" className="absolute inset-0 -z-10 w-full h-full object-cover" />
+                    ) : (
+                      <span className="absolute inset-0 -z-10" style={{ background: `linear-gradient(120deg, ${c}40, #181818 70%)` }} />
+                    )}
+                    <span className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(13,13,13,0.94) 0%, rgba(13,13,13,0.78) 55%, rgba(13,13,13,0.35) 100%)" }} />
+                    <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: c }} />
                     <span className="w-11 shrink-0 flex flex-col items-center leading-[1.1]" style={{ fontFamily: SCENE_MONO }}>
                       <span className="text-[11px]" style={{ color: c }}>{d ? d.toLocaleDateString("en-US", { month: "short" }).toUpperCase() : "—"}</span>
                       <span className="text-xl font-semibold">{d ? String(d.getDate()).padStart(2, "0") : ""}</span>
                     </span>
-                    {/* The event's photo (job 73). */}
-                    <EventTypeIcon type={e.event_type || "Other"} imageUrl={e.icon_url} size={40} />
-                    <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
-                      <span className="text-[15px] font-semibold truncate">{e.event_name || e.band_name || "Untitled"}</span>
-                      <span className="text-xs text-white/55 truncate">{[e.venue, e.city].filter(Boolean).join(" · ") || "No venue yet"}</span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="text-[16px] font-semibold truncate">{e.event_name || e.band_name || "Untitled"}</span>
+                      <span className="text-xs text-white/65 truncate">{[e.venue, e.city].filter(Boolean).join(" · ") || "No venue yet"}</span>
                     </span>
-                    {isPast && <span className="text-xs font-bold tracking-[0.06em] text-white/45" style={{ fontFamily: SCENE_FONT }}>PAST</span>}
+                    {isPast && <span className="text-xs font-bold tracking-[0.06em] text-white/55" style={{ fontFamily: SCENE_FONT }}>PAST</span>}
                   </button>
                 );
               })}

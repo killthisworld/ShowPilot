@@ -134,3 +134,31 @@ export const TASK_ADDED_EVENT = "showpilot:task-added";
 // Fired by the "+" button; the sheet listens for it.
 export const OPEN_QUICK_ADD_EVENT = "showpilot:open-quick-add";
 export const openQuickAdd = () => window.dispatchEvent(new Event(OPEN_QUICK_ADD_EVENT));
+
+// Swipe to delete a chat (job 73): takes it off this person's Chats list
+// until a new message arrives. Saved on the server (hide_conversation, see
+// supabase/chat_hide_migration.sql) and on this device, so the list updates
+// at once and still works if the server step isn't there yet.
+const HIDDEN_CHATS_KEY = "showpilot_hidden_chats";
+function readHiddenChats() {
+  try { return JSON.parse(localStorage.getItem(HIDDEN_CHATS_KEY) || "{}"); } catch { return {}; }
+}
+export function isChatHidden(chat, hidden = readHiddenChats()) {
+  const at = hidden[chat.id];
+  return !!at && !(chat.last_at && new Date(chat.last_at).getTime() > new Date(at).getTime());
+}
+export function visibleChats(chats) {
+  const hidden = readHiddenChats();
+  return (chats || []).filter((c) => !isChatHidden(c, hidden));
+}
+export async function hideChat(chat) {
+  try {
+    const hidden = readHiddenChats();
+    hidden[chat.id] = new Date().toISOString();
+    // Keep the newest 200.
+    const trimmed = Object.fromEntries(Object.entries(hidden).sort((a, b) => b[1].localeCompare(a[1])).slice(0, 200));
+    localStorage.setItem(HIDDEN_CHATS_KEY, JSON.stringify(trimmed));
+  } catch { /* private mode: the server copy still hides it */ }
+  const { error } = await supabase.rpc("hide_conversation", { p_conversation_id: chat.id });
+  if (error && error.code !== "PGRST202") console.error(error);
+}

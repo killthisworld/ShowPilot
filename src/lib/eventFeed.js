@@ -34,7 +34,7 @@ export function feedRows(gig, perms, userId, today = localISO()) {
   (gig.requirements || [])
     .filter((r) => r.status === "conflict" || r.status === "requested")
     .sort((a, b) => (a.status === "conflict" ? 0 : 1) - (b.status === "conflict" ? 0 : 1))
-    .forEach((r) => rows.push({ kind: r.status === "conflict" ? "conflict" : "request", id: `r-${r.id}`, req: r, section: sectionOf(r.section) }));
+    .forEach((r) => rows.push({ kind: r.status === "conflict" ? "conflict" : "request", id: `r-${r.id}`, req: r, section: sectionOf(r.section), canWork: !!userId && canWorkSection(sectionOf(r.section), perms) }));
 
   const dueRank = (t) => (t.due_date ? (t.due_date <= today ? 0 : 1) : 2);
   (gig.tasks || [])
@@ -106,6 +106,16 @@ export default function useEventFeed(gigs, userId) {
     });
   }, []);
 
+  // Patch one request (requirement) in place after Confirm / Conflict.
+  const patchReq = useCallback((shareToken, reqId, next) => {
+    setDetails((d) => {
+      const e = d[shareToken];
+      if (!e) return d;
+      const requirements = (e.gig.requirements || []).map((r) => (r.id === reqId ? { ...r, ...next } : r));
+      return { ...d, [shareToken]: { ...e, gig: { ...e.gig, requirements } } };
+    });
+  }, []);
+
   const groups = useMemo(() => {
     const today = localISO();
     return events
@@ -118,5 +128,5 @@ export default function useEventFeed(gigs, userId) {
       .filter(Boolean);
   }, [events, details, userId]);
 
-  return { groups, loading, reload: load, patchTask };
+  return { groups, loading, reload: load, patchTask, patchReq };
 }
