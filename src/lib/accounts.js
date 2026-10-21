@@ -1,3 +1,4 @@
+import { createClient, isAuthApiError } from "@supabase/supabase-js";
 import { supabase } from "@/api/supabaseClient";
 
 // Account switcher. Each account signed in on this device is remembered
@@ -74,6 +75,41 @@ export function forgetAccount(userId) {
   write(read().filter((a) => a.id !== userId));
 }
 
+// A sign-in only counts as dead when the auth server itself rejects it
+// (expired / revoked refresh token). Network trouble is "try again", never
+// a reason to forget a saved account.
+const isRejected = (error) => isAuthApiError(error) && [400, 401, 403, 404, 422].includes(error.status);
+
+// Checks a saved account's tokens on a throwaway client that never touches
+// the account you're on, and returns a fresh session for it.
+async function verifySaved(target) {
+  const probe = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "showpilot-account-probe" },
+  });
+  try {
+    const { data, error } = await probe.auth.setSession({ access_token: target.access_token, refresh_token: target.refresh_token });
+    if (error) return { error };
+    if (!data?.session) return { error: { status: 0, message: "No session" } };
+    return { session: data.session };
+  } catch (error) {
+    return { error };
+  }
+}
+
+// Put the current account away on this device without telling the auth
+// server. signOut (even scope "local") revokes the session on the server,
+// which kills the saved copy used to switch back. Clearing the stored
+// session and reloading leaves it valid.
+function setAsideCurrentSession() {
+  try { supabase.auth.stopAutoRefresh?.(); } catch {}
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const k = localStorage.key(i);
+      if (k && /^sb-.+-auth-token/.test(k)) localStorage.removeItem(k);
+    }
+  } catch {}
+}
+
 function clearPerAccountStorage() {
   for (const k of PER_ACCOUNT_KEYS) {
     try { localStorage.removeItem(k); } catch {}
@@ -81,20 +117,29 @@ function clearPerAccountStorage() {
   }
 }
 
-// Swap to a saved account. Returns { ok: true } (the page then reloads) or
-// { ok: false, email } when that account's sign-in has expired and it needs
-// its password again.
+// Swap to a saved account. Returns { ok: true } (the page then reloads),
+// { ok: false, email, expired: true } when the auth server rejected that
+// account's sign-in (it needs its password again), or { ok: false, retry:
+// true } on network trouble. Either way the account you're on is untouched:
+// the saved tokens are checked on a separate client first.
 export async function switchToAccount(userId) {
   const target = read().find((a) => a.id === userId);
   if (!target) return { ok: false };
-  const { data, error } = await supabase.auth.setSession({
-    access_token: target.access_token,
-    refresh_token: target.refresh_token,
-  });
-  if (error || !data?.session) {
-    forgetAccount(userId);
-    return { ok: false, email: target.email };
+  const { session: fresh, error: probeError } = await verifySaved(target);
+  if (probeError) {
+    if (isRejected(probeError)) {
+      forgetAccount(userId);
+      return { ok: false, email: target.email, expired: true };
+    }
+    return { ok: false, retry: true };
   }
+  // The probe may have rotated the refresh token: save the new one first.
+  rememberSession(fresh);
+  const { data, error } = await supabase.auth.setSession({
+    access_token: fresh.access_token,
+    refresh_token: fresh.refresh_token,
+  });
+  if (error || !data?.session) return { ok: false, retry: true };
   rememberSession(data.session);
   clearPerAccountStorage();
   // Start the next screen in this account's colors (see accountTypeStyle).
@@ -107,10 +152,12 @@ export async function switchToAccount(userId) {
 }
 
 // Sign in to another account on this device. The current account stays in
-// the list: it's only signed out here ("local"), so its saved session keeps
-// working for switching back.
+// the list and its saved session keeps working for switching back (it's put
+// away locally, not signed out on the server).
 export async function addAnotherAccount(email) {
-  await supabase.auth.signOut({ scope: "local" });
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) rememberSession(session);
+  setAsideCurrentSession();
   clearPerAccountStorage();
   window.location.href = `/login?add=1${email ? `&email=${encodeURIComponent(email)}` : ""}`;
 }
@@ -121,9 +168,9 @@ export async function signOutCurrent() {
   const { data: { session } } = await supabase.auth.getSession();
   const id = session?.user?.id;
   if (id) forgetAccount(id);
-  // A real sign-out of this one account (other saved accounts are other
-  // users, so they're untouched).
-  await supabase.auth.signOut();
+  // A real sign-out of this one account, on this device only ("local"),
+  // so its sessions on other devices and the other saved accounts stay.
+  try { await supabase.auth.signOut({ scope: "local" }); } catch { setAsideCurrentSession(); }
   clearPerAccountStorage();
   const next = read()[0];
   if (next) {

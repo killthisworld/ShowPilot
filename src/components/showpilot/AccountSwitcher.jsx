@@ -29,9 +29,14 @@ export default function AccountSwitcher({ currentUserId }) {
     if (!r.ok) {
       setBusy(null);
       setList(savedAccounts());
-      // Its sign-in expired: sign in to it again (the current account stays saved).
-      setMessage(`${a.name || a.email} needs its password again.`);
-      if (r.email) setTimeout(() => { addAnotherAccount(r.email); }, 900);
+      if (r.retry) {
+        // Network trouble: nothing changed, the account you're on is still signed in.
+        setMessage(`Couldn't reach ${a.name || a.email}. Check your connection and try again.`);
+      } else {
+        // Its sign-in expired: sign in to it again (the current account stays saved).
+        setMessage(`${a.name || a.email} needs its password again.`);
+        if (r.email) setTimeout(() => { addAnotherAccount(r.email); }, 900);
+      }
     }
   };
 
