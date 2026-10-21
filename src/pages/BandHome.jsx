@@ -63,7 +63,7 @@ export default function BandHome() {
   // search box with a sliders toggle in the sticky header, and a
   // Year / Month / Genre / Event Type / Venue / City / State panel under it.
   const [filterOpen, setFilterOpen] = useState(false);
-  const [activeBank, setActiveBank] = useState("all");
+  const [activeBank, setActiveBank] = useState(null); // null = every event
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
@@ -241,7 +241,9 @@ export default function BandHome() {
     roleBanks.forEach((b) => { counts[b.id] = b.id === "all" ? sortedGigs.length : sortedGigs.filter(b.test).length; });
     return counts;
   }, [roleBanks, sortedGigs]);
-  const activeBankDef = roleBanks.find((b) => b.id === activeBank) || roleBanks[0];
+  const activeBankDef = roleBanks.find((b) => b.id === activeBank) || null;
+  // Press a bank to narrow to it, press it again to show everything.
+  const toggleBank = (id) => setActiveBank((cur) => (cur === id ? null : id));
 
   const filteredGigs = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -256,7 +258,7 @@ export default function BandHome() {
         if (!hit) return false;
       }
       // The selected bank narrows the list unless the user is searching (search spans everything, like the tech Home).
-      if (!q && !activeBankDef.test(g)) return false;
+      if (!q && activeBankDef && !activeBankDef.test(g)) return false;
       if (yearFilter !== "all" && !g.date?.startsWith(yearFilter)) return false;
       if (monthFilter !== "all") {
         if (!g.date || new Date(g.date + "T00:00:00").getMonth() !== parseInt(monthFilter)) return false;
@@ -575,11 +577,11 @@ export default function BandHome() {
           {roleBanks.length > 1 && (
             <div className="flex items-center gap-1.5 shrink-0">
               {roleBanks.map((bank) => {
-                const active = activeBankDef.id === bank.id;
+                const active = activeBankDef?.id === bank.id;
                 return (
                   <button
                     key={bank.id}
-                    onClick={() => setActiveBank(bank.id)}
+                    onClick={() => toggleBank(bank.id)} aria-pressed={active}
                     className="h-10 px-3.5 rounded-[20px] text-base font-bold tracking-[0.04em] flex items-center gap-1.5 shrink-0 transition-colors"
                     style={{ background: active ? bank.color : bank.color + "20", border: `1.5px solid ${active ? bank.color : bank.color + "55"}`, color: active ? "#0d0d0d" : bank.color }}
                   >
@@ -792,11 +794,11 @@ export default function BandHome() {
         <div className="px-4 pb-3 max-w-lg mx-auto">
           <div className="flex gap-1.5">
             {roleBanks.map((bank) => {
-              const active = activeBankDef.id === bank.id;
+              const active = activeBankDef?.id === bank.id;
               return (
                 <button
                   key={bank.id}
-                  onClick={() => setActiveBank(bank.id)}
+                  onClick={() => toggleBank(bank.id)} aria-pressed={active}
                   className="flex-1 min-w-0 flex flex-col items-center gap-1.5 pt-2 pb-1.5 rounded-lg transition-all"
                   style={{
                     background: active ? bank.color : bank.color + "24",

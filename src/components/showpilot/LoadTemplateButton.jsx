@@ -34,8 +34,13 @@ function subtitle(category, data) {
 }
 
 // `children` replaces the default small pill label; `buttonStyle` styles it.
-export default function LoadTemplateButton({ category, label, onLoad, className, buttonStyle, children }) {
-  const [open, setOpen] = useState(false);
+// `open` + `onOpenChange` drive it from outside (the profile web's Load
+// template corner, job 124); with `hideTrigger` no button is drawn.
+export default function LoadTemplateButton({ category, label, onLoad, className, buttonStyle, children, open: openProp, onOpenChange, hideTrigger = false }) {
+  const [openState, setOpenState] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : openState;
+  const setOpen = (v) => { if (!controlled) setOpenState(v); onOpenChange?.(v); };
   const [loading, setLoading] = useState(false);
   const [templates, setTemplates] = useState(null); // null = not fetched yet
   const [q, setQ] = useState("");
@@ -54,11 +59,10 @@ export default function LoadTemplateButton({ category, label, onLoad, className,
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const openPicker = async (e) => {
-    e?.stopPropagation();
-    setOpen(true);
-    if (templates !== null) return;
-    setLoading(true);
+  // Templates are fetched fresh every time the picker opens, so one edited,
+  // added or deleted on another device (or in My Templates) shows up here.
+  const fetchTemplates = async () => {
+    if (templates === null) setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setTemplates([]); return; }
@@ -77,6 +81,12 @@ export default function LoadTemplateButton({ category, label, onLoad, className,
       setLoading(false);
     }
   };
+  const openPicker = (e) => {
+    e?.stopPropagation();
+    setOpen(true);
+    fetchTemplates();
+  };
+  useEffect(() => { if (controlled && openProp) fetchTemplates(); }, [controlled, openProp]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pick = (t) => {
     onLoad(t.name, t.data || {});
@@ -194,14 +204,14 @@ export default function LoadTemplateButton({ category, label, onLoad, className,
 
   return (
     <>
-      <button
+      {!hideTrigger && <button
         type="button"
         onClick={openPicker}
         className={className || "flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0"}
         style={buttonStyle}
       >
         {children || <><FolderOpen className="w-3 h-3" /> {label || "Load Template"}</>}
-      </button>
+      </button>}
       {modal && createPortal(modal, document.body)}
     </>
   );

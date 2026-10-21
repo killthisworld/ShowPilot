@@ -66,9 +66,12 @@ export default function MyTemplates() {
   const accountType = preferences?.account_type || "engineer";
   const isTech = ["engineer", "lighting"].includes(accountType);
   const own = MANAGER_SIDE[accountType] || accountType;
-  const categories = isTech
-    ? ["venue", "artist"]
-    : [...COMPANY_TEMPLATE_ROLES].sort((a, b) => (a === own ? -1 : b === own ? 1 : 0)).concat("artist");
+  // Wallets (job 124): company accounts get one Manager / Artist wallet that
+  // holds both manager-section and artist templates; techs keep Venue + Artist.
+  const WALLETS = isTech
+    ? [{ id: "venue", cats: ["venue"] }, { id: "artist", cats: ["artist"] }]
+    : [{ id: "venue", cats: ["venue"] }, { id: "manager", cats: ["manager", "artist"] }].sort((a, b) => (a.id === own ? -1 : b.id === own ? 1 : 0));
+  const walletOf = (id) => WALLETS.find((w) => w.id === id) || WALLETS[0];
   const workspaceKind = (category) => !isTech && COMPANY_TEMPLATE_ROLES.includes(category);
 
   useEffect(() => {
@@ -94,6 +97,38 @@ export default function MyTemplates() {
     };
     init();
   }, []);
+
+  // Templates live in the account (saved_templates), so a change on the
+  // phone shows up on the desktop and back (job 124): refetch when this page
+  // comes back into view and every 20s while it's open. Anything being
+  // edited here right now (open, new or in the editor) is kept as it is.
+  const editingKeyRef = useRef(null);
+  useEffect(() => { editingKeyRef.current = editing?.key || null; }, [editing]);
+  useEffect(() => {
+    if (!user) return undefined;
+    let stop = false;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const { data, error } = await supabase.from("saved_templates").select("id, category, name, data").eq("owner_id", user.id).order("category").order("name");
+      if (stop || error || !data) return;
+      setTemplates((prev) => {
+        const busy = prev.filter((t) => !t.id || t.open || t.saving || t.key === editingKeyRef.current);
+        const busyIds = new Set(busy.filter((t) => t.id).map((t) => t.id));
+        const fresh = data.filter((t) => !busyIds.has(t.id)).map((t) => {
+          const old = prev.find((o) => o.id === t.id);
+          return { key: `id:${t.id}`, id: t.id, category: t.category, name: t.name, data: normalizeData(t.category, t.data), open: false, saving: false, saved: !!old?.saved };
+        });
+        // Keep an open one only if it still exists (deleted elsewhere = gone).
+        const kept = busy.filter((t) => !t.id || data.some((d) => d.id === t.id));
+        return [...fresh, ...kept].sort((a, b) => (a.category || "").localeCompare(b.category || "") || (a.name || "").localeCompare(b.name || ""));
+      });
+    };
+    const onVis = () => refresh();
+    window.addEventListener("focus", onVis);
+    document.addEventListener("visibilitychange", onVis);
+    const iv = setInterval(refresh, 20000);
+    return () => { stop = true; window.removeEventListener("focus", onVis); document.removeEventListener("visibilitychange", onVis); clearInterval(iv); };
+  }, [user]);
 
   // Artist accounts used to keep one artist profile on user_preferences
   // (the old My Templates page). Bring it in once as an Artist template.
@@ -308,23 +343,29 @@ export default function MyTemplates() {
   ));
 
   const listFor = (category) => templates.filter((t) => t.category === category && (t.id || !workspaceKind(category)));
+  const listForWallet = (w) => w.cats.flatMap((c) => listFor(c));
 
-  // The templates inside one wallet.
-  const templateList = (category) => {
-    const g = GROUP[category];
-    const color = g.style.color;
-    const list = listFor(category);
+  // The templates inside one wallet. A wallet with two kinds (Manager /
+  // Artist) tags each row with its kind.
+  const templateList = (w) => {
+    const list = listForWallet(w);
+    const mixed = w.cats.length > 1;
     return (
       <>
         <div className="px-3 pb-3 space-y-2">
           {list.length === 0 && (
-            <p className="px-1 pb-1 text-[14px] leading-snug text-white/40">{EMPTY_NOTE[isTech ? "tech" : "company"][category]}</p>
+            <p className="px-1 pb-1 text-[14px] leading-snug text-white/40">{w.cats.map((c) => EMPTY_NOTE[isTech ? "tech" : "company"][c]).join(" ")}</p>
           )}
-          {list.map((t) => (workspaceKind(category) ? (
+          {list.map((t) => {
+            const category = t.category;
+            const g = GROUP[category];
+            const color = g.style.color;
+            const kindTag = mixed && <span className="shrink-0 text-[10px] tracking-[0.1em] px-1.5 py-[2px] rounded" style={{ fontFamily: SCENE_MONO, color, background: color + "1f" }}>{g.label.toUpperCase()}</span>;
+            return (workspaceKind(category) ? (
             <div key={t.key} className="flex items-center gap-1 rounded-xl bg-[#161616] border border-[#242424]" style={{ borderLeft: `3px solid ${color}` }}>
               <button type="button" onClick={() => openEditor(t)} className="flex-1 min-w-0 flex items-center gap-2 px-3.5 py-3 text-left">
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-semibold text-white truncate">{t.name}</span>
+                  <span className="flex items-center gap-2"><span className="block text-[16px] font-semibold text-white truncate">{t.name}</span>{kindTag}</span>
                   {summaryLine(t) && <span className="block text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</span>}
                 </span>
                 <ChevronRight className="w-4 h-4 shrink-0" style={{ color: color + "aa" }} />
@@ -335,7 +376,7 @@ export default function MyTemplates() {
             <div key={t.key} className="rounded-xl border overflow-hidden" style={{ borderColor: color + "40", borderLeftWidth: 3, borderLeftColor: color }}>
               <button type="button" onClick={() => toggleOpen(t.key)} className="w-full flex items-center justify-between gap-2 px-3.5 py-3 bg-[#161616]">
                 <div className="min-w-0 text-left">
-                  <p className="text-[16px] font-semibold text-white truncate">{t.name || `Untitled ${g.label.toLowerCase()}`}</p>
+                  <p className="flex items-center gap-2"><span className="text-[16px] font-semibold text-white truncate">{t.name || `Untitled ${g.label.toLowerCase()}`}</span>{kindTag}</p>
                   {!t.open && summaryLine(t) && <p className="text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</p>}
                 </div>
                 <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${t.open ? "rotate-180" : ""}`} />
@@ -373,7 +414,8 @@ export default function MyTemplates() {
                 </div>
               )}
             </div>
-          )))}
+          ));
+          })}
         </div>
       </>
     );
@@ -384,7 +426,7 @@ export default function MyTemplates() {
   // of each). Swipe a wallet left to open it; on desktop a click opens it in
   // the panel on the right. Enter / Space also opens it.
   const SWIPE_OPEN = -70;
-  const openWallet = (category) => { setOpenCat(category); setActiveCat(category); };
+  const openWallet = (id) => { setOpenCat(id); setActiveCat(id); };
   const onDown = (e, category) => {
     if (e.target.closest("button")) return;
     drag.current = { on: true, cat: category, x0: e.clientX, moved: false, dx: 0 };
@@ -404,14 +446,15 @@ export default function MyTemplates() {
     setSwipe({ cat: null, dx: 0 });
   };
 
-  const walletCard = (category) => {
+  const walletCard = (w) => {
+    const category = w.id;
     const g = GROUP[category];
     const color = g.style.color;
     const Icon = g.style.icon;
-    const n = listFor(category).length;
+    const n = listForWallet(w).length;
     const yours = !isTech && category === own;
     const dx = swipe.cat === category ? swipe.dx : 0;
-    const selected = desktop && (openCat || categories[0]) === category;
+    const selected = desktop && (openCat || WALLETS[0].id) === category;
     return (
       <div
         key={category}
@@ -440,14 +483,8 @@ export default function MyTemplates() {
           {yours && <span className="text-[10px] tracking-[0.12em] px-1.5 py-[2px] rounded bg-[#0d0d0d] shrink-0" style={{ color, fontFamily: SCENE_MONO }}>YOURS</span>}
         </div>
         <p className="relative z-10 mt-2 text-[13px] text-[#0d0d0d]/70">{n} template{n === 1 ? "" : "s"}</p>
-        <div className="relative z-10 mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openWallet(category); addTemplate(category); }}
-            className="h-10 px-3 rounded-lg border border-[#0d0d0d]/40 text-[#0d0d0d] text-[14px] font-bold tracking-[0.04em] flex items-center gap-1"
-          >
-            <Plus className="w-4 h-4" /> NEW
-          </button>
+        {/* No NEW here (job 124): open the wallet to add one. */}
+        <div className="relative z-10 mt-4 flex items-center gap-2 h-10">
           {!desktop && (
             <span className="ml-auto flex items-center gap-1 text-[#0d0d0d]/50" aria-hidden="true">
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -459,14 +496,16 @@ export default function MyTemplates() {
     );
   };
 
-  const walletStack = <div className="flex flex-col gap-3">{categories.map(walletCard)}</div>;
+  const walletStack = <div className="flex flex-col gap-3">{WALLETS.map(walletCard)}</div>;
 
   // One wallet opened: its templates, with a way back to the stack.
-  const openedWallet = (category) => {
+  const openedWallet = (id) => {
+    const w = walletOf(id);
+    const category = w.id;
     const g = GROUP[category];
     const color = g.style.color;
     const Icon = g.style.icon;
-    const n = listFor(category).length;
+    const n = listForWallet(w).length;
     return (
       <section className="rounded-2xl bg-[#111] border border-[#1f1f1f] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
@@ -480,15 +519,20 @@ export default function MyTemplates() {
             <h2 className="text-[20px] font-bold leading-none text-white">{g.plural}</h2>
             <div className="mt-1 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{n} TEMPLATE{n === 1 ? "" : "S"}</div>
           </div>
-          <button
-            onClick={() => addTemplate(category)}
-            className="flex items-center gap-1 text-[13px] font-bold tracking-[0.04em] px-3 py-2 rounded-lg"
-            style={{ border: `1px solid ${color}66`, color, background: color + "14" }}
-          >
-            <Plus className="w-4 h-4" /> NEW
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {w.cats.map((c) => {
+              const cc = GROUP[c].style.color;
+              return (
+                <button key={c} onClick={() => addTemplate(c)}
+                  className="flex items-center gap-1 text-[13px] font-bold tracking-[0.04em] px-3 py-2 rounded-lg"
+                  style={{ border: `1px solid ${cc}66`, color: cc, background: cc + "14" }}>
+                  <Plus className="w-4 h-4" /> {w.cats.length > 1 ? GROUP[c].label.toUpperCase() : "NEW"}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        {templateList(category)}
+        {templateList(w)}
       </section>
     );
   };
@@ -551,7 +595,7 @@ export default function MyTemplates() {
       {desktop ? (
         <div className="px-4 pt-5 mx-auto max-w-[1180px] grid gap-6 items-start" style={{ gridTemplateColumns: "380px minmax(0, 1fr)" }}>
           <div>{walletStack}</div>
-          <div>{openedWallet(openCat || activeCat || categories[0])}</div>
+          <div>{openedWallet(openCat || activeCat || WALLETS[0].id)}</div>
         </div>
       ) : (
         <div className="px-4 pt-5 mx-auto max-w-lg">

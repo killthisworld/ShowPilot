@@ -65,28 +65,13 @@ export function buildStatusStrip(accountType, gigs = [], progress = {}) {
 }
 
 // ---- Role banks ---------------------------------------------------------
-// The colored bank buttons under the filters on the non-tech home. Every
-// role gets ALL plus the buckets it actually works through, derived from
-// the same fields as the status strip. `test` runs against one gig.
-const isOwnedUpcoming = (g) => g.is_owned !== false && g.date && g.date >= todayStr();
-const venueReady = (g) => !blank(g.wifi_network) && !blank(g.console) && !blank(g.power_notes);
-
+// The bank buttons on the non-tech home (job 124): just CREATED (events
+// this account made) and LINKED (events shared with it, or its own events
+// it has shared). With none pressed every event shows; press one to narrow
+// to it, press it again to clear. Same for venue and manager / artist.
 export function getRoleBanks(accountType, accentColor) {
-  const all = { id: "all", label: "ALL", color: accentColor, test: () => true };
-  switch (accountType) {
-    case "venue":
-      return [
-        all,
-        { id: "todo", label: "TO DO", color: AMBER, test: (g) => isOwnedUpcoming(g) && !venueReady(g) },
-        { id: "ready", label: "READY", color: GREEN, test: (g) => isOwnedUpcoming(g) && venueReady(g) },
-        { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
-      ];
-    default: // band, manager
-      return [
-        all,
-        { id: "advance", label: "ADVANCE", color: AMBER, test: (g) => isOwnedUpcoming(g) && blank(g.manager_info?.advancing_notes) },
-        { id: "ready", label: "READY", color: GREEN, test: (g) => isOwnedUpcoming(g) && !blank(g.manager_info?.advancing_notes) },
-        { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
-      ];
-  }
+  return [
+    { id: "created", label: "CREATED", color: accentColor, test: (g) => g.is_owned !== false },
+    { id: "linked", label: "LINKED", color: "#F472B6", test: (g) => g.is_owned === false || g.is_shared_by_me },
+  ];
 }

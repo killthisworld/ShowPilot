@@ -159,6 +159,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const ed = p.editable;
   // Task summary (TaskSheet) open over the workspace, by task id.
   const [openTaskId, setOpenTaskId] = useState(null);
+  // Load template from the profile web's corner (job 124).
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplLoaded, setTplLoaded] = useState("");
+  useEffect(() => { if (!tplLoaded) return undefined; const t = setTimeout(() => setTplLoaded(""), 4000); return () => clearTimeout(t); }, [tplLoaded]);
   const off = !ed;
   const [copied, setCopied] = useState("");
   const copy = async (text, key) => {
@@ -731,6 +735,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // The task summary, for this workspace's tasks (claim / let go / done /
   // details go through useRoleProfile, so the event web refreshes too).
   const openTask = openTaskId ? (gig.tasks || []).find((t) => t.id === openTaskId) : null;
+  // Venue and Manager can fill their section from a saved template; it only
+  // changes the screen until the section's Save.
+  const canLoadTpl = ed && !template && !!p.user && (role === "venue" || role === "manager");
+  const tplPicker = canLoadTpl ? (
+    <>
+      <LoadTemplateButton category={role} hideTrigger open={tplOpen} onOpenChange={setTplOpen}
+        onLoad={(n, data) => { applyTemplate(role, data, gig, p.update); setTplLoaded(n); }} />
+      {tplLoaded && createPortal(
+        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] px-4 py-2.5 rounded-xl bg-[#111] border border-[#2a2a2a] text-[14px] text-white shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
+          Loaded <b>{tplLoaded}</b>. Press Save to keep it.
+        </div>, document.body)}
+    </>
+  ) : null;
   const taskSheet = openTask ? (
     <TaskSheet
       task={openTask}
@@ -777,6 +794,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const featureDcas = [
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
+    canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
   ].filter(Boolean);
 
   if (layout === "pages") {
@@ -808,7 +826,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}
+          {taskSheet}{tplPicker}
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
@@ -857,7 +875,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}
+        {taskSheet}{tplPicker}
         <div ref={blockRef} className="rounded-2xl bg-[#111] text-white" style={{ fontFamily: SCENE_FONT, border: `1px solid ${selected ? color + "99" : "#1f1f1f"}`, boxShadow: selected ? `0 0 0 1px ${color}33, 0 0 18px ${color}22` : undefined, scrollMarginTop: 12 }}>
           <div className="flex items-center gap-1 pr-2">
             <button type="button" onClick={() => setBlockOpen((o) => !o)} aria-expanded={blockOpen} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
@@ -954,7 +972,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}
+          {taskSheet}{tplPicker}
           <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
             {!p.user && (
               <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
@@ -1004,7 +1022,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}
+        {taskSheet}{tplPicker}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
           {tabChips}
           <div className="flex items-center gap-3">
@@ -1158,7 +1176,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   return (
     <Shell modal={modal} onClose={onClose}>
       {header}
-      {taskSheet}
+      {taskSheet}{tplPicker}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
