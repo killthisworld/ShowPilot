@@ -21,7 +21,6 @@ import LightingDesk from "@/components/showpilot/LightingDesk";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
-import { localISO } from "@/lib/needsMe";
 import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 export default function Home() {
@@ -355,21 +354,12 @@ export default function Home() {
     return counts;
   }, [shows]);
 
-  // Desktop console: the strips only show upcoming (and undated) shows, so
-  // each bank's count is what you'll actually see when you press it, and the
-  // week row follows the selected bank too.
-  const deskCounts = useMemo(() => {
-    const today = localISO();
-    const upcoming = shows.filter((s) => (!s.date || s.date >= today) && matchesDropdowns(s));
-    const counts = { all: upcoming.length };
-    SCENE_BANKS.forEach((b) => { counts[b.id] = upcoming.filter((s) => inTab(s, b.id)).length; });
-    return counts;
+  // Desktop console: every show past the dropdown filters; the console
+  // itself narrows it to the week on screen and the pressed bank.
+  const deskPool = useMemo(
+    () => shows.filter(matchesDropdowns),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shows, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
-  const deskWeekShows = useMemo(
-    () => shows.filter((s) => inTab(s, deskTab) && matchesDropdowns(s)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shows, deskTab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]
+    [shows, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]
   );
 
   const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
@@ -519,7 +509,8 @@ export default function Home() {
       <>
         <TechConsoleDesk
           shows={filtered}
-          allShows={deskWeekShows}
+          pool={deskPool}
+          inTab={inTab}
           loading={loading}
           accent={accountStyle.color}
           preferences={preferences}
@@ -528,8 +519,6 @@ export default function Home() {
           setSearch={setSearch}
           activeTab={deskTab}
           setActiveTab={setDeskTab}
-          bankCounts={deskCounts}
-          totalCount={deskCounts.all}
           filtersNode={filterSelects}
           hasActiveFilters={hasActiveFilters}
           onOpen={openShow}

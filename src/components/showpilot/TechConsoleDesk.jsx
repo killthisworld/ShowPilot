@@ -11,7 +11,6 @@ import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TechRail from "@/components/showpilot/TechRail";
-import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
@@ -39,7 +38,8 @@ const SEND = { chat: "#60A5FA", fan: "#E879F9", share: "#8CFF3D" };
 
 export default function TechConsoleDesk({
   shows, // already filtered by search / bank / dropdown filters
-  allShows, // every show, for the week view
+  pool, // every show that passes the dropdown filters (no bank, no search)
+  inTab, // (show, bankId) => boolean, the same rule the phone uses
   loading,
   accent = "#8CFF3D",
   preferences,
@@ -48,8 +48,6 @@ export default function TechConsoleDesk({
   setSearch,
   activeTab,
   setActiveTab,
-  bankCounts,
-  totalCount,
   filtersNode,
   hasActiveFilters,
   onOpen,
@@ -67,17 +65,37 @@ export default function TechConsoleDesk({
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
   const groupRefs = useRef({});
-  const stripScrollRef = useRef(null);
-  const [visibleMonth, setVisibleMonth] = useState(null);
   const { data: needs } = useNeedsMe();
 
-  // Upcoming shows (and undated ones), soonest first. Past shows live in the
-  // Logbook; a search still finds them.
+  // Like the phone: the console shows one week (Mon-Sun, moved with the
+  // arrows), opening on this week from today on. Nothing that week = nothing
+  // on the console. The banks narrow it; a search looks through everything.
+  const [weekOffset, setWeekOffset] = useState(0);
+  const today0 = localISO();
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = addDaysISO(-(dow === 0 ? 6 : dow - 1) + weekOffset * 7);
+    const base = new Date(monday + "T00:00:00");
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const key = localISO(d);
+      return { key, d, shows: (pool || []).filter((x) => x.date === key && inTab(x, activeTab)) };
+    });
+  }, [weekOffset, pool, activeTab, inTab]);
+  const weekStart = weekOffset === 0 ? today0 : weekDays[0].key;
+  const weekEnd = weekDays[6].key;
+  const weekPool = useMemo(
+    () => (pool || []).filter((s) => s.date && s.date >= weekStart && s.date <= weekEnd),
+    [pool, weekStart, weekEnd]
+  );
+  const countFor = (id) => weekPool.filter((s) => inTab(s, id)).length;
+
   const strips = useMemo(() => {
-    const t = localISO();
-    const list = search ? [...shows] : shows.filter((s) => !s.date || s.date >= t);
+    const list = search ? [...shows] : weekPool.filter((s) => inTab(s, activeTab));
     return list.sort((a, b) => (!a.date ? 1 : !b.date ? -1 : a.date.localeCompare(b.date)));
-  }, [shows, search]);
+  }, [shows, search, weekPool, activeTab, inTab]);
 
   const stripIds = useMemo(() => strips.map((s) => s.id).filter(Boolean).join(","), [strips]);
 
@@ -126,20 +144,6 @@ export default function TechConsoleDesk({
     return map;
   }, [needs]);
 
-  // This week (Mon-Sun), moved with the arrows.
-  const [weekOffset, setWeekOffset] = useState(0);
-  const weekDays = useMemo(() => {
-    const now = new Date();
-    const dow = now.getDay();
-    const monday = addDaysISO(-(dow === 0 ? 6 : dow - 1) + weekOffset * 7);
-    const base = new Date(monday + "T00:00:00");
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      const key = localISO(d);
-      return { key, d, shows: (allShows || shows).filter((x) => x.date === key) };
-    });
-  }, [weekOffset, allShows, shows]);
 
   const unreadByToken = useMemo(() => {
     const map = {};
@@ -166,26 +170,6 @@ export default function TechConsoleDesk({
     });
     return out;
   }, [strips]);
-
-  // The month dropdown (next to the week arrows) names the month the strips
-  // are scrolled to; picking one scrolls the strips there.
-  const syncVisibleMonth = () => {
-    const box = stripScrollRef.current;
-    if (!box || !groups.length) return;
-    const left = box.getBoundingClientRect().left;
-    const hit = groups.find((g) => {
-      const el = groupRefs.current[g.key];
-      return el && el.getBoundingClientRect().right > left + 40;
-    });
-    setVisibleMonth((hit || groups[0]).key);
-  };
-  useEffect(() => { syncVisibleMonth(); }, [groups]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shownMonth = groups.find((g) => g.key === visibleMonth) || groups[0];
-  const jumpToMonth = (picked) => {
-    const key = nearestMonthKey(picked, groups.map((x) => x.key));
-    groupRefs.current[key]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-    setVisibleMonth(key);
-  };
 
   const flash = (msg) => {
     setToast(msg);
@@ -230,7 +214,6 @@ export default function TechConsoleDesk({
   // No ALL button: with no bank pressed every show is on; pressing the lit
   // bank again turns it off.
   const banks = SCENE_BANKS;
-  const countFor = (id) => (id === "all" ? totalCount : bankCounts[id] || 0);
 
   return (
     <div className="fixed inset-0 flex bg-[#0d0d0d] text-[#f2f2f2] overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -298,21 +281,6 @@ export default function TechConsoleDesk({
               {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
               <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
             </div>
-            {shownMonth && (
-              <>
-                <span className="w-px h-6 bg-[#2a2a2a] mx-2" aria-hidden="true" />
-                <MonthDropdown
-                  label={shownMonth.label}
-                  value={shownMonth.key}
-                  options={jumpMonthOptions(groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length })))}
-                  onSelect={jumpToMonth}
-                  accent={accent}
-                  ariaLabel="Jump to a month"
-                  className="px-1 h-8 text-[18px] font-bold tracking-[0.08em]"
-                  style={{ fontFamily: SCENE_FONT, color: accent }}
-                />
-              </>
-            )}
           </div>
           <div className="grid grid-cols-7 gap-2">
             {weekDays.map((day) => {
@@ -349,19 +317,13 @@ export default function TechConsoleDesk({
             </div>
           ) : strips.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-              <p className="text-white/60 text-[15px]">
-                {search || hasActiveFilters || activeTab !== "all" ? "No upcoming shows match." : "No upcoming shows yet."}
+              <p className="text-white/40 text-[15px]">
+                {search ? "No shows match." : weekOffset === 0 ? "Nothing this week." : "Nothing that week."}
               </p>
-              <div className="flex gap-2">
-                <Link to="/show/new" onClick={clearNewShowDraft} className="h-10 px-4 rounded-[10px] flex items-center gap-1.5 text-[14px] font-bold" style={{ background: accent, color: "#0d0d0d" }}>
-                  <Plus className="w-4 h-4" /> New show
-                </Link>
-                <Link to="/logbook" className="h-10 px-4 rounded-[10px] flex items-center text-[14px] font-semibold bg-[#1a1a1a] border border-[#333] text-white/80">Past shows: Logbook</Link>
-              </div>
             </div>
           ) : (
             <>
-              <div ref={stripScrollRef} onScroll={syncVisibleMonth} className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+              <div className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
                 {groups.map((g, gi) => (
                   <div
                     key={g.key}
