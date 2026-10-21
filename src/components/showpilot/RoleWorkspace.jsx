@@ -10,7 +10,7 @@ import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
-import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
+import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
 import EventDeal, { dealTabState, dealTabSummary } from "@/components/showpilot/EventDeal";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness } from "@/lib/eventBusiness";
@@ -502,6 +502,36 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <input value={setTimes[b.band_name] || ""} onChange={(e) => setMi("set_times", { ...setTimes, [b.band_name]: e.target.value })} disabled={off || !b.band_name} placeholder="9:00 PM" className={inputCls} aria-label="Set time" />
                     </label>
                   </div>
+                  {/* Members, inputs & stage plot for this act (job 108): the
+                      same editor as the shared event page. Editable by whoever
+                      can edit this section; read-only for everyone else
+                      (e.g. Audio / Lighting). Saved with the section's Save. */}
+                  {(() => {
+                    const open = p.expandedBands?.has(i);
+                    const n = (b.band_members || []).length;
+                    const plot = (b.stage_plot_files || []).length;
+                    const bits = [n ? `${n} member${n === 1 ? "" : "s"}` : null, plot ? "stage plot" : null].filter(Boolean).join(" · ");
+                    return (
+                      <div className="col-start-1 col-span-3 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => p.toggleExpanded?.(i)}
+                          aria-expanded={!!open}
+                          className="w-full h-10 px-3 rounded-[9px] border flex items-center gap-2 text-left text-[13px] font-semibold transition-colors"
+                          style={{ borderColor: open ? color + "88" : "#262626", background: open ? color + "14" : "#111", color: open ? color : "rgba(255,255,255,0.7)" }}
+                        >
+                          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+                          <span className="flex-1 min-w-0 truncate">Members, inputs & stage plot</span>
+                          {bits && <span className="shrink-0 text-[11px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{bits.toUpperCase()}</span>}
+                        </button>
+                        {open && (
+                          <div className="mt-2 rounded-[10px] border border-[#222] bg-[#0f0f0f] p-2.5">
+                            <BandDetails band={b} editable={ed} onUpdate={(field, val) => p.updateBand(i, field, val)} iemMonitorColors={p.iemMonitorColors || {}} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
