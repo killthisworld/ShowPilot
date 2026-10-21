@@ -6,6 +6,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
+import RoomsButton from "@/components/showpilot/RoomsButton";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
@@ -621,28 +622,15 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
               <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ")}</p>
             </div>
+            {/* Chat is an icon beside Tasks instead of a SHOW / ROOMS tab row (job 119). */}
+            <RoomsButton token={token} />
             <TasksButton token={token} />
           </div>
         </div>
         <div className="px-4 pt-3 max-w-lg mx-auto">
-          <div className="flex items-center gap-1.5 mb-3">
-            {[{ id: "profile", label: "SHOW" }, { id: "rooms", label: "ROOMS" }].map((t) => {
-              const on = (activeTab === "rooms" ? "rooms" : "profile") === t.id;
-              return (
-                <button key={t.id} type="button" onClick={() => setActiveTab(t.id)} className="flex-1 py-2 rounded-lg text-[11px] font-semibold tracking-[0.1em] transition-colors"
-                  style={{ fontFamily: SCENE_MONO, color: on ? "#0d0d0d" : "rgba(255,255,255,0.65)", background: on ? "#fff" : "#141414", border: `1px solid ${on ? "#fff" : "#2a2a2a"}` }}>{t.label}</button>
-              );
-            })}
-          </div>
-          {activeTab === "rooms" ? (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3 mb-4">
-              <RoomsTabPanel selectedRole={null} roleLabel={undefined} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
-            </div>
-          ) : (
-            <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
-              <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
-            </Suspense>
-          )}
+          <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
+            <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+          </Suspense>
         </div>
         {user && <BottomTabs />}
         {overlays}

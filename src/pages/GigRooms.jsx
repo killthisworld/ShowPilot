@@ -183,10 +183,14 @@ export default function GigRooms() {
           <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-white font-bold text-lg leading-tight truncate">{gigTitle}</h1>
             <p className="text-white/40 text-xs mt-0.5">Rooms</p>
           </div>
+          {/* Private messages live here now that the event header has a single chat icon (job 119). */}
+          <Link to={`/gig/messages?token=${token}`} aria-label="Private messages" className="shrink-0 h-10 px-3 rounded-xl flex items-center gap-1.5 bg-[#161616] border border-[#262626] text-white/80 hover:text-white text-[13px] font-semibold">
+            <Mail className="w-4 h-4" /> Private
+          </Link>
         </div>
         {rooms.length > 0 && (
           <div className="flex gap-1.5 px-4 pb-3 max-w-lg mx-auto overflow-x-auto">

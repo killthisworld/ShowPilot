@@ -15,6 +15,7 @@ import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 import useIsDesktop from "@/hooks/useIsDesktop";
+import RoomsButton from "@/components/showpilot/RoomsButton";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
 
@@ -1140,7 +1141,10 @@ export default function SharedGig() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {techPhone ? (
-              <TasksButton token={resolvedToken} />
+              <>
+                {canEdit && <RoomsButton token={resolvedToken} />}
+                <TasksButton token={resolvedToken} />
+              </>
             ) : (
               <button
                 onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
@@ -1152,20 +1156,22 @@ export default function SharedGig() {
             )}
           {canEdit && (
             <>
+              {!techPhone && (<>
               <button
                 onClick={() => navigate(`/gig/messages?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                <span className={techPhone ? "sr-only" : ""}>DMs</span>
+                <span>DMs</span>
               </button>
               <button
                 onClick={() => navigate(`/gig/rooms?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
-                <span className={techPhone ? "sr-only" : ""}>Rooms</span>
+                <span>Rooms</span>
               </button>
+              </>)}
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -1250,6 +1256,8 @@ export default function SharedGig() {
         </div>
 
         {(() => {
+          // Tech phones: no Needs Attention block (job 119).
+          if (techPhone) return null;
           const attention = (gig.requirements || []).filter((r) => r.status === "conflict" || r.status === "requested");
           if (attention.length === 0) return null;
           const sorted = [...attention].sort((a, b) => (a.status === "conflict" ? 0 : 1) - (b.status === "conflict" ? 0 : 1));
