@@ -120,7 +120,10 @@ export function useRoleProfile({ role, token, onChanged }) {
 
   const markLinkedAndAccepted = async () => {
     if (!user || !gig?.id || permissions?.is_owner) return;
-    await supabase.from("linked_gigs").upsert({ user_id: user.id, show_id: gig.id, share_token: token }, { onConflict: "user_id,show_id" });
+    // ON CONFLICT DO NOTHING: linked_gigs has no UPDATE policy, so a plain
+    // upsert fails once you're already linked (job 109).
+    const { error } = await supabase.from("linked_gigs").upsert({ user_id: user.id, show_id: gig.id, share_token: token }, { onConflict: "user_id,show_id", ignoreDuplicates: true });
+    if (error) console.error(error);
   };
 
   const saveSection = async (sectionKey, data) => {

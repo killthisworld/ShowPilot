@@ -982,7 +982,10 @@ export default function SharedGig() {
     if (!uid) throw new Error("Sign in to save this event to Linked.");
     const { error: linkError } = await supabase
       .from("linked_gigs")
-      .upsert({ user_id: uid, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
+      // ignoreDuplicates = ON CONFLICT DO NOTHING. linked_gigs has no UPDATE
+      // policy, so a plain upsert is rejected when you're already linked
+      // (job 109); this adds new links and leaves existing ones alone.
+      .upsert({ user_id: uid, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id", ignoreDuplicates: true });
     // Don't show "Saved" when the event never reached the Linked tab.
     if (linkError) throw linkError;
     if (inviteToken) {
