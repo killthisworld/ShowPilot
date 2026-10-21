@@ -56,12 +56,12 @@ export default function MyTemplates() {
   const [editing, setEditing] = useState(null); // workspace editor: { key, role, name, gig }
   const [edSaving, setEdSaving] = useState(false);
   const [edSaved, setEdSaved] = useState(false);
-  // Wallet stack (like Fellow Pilots): each template kind is a wallet. Tap
-  // one to raise it, swipe it left (or press Open) to see its templates.
+  // Wallets (like Fellow Pilots): each template kind is a wallet; swipe one
+  // left to see its templates.
   const [activeCat, setActiveCat] = useState(null);
   const [openCat, setOpenCat] = useState(null);
-  const [swipeX, setSwipeX] = useState(0);
-  const drag = useRef({ on: false, x0: 0, moved: false, dx: 0 });
+  const drag = useRef({ on: false, cat: null, x0: 0, moved: false, dx: 0 });
+  const [swipe, setSwipe] = useState({ cat: null, dx: 0 });
 
   const accountType = preferences?.account_type || "engineer";
   const isTech = ["engineer", "lighting"].includes(accountType);
@@ -379,134 +379,87 @@ export default function MyTemplates() {
     );
   };
 
-  // ---- Wallet stack ----
-  const COLLAPSED = 64, PEEK = 52, RAISED = 168, GAP = 12;
-  const stack = (() => {
-    let top = 0;
-    // Desktop: the wallet shown on the right is the raised one.
-    const raisedCat = desktop ? (openCat || activeCat || categories[0]) : activeCat;
-    const items = categories.map((category, i) => {
-      const raised = category === raisedCat;
-      const item = { category, top, raised, z: raised ? 50 : i + 1 };
-      top += raised ? RAISED + GAP : PEEK;
-      return item;
-    });
-    const last = items[items.length - 1];
-    return { items, height: last ? last.top + (last.raised ? RAISED : COLLAPSED) : 0 };
-  })();
-
+  // ---- Wallets ----
+  // One wallet per template kind, all shown full size (there's only ever one
+  // of each). Swipe a wallet left to open it; on desktop a click opens it in
+  // the panel on the right. Enter / Space also opens it.
+  const SWIPE_OPEN = -70;
   const openWallet = (category) => { setOpenCat(category); setActiveCat(category); };
-  const onDown = (e) => {
+  const onDown = (e, category) => {
     if (e.target.closest("button")) return;
-    drag.current = { on: true, x0: e.clientX, moved: false, dx: 0 };
+    drag.current = { on: true, cat: category, x0: e.clientX, moved: false, dx: 0 };
   };
   const onMove = (e) => {
     if (!drag.current.on) return;
     const dx = Math.min(0, e.clientX - drag.current.x0);
     if (Math.abs(dx) > 10) drag.current.moved = true;
     drag.current.dx = dx;
-    setSwipeX(dx);
+    setSwipe({ cat: drag.current.cat, dx });
   };
-  const onUp = (e, category) => {
+  const onUp = () => {
     if (!drag.current.on) return;
+    const { cat, dx, moved } = drag.current;
     drag.current.on = false;
-    if (drag.current.dx < -70) openWallet(category);
-    else if (!drag.current.moved && !desktop) setActiveCat(null);
-    setSwipeX(0);
+    if (dx < SWIPE_OPEN || (desktop && !moved)) openWallet(cat);
+    setSwipe({ cat: null, dx: 0 });
   };
 
-  const walletFace = (category, raised) => {
+  const walletCard = (category) => {
     const g = GROUP[category];
     const color = g.style.color;
     const Icon = g.style.icon;
     const n = listFor(category).length;
     const yours = !isTech && category === own;
+    const dx = swipe.cat === category ? swipe.dx : 0;
+    const selected = desktop && (openCat || categories[0]) === category;
     return (
-      <>
+      <div
+        key={category}
+        role="button"
+        tabIndex={0}
+        aria-label={`${g.plural} wallet, ${n} template${n === 1 ? "" : "s"}. ${desktop ? "Open" : "Swipe left to open"}`}
+        onPointerDown={(e) => onDown(e, category)}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerLeave={onUp}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openWallet(category); } }}
+        className="relative rounded-2xl px-5 py-4 overflow-hidden select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white"
+        style={{
+          height: 150,
+          background: `linear-gradient(135deg, ${color}, ${color}b3)`,
+          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 12px 26px rgba(0,0,0,0.45)${selected ? ", 0 0 0 2px #fff" : ""}`,
+          transform: `translateX(${dx}px)`,
+          transition: drag.current.on ? "none" : "transform .25s ease-out",
+          touchAction: "pan-y",
+        }}
+      >
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.32), transparent 55%)" }} />
         <div className="relative z-10 flex items-center gap-2.5">
           <Icon className="w-6 h-6 shrink-0" style={{ color: "#0d0d0d" }} />
           <span className="flex-1 min-w-0 truncate text-[20px] font-bold text-[#0d0d0d]">{g.plural}</span>
           {yours && <span className="text-[10px] tracking-[0.12em] px-1.5 py-[2px] rounded bg-[#0d0d0d] shrink-0" style={{ color, fontFamily: SCENE_MONO }}>YOURS</span>}
-          <span className="text-[12px] font-semibold text-[#0d0d0d]/70 shrink-0" style={{ fontFamily: SCENE_MONO }}>{n}</span>
         </div>
-        {raised && (
-          <>
-            <p className="relative z-10 mt-2 text-[13px] text-[#0d0d0d]/70">{n} template{n === 1 ? "" : "s"}</p>
-            <div className="relative z-10 mt-4 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); openWallet(category); }}
-                className="h-10 px-4 rounded-lg bg-[#0d0d0d] text-[14px] font-bold tracking-[0.04em]"
-                style={{ color }}
-              >
-                OPEN
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); openWallet(category); addTemplate(category); }}
-                className="h-10 px-3 rounded-lg border border-[#0d0d0d]/40 text-[#0d0d0d] text-[14px] font-bold tracking-[0.04em] flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" /> NEW
-              </button>
-              {!desktop && (
-                <span className="ml-auto flex items-center gap-1 text-[#0d0d0d]/45">
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-medium">swipe to open</span>
-                </span>
-              )}
-            </div>
-          </>
-        )}
-      </>
+        <p className="relative z-10 mt-2 text-[13px] text-[#0d0d0d]/70">{n} template{n === 1 ? "" : "s"}</p>
+        <div className="relative z-10 mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openWallet(category); addTemplate(category); }}
+            className="h-10 px-3 rounded-lg border border-[#0d0d0d]/40 text-[#0d0d0d] text-[14px] font-bold tracking-[0.04em] flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" /> NEW
+          </button>
+          {!desktop && (
+            <span className="ml-auto flex items-center gap-1 text-[#0d0d0d]/50" aria-hidden="true">
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-medium">swipe to open</span>
+            </span>
+          )}
+        </div>
+      </div>
     );
   };
 
-  const walletStack = (
-    <div className="relative" style={{ height: stack.height }}>
-      {stack.items.map(({ category, top, raised, z }) => {
-        const color = GROUP[category].style.color;
-        return raised ? (
-          <div
-            key={category}
-            role="group"
-            aria-label={`${GROUP[category].plural} wallet`}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            onPointerUp={(e) => onUp(e, category)}
-            onPointerLeave={(e) => onUp(e, category)}
-            className="absolute left-0 right-0 rounded-2xl px-5 py-4 overflow-hidden select-none cursor-pointer"
-            style={{
-              top, zIndex: z, height: RAISED,
-              background: `linear-gradient(135deg, ${color}, ${color}b3)`,
-              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 14px 30px rgba(0,0,0,0.5), 0 0 0 2px ${openCat === category && desktop ? "#fff" : "transparent"}`,
-              transform: `translateX(${swipeX}px)`,
-              transition: drag.current.on ? "none" : "transform .25s ease-out, top .3s",
-              touchAction: "pan-y",
-            }}
-          >
-            {walletFace(category, true)}
-          </div>
-        ) : (
-          <button
-            key={category}
-            type="button"
-            onClick={() => (desktop ? openWallet(category) : setActiveCat(category))}
-            aria-label={`${GROUP[category].plural} wallet`}
-            className="absolute left-0 right-0 rounded-2xl px-5 pt-3 text-left overflow-hidden"
-            style={{
-              top, zIndex: z, height: COLLAPSED,
-              background: `linear-gradient(135deg, ${color}, ${color}cc)`,
-              boxShadow: "0 6px 16px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.25)",
-              transition: "top .3s",
-            }}
-          >
-            {walletFace(category, false)}
-          </button>
-        );
-      })}
-    </div>
-  );
+  const walletStack = <div className="flex flex-col gap-3">{categories.map(walletCard)}</div>;
 
   // One wallet opened: its templates, with a way back to the stack.
   const openedWallet = (category) => {
