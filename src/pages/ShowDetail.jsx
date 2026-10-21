@@ -966,20 +966,20 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
             </div>
             <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
           </div>
-          {FAN_RSVP_OPEN && <div>
+          {/* Fan page: set up from the event once it exists, not while creating it. */}
+          {FAN_RSVP_OPEN && !isNew && <div>
             <Label className="text-white/50 text-xs">Fan page</Label>
             <div className="mt-1 flex items-center gap-3">
               <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: show.fan_page_enabled ? "#8CFF3D" : "rgba(255,255,255,0.45)" }}>{show.fan_page_enabled ? "LIVE" : "OFF"}</span>
               <button
                 type="button"
-                disabled={isNew}
                 onClick={() => setShowFanPage(true)}
                 className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {show.fan_page_enabled ? "Edit fan page" : "Set up fan page"}
               </button>
             </div>
-            <p className="text-white/25 text-[10px] mt-1">{isNew ? "Save the event first." : "Once it's live, a fan page ticket shows on this event's row on Home."}</p>
+            <p className="text-white/25 text-[10px] mt-1">Once it's live, a fan page ticket shows on this event's row on Home.</p>
             {showFanPage && <FanPageSheet showId={id} onClose={closeFanPage} />}
           </div>}
           <div>

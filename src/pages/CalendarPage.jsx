@@ -278,7 +278,7 @@ export default function CalendarPage() {
                   value={linkEventName}
                   onChange={(e) => setLinkEventName(e.target.value)}
                   placeholder="e.g. Friday Night Live"
-                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-[#a855f7]/50"
+                  className="mt-1 block w-full min-w-0 max-w-full h-11 box-border appearance-none bg-[#111] border border-[#2a2a2a] rounded-xl px-3 text-white text-sm focus:outline-none focus:border-[#a855f7]/50 placeholder:text-white/25"
                 />
               </div>
               <div>
@@ -287,7 +287,8 @@ export default function CalendarPage() {
                   type="date"
                   value={linkEventDate}
                   onChange={(e) => setLinkEventDate(e.target.value)}
-                  className="mt-1 w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#a855f7]/50 [color-scheme:dark]"
+                  className="mt-1 block w-full min-w-0 max-w-full h-11 box-border appearance-none bg-[#111] border border-[#2a2a2a] rounded-xl px-3 text-white text-sm focus:outline-none focus:border-[#a855f7]/50 text-left [color-scheme:dark] [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.25rem]"
+                  style={{ WebkitAppearance: "none" }}
                 />
               </div>
             </div>
