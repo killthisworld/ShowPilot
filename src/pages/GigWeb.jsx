@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
@@ -353,11 +353,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     if (error) throw error;
     mergeTask(taskId, data);
   };
-  // After a claim: that profile's Current tasks page, opened in the main space.
-  const goToCurrentTasks = (section) => {
+  // After a claim: the event's task page (tasks live there now, Oct 21).
+  const goToCurrentTasks = () => {
     setOpenTaskId(null);
-    pendingTab.current = "profile";
-    selectRole(section, "tasks");
+    navigate(`/gig/tasks?token=${token}`);
   };
 
   // Both go straight through the shows table (same RLS-gated pattern
@@ -478,8 +477,17 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     // Archive hides the event (reversible); Delete removes it.
     const act = "flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors";
     const cap = "text-[8px] tracking-[0.08em] leading-none";
+    // Your open tasks on this event: in a section you work on, or claimed by you.
+    const myTaskCount = (gig.tasks || []).filter((t) => t.status !== "done" && ((user && t.claimed_by === user.id) || roleEditable(t.section, permissions))).length;
     return (
       <div className="flex items-center gap-1 shrink-0 ml-auto">
+        {token && (
+          <button type="button" onClick={() => navigate(`/gig/tasks?token=${token}`)} aria-label={myTaskCount ? `Tasks, ${myTaskCount} yours` : "Tasks"} className={`${act} relative text-[#FF6A00]/80 hover:text-[#FF6A00]`}>
+            <ClipboardList className="w-4 h-4" />
+            <span className={cap} style={{ fontFamily: SCENE_MONO }}>TASKS</span>
+            {myTaskCount > 0 && <span className="absolute -top-1 right-0 min-w-[16px] h-4 px-1 rounded-full bg-[#FF6A00] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{myTaskCount}</span>}
+          </button>
+        )}
         {FAN_RSVP_OPEN && (permissions?.is_owner || token) && (
           <button type="button" onClick={() => setShowFanSheet(true)} aria-label={permissions?.is_owner ? "Edit fan page" : "View fan page"} className={`${act} text-[#8CFF3D]/70 hover:text-[#8CFF3D]`}>
             <Ticket className="w-4 h-4" />
@@ -899,13 +907,8 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, le
           <button type="button" onClick={() => goSignIn(true)} className="text-[11px] font-bold px-3 py-1.5 rounded-full text-[#0d0d0d] bg-[#8CFF3D]">Create account</button>
         </div>
       )}
-      {!(solo && selectedRole) && forMe.length > 0 && firstTaskRole && (
-        <button type="button" onClick={() => selectRole(firstTaskRole, "tasks")} className="flex items-center gap-2 text-left text-[14px] font-semibold px-3.5 py-2.5 rounded-xl border" style={{ color: "#FF6A00", borderColor: "#FF6A0066", background: "#FF6A001a" }}>
-          {forMe.length} open task{forMe.length === 1 ? "" : "s"} for you
-          <ChevronRight className="w-4 h-4 ml-auto" />
-        </button>
-      )}
-      {isOwner && !(solo && selectedRole) && <TasksSection nodes={[]} tasks={[]} isOwner onAddTask={onAddTask} userId={user?.id} />}
+      {/* Tasks moved out of the main space: the TASKS button in the header and the
+          Tasks feature on each profile's web open the event's task page. */}
       {(solo ? order.filter((r) => r === selectedRole) : order).map((role) => (
         <RoleWorkspace
           key={role}

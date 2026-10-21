@@ -211,13 +211,16 @@ export default function ProfileWeb({
               key={d.key}
               type="button"
               onClick={d.onClick}
-              aria-label={`${d.label} feature`}
+              aria-label={d.badge ? `${d.label} feature, ${d.badge} yours` : `${d.label} feature`}
               className="absolute rounded-[12px] flex flex-col items-center justify-center gap-1 p-0"
               style={{ ...base, width: dcaSize + 8, height: dcaSize + 8, background: "#161616", border: `1.5px solid ${d.color}`, boxShadow: `0 0 12px ${d.color}40`, color: "#f2f2f2" }}
             >
               <span className="tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO, fontSize: Math.round(8 * k) }}>DCA</span>
               <span className="rounded-full" style={{ width: Math.round(34 * k), height: 3, background: d.color, boxShadow: `0 0 8px ${d.color}` }} />
               <span className="font-bold leading-none text-center" style={{ fontSize: Math.round(11.5 * k) }}>{d.label}</span>
+              {d.badge > 0 && (
+                <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[11px] font-bold text-[#0d0d0d]" style={{ background: d.color, boxShadow: `0 0 8px ${d.color}` }}>{d.badge}</span>
+              )}
             </button>
           );
         })}

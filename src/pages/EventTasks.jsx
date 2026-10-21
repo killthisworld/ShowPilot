@@ -30,8 +30,6 @@ export default function EventTasks() {
   const [gig, setGig] = useState(null);
   const [perms, setPerms] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [filter, setFilter] = useState("all");
-  const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState(null);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState("");
@@ -68,12 +66,11 @@ export default function EventTasks() {
 
   const columns = useMemo(() => {
     const ordered = [...SECTIONS].sort((a, b) => Number(mySections.has(b.value)) - Number(mySections.has(a.value)));
-    return ordered.filter((s) => filter === "all" || filter === s.value);
-  }, [mySections, filter]);
+    return ordered;
+  }, [mySections]);
 
   const tasks = gig?.tasks || [];
   const openCount = (sec) => tasks.filter((t) => t.status !== "done" && (!sec || t.section === sec)).length;
-  const doneCount = tasks.filter((t) => t.status === "done").length;
 
   const run = async (id, rpc, args) => {
     setBusy(id); setError("");
@@ -112,7 +109,6 @@ export default function EventTasks() {
   const eventTitle = gig.event_name || gig.band_name || "Untitled show";
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "";
   const eyebrow = ["TASKS", dateLabel, (gig.venue || "").toUpperCase()].filter(Boolean).join(" · ");
-  const chips = [{ value: "all", label: "ALL", color: "#f2f2f2" }, ...SECTIONS];
 
   return (
     <div className="min-h-screen lg:h-screen bg-[#0d0d0d] text-[#f2f2f2] flex flex-col lg:overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -125,21 +121,6 @@ export default function EventTasks() {
           <h1 className="text-[22px] lg:text-[26px] font-bold leading-tight truncate">{eventTitle}</h1>
         </div>
         <div className="w-full lg:w-auto lg:ml-auto flex flex-wrap items-center gap-2">
-          {chips.map((c) => {
-            const on = filter === c.value;
-            const n = openCount(c.value === "all" ? null : c.value);
-            return (
-              <button key={c.value} type="button" onClick={() => setFilter(c.value)} aria-pressed={on}
-                className="h-9 lg:h-10 px-3.5 rounded-full text-[15px] lg:text-[16px] font-bold tracking-[0.04em]"
-                style={{ fontFamily: SCENE_FONT, background: on ? c.color : c.color + "1f", color: on ? "#0d0d0d" : c.color, border: `1.5px solid ${on ? c.color : c.color + "66"}` }}>
-                {c.label} <span className="text-[11px] opacity-85" style={{ fontFamily: SCENE_MONO }}>{n}</span>
-              </button>
-            );
-          })}
-          <button type="button" onClick={() => setShowDone((v) => !v)} aria-pressed={showDone} className="h-9 lg:h-10 px-3 rounded-[10px] text-[13px] font-semibold border"
-            style={showDone ? { background: "#fff", color: "#0d0d0d", borderColor: "#fff" } : { background: "#111", color: "#b5b5b5", borderColor: "#262626" }}>
-            {showDone ? "Hide done" : `Show done · ${doneCount}`}
-          </button>
           {perms?.is_owner && (
             <button type="button" onClick={() => setAdding(true)} className="h-9 lg:h-10 px-3.5 rounded-[10px] flex items-center gap-1.5 text-[14px] font-bold text-[#0d0d0d]" style={{ background: "#8CFF3D" }}>
               <Plus className="w-4 h-4" /> Add task
@@ -172,7 +153,7 @@ export default function EventTasks() {
       <div className={`flex-1 min-h-0 grid gap-3.5 px-4 lg:px-5 py-4 grid-cols-1 ${columns.length > 1 ? "lg:grid-cols-3" : "lg:grid-cols-1 lg:max-w-3xl"}`}>
         {columns.map((col) => {
           const mine = mySections.has(col.value);
-          const list = tasks.filter((t) => t.section === col.value && (showDone || t.status !== "done"));
+          const list = tasks.filter((t) => t.section === col.value && t.status !== "done");
           return (
             <section key={col.value} aria-label={col.long} className="min-h-0 flex flex-col rounded-xl bg-[#121212] overflow-hidden" style={{ border: `1px solid ${mine ? col.color + "88" : "#222"}` }}>
               <div className="h-[52px] shrink-0 flex items-center gap-2.5 px-3.5 border-b border-[#222]" style={{ background: col.color + "14" }}>

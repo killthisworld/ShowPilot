@@ -3,6 +3,10 @@ import { createPortal } from "react-dom";
 import { Check, ClipboardList, Plus, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { usePreferences } from "@/hooks/usePreferences";
+import { SECTION_FOR_TYPE } from "@/lib/needsMe";
+
+const ROLE_TO_SECTION = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
 
 // The event's tasks in a box, opened from the clipboard icon in the page header
 // (tech phones). Anyone with the event can read them; the owner adds them; the
@@ -15,19 +19,31 @@ const SECTIONS = [
 ];
 const sectionOf = (v) => SECTIONS.find((s) => s.value === v) || { label: v, color: "#9A9A9A" };
 
-// The clipboard button that opens the box, with the open-task count.
+// The clipboard button that opens the box, with how many open tasks are
+// yours: in a section you work on (your own profile's section on an event
+// you own, a role you hold, a section you were granted) or claimed by you.
 export function TasksButton({ token, className = "" }) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(null);
+  const { preferences } = usePreferences();
   useEffect(() => {
     if (!token) return;
-    supabase.rpc("get_shared_gig", { p_token: token }).then(({ data }) => {
-      if (data) setCount((data.tasks || []).filter((t) => t.status !== "done").length);
+    Promise.all([
+      supabase.rpc("get_shared_gig", { p_token: token }),
+      supabase.rpc("get_gig_section_permissions", { p_token: token }),
+      supabase.auth.getUser(),
+    ]).then(([g, p, u]) => {
+      if (!g.data) return;
+      const uid = u.data?.user?.id;
+      const mine = new Set();
+      if (p.data?.is_owner && SECTION_FOR_TYPE[preferences?.account_type]) mine.add(SECTION_FOR_TYPE[preferences.account_type]);
+      [...(p.data?.my_roles || []), ...(p.data?.granted_sections || [])].forEach((r) => ROLE_TO_SECTION[r] && mine.add(ROLE_TO_SECTION[r]));
+      setCount((g.data.tasks || []).filter((t) => t.status !== "done" && (mine.has(t.section) || (uid && t.claimed_by === uid))).length);
     });
-  }, [token, open]);
+  }, [token, open, preferences?.account_type]);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label={`Tasks${count ? `, ${count} open` : ""}`}
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Tasks${count ? `, ${count} yours` : ""}`}
         className={`relative shrink-0 w-10 h-10 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center text-white/75 hover:text-white ${className}`}>
         <ClipboardList className="w-[18px] h-[18px]" />
         {count > 0 && (

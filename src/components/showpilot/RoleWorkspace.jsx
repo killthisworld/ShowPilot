@@ -706,22 +706,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         const at = list.findIndex((t) => t.key === "requests");
         list = at === -1 ? [...list, ...extra] : [...list.slice(0, at), ...extra, ...list.slice(at)];
       }
-      // Current tasks: this section's owner-assigned to-dos, with the ones
-      // you've claimed first. It sits at the top of the profile's web,
-      // ahead of the section's own parts, so the holder sees them first.
-      const myTasks = (gig.tasks || []).filter((t) => t.section === section);
-      const open = myTasks.filter((t) => t.status !== "done");
-      const mine = open.filter((t) => p.user && t.claimed_by === p.user.id);
-      return [
-        {
-          key: "tasks",
-          label: "Current tasks",
-          summary: myTasks.length ? [mine.length && `${mine.length} yours`, `${open.length} open`, `${myTasks.length - open.length} done`].filter(Boolean).join(" · ") : "Nothing assigned yet",
-          state: myTasks.length === 0 ? "empty" : open.length ? "partial" : "done",
-          render: () => <CurrentTasks tasks={myTasks} userId={p.user?.id} color={color} onOpen={setOpenTaskId} />,
-        },
-        ...list,
-      ];
+      // Tasks aren't a page of the profile any more: they live in the Tasks
+      // feature in the web's corner, which opens the event's task page
+      // (/gig/tasks, Oct 21).
+      return list;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [role, gig, ed, p.canEdit, biz]
@@ -767,7 +755,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onSaveDue={p.setTaskDueDate ? (d) => p.setTaskDueDate(openTask.id, d) : undefined}
     />
   ) : null;
-  const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);
+  const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || tabs[0];
   const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : (role === "engineer" || role === "lighting") ? engineerSide() : managerSide();
   // Load a saved template into this event / save this section as one.
   const templateTools = ed && !template && p.user && role !== "engineer" && role !== "lighting" && role !== "band" ? (
@@ -790,6 +778,18 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const mySections = COMPANY_ROLES.filter((r) => p.canEditSection?.(SECTION_OF[r]));
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
 
+  // Features (DCAs) sit in the web's four corners; empty corners are open
+  // slots. Every profile's web has Tasks first: the open tasks that are
+  // yours (in a section you work on, or claimed by you), opening the event's
+  // task page. Then the profile's own (DJ Tools, Fan page).
+  const shareToken = gig.share_token || new URLSearchParams(window.location.search).get("token");
+  const myTaskCount = (gig.tasks || []).filter((t) => t.status !== "done" && ((p.user && t.claimed_by === p.user.id) || p.canEditSection?.(t.section))).length;
+  const featureDcas = [
+    shareToken ? { key: "tasks", label: "Tasks", color: "#FF6A00", badge: myTaskCount, onClick: () => navigate(`/gig/tasks?token=${shareToken}`) } : null,
+    role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
+    role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
+  ].filter(Boolean);
+
   if (layout === "pages") {
     const dotColor = { done: G, partial: AMBER, empty: "rgba(255,255,255,0.22)" };
     const real = counted(tabs);
@@ -804,11 +804,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             tabs={tabs}
             activeKey={active}
             onPick={(k) => reveal(k)}
-            dcas={role === "band"
-              ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null]
-              : role === "manager"
-                ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
-                : []}
+            dcas={featureDcas}
             onBack={onBack}
             leaving={leaving}
             home={{ title: gig.event_name || gig.band_name, imageUrl: homeIcon || gig.icon_url, eventType: gig.event_type, onClick: onBack }}
@@ -926,12 +922,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   }
 
   if (layout === "web") {
-    // Features (DCAs) sit in the web's four corners; empty corners are open slots.
-    const dcas = role === "band"
-      ? [ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null]
-      : role === "manager"
-        ? [onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null]
-        : [];
+    // Features (DCAs) sit in the web's four corners (featureDcas, above).
+    const dcas = featureDcas;
     const stateWord = { done: ["FILLED IN", G], partial: ["IN PROGRESS", AMBER], empty: ["NOT STARTED", "rgba(255,255,255,0.45)"] };
     const sw = stateWord[current?.state] || stateWord.empty;
     const web = webSlot

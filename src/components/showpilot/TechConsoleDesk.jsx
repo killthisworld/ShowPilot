@@ -5,7 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
-import { chatHref, chatTitle, dueInfo, localISO, readSeenChanges, addDaysISO } from "@/lib/needsMe";
+import { localISO, addDaysISO } from "@/lib/needsMe";
 import { shareLink } from "@/lib/share";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -115,17 +115,7 @@ export default function TechConsoleDesk({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripIds]);
 
-  // --- 1 · Input: what came in ---
   const today = localISO();
-  const dueTasks = useMemo(() => (needs?.tasks || []).filter((t) => t.due_date && t.due_date <= today).sort((a, b) => a.due_date.localeCompare(b.due_date)), [needs, today]);
-  const unreadChats = useMemo(() => (needs?.chats || []).filter((c) => Number(c.unread) > 0), [needs]);
-  const unreadTotal = unreadChats.reduce((n, c) => n + Number(c.unread || 0), 0);
-  const changes = useMemo(() => {
-    const seen = readSeenChanges();
-    return (needs?.changes || []).filter((c) => !seen.has(c.key));
-  }, [needs]);
-  const topTask = dueTasks[0] || (needs?.tasks || [])[0] || null;
-  const topChat = unreadChats[0] || null;
 
   // Your profile's open tasks on each show (get_needs_me only returns tasks
   // in your own sections).
@@ -224,35 +214,10 @@ export default function TechConsoleDesk({
       <TechRail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* 1 · Input */}
+        {/* Title + New show */}
         <div className="flex items-center gap-[18px] px-6 py-3.5 border-b border-[#1a1a1a]">
           <h1 className="text-[26px] font-bold shrink-0" style={{ fontFamily: SCENE_FONT }}>Show<span style={{ color: accent }}>Pilot</span></h1>
-          <div className="flex gap-2 shrink-0">
-            <InputCount n={dueTasks.length} label="DUE NOW" color="#FF6A00" bg="#341c0b" to={topTask ? `/gig/web?token=${topTask.share_token}` : undefined} />
-            <InputCount n={unreadTotal} label="UNREAD" color="#60A5FA" bg="#0d1520" to={topChat ? chatHref(topChat) : undefined} />
-            <InputCount n={changes.length} label="CHANGED" color="#E879F9" bg="#24102a" to={changes[0] ? `/gig/web?token=${changes[0].share_token}` : undefined} />
-          </div>
-          <div className="flex-1 min-w-0 flex gap-2 overflow-hidden">
-            {topTask && (
-              <Link to={`/gig/web?token=${topTask.share_token}`} className="flex-1 min-w-0 flex items-center gap-2.5 h-[46px] px-3 rounded-[10px] bg-[#151515] border border-[#262626] hover:border-[#3a3a3a]">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dueInfo(topTask.due_date)?.urgent ? "#FF6A00" : "#9A9A9A" }} />
-                <span className="flex-1 min-w-0 text-[13px] truncate">
-                  <b>{topTask.title}</b> · {topTask.event_title || "Event"}{topTask.due_date ? ` · ${dueInfo(topTask.due_date).label.toLowerCase()}` : ""}
-                </span>
-              </Link>
-            )}
-            {topChat && (
-              <Link to={chatHref(topChat)} className="flex-1 min-w-0 flex items-center gap-2.5 h-[46px] px-3 rounded-[10px] bg-[#151515] border border-[#262626] hover:border-[#3a3a3a]">
-                <span className="w-2 h-2 rounded-full shrink-0 bg-[#60A5FA]" />
-                <span className="flex-1 min-w-0 text-[13px] truncate">
-                  <b>{topChat.last_sender_name || chatTitle(topChat)}:</b> {topChat.last_body || "New message"}
-                </span>
-              </Link>
-            )}
-            {!topTask && !topChat && needs && (
-              <span className="self-center text-[13px] text-white/55">Nothing waiting on you right now.</span>
-            )}
-          </div>
+          <div className="flex-1" />
           <Link to="/show/new" onClick={clearNewShowDraft} className="h-[46px] px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0" style={{ background: accent, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" strokeWidth={2.6} /> New show
           </Link>
@@ -265,7 +230,7 @@ export default function TechConsoleDesk({
             <span className="text-[12px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
               {weekDays[0].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} – {weekDays[6].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
             </span>
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="ml-2 flex items-center gap-1.5">
               <button type="button" onClick={() => setWeekOffset((w) => w - 1)} aria-label="Previous week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
               {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
               <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
@@ -428,18 +393,6 @@ export default function TechConsoleDesk({
       )}
     </div>
   );
-}
-
-function InputCount({ n, label, color, bg, to }) {
-  const inner = (
-    <>
-      <span className="text-[20px] font-semibold" style={{ fontFamily: SCENE_MONO }}>{n}</span>
-      <span className="text-[13px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_FONT }}>{label}</span>
-    </>
-  );
-  const cls = "h-[46px] px-3 rounded-[10px] flex items-center gap-2";
-  const style = n ? { background: bg, border: `1.5px solid ${color}`, color } : { background: "#141414", border: "1.5px solid #2a2a2a", color: "#8a8a8a" };
-  return n && to ? <Link to={to} className={cls} style={style}>{inner}</Link> : <span className={cls} style={style}>{inner}</span>;
 }
 
 function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen, onMenu, onFan, onShare, onPhoto, onArchive, onDelete }) {
