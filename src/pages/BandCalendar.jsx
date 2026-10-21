@@ -16,6 +16,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import EventOverviewSheet from "@/components/showpilot/EventOverviewSheet";
+import DayEventOverview from "@/components/showpilot/DayEventOverview";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -38,6 +39,8 @@ export default function BandCalendar() {
   // Phone: the event Overview opened from the day list (job 73).
   const [overviewGig, setOverviewGig] = useState(null);
   const [dayModalKey, setDayModalKey] = useState(null);
+  // Desktop: which of the selected day's events the right side shows (job 126).
+  const [focusKey, setFocusKey] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -133,6 +136,21 @@ export default function BandCalendar() {
       ? selectedDate
       : moment().isSame(currentMonth, "month") ? todayKey : null;
     const activeGigs = activeKey ? (gigsByDate[activeKey] || []) : [];
+    const gKey = (g) => (g.is_owned ? g.id : g.share_token);
+    const focused = activeGigs.find((g) => gKey(g) === focusKey) || activeGigs[0] || null;
+    // First click on a day shows its event on the right; clicking the same
+    // day (or the same event) again opens it (job 126).
+    const clickDay = (key) => {
+      const list = gigsByDate[key] || [];
+      if (activeKey === key && list.length) { openGig(focused || list[0]); return; }
+      setSelectedDate(key);
+      setFocusKey(list[0] ? gKey(list[0]) : null);
+    };
+    const clickEvent = (g, key) => {
+      if (activeKey === key && focused && gKey(focused) === gKey(g)) { openGig(g); return; }
+      setSelectedDate(key);
+      setFocusKey(gKey(g));
+    };
     // Months that fit in five weeks get five taller rows instead of a blank sixth.
     const gridDays = daysInGrid[35].month() === currentMonth.month() ? daysInGrid : daysInGrid.slice(0, 35);
     const gridRows = gridDays.length / 7;
@@ -176,7 +194,7 @@ export default function BandCalendar() {
                     return (
                       <div
                         key={key}
-                        onClick={() => inMonth && setSelectedDate(key)}
+                        onClick={() => inMonth && clickDay(key)}
                         className={`relative min-w-0 min-h-0 overflow-hidden rounded-[10px] px-[7px] py-1.5 flex flex-col gap-[3px] transition-all ${inMonth ? "cursor-pointer" : ""}`}
                         style={{
                           background: isSel ? "#1b2a0e" : inMonth ? "#111" : "transparent",
@@ -185,7 +203,7 @@ export default function BandCalendar() {
                         }}
                       >
                         {photos && (
-                          <DayPhotoBands events={dayGigs} colorOf={getGigColor} keyOf={(g) => (g.is_owned ? g.id : g.share_token)} onOpen={openGig} max={3} titleClass="text-[13px]" />
+                          <DayPhotoBands events={dayGigs} colorOf={getGigColor} keyOf={(g) => (g.is_owned ? g.id : g.share_token)} onOpen={(g) => clickEvent(g, key)} max={3} titleClass="text-[13px]" />
                         )}
                         <div className="relative z-10 flex items-center justify-between pointer-events-none">
                           <span className="text-sm font-semibold" style={{ fontFamily: SCENE_MONO, color: isSel ? "#D2FF85" : isToday && inMonth ? "#8CFF3D" : photos ? "#fff" : inMonth ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.15)", textShadow: photos ? "0 1px 3px rgba(0,0,0,0.9)" : undefined }}>{day.date()}</span>
@@ -197,7 +215,7 @@ export default function BandCalendar() {
                             <button
                               key={g.is_owned ? g.id : g.share_token}
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); openGig(g); }}
+                              onClick={(e) => { e.stopPropagation(); clickEvent(g, key); }}
                               className="text-left min-w-0 px-1.5 py-0.5 rounded"
                               style={{ background: color + "26", borderLeft: `3px solid ${color}` }}
                             >
@@ -220,26 +238,26 @@ export default function BandCalendar() {
                     {activeKey ? (activeGigs.length ? `${activeGigs.length} ${activeGigs.length === 1 ? "EVENT" : "EVENTS"}` : "NO EVENTS") : "SELECT A DAY ON THE CALENDAR"}
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 overflow-y-auto border-t border-dashed border-[#2a2a2a] p-3.5 flex flex-col gap-2.5">
-                  {activeGigs.map((g) => {
-                    const title = g.event_name || g.band_name || "Untitled Gig";
-                    const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-                    const color = getGigColor(g);
-                    return (
-                      <button key={g.is_owned ? g.id : g.share_token} type="button" onClick={() => openGig(g)} className="flex items-stretch gap-2.5 px-3 py-2.5 rounded-md bg-[#1a1a1a] hover:bg-[#202020] border border-[#262626] text-left transition-colors">
-                        <span className="w-1 rounded-sm shrink-0" style={{ background: color }} />
-                        <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} size={34} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                <div className="flex-1 min-h-0 overflow-y-auto border-t border-dashed border-[#2a2a2a] p-3.5 flex flex-col gap-3">
+                  {/* More than one event that day: pick which one the overview shows. */}
+                  {activeGigs.length > 1 && (
+                    <div className="flex flex-col gap-1.5">
+                      {activeGigs.map((g) => {
+                        const on = focused && gKey(g) === gKey(focused);
+                        const color = getGigColor(g);
+                        return (
+                          <button key={gKey(g)} type="button" onClick={() => (on ? openGig(g) : setFocusKey(gKey(g)))} aria-pressed={on}
+                            className="flex items-center gap-2 px-2.5 py-2 rounded-md text-left border transition-colors"
+                            style={on ? { background: color + "1f", borderColor: color } : { background: "#1a1a1a", borderColor: "#262626" }}>
+                            <span className="w-1 self-stretch rounded-sm shrink-0" style={{ background: color }} />
+                            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">{g.event_name || g.band_name || "Untitled Gig"}</span>
                             {!g.is_owned && <Link2 className="w-3 h-3 shrink-0" style={{ color }} />}
-                            <p className="text-white text-[19px] font-semibold leading-[1.1] truncate">{title}</p>
-                          </div>
-                          {location && <p className="text-[10px] tracking-[0.04em] text-white/50 mt-[3px] truncate uppercase" style={{ fontFamily: SCENE_MONO }}>{location}</p>}
-                          <p className="text-[10px] mt-1" style={{ fontFamily: SCENE_MONO, color }}>{g.is_owned ? "YOU" : (g.owner_display_name || "UNKNOWN").toUpperCase()}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {focused && <DayEventOverview key={gKey(focused)} gig={focused} color={getGigColor(focused)} onOpen={() => openGig(focused)} />}
                   {activeKey && activeGigs.length === 0 && <p className="text-base text-white/35 text-center py-5">Nothing on this day yet.</p>}
                 </div>
                 {activeKey && (
