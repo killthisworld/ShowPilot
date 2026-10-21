@@ -2,7 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, MapPin, User, Headphones, Users } from "lucide-react";
+import { ArrowLeft, MapPin, User, Headphones, Users, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 
 // Matches SharedGig.jsx's palette exactly, plus a neutral for the
@@ -29,6 +32,7 @@ export default function GigRooms() {
   const [gigTitle, setGigTitle] = useState("");
   const [rooms, setRooms] = useState([]);
   const [activeRoomId, setActiveRoomId] = useState(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -102,6 +106,75 @@ export default function GigRooms() {
 
   const activeRoom = rooms.find((r) => r.id === activeRoomId);
   const activeMeta = ROOM_META[activeRoom?.section] || ROOM_META.general;
+
+  const chat = rooms.length === 0 ? (
+    <div className="flex-1 flex items-center justify-center px-6 text-center">
+      <p className="text-white/30 text-sm">You'll see rooms here once you're connected to a section on this gig.</p>
+    </div>
+  ) : (
+    <RoomChatPanel
+      fill
+      roomId={activeRoomId}
+      user={user}
+      emptyLabel={`No messages yet in ${activeMeta.label} - say hello.`}
+      placeholder={`Message ${activeMeta.label}...`}
+      pilotCardBackTo={`/gig/rooms?token=${token}&room=${activeRoomId}`}
+    />
+  );
+
+  // Desktop (1024px+): the rooms down the left, the open room's chat filling
+  // the rest, and the left rail.
+  if (isDesktop) {
+    return (
+      <div className="h-screen bg-[#0d0d0d] flex flex-col overflow-hidden">
+        <div className="shrink-0 flex items-center gap-3 px-6 h-[72px] border-b border-[#1a1a1a]">
+          <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-2 -ml-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 shrink-0" aria-label="Back">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-white font-bold text-2xl leading-tight truncate">{gigTitle}</h1>
+            <p className="text-white/45 text-xs mt-0.5">Rooms</p>
+          </div>
+          <Link to={`/gig/messages?token=${token}`} className="ml-auto h-10 px-4 rounded-[10px] flex items-center gap-2 bg-[#161616] border border-[#262626] text-white/80 hover:text-white text-sm font-semibold">
+            <Mail className="w-4 h-4" /> Private messages
+          </Link>
+        </div>
+        <div className="flex-1 min-h-0 flex gap-4 px-5 py-4">
+          <nav aria-label="Rooms" className="w-[260px] shrink-0 flex flex-col gap-1.5">
+            {rooms.map((r) => {
+              const meta = ROOM_META[r.section] || ROOM_META.general;
+              const Icon = meta.icon;
+              const active = r.id === activeRoomId;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setActiveRoomId(r.id)}
+                  aria-current={active ? "true" : undefined}
+                  className="h-12 px-3.5 rounded-xl flex items-center gap-3 text-left text-[15px] font-semibold border transition-colors"
+                  style={active
+                    ? { color: meta.color, backgroundColor: meta.color + "1f", borderColor: meta.color + "66" }
+                    : { color: "rgba(255,255,255,0.65)", borderColor: "#222", backgroundColor: "#121212" }}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  {meta.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+            {activeRoom && (
+              <div className="shrink-0 px-6 py-3 border-b border-[#1a1a1a] flex items-center gap-2" style={{ color: activeMeta.color }}>
+                <activeMeta.icon className="w-4 h-4" />
+                <span className="text-sm font-bold tracking-wide">{activeMeta.label}</span>
+              </div>
+            )}
+            {chat}
+          </div>
+        </div>
+        <BottomTabs railOnly />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-[#0d0d0d] flex flex-col">

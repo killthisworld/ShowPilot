@@ -5,6 +5,8 @@ import { supabase } from "@/api/supabaseClient";
 import { markConversationRead } from "@/lib/needsMe";
 import { ArrowLeft, Send, Plus, User, X } from "lucide-react";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import useIsDesktop from "@/hooks/useIsDesktop";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 
 function formatTime(ts) {
   return new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -38,7 +40,9 @@ export default function GigDirectMessages() {
   const navigate = useNavigate(); const goBack = useGoBack();
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
-  const preselectThread = params.get("thread");
+  // Read once: the URL-sync effect below rewrites the address before the
+  // threads finish loading, so a ?thread= link has to be remembered here.
+  const [preselectThread] = useState(() => params.get("thread"));
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -54,6 +58,7 @@ export default function GigDirectMessages() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -199,6 +204,190 @@ export default function GigDirectMessages() {
     );
   }
 
+  const chatView = activeThread && (
+    <>
+          <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full space-y-3">
+            {messages.length === 0 && (
+              <p className="text-white/25 text-sm text-center pt-8">
+                No messages yet with {activeThread.displayName || "this person"} - say hello.
+              </p>
+            )}
+            {messages.map((m) => {
+              const isMe = m.sender_id === user.id;
+              const senderColor = getAccountTypeStyle(activeThread.accountType).color;
+              return (
+                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
+                  {!isMe && (
+                    activeThread.cardToken ? (
+                      <Link
+                        to={`/pilot/${activeThread.cardToken}`}
+                        state={{ backTo: `/gig/messages?token=${token}&thread=${activeThread.id}` }}
+                        className="shrink-0"
+                        title={activeThread.displayName || "View pilot card"}
+                      >
+                        <Avatar photoUrl={activeThread.photoUrl} />
+                      </Link>
+                    ) : (
+                      <Avatar photoUrl={activeThread.photoUrl} />
+                    )
+                  )}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
+                    style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}
+                  >
+                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                    <p className={`text-[10px] mt-1 ${isMe ? "text-black/50" : "text-white/30"}`}>{formatTime(m.created_at)}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={scrollRef} />
+          </div>
+
+          <div className="shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full">
+            <div className="flex items-center gap-2">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={`Message ${activeThread.displayName || "them"}...`}
+                className="flex-1 h-11 bg-[#161616] border border-[#222] rounded-full px-4 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!draft.trim() || sending}
+                className="w-11 h-11 shrink-0 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-[#7ae62e] transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+    </>
+  );
+
+  const threadList = (
+        <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-none lg:px-3 mx-auto w-full">
+          {threads.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center px-6 text-center pt-16">
+              <p className="text-white/30 text-sm">No private messages yet. Tap "New" to message anyone on this gig.</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {threads.map((t) => {
+                const style = getAccountTypeStyle(t.accountType);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveThread(t)}
+                    aria-current={activeThread?.id === t.id ? "true" : undefined}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#161616] transition-colors text-left ${activeThread?.id === t.id ? "bg-[#1a1a1a] ring-1 ring-[#333]" : ""}`}
+                  >
+                    <Avatar photoUrl={t.photoUrl} size="w-10 h-10" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-white font-medium text-sm truncate">{t.displayName || "Someone"}</p>
+                      <p className="text-[11px]" style={{ color: style.color }}>{style.label}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+  );
+
+  const rosterModal = (
+    <>
+      {showRoster && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4" onClick={() => setShowRoster(false)}>
+          <div
+            className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-md max-h-[75vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-bold text-base">New Message</h3>
+              <button onClick={() => setShowRoster(false)} className="text-white/40 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {roster.length === 0 ? (
+              <p className="text-white/30 text-sm py-6 text-center">No one else is on this gig yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {roster.map((p) => {
+                  const style = getAccountTypeStyle(p.accountType);
+                  return (
+                    <button
+                      key={p.userId}
+                      onClick={() => startThread(p)}
+                      disabled={!!startingWith}
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[#1e1e1e] transition-colors text-left disabled:opacity-50"
+                    >
+                      <Avatar photoUrl={p.photoUrl} size="w-9 h-9" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white font-medium text-sm truncate">{p.displayName || "Someone"}</p>
+                        <p className="text-[11px]" style={{ color: style.color }}>{style.label}</p>
+                      </div>
+                      {startingWith === p.userId && (
+                        <div className="w-4 h-4 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // Desktop (1024px+): conversations down the left, the open one on the
+  // right, and the left rail.
+  if (isDesktop) {
+    return (
+      <div className="h-screen bg-[#0d0d0d] flex flex-col overflow-hidden">
+        <div className="shrink-0 flex items-center gap-3 px-6 h-[72px] border-b border-[#1a1a1a]">
+          <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-2 -ml-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 shrink-0" aria-label="Back">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-white font-bold text-2xl leading-tight truncate">{gigTitle}</h1>
+            <p className="text-white/45 text-xs mt-0.5">Private messages</p>
+          </div>
+          <Link to={`/gig/rooms?token=${token}`} className="ml-auto h-10 px-4 rounded-[10px] flex items-center gap-2 bg-[#161616] border border-[#262626] text-white/80 hover:text-white text-sm font-semibold">
+            Rooms
+          </Link>
+          <button onClick={() => setShowRoster(true)} className="h-10 px-4 rounded-[10px] flex items-center gap-1.5 bg-[#8CFF3D] text-black font-bold text-sm hover:bg-[#7ae62e]">
+            <Plus className="w-4 h-4" /> New message
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 flex gap-4 px-5 py-4">
+          <div className="w-[300px] shrink-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+            {threadList}
+          </div>
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+            {activeThread ? (
+              <>
+                <div className="shrink-0 px-6 py-3 border-b border-[#1a1a1a] flex items-center gap-3">
+                  <Avatar photoUrl={activeThread.photoUrl} size="w-9 h-9" />
+                  <div className="min-w-0">
+                    <p className="text-white font-bold text-base leading-tight truncate">{activeThread.displayName || "Someone"}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: getAccountTypeStyle(activeThread.accountType).color }}>{getAccountTypeStyle(activeThread.accountType).label}</p>
+                  </div>
+                </div>
+                {chatView}
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-white/35 text-sm px-6 text-center">Pick a conversation on the left, or start a new message.</div>
+            )}
+          </div>
+        </div>
+        {rosterModal}
+        <BottomTabs railOnly />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen bg-[#0d0d0d] flex flex-col">
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
@@ -247,135 +436,9 @@ export default function GigDirectMessages() {
         </div>
       </div>
 
-      {activeThread ? (
-        <>
-          <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full space-y-3">
-            {messages.length === 0 && (
-              <p className="text-white/25 text-sm text-center pt-8">
-                No messages yet with {activeThread.displayName || "this person"} - say hello.
-              </p>
-            )}
-            {messages.map((m) => {
-              const isMe = m.sender_id === user.id;
-              const senderColor = getAccountTypeStyle(activeThread.accountType).color;
-              return (
-                <div key={m.id} className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                  {!isMe && (
-                    activeThread.cardToken ? (
-                      <Link
-                        to={`/pilot/${activeThread.cardToken}`}
-                        state={{ backTo: `/gig/messages?token=${token}&thread=${activeThread.id}` }}
-                        className="shrink-0"
-                        title={activeThread.displayName || "View pilot card"}
-                      >
-                        <Avatar photoUrl={activeThread.photoUrl} />
-                      </Link>
-                    ) : (
-                      <Avatar photoUrl={activeThread.photoUrl} />
-                    )
-                  )}
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
-                    style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}
-                  >
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
-                    <p className={`text-[10px] mt-1 ${isMe ? "text-black/50" : "text-white/30"}`}>{formatTime(m.created_at)}</p>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={scrollRef} />
-          </div>
+      {activeThread ? <>{chatView}</> : threadList}
 
-          <div className="shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg mx-auto w-full">
-            <div className="flex items-center gap-2">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={`Message ${activeThread.displayName || "them"}...`}
-                className="flex-1 h-11 bg-[#161616] border border-[#222] rounded-full px-4 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!draft.trim() || sending}
-                className="w-11 h-11 shrink-0 rounded-full bg-[#8CFF3D] text-black flex items-center justify-center disabled:opacity-30 disabled:bg-white/10 disabled:text-white/30 hover:bg-[#7ae62e] transition-colors"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full">
-          {threads.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center px-6 text-center pt-16">
-              <p className="text-white/30 text-sm">No private messages yet. Tap "New" to message anyone on this gig.</p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {threads.map((t) => {
-                const style = getAccountTypeStyle(t.accountType);
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveThread(t)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#161616] transition-colors text-left"
-                  >
-                    <Avatar photoUrl={t.photoUrl} size="w-10 h-10" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-white font-medium text-sm truncate">{t.displayName || "Someone"}</p>
-                      <p className="text-[11px]" style={{ color: style.color }}>{style.label}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showRoster && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4" onClick={() => setShowRoster(false)}>
-          <div
-            className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-md max-h-[75vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-bold text-base">New Message</h3>
-              <button onClick={() => setShowRoster(false)} className="text-white/40 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {roster.length === 0 ? (
-              <p className="text-white/30 text-sm py-6 text-center">No one else is on this gig yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {roster.map((p) => {
-                  const style = getAccountTypeStyle(p.accountType);
-                  return (
-                    <button
-                      key={p.userId}
-                      onClick={() => startThread(p)}
-                      disabled={!!startingWith}
-                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-[#1e1e1e] transition-colors text-left disabled:opacity-50"
-                    >
-                      <Avatar photoUrl={p.photoUrl} size="w-9 h-9" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-white font-medium text-sm truncate">{p.displayName || "Someone"}</p>
-                        <p className="text-[11px]" style={{ color: style.color }}>{style.label}</p>
-                      </div>
-                      {startingWith === p.userId && (
-                        <div className="w-4 h-4 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin shrink-0" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {rosterModal}
     </div>
   );
 }

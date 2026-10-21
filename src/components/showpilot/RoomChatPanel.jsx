@@ -113,7 +113,7 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
 
   const messageList = (
     <div
-      className={fill ? "flex-1 overflow-y-auto px-4 py-4 max-w-lg mx-auto w-full space-y-3" : "overflow-y-auto space-y-3 pr-0.5"}
+      className={fill ? "flex-1 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full space-y-3" : "overflow-y-auto space-y-3 pr-0.5"}
       style={fill ? undefined : { maxHeight }}
     >
       {messages.length === 0 && (
@@ -163,7 +163,7 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
   );
 
   const composer = (
-    <div className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg mx-auto w-full" : "flex items-center gap-2 pt-3 mt-3 border-t border-[#1a1a1a]"}>
+    <div className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full" : "flex items-center gap-2 pt-3 mt-3 border-t border-[#1a1a1a]"}>
       <div className="flex items-center gap-2">
         <input
           value={draft}
