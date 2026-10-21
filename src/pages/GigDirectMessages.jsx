@@ -206,7 +206,7 @@ export default function GigDirectMessages() {
 
   const chatView = activeThread && (
     <>
-          <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full space-y-3">
             {messages.length === 0 && (
               <p className="text-white/25 text-sm text-center pt-8">
                 No messages yet with {activeThread.displayName || "this person"} - say hello.
@@ -244,7 +244,7 @@ export default function GigDirectMessages() {
             <div ref={scrollRef} />
           </div>
 
-          <div className="shrink-0 border-t border-[#1a1a1a] px-4 py-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full">
+          <div className="shrink-0 border-t border-[#1a1a1a] px-4 pt-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
             <div className="flex items-center gap-2">
               <input
                 value={draft}
@@ -266,7 +266,7 @@ export default function GigDirectMessages() {
   );
 
   const threadList = (
-        <div className="flex-1 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-none lg:px-3 mx-auto w-full">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 max-w-lg lg:max-w-none lg:px-3 mx-auto w-full">
           {threads.length === 0 ? (
             <div className="flex-1 flex items-center justify-center px-6 text-center pt-16">
               <p className="text-white/30 text-sm">No private messages yet. Tap "New" to message anyone on this gig.</p>
@@ -298,9 +298,9 @@ export default function GigDirectMessages() {
   const rosterModal = (
     <>
       {showRoster && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 px-4" onClick={() => setShowRoster(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setShowRoster(false)}>
           <div
-            className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-md max-h-[75vh] overflow-y-auto"
+            className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-md max-h-[75dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
@@ -389,7 +389,7 @@ export default function GigDirectMessages() {
   }
 
   return (
-    <div className="h-screen bg-[#0d0d0d] flex flex-col">
+    <div className="h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button

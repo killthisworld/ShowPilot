@@ -177,7 +177,7 @@ export default function GigRooms() {
   }
 
   return (
-    <div className="h-screen bg-[#0d0d0d] flex flex-col">
+    <div className="h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
       <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
