@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, PlaneTakeoff } from "lucide-react";
-import MonthDropdown, { jumpMonthOptions, nearestMonthKey } from "@/components/showpilot/MonthDropdown";
+import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, PlaneTakeoff } from "lucide-react";
+import MonthDropdown, { jumpMonthOptions, nearestMonthKey, calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,10 @@ export default function BandHome() {
   const [webVisible, setWebVisible] = useState(false);
   const [search, setSearch] = useState("");
   const [showPast, setShowPast] = useState(false);
+  // Desktop: four months at a time; 0 = starting this month, each step is
+  // four months (job 113). "No date" events get their own view.
+  const [monthPage, setMonthPage] = useState(0);
+  const [showUndated, setShowUndated] = useState(false);
   // Same search + filter panel, in the same spot, as the tech Home: a
   // search box with a sliders toggle in the sticky header, and a
   // Year / Month / Genre / Event Type / Venue / City / State panel under it.
@@ -320,6 +324,25 @@ export default function BandHome() {
   // Past stays collapsed unless asked for - or while searching/filtering, when you are plainly looking for something old.
   const pastOpen = showPast || search.trim() !== "" || hasActiveFilters;
 
+  // Desktop: while searching or filtering, land on the four months holding
+  // the first match (soonest upcoming, else the latest past one).
+  const wasLooking = useRef(false);
+  useEffect(() => {
+    const looking = !!search.trim() || hasActiveFilters;
+    // Cleared the search / filters: back to this month.
+    if (!looking) { if (wasLooking.current) { setMonthPage(0); setShowUndated(false); } wasLooking.current = false; return; }
+    wasLooking.current = true;
+    if (!isDesktop) return;
+    const now = new Date();
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const dated = filteredGigs.filter((g) => g.date).map((g) => g.date).sort();
+    if (!dated.length) { if (filteredGigs.length) setShowUndated(true); return; }
+    const target = dated.find((d) => d >= todayISO) || dated[dated.length - 1];
+    const diff = Number(target.slice(0, 4)) * 12 + Number(target.slice(5, 7)) - 1 - (now.getFullYear() * 12 + now.getMonth());
+    setShowUndated(false);
+    setMonthPage(Math.floor(diff / 4));
+  }, [isDesktop, search, hasActiveFilters, filteredGigs]);
+
   // Each month heading is a dropdown of every month group; picking one jumps
   // to it (scrolls the month columns on desktop, the list on phones).
   // Every month is listed, not just the ones with shows; an empty month
@@ -491,11 +514,34 @@ export default function BandHome() {
     const bankLabel = (key) =>
       key === "undated" ? "NO DATE" : key === "past" ? "PAST" :
       new Date(key + "-01T00:00:00").toLocaleDateString("en-US", key.startsWith(thisYear) ? { month: "long" } : { month: "long", year: "numeric" }).toUpperCase();
-    const open = sortedGigs.filter((g) => !g.date || g.date >= new Date().toISOString().slice(0, 10)).length;
-    // Past stays tucked at the end as its own column, closed unless asked
-    // for - same rule as the phone list.
-    const columns = monthGroups.filter(([k]) => k !== "past" || pastOpen);
-    const pastGroup = monthGroups.find(([k]) => k === "past");
+    // Four months on the page, stepped four at a time with the arrows.
+    const nowD = new Date();
+    const nowIdx = nowD.getFullYear() * 12 + nowD.getMonth();
+    const todayISO = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}-${String(nowD.getDate()).padStart(2, "0")}`;
+    const keyOf = (i) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+    const idxOf = (key) => Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+    const byMonth = {};
+    const undatedGigs = [];
+    [...filteredGigs].sort((a, b) => (a.date || "").localeCompare(b.date || "")).forEach((g) => {
+      if (!g.date) { undatedGigs.push(g); return; }
+      (byMonth[g.date.slice(0, 7)] ||= []).push(g);
+    });
+    const startIdx = nowIdx + monthPage * 4;
+    const windowKeys = [0, 1, 2, 3].map((i) => keyOf(startIdx + i));
+    const columns = showUndated ? [["undated", undatedGigs]] : windowKeys.map((k) => [k, byMonth[k] || []]);
+    const shortMonth = (key) => new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+    const rangeLabel = `${shortMonth(windowKeys[0])}${windowKeys[0].slice(0, 4) !== windowKeys[3].slice(0, 4) ? ` ${windowKeys[0].slice(0, 4)}` : ""} – ${shortMonth(windowKeys[3])} ${windowKeys[3].slice(0, 4)}`;
+    const deskMonthOptions = [
+      ...calendarMonthOptions({ dates: Object.keys(byMonth).map((k) => `${k}-01`), counts: Object.fromEntries(Object.entries(byMonth).map(([k, v]) => [k, v.length])), before: 12, after: 18 }),
+      ...(undatedGigs.length ? [{ key: "undated", label: "No date", group: "Other", count: undatedGigs.length }] : []),
+    ];
+    const jumpDesk = (key) => {
+      if (key === "undated") { setShowUndated(true); return; }
+      setShowUndated(false);
+      setMonthPage(Math.floor((idxOf(key) - nowIdx) / 4));
+    };
+    const step = (n) => { setShowUndated(false); setMonthPage((p) => p + n); };
+    const pagerBtn = "w-10 h-10 rounded-[10px] bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white";
     return (
       <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
         <div className="flex items-center gap-4 px-6 py-3 border-b border-[#1a1a1a] shrink-0">
@@ -525,7 +571,7 @@ export default function BandHome() {
           <Button variant="outline" size="sm" onClick={() => setFilterOpen(!filterOpen)} className={`h-10 px-3 gap-2 rounded-xl border-[#222] ${filterOpen ? "bg-[#8CFF3D] text-black border-[#8CFF3D]" : "bg-[#111] text-white/60"}`}>
             <SlidersHorizontal className="w-4 h-4" /> Filters
           </Button>
-          {!loading && gigs.length > 0 && <div className="flex-1 max-w-[480px] ml-auto min-w-[300px]"><StatusStrip cells={stripCells} /></div>}
+          <div className="flex-1" />
           <button onClick={handleCreateEvent} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New event
           </button>
@@ -550,6 +596,21 @@ export default function BandHome() {
               })}
             </>
           )}
+          {/* Four months at a time: back / forward four, back to now. */}
+          <div className="ml-auto flex items-center gap-1.5">
+            {(monthPage !== 0 || showUndated) && (
+              <button type="button" onClick={() => { setShowUndated(false); setMonthPage(0); }} className="h-10 px-3 rounded-[10px] bg-[#111] border border-[#262626] text-[14px] font-semibold text-white/75 hover:text-white">This month</button>
+            )}
+            {undatedGigs.length > 0 && (
+              <button type="button" onClick={() => setShowUndated((v) => !v)} aria-pressed={showUndated} className="h-10 px-3 rounded-[10px] text-[14px] font-semibold"
+                style={showUndated ? { background: "#fff", color: "#0d0d0d", border: "1px solid #fff" } : { background: "#111", color: "rgba(255,255,255,0.75)", border: "1px solid #262626" }}>
+                No date · {undatedGigs.length}
+              </button>
+            )}
+            <button type="button" onClick={() => step(-1)} aria-label="Previous four months" className={pagerBtn}><ChevronLeft className="w-5 h-5" /></button>
+            <span className="min-w-[150px] text-center text-[15px] font-bold tracking-[0.08em] text-white/85" style={{ fontFamily: SCENE_MONO }}>{showUndated ? "NO DATE" : rangeLabel}</span>
+            <button type="button" onClick={() => step(1)} aria-label="Next four months" className={pagerBtn}><ChevronRight className="w-5 h-5" /></button>
+          </div>
         </div>
         {filterOpen && <div className="px-6 pt-2 shrink-0">{filterSelects}</div>}
 
@@ -563,31 +624,29 @@ export default function BandHome() {
               </button>
               <p className="text-white/40 text-lg">No shows yet</p>
             </div>
-          ) : columns.length === 0 ? (
+          ) : filteredGigs.length === 0 ? (
             <p className="h-full flex items-center justify-center text-white/30 text-lg">No shows match your search or filters</p>
           ) : (
-            <div className="h-full flex p-[18px] pb-3.5 overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+            <div className="h-full flex p-[18px] pb-3.5">
               {columns.map(([monthKey, monthGigs], ci) => {
-                const accent = monthKey === "past" || monthKey === "undated" ? "#9A9A9A" : ci % 2 ? "#FFFFFF" : accountStyle.color;
+                const accent = monthKey === "undated" ? "#9A9A9A" : ci % 2 ? "#FFFFFF" : accountStyle.color;
                 const last = ci === columns.length - 1;
                 return (
-                  <div key={monthKey} data-home-month={monthKey} className="shrink-0 min-h-0 flex flex-col" style={{ width: "calc((100% - 56px) / 3)", minWidth: 340, ...(last ? {} : { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" }) }}>
+                  <div key={monthKey} data-home-month={monthKey} className="flex-1 min-w-0 min-h-0 flex flex-col" style={{ maxWidth: showUndated ? 420 : undefined, ...(last ? {} : { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" }) }}>
                     <div className="h-[34px] flex items-center gap-2 pb-2 shrink-0">
                       <MonthDropdown
                         label={bankLabel(monthKey)}
                         value={monthKey}
-                        options={monthJumpOptions}
-                        onSelect={jumpToMonth}
+                        options={deskMonthOptions}
+                        onSelect={jumpDesk}
                         accent={accent}
                         ariaLabel="Jump to a month"
                         className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em] min-w-0"
                         style={{ fontFamily: SCENE_FONT, color: accent }}
                       />
-                      {monthKey === "past" && (
-                        <button onClick={() => setShowPast(false)} className="ml-auto text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
-                      )}
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-1">
+                      {monthGigs.length === 0 && <p className="px-1 pt-1 text-[14px] text-white/30">No events</p>}
                       {monthGigs.map((g) => {
                         const typeColor = eventTypeColor(g.event_type);
                         const color = typeColor || (g.is_owned ? "#8CFF3D" : "#F472B6");
@@ -601,7 +660,7 @@ export default function BandHome() {
                             color={color}
                             date={g.date}
                             photo={g.icon_url}
-                            dim={monthKey === "past"}
+                            dim={!!g.date && g.date < todayISO}
                             onClick={() => openGig(g)}
                             ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
                           >
@@ -633,11 +692,6 @@ export default function BandHome() {
                   </div>
                 );
               })}
-              {pastGroup && !pastOpen && (
-                <button onClick={() => setShowPast(true)} className="shrink-0 self-start px-4 py-2 rounded-xl border border-[#2a2a2a] text-white/50 hover:text-white text-sm font-semibold">
-                  Past · {pastGroup[1].length}
-                </button>
-              )}
             </div>
           )}
         </div>
