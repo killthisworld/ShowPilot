@@ -414,7 +414,7 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
       </div>
 
       <div className="flex-1 min-h-0 flex" style={{ borderTop: `1px solid ${line}`, background: glass }}>
-        <div className={`flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
+        <div className={`flex-1 min-w-0 flex flex-col justify-end gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
           {/* Your tasks -> the event's task page */}
           <Link
             to={`/gig/tasks?token=${s.share_token}`}
