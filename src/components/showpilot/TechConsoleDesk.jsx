@@ -99,7 +99,7 @@ export default function TechConsoleDesk({
         if (!alive || error) return;
         const map = {};
         owned.forEach((id) => { map[id] = new Set(["engineer"]); });
-        (data || []).forEach((r) => { if (ROLE_BOX[r.invited_role]) map[r.show_id].add(ROLE_BOX[r.invited_role]); });
+        (data || []).forEach((r) => { if (ROLE_BOX[r.invited_role] && map[r.show_id]) map[r.show_id].add(ROLE_BOX[r.invited_role]); });
         setRolesByShow((m) => ({ ...m, ...map }));
       });
     }

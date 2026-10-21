@@ -779,13 +779,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const neededFromMe = (gig.tasks || []).filter((t) => t.status !== "done" && mySections.includes(t.section));
 
   // Features (DCAs) sit in the web's four corners; empty corners are open
-  // slots. Every profile's web has Tasks first: the open tasks that are
-  // yours (in a section you work on, or claimed by you), opening the event's
-  // task page. Then the profile's own (DJ Tools, Fan page).
-  const shareToken = gig.share_token || new URLSearchParams(window.location.search).get("token");
-  const myTaskCount = (gig.tasks || []).filter((t) => t.status !== "done" && ((p.user && t.claimed_by === p.user.id) || p.canEditSection?.(t.section))).length;
+  // slots. Tasks are not a feature here: they open from the TASKS icon in the
+  // event header (next to the fan page ticket), which carries your count.
   const featureDcas = [
-    shareToken ? { key: "tasks", label: "Tasks", color: "#FF6A00", badge: myTaskCount, onClick: () => navigate(`/gig/tasks?token=${shareToken}`) } : null,
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
   ].filter(Boolean);

@@ -21,6 +21,7 @@ import LightingDesk from "@/components/showpilot/LightingDesk";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
+import { localISO } from "@/lib/needsMe";
 import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
 export default function Home() {
@@ -309,41 +310,43 @@ export default function Home() {
   const deskMode = isDesktop && !isLighting;
   const tab = deskMode ? deskTab : activeTab;
 
+  // Which bank (ALL / NEW / FREQ / WORKED / STAR / LINK) a show belongs to.
+  // One rule for the list, the bank counts and the desktop week row.
+  const inTab = (s, t) => {
+    if (t === "all") return true; // desktop console: every show, owned and linked
+    if (t === "starred") return !!s.starred;
+    if (t === "linked") return !s.is_owned;
+    return !!s.is_owned && !s.starred && s.status === t;
+  };
+  const matchesDropdowns = (s) => {
+    if (yearFilter !== "all" && !s.date?.startsWith(yearFilter)) return false;
+    if (monthFilter !== "all" && s.date) {
+      const m = new Date(s.date).getMonth();
+      if (m !== parseInt(monthFilter)) return false;
+    }
+    if (!matchesGenre(s, genreFilter)) return false;
+    if (!matchesEventType(s, eventTypeFilter)) return false;
+    if (venueFilter !== "all" && s.venue !== venueFilter) return false;
+    if (cityFilter !== "all" && !s.location?.toLowerCase().includes(cityFilter.toLowerCase())) return false;
+    if (stateFilter !== "all" && !s.location?.toLowerCase().includes(stateFilter.toLowerCase())) return false;
+    return true;
+  };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return shows.filter((s) => {
       // If searching, show all results across all tabs/statuses
       if (!q) {
-        // Tab filter
-        if (tab === "all") {
-          // Desktop console: every show, owned and linked.
-        } else if (tab === "starred") {
-          if (!s.starred) return false;
-        } else if (tab === "linked") {
-          if (s.is_owned) return false;
-        } else {
-          if (!s.is_owned) return false;
-          if (s.starred) return false;
-          if (s.status !== tab) return false;
-        }
+        if (!inTab(s, tab)) return false;
       } else {
         // Search mode: match band name, opener names, venue, or location
         const matchesOpener = (s.opener_names || []).some((name) => name?.toLowerCase().includes(q));
         if (!s.band_name?.toLowerCase().includes(q) && !matchesOpener && !s.venue?.toLowerCase().includes(q) && !s.location?.toLowerCase().includes(q)) return false;
       }
       // Dropdown filters always apply
-      if (yearFilter !== "all" && !s.date?.startsWith(yearFilter)) return false;
-      if (monthFilter !== "all" && s.date) {
-        const m = new Date(s.date).getMonth();
-        if (m !== parseInt(monthFilter)) return false;
-      }
-      if (!matchesGenre(s, genreFilter)) return false;
-      if (!matchesEventType(s, eventTypeFilter)) return false;
-      if (venueFilter !== "all" && s.venue !== venueFilter) return false;
-      if (cityFilter !== "all" && !s.location?.toLowerCase().includes(cityFilter.toLowerCase())) return false;
-      if (stateFilter !== "all" && !s.location?.toLowerCase().includes(stateFilter.toLowerCase())) return false;
-      return true;
+      return matchesDropdowns(s);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shows, search, tab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
 
   const bankCounts = useMemo(() => {
@@ -351,6 +354,23 @@ export default function Home() {
     shows.forEach((s) => { const k = sceneBankOf(s); counts[k] = (counts[k] || 0) + 1; });
     return counts;
   }, [shows]);
+
+  // Desktop console: the strips only show upcoming (and undated) shows, so
+  // each bank's count is what you'll actually see when you press it, and the
+  // week row follows the selected bank too.
+  const deskCounts = useMemo(() => {
+    const today = localISO();
+    const upcoming = shows.filter((s) => (!s.date || s.date >= today) && matchesDropdowns(s));
+    const counts = { all: upcoming.length };
+    SCENE_BANKS.forEach((b) => { counts[b.id] = upcoming.filter((s) => inTab(s, b.id)).length; });
+    return counts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shows, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]);
+  const deskWeekShows = useMemo(
+    () => shows.filter((s) => inTab(s, deskTab) && matchesDropdowns(s)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shows, deskTab, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]
+  );
 
   const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
   const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
@@ -499,7 +519,7 @@ export default function Home() {
       <>
         <TechConsoleDesk
           shows={filtered}
-          allShows={shows}
+          allShows={deskWeekShows}
           loading={loading}
           accent={accountStyle.color}
           preferences={preferences}
@@ -508,8 +528,8 @@ export default function Home() {
           setSearch={setSearch}
           activeTab={deskTab}
           setActiveTab={setDeskTab}
-          bankCounts={bankCounts}
-          totalCount={shows.length}
+          bankCounts={deskCounts}
+          totalCount={deskCounts.all}
           filtersNode={filterSelects}
           hasActiveFilters={hasActiveFilters}
           onOpen={openShow}
