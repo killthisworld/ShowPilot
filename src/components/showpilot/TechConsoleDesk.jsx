@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CalendarDays, PlaneTakeoff, MessageCircle, Ticket, Camera, Plus, Search, SlidersHorizontal, MoreHorizontal, Archive, Trash2, X } from "lucide-react";
+import { MessageCircle, Ticket, Camera, Plus, Search, SlidersHorizontal, MoreHorizontal, Archive, Trash2, X, Share2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
-import { chatHref, chatTitle, dueInfo, localISO, readSeenChanges } from "@/lib/needsMe";
+import { chatHref, chatTitle, dueInfo, localISO, readSeenChanges, addDaysISO } from "@/lib/needsMe";
 import { shareLink } from "@/lib/share";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -16,9 +16,11 @@ import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 
 // Audio tech desktop (1024px+): the mixing console. Each upcoming show is a
 // channel strip, grouped by month like console banks, read top to bottom
-// like a real strip: name -> open tasks -> which profiles are on it (lit =
-// linked) -> sends (chat, fan page, web, share) -> fader (how show-ready it
-// is). The event photo, if there is one, sits behind the strip.
+// like a real strip: name -> your open tasks (opens the event's task page)
+// -> which profiles are on it (lit = someone's on it) -> sends (chat, fan
+// page, share) -> fader (how show-ready it is). Clicking the strip itself
+// opens the event web. The event photo, if there is one, sits behind it.
+// A "This week" row sits above the strips (v2, Oct 21: AudioDeskV2 board).
 // The page itself follows the same order: input (what came in), filter,
 // the strips, and the rail on the left for going somewhere else.
 // Mockup: "Audio tech desktop · event photo strips" on the Company Phone
@@ -27,26 +29,18 @@ import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 
 const ROLES = [
   { id: "venue", label: "VENUE", color: "#60A5FA", soft: "#60A5FA" },
-  { id: "manager", label: "MANAGER", color: "#EF4444", soft: "#F87171" },
+  { id: "manager", label: "MANAGER/ARTIST", color: "#EF4444", soft: "#F87171" },
   { id: "engineer", label: "AUDIO/LX", color: "#8CFF3D", soft: "#8CFF3D" },
 ];
+// Roles as the database names them -> the three profile boxes.
+const ROLE_BOX = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
+const SEND = { chat: "#60A5FA", fan: "#E879F9", share: "#8CFF3D" };
 
 const ALL_BANK = { id: "all", label: "ALL", color: "#8CFF3D" };
 
-// Section heights, shared by the strips and the labels column so they line up.
-const H = { name: 104, tasks: 66, roles: 178, sends: 104 };
-
-const WebIcon = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M12 4L19.6 9.5L16.7 18.5H7.3L4.4 9.5Z" />
-    <path d="M12 12L12 4M12 12L19.6 9.5M12 12L16.7 18.5M12 12L7.3 18.5M12 12L4.4 9.5" />
-    <circle cx="12" cy="12" r="2.6" fill="currentColor" />
-    {[[12, 4], [19.6, 9.5], [16.7, 18.5], [7.3, 18.5], [4.4, 9.5]].map(([x, y]) => <circle key={x + "-" + y} cx={x} cy={y} r="1.7" fill="currentColor" />)}
-  </svg>
-);
-
 export default function TechConsoleDesk({
   shows, // already filtered by search / bank / dropdown filters
+  allShows, // every show, for the week view
   loading,
   accent = "#8CFF3D",
   preferences,
@@ -96,18 +90,27 @@ export default function TechConsoleDesk({
       data.forEach((r) => { map[r.show_id] = r; });
       setProgress(map);
     });
+    // Who's on. Your own shows: you (the audio / lighting box) plus every
+    // accepted invite. Linked shows: whoever has claimed a role, from the
+    // same permissions call the event web uses.
     const owned = strips.filter((s) => s.is_owned !== false).map((s) => s.id);
     if (owned.length) {
       supabase.from("gig_invites").select("show_id, invited_role, status").in("show_id", owned).eq("status", "accepted").then(({ data, error }) => {
-        if (!alive || error || !data) return;
+        if (!alive || error) return;
         const map = {};
-        data.forEach((r) => {
-          const role = r.invited_role === "lighting" ? "engineer" : r.invited_role;
-          (map[r.show_id] = map[r.show_id] || new Set()).add(role);
-        });
-        setRolesByShow(map);
+        owned.forEach((id) => { map[id] = new Set(["engineer"]); });
+        (data || []).forEach((r) => { if (ROLE_BOX[r.invited_role]) map[r.show_id].add(ROLE_BOX[r.invited_role]); });
+        setRolesByShow((m) => ({ ...m, ...map }));
       });
     }
+    strips.filter((s) => s.is_owned === false && s.share_token).forEach((s) => {
+      supabase.rpc("get_gig_section_permissions", { p_token: s.share_token }).then(({ data, error }) => {
+        if (!alive || error || !data) return;
+        const set = new Set();
+        [...(data.claimed_roles || []), ...(data.my_roles || [])].forEach((r) => ROLE_BOX[r] && set.add(ROLE_BOX[r]));
+        setRolesByShow((m) => ({ ...m, [s.id]: set }));
+      });
+    });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripIds]);
@@ -123,6 +126,29 @@ export default function TechConsoleDesk({
   }, [needs]);
   const topTask = dueTasks[0] || (needs?.tasks || [])[0] || null;
   const topChat = unreadChats[0] || null;
+
+  // Your profile's open tasks on each show (get_needs_me only returns tasks
+  // in your own sections).
+  const myTasksByToken = useMemo(() => {
+    const map = {};
+    (needs?.tasks || []).forEach((t) => { map[t.share_token] = (map[t.share_token] || 0) + 1; });
+    return map;
+  }, [needs]);
+
+  // This week (Mon-Sun), moved with the arrows.
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = addDaysISO(-(dow === 0 ? 6 : dow - 1) + weekOffset * 7);
+    const base = new Date(monday + "T00:00:00");
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const key = localISO(d);
+      return { key, d, shows: (allShows || shows).filter((x) => x.date === key) };
+    });
+  }, [weekOffset, allShows, shows]);
 
   const unreadByToken = useMemo(() => {
     const map = {};
@@ -232,6 +258,46 @@ export default function TechConsoleDesk({
           </Link>
         </div>
 
+        {/* This week */}
+        <div className="px-6 pt-3">
+          <div className="flex items-center gap-2.5 mb-2">
+            <h2 className="text-[18px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT }}>{weekOffset === 0 ? "THIS WEEK" : weekOffset === 1 ? "NEXT WEEK" : weekOffset === -1 ? "LAST WEEK" : "WEEK"}</h2>
+            <span className="text-[12px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
+              {weekDays[0].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} – {weekDays[6].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
+            </span>
+            <div className="ml-auto flex items-center gap-1.5">
+              <button type="button" onClick={() => setWeekOffset((w) => w - 1)} aria-label="Previous week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
+              {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
+              <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {weekDays.map((day) => {
+              const isToday = day.key === today;
+              return (
+                <div key={day.key} className="h-[84px] rounded-[10px] px-2 py-1.5 flex flex-col gap-1 min-w-0 overflow-hidden"
+                  style={{ background: isToday ? "#132009" : "#111", border: isToday ? `1.5px solid ${accent}` : "1px solid #1f1f1f", boxShadow: isToday ? "0 0 14px rgba(140,255,61,0.2)" : "none" }}>
+                  <div className="flex items-baseline gap-1.5" style={{ fontFamily: SCENE_MONO }}>
+                    <span className="text-[11px] tracking-[0.1em]" style={{ color: isToday ? accent : "#8f8f8f" }}>{day.d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}</span>
+                    <span className="text-[15px] font-semibold" style={{ color: isToday ? accent : "#e5e5e5" }}>{day.d.getDate()}</span>
+                    {isToday && <span className="ml-auto text-[9px] tracking-[0.1em]" style={{ color: accent }}>TODAY</span>}
+                  </div>
+                  {day.shows.slice(0, 2).map((x) => {
+                    const c = eventTypeColor(x.event_type) || (x.is_owned === false ? "#F472B6" : accent);
+                    return (
+                      <Link key={x.id || x.share_token} to={`/gig/web?token=${x.share_token}`} className="block min-w-0 rounded-md px-1.5 py-0.5 hover:brightness-125" style={{ background: c + "22", borderLeft: `3px solid ${c}` }}>
+                        <span className="block text-[13px] font-semibold truncate">{sceneTitle(x)}</span>
+                        {day.shows.length === 1 && <span className="block text-[11px] text-white/60 truncate">{x.venue || "No venue yet"}</span>}
+                      </Link>
+                    );
+                  })}
+                  {day.shows.length > 2 && <span className="text-[10px] text-white/50" style={{ fontFamily: SCENE_MONO }}>+{day.shows.length - 2} more</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* 2 · Filter */}
         <div className="px-6 py-2.5 flex flex-col gap-2">
           <div className="flex items-center gap-2.5">
@@ -328,6 +394,7 @@ export default function TechConsoleDesk({
                           pr={progress[s.id]}
                           on={rolesByShow[s.id]}
                           unread={Number(unreadByToken[s.share_token] || 0)}
+                          myTasks={Number(myTasksByToken[s.share_token] || 0)}
                           busyPhoto={busyPhoto === (s.id || s.share_token)}
                           menuOpen={menuFor === (s.id || s.share_token)}
                           onMenu={(open) => setMenuFor(open ? s.id || s.share_token : null)}
@@ -375,15 +442,12 @@ function InputCount({ n, label, color, bg, to }) {
   return n && to ? <Link to={to} className={cls} style={style}>{inner}</Link> : <span className={cls} style={style}>{inner}</span>;
 }
 
-function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, onOpen, onFan, onShare, onPhoto, onArchive, onDelete }) {
+function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen, onMenu, onFan, onShare, onPhoto, onArchive, onDelete }) {
   const color = eventTypeColor(s.event_type) || (s.is_owned === false ? "#F472B6" : accent);
   const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : 0;
   const lvl = pct >= 80 ? "#8CFF3D" : pct >= 40 ? "#FF6A00" : "#E879F9";
-  const open = Number(pr?.open_tasks || 0);
-  const included = ROLES.map((r) => r.id);
-  const glass = photo ? "rgba(10,10,10,0.55)" : "transparent";
+  const glass = photo ? "rgba(10,10,10,0.6)" : "transparent";
   const line = photo ? "rgba(255,255,255,0.12)" : "#262626";
-  const btnBg = photo ? "rgba(20,20,20,0.8)" : "#222";
   const ts = photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none";
   const d = s.date ? new Date(s.date + "T00:00:00") : null;
   const webTo = `/gig/web?token=${s.share_token}`;
@@ -393,9 +457,10 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
     if (e.target.closest("a, button, input, label")) return;
     navigate(webTo);
   };
+  const sendBtn = (c) => ({ background: photo ? "rgba(13,13,13,0.85)" : c + "1c", border: `1px solid ${c}73`, color: c });
 
   return (
-    <div onClick={openWeb} className="w-[192px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate cursor-pointer hover:brightness-110 transition-[filter]" style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}>
+    <div onClick={openWeb} className="w-[210px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate cursor-pointer hover:brightness-110 transition-[filter]" style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}>
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
@@ -405,9 +470,9 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
       )}
 
       {/* Show */}
-      <div className="relative shrink-0" style={{ height: H.name, borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0))" : "#1c1c1c" }}>
-        <Link to={webTo} title="Open the event web" className="w-full h-full px-2.5 pt-2 pb-2 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
-          <span className="text-[13px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
+      <div className="relative shrink-0" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c" }}>
+        <Link to={webTo} title="Open the event web" className="w-full px-[11px] pt-2 pb-2.5 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
+          <span className="text-[12px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
           <span className="text-[18px] font-semibold leading-[1.15] line-clamp-2 w-full">{sceneTitle(s)}</span>
           <span className="text-[13px] text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
         </Link>
@@ -422,66 +487,59 @@ function Strip({ s, accent, photo, pr, on, unread, busyPhoto, menuOpen, onMenu, 
         )}
       </div>
 
-      {/* Tasks */}
-      <div className="shrink-0 px-2.5 py-2 flex" style={{ height: H.tasks, borderTop: `1px solid ${line}`, background: glass }}>
-        <Link
-          to={webTo}
-          aria-label={open ? `${open} open tasks` : "No open tasks"}
-          className="flex-1 flex items-center gap-2 px-2.5 rounded-lg"
-          style={{ background: open ? "#341c0b" : "#0f1d08", border: `1.5px solid ${open ? "#FF6A00" : "#8CFF3D"}`, color: open ? "#FF6A00" : "#8CFF3D", boxShadow: open ? "0 0 12px rgba(255,106,0,0.35)" : "none" }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" /><path d="M8 12l3 3 5-6" /></svg>
-          <span className="flex flex-col items-start leading-[1.05]">
-            {open > 0 && <span className="text-[19px] font-semibold" style={{ fontFamily: SCENE_MONO }}>{open}</span>}
-            <span className="text-[14px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_FONT }}>{open ? (open === 1 ? "TASK OPEN" : "TASKS OPEN") : "ALL CLEAR"}</span>
-          </span>
-        </Link>
-      </div>
-
-      {/* Who's on + sends, with the ready fader running beside them */}
       <div className="flex-1 min-h-0 flex" style={{ borderTop: `1px solid ${line}`, background: glass }}>
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="shrink-0 pl-2.5 pr-1 py-2 flex flex-col gap-1.5" style={{ height: H.roles }}>
-            {on || s.is_owned !== false ? (
-              ROLES.filter((r) => included.includes(r.id)).map((r) => {
-                const lit = on?.has(r.id);
-                return (
-                  <span
-                    key={r.id}
-                    className="h-[27px] shrink-0 rounded-[6px] flex items-center px-2 text-[15px] font-bold tracking-[0.05em]"
-                    style={{ fontFamily: SCENE_FONT, background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "66"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 10px ${r.color}99` : "none" }}
-                    title={lit ? `${r.label} is on this show` : `${r.label} not linked yet`}
-                  >
-                    {r.label}
-                  </span>
-                );
-              })
-            ) : (
-              <span className="text-[14px] text-white/70 leading-snug py-1">Linked show. Open the web to see who's on it.</span>
-            )}
+        <div className="flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 pl-2.5 pr-2">
+          {/* Your tasks -> the event's task page */}
+          <Link
+            to={`/gig/tasks?token=${s.share_token}`}
+            aria-label={myTasks ? `${myTasks} open ${myTasks === 1 ? "task" : "tasks"} for you` : "No tasks for you"}
+            className="h-[44px] shrink-0 flex items-center gap-1.5 px-2 rounded-[9px] hover:brightness-125"
+            style={myTasks
+              ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00", boxShadow: "0 0 12px rgba(255,106,0,0.3)" }
+              : { background: photo ? "rgba(13,13,13,0.85)" : "#151515", border: "1.5px solid #3a3a3a", color: "#a3a3a3" }}
+          >
+            <ClipboardList className="w-[18px] h-[18px] shrink-0" />
+            <span className="text-[15px] font-bold tracking-[0.03em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+            <ChevronRight className="w-3.5 h-3.5 ml-auto shrink-0" />
+          </Link>
+
+          {/* Who's on */}
+          <div className="flex flex-col gap-1.5" style={{ textShadow: ts }}>
+            <span className="text-[10px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>WHO'S ON</span>
+            {ROLES.map((r) => {
+              const lit = on?.has(r.id);
+              return (
+                <span
+                  key={r.id}
+                  className="h-[27px] shrink-0 rounded-[6px] flex items-center px-1.5 text-[13px] font-bold tracking-[0.02em] whitespace-nowrap overflow-hidden"
+                  style={{ fontFamily: SCENE_FONT, textShadow: "none", background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "59"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 10px ${r.color}88` : "none" }}
+                  title={lit ? `${r.label} is on this show` : `No one on ${r.label} yet`}
+                >
+                  {r.label}
+                </span>
+              );
+            })}
           </div>
 
-          <div className="shrink-0 pl-2.5 pr-1 py-2 grid grid-cols-2 gap-1.5 content-start" style={{ height: H.sends, borderTop: `1px solid ${line}` }}>
-            <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="h-[38px] rounded-lg flex items-center justify-center relative text-white hover:brightness-125" style={{ background: btnBg }}>
+          {/* Sends */}
+          <div className={`grid ${FAN_RSVP_OPEN ? "grid-cols-4" : "grid-cols-3"} gap-1.5`}>
+            <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="h-[40px] rounded-[9px] flex items-center justify-center relative hover:brightness-125" style={sendBtn(SEND.chat)}>
               <MessageCircle className="w-[18px] h-[18px]" />
-              {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
+              {unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
             </Link>
             {FAN_RSVP_OPEN && (
-              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="h-[38px] rounded-lg flex items-center justify-center text-white hover:brightness-125" style={{ background: btnBg }}>
+              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="h-[40px] rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.fan)}>
                 <Ticket className="w-[18px] h-[18px]" />
               </button>
             )}
-            <Link to={webTo} aria-label="Open web" title="Open web" className="h-[38px] rounded-lg flex items-center justify-center text-white hover:brightness-125" style={{ background: btnBg }}>
-              <WebIcon size={20} />
-            </Link>
-            <button type="button" onClick={onShare} className="h-[38px] rounded-lg bg-transparent border border-[#3a3a3a] text-[#e5e5e5] text-[14px] font-semibold hover:border-[#555]">Share</button>
-          </div>
-
-          <div className="flex-1 min-h-0 flex items-end p-2">
-            <button type="button" aria-label={photo ? "Change photo" : "Add photo"} title={photo ? "Change photo" : "Add photo"} onClick={onPhoto} disabled={busyPhoto} className="h-8 px-2 rounded-[7px] flex items-center gap-1.5 text-[12px] font-semibold text-white disabled:opacity-50 hover:border-white/50" style={{ background: "rgba(13,13,13,0.85)", border: "1px solid rgba(255,255,255,0.25)" }}>
-              <Camera className="w-3.5 h-3.5" /> {photo ? "Photo" : "Add photo"}
+            <button type="button" aria-label="Share crew link" title="Share crew link" onClick={onShare} className="h-[40px] rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.share)}>
+              <Share2 className="w-[18px] h-[18px]" />
+            </button>
+            <button type="button" aria-label={photo ? "Change the strip photo" : "Add a strip photo"} title={photo ? "Change photo" : "Add photo"} onClick={onPhoto} disabled={busyPhoto} className="h-[40px] rounded-[9px] flex items-center justify-center text-white/80 disabled:opacity-50 hover:text-white" style={{ background: photo ? "rgba(13,13,13,0.85)" : "#1a1a1a", border: "1px solid #3a3a3a" }}>
+              <Camera className="w-[17px] h-[17px]" />
             </button>
           </div>
+
         </div>
 
         {/* Ready fader */}

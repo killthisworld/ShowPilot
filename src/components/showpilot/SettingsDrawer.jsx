@@ -147,7 +147,6 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate, avata
         <SettingsPanel
           prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
           navItems={[
-            { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
             { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
             { icon: Mail, label: "Manage Links", color: "#60A5FA", onClick: () => { setOpen(false); navigate("/manager-links"); } },
             { icon: FolderOpen, label: "My Templates", sub: "Save venue and artist info to reuse on repeat shows", color: "#FB923C", onClick: () => { setOpen(false); navigate("/my-templates"); } },

@@ -39,6 +39,7 @@ import FanUnsubscribe from '@/pages/FanUnsubscribe';
 import VenueProfile from '@/pages/VenueProfile';
 import RoleFullProfile from '@/pages/RoleFullProfile';
 import GigRooms from '@/pages/GigRooms';
+import EventTasks from '@/pages/EventTasks';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
 import About from '@/pages/About';
@@ -92,6 +93,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/venue" element={<VenueProfile />} />
       <Route path="/gig/role" element={<RoleFullProfile />} />
       <Route path="/gig/rooms" element={<GigRooms />} />
+      <Route path="/gig/tasks" element={<EventTasks />} />
       <Route path="/gig/messages" element={<GigDirectMessages />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />

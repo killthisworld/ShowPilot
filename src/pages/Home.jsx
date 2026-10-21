@@ -499,6 +499,7 @@ export default function Home() {
       <>
         <TechConsoleDesk
           shows={filtered}
+          allShows={shows}
           loading={loading}
           accent={accountStyle.color}
           preferences={preferences}
