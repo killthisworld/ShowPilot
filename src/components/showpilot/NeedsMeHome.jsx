@@ -1,94 +1,102 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, Clock, Reply, CheckCircle2, RefreshCw } from "lucide-react";
+import { Check, Clock, Reply, CheckCircle2, ChevronRight, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
-import TicketCard from "@/components/showpilot/TicketCard";
-import { eventTypeColor } from "@/lib/eventTypes";
+import useNeedsMe from "@/hooks/useNeedsMe";
+import useEventFeed from "@/lib/eventFeed";
+import InviteSheet from "@/components/showpilot/InviteSheet";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import { claimText } from "@/components/showpilot/TaskSheet";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { useAuth } from "@/lib/AuthContext";
+import { WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import {
-  BLAZE, dueInfo, localISO, addDaysISO, shortDate, timeAgo, chatHref, chatTitle,
-  readSeenChanges, rememberSeenChange, sectionMeta, vocab, openQuickAdd,
+  dueInfo, localISO, shortDate, timeAgo, chatHref, chatTitle,
+  readSeenChanges, rememberSeenChange, sectionMeta, vocab,
 } from "@/lib/needsMe";
 
 const BLUE = "#60A5FA";
+const G = "#8CFF3D";
+const AMBER = "#FF6A00";
 // Count tiles (job 73): due now = red, new messages = Show Pilot green,
 // changed = yellow.
 const RED = "#FF4545";
-const NEW_GREEN = "#8CFF3D";
 const CHANGED_YELLOW = "#FACC15";
-const TASKS_SHOWN = 5;
 
-// The company phone home: straight to what needs you. Tasks due on your
-// sections, chats with unread messages, things that changed on your events,
-// and this week's events with their progress. Every item opens where you can
-// act on it. Mockups: "Needs me · Manager" / "Needs me · Venue" on the
-// Company Phone Layout design canvas.
+// Section / profile colors and names, as on the event Board.
+const SECTION_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engineer: "#8CFF3D", lighting: "#8CFF3D" };
+const SECTION_LABEL = { venue: "Venue", manager: "Manager", engineer: "Audio / Lighting" };
+
+const Pill = ({ children, style }) => (
+  <span className="shrink-0 w-[76px] text-center text-[10px] font-bold tracking-[0.1em] py-[4px] rounded" style={{ fontFamily: SCENE_MONO, ...style }}>{children}</span>
+);
+
+// The company phone's home (job 73): straight to what needs you, across
+// every event you're part of. The main feed is one To do list - the desktop
+// event Board's rows (conflicts, requests, open tasks, profiles with nobody
+// on them) - grouped by event, each with the event's photo, so anything can
+// be checked or done on the go. Then new messages and recent changes.
+// Adding a task lives on the "+" button; the calendar lives on Calendar.
 //
-// `gigs` and `progressByShow` come from BandHome, which already loads them
-// for the Events list, so this screen doesn't fetch them a second time.
-export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, progressByShow, gigsLoading, onOpenGig }) {
+// `gigs` come from BandHome, which already loads them for the Calendar.
+export default function NeedsMeHome({ preferences, gigs, onOpenGig }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const accountType = preferences?.account_type;
   const style = getAccountTypeStyle(accountType);
   const accent = style.color;
   const words = vocab(accountType);
-  const { data, loading, failed, reload } = useNeedsMe();
+  const { data, loading: chatsLoading } = useNeedsMe();
+  const { groups, loading: feedLoading, patchTask } = useEventFeed(gigs, userId);
   const [seen, setSeen] = useState(() => readSeenChanges());
-  const [showAllTasks, setShowAllTasks] = useState(false);
-  const [undoTask, setUndoTask] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [undo, setUndo] = useState(null); // { token, task }
   const undoTimer = useRef(null);
-  const tasksRef = useRef(null);
+  const feedRef = useRef(null);
   const chatsRef = useRef(null);
   const changesRef = useRef(null);
 
   const todayISO = localISO();
-  const tasks = data?.tasks || [];
-  const dueNow = tasks.filter((t) => t.due_date && t.due_date <= todayISO);
   const unreadChats = (data?.chats || []).filter((c) => c.unread > 0);
   const unreadTotal = unreadChats.reduce((n, c) => n + Number(c.unread || 0), 0);
   const changes = (data?.changes || []).filter((c) => !seen.has(c.key));
-  const shownTasks = showAllTasks ? tasks : tasks.slice(0, TASKS_SHOWN);
+  const rowCount = groups.reduce((n, g) => n + g.rows.length, 0);
+  const dueNow = groups.reduce((n, g) => n + g.rows.filter((r) => r.kind === "task" && r.task.due_date && r.task.due_date <= todayISO).length, 0);
 
   // Today's / tonight's event(s), for the card at the top.
   const todays = useMemo(() => (gigs || []).filter((g) => g.date === todayISO), [gigs, todayISO]);
 
-  // This week's events (next 7 days). If the week is empty, the next two
-  // coming up, so progress is always one glance away.
-  const weekGigs = useMemo(() => {
-    const end = addDaysISO(6);
-    const upcoming = (gigs || []).filter((g) => g.date && g.date >= todayISO).sort((a, b) => a.date.localeCompare(b.date));
-    const inWeek = upcoming.filter((g) => g.date <= end);
-    return (inWeek.length ? inWeek : upcoming.slice(0, 2)).slice(0, 4);
-  }, [gigs, todayISO]);
-  const weekIsEmpty = useMemo(() => !(gigs || []).some((g) => g.date && g.date >= todayISO && g.date <= addDaysISO(6)), [gigs, todayISO]);
+  const openSection = (gig, section) => navigate(`/gig/web?token=${gig.share_token}&role=${section}`);
 
-  const openByToken = (shareToken) => {
-    const g = (gigs || []).find((x) => x.share_token === shareToken);
-    onOpenGig(g || { share_token: shareToken });
+  const run = async (id, fn) => {
+    if (busy) return;
+    setBusy(id);
+    try { await fn(); } catch (err) { console.error(err); }
+    setBusy(null);
   };
-
-  const markDone = async (task) => {
-    patchNeedsMe((d) => ({ ...d, tasks: d.tasks.filter((t) => t.id !== task.id) }));
+  const claim = (gig, t) => run(t.id, async () => {
+    const { data: next, error } = await supabase.rpc("claim_gig_task", { p_token: gig.share_token, p_task_id: t.id, p_claim: true });
+    if (error) throw error;
+    patchTask(gig.share_token, t.id, next || { claimed_by: userId, claimed_by_name: "You" });
+  });
+  const done = (gig, t) => run(t.id, async () => {
+    const { error } = await supabase.rpc("set_gig_task_status", { p_token: gig.share_token, p_task_id: t.id, p_done: true });
+    if (error) throw error;
+    patchTask(gig.share_token, t.id, { status: "done" });
     clearTimeout(undoTimer.current);
-    setUndoTask(task);
-    undoTimer.current = setTimeout(() => setUndoTask(null), 5000);
-    const { error } = await supabase.rpc("set_gig_task_status", { p_token: task.share_token, p_task_id: task.id, p_done: true });
-    if (error) {
-      console.error(error);
-      setUndoTask(null);
-      reload();
-    }
-  };
+    setUndo({ token: gig.share_token, task: t });
+    undoTimer.current = setTimeout(() => setUndo(null), 5000);
+  });
   const undoDone = async () => {
-    const task = undoTask;
-    if (!task) return;
-    setUndoTask(null);
+    const u = undo;
+    if (!u) return;
+    setUndo(null);
     clearTimeout(undoTimer.current);
-    const { error } = await supabase.rpc("set_gig_task_status", { p_token: task.share_token, p_task_id: task.id, p_done: false });
-    if (error) console.error(error);
-    reload();
+    const { error } = await supabase.rpc("set_gig_task_status", { p_token: u.token, p_task_id: u.task.id, p_done: false });
+    if (error) { console.error(error); return; }
+    patchTask(u.token, u.task.id, { status: u.task.status || "open" });
   };
 
   const gotIt = (change) => {
@@ -100,11 +108,19 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
 
   const dateLine = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const tint = (c) => c + "1c";
-  const sectionLabel = (txt) => (
-    <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{txt}</div>
+  const sectionLabel = (txt, right) => (
+    <div className="flex items-center text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>
+      {txt}{right && <span className="ml-auto text-[11px] tracking-[0.1em] text-white/35" style={{ fontFamily: SCENE_MONO }}>{right}</span>}
+    </div>
   );
   const card = "rounded-xl bg-[#151515] border border-[#262626]";
-  const nothing = !loading && !failed && tasks.length === 0 && unreadChats.length === 0 && changes.length === 0;
+  const meta = (color, text) => (
+    <span className="block text-[10.5px] tracking-[0.08em] mt-0.5 break-words" style={{ fontFamily: SCENE_MONO, color }}>{text}</span>
+  );
+  const rowCls = "w-full flex items-center gap-3 px-3 py-3 text-left bg-[#121212] active:bg-[#1a1a1a]";
+  const go = <span className="shrink-0 flex items-center gap-0.5 text-[11px] tracking-[0.08em] text-white/40" style={{ fontFamily: SCENE_MONO }}>OPEN <ChevronRight className="w-3.5 h-3.5" /></span>;
+  const loading = feedLoading || chatsLoading;
+  const nothing = !loading && rowCount === 0 && unreadChats.length === 0 && changes.length === 0;
 
   return (
     <div className="max-w-lg mx-auto pb-6" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -124,9 +140,10 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
         <button
           key={g.share_token || g.id}
           onClick={() => onOpenGig(g)}
-          className="mx-5 mb-3 w-[calc(100%-40px)] flex flex-col gap-2 p-3.5 rounded-[14px] text-left text-white"
+          className="mx-5 mb-3 w-[calc(100%-40px)] relative isolate overflow-hidden flex flex-col gap-2 p-3.5 rounded-[14px] text-left text-white"
           style={{ background: tint(accent), border: `1.5px solid ${accent}`, boxShadow: `0 0 18px ${accent}40` }}
         >
+          {g.icon_url && <img src={g.icon_url} alt="" className="absolute inset-0 -z-10 w-full h-full object-cover opacity-30" />}
           <span className="flex justify-between w-full text-[13px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT, color: accent }}>
             <span>{words.today.toUpperCase()}</span>
             {g.event_time && <span>{g.event_time.toUpperCase()}</span>}
@@ -139,15 +156,15 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
       {/* Count tiles */}
       <div className="grid grid-cols-3 gap-2 px-5 pb-3.5">
         {[
-          { n: dueNow.length, label: "DUE NOW", color: RED, bg: tint(RED), ref: tasksRef },
-          { n: unreadTotal, label: "NEW", color: NEW_GREEN, bg: tint(NEW_GREEN), ref: chatsRef },
-          { n: changes.length, label: "CHANGED", color: CHANGED_YELLOW, bg: tint(CHANGED_YELLOW), ref: changesRef },
+          { n: dueNow, label: "DUE NOW", color: RED, ref: feedRef },
+          { n: unreadTotal, label: "NEW", color: G, ref: chatsRef },
+          { n: changes.length, label: "CHANGED", color: CHANGED_YELLOW, ref: changesRef },
         ].map((t) => (
           <button
             key={t.label}
             onClick={() => scrollTo(t.ref)}
             className="flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left"
-            style={{ background: t.bg, border: `1.5px solid ${t.color}`, color: t.color }}
+            style={{ background: tint(t.color), border: `1.5px solid ${t.color}`, color: t.color }}
           >
             <span className="text-2xl font-semibold leading-none" style={{ fontFamily: SCENE_MONO }}>{loading ? "–" : t.n}</span>
             <span className="text-[13px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_FONT }}>{t.label}</span>
@@ -160,71 +177,114 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: accent + "40", borderTopColor: accent }} /></div>
         )}
 
-        {failed && (
-          <div className={`${card} p-4 flex items-center gap-3`}>
-            <p className="flex-1 m-0 text-sm text-white/70">Couldn't load your tasks and chats just now.</p>
-            <button onClick={reload} className="h-11 px-3.5 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold flex items-center gap-1.5">
-              <RefreshCw className="w-4 h-4" /> Retry
-            </button>
-          </div>
-        )}
-
         {nothing && (
           <div className={`${card} p-5 flex flex-col items-center gap-2 text-center`}>
             <CheckCircle2 className="w-8 h-8" style={{ color: accent }} />
             <p className="m-0 text-base font-semibold text-white">Nothing needs you right now</p>
-            <p className="m-0 text-sm text-white/55">New tasks, unread chats and changes on your {words.events.toLowerCase()} show up here.</p>
-            <button onClick={openQuickAdd} className="mt-1 h-11 px-4 rounded-[10px] text-sm font-bold" style={{ background: accent, color: "#0d0d0d" }}>Add a task</button>
+            <p className="m-0 text-sm text-white/55">Conflicts, requests, tasks, new messages and changes on your {words.events.toLowerCase()} show up here.</p>
           </div>
         )}
 
-        {/* Tasks */}
-        {tasks.length > 0 && (
-          <div ref={tasksRef} className="flex flex-col gap-2.5 scroll-mt-4">
-            {sectionLabel(`TASKS · ${tasks.length}`)}
-            {shownTasks.map((t) => {
-              const due = dueInfo(t.due_date);
-              // Due today or overdue matches the red DUE NOW tile.
-              const urgent = !!due?.urgent;
-              const metaColor = urgent ? RED : "rgba(255,255,255,0.55)";
-              return (
-                <div key={t.id} className={`${card} flex items-center gap-3 p-3`}>
-                  <button
-                    onClick={() => markDone(t)}
-                    aria-label={`Mark "${t.title}" done`}
-                    className="w-11 h-11 shrink-0 rounded-full bg-transparent flex items-center justify-center"
-                    style={{ border: `2px solid ${urgent ? RED : "#4a4a4a"}`, color: urgent ? RED : "#8a8a8a" }}
-                  >
-                    <Check className="w-5 h-5" strokeWidth={2.5} />
-                  </button>
-                  <button onClick={() => openByToken(t.share_token)} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
-                    <span className="text-[15px] font-semibold text-white leading-snug">{t.title}</span>
-                    <span className="text-[11px] truncate" style={{ fontFamily: SCENE_MONO, color: metaColor }}>
-                      {[t.event_title, t.event_date ? shortDate(t.event_date) : null, due?.label].filter(Boolean).join(" · ").toUpperCase()}
+        {/* The feed: every event's To do, nearest event first. */}
+        {!feedLoading && rowCount > 0 && (
+          <div ref={feedRef} className="flex flex-col gap-2.5 scroll-mt-4">
+            {sectionLabel("TO DO", `${rowCount} OPEN`)}
+            {groups.map(({ gig, rows }) => (
+              <div key={gig.share_token} className="rounded-xl border border-[#242424] overflow-hidden">
+                {/* Event header: its photo, name and date; opens the event. */}
+                <button type="button" onClick={() => onOpenGig(gig)} className="relative isolate overflow-hidden w-full flex items-center gap-3 px-3 py-2.5 text-left bg-[#161616] active:bg-[#1c1c1c] border-b border-[#242424]">
+                  {gig.icon_url && <img src={gig.icon_url} alt="" className="absolute inset-0 -z-10 w-full h-full object-cover opacity-25" />}
+                  <span className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(22,22,22,0.92) 30%, rgba(22,22,22,0.55))" }} />
+                  <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={36} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-semibold text-white truncate">{gig.event_name || gig.band_name || "Untitled"}</span>
+                    <span className="block text-[10.5px] tracking-[0.08em] text-white/50 truncate" style={{ fontFamily: SCENE_MONO }}>
+                      {[gig.date ? (gig.date === todayISO ? words.today : shortDate(gig.date)) : "NO DATE", gig.venue].filter(Boolean).join(" · ").toUpperCase()}
                     </span>
-                  </button>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-white/35 shrink-0" />
+                </button>
+
+                <div className="divide-y divide-[#1f1f1f]">
+                  {rows.map((r) => {
+                    if (r.kind === "conflict" || r.kind === "request") {
+                      const c = SECTION_COLOR[r.section] || "#9A9A9A";
+                      const conflict = r.kind === "conflict";
+                      return (
+                        <button key={r.id} type="button" onClick={() => openSection(gig, r.section)} className={rowCls}>
+                          <Pill style={conflict ? { background: AMBER, color: "#0d0d0d" } : { background: "#fff", color: "#0d0d0d" }}>{conflict ? "CONFLICT" : "REQUEST"}</Pill>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] text-white leading-snug">{r.req.name}{r.req.value ? ` · ${r.req.value}` : ""}</span>
+                            {meta(c, `${(SECTION_LABEL[r.section] || r.section).toUpperCase()} · REQUESTS`)}
+                          </span>
+                          {go}
+                        </button>
+                      );
+                    }
+                    if (r.kind === "task") {
+                      const t = r.task;
+                      const c = SECTION_COLOR[r.section] || "#9A9A9A";
+                      const mine = !!userId && t.claimed_by === userId;
+                      const due = dueInfo(t.due_date);
+                      const who = t.claimed_by ? (mine ? "YOURS" : `CLAIMED · ${String(claimText(t, userId) || "").toUpperCase()}`) : "OPEN";
+                      return (
+                        <div key={r.id} role="button" tabIndex={0} onClick={() => openSection(gig, r.section)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSection(gig, r.section); } }}
+                          className={`${rowCls} cursor-pointer`}>
+                          <Pill style={{ background: "#3b2a12", color: "#FF9A3D", border: `1px solid ${AMBER}66` }}>TASK</Pill>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] text-white leading-snug">{t.title}</span>
+                            {meta(c, `${(SECTION_LABEL[r.section] || r.section).toUpperCase()} · ${who}`)}
+                            {due && meta(due.urgent ? RED : "rgba(255,255,255,0.5)", due.label)}
+                          </span>
+                          {r.canWork && (
+                            <span className="shrink-0 flex flex-col items-stretch gap-1.5">
+                              {!t.claimed_by && (
+                                <button type="button" disabled={busy === t.id} onClick={(e) => { e.stopPropagation(); claim(gig, t); }} className="h-9 px-3 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/80 disabled:opacity-50">CLAIM</button>
+                              )}
+                              <button type="button" disabled={busy === t.id} onClick={(e) => { e.stopPropagation(); done(gig, t); }} className="h-9 px-3 flex items-center justify-center gap-1 rounded-lg text-[11px] font-bold tracking-[0.06em] disabled:opacity-50" style={{ background: G, color: "#0d0d0d" }}>
+                                <Check className="w-3.5 h-3.5" /> DONE
+                              </button>
+                            </span>
+                          )}
+                          {!r.canWork && go}
+                        </div>
+                      );
+                    }
+                    // Invite: a profile on your event nobody's on yet.
+                    const c = SECTION_COLOR[r.role] || "#9A9A9A";
+                    const label = WEB_LABELS[r.role] || r.role;
+                    return (
+                      <InviteSheet key={r.id} showId={gig.id} elevated preselect={r.role} trigger={
+                        <button type="button" className={rowCls}>
+                          <Pill style={{ background: "#2a2a2a", color: "#ddd" }}>INVITE</Pill>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] text-white leading-snug">{label} has nobody yet</span>
+                            {meta(c, label.toUpperCase())}
+                          </span>
+                          <span className="shrink-0 h-9 flex items-center gap-1 px-3 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/80"><UserPlus className="w-3.5 h-3.5" /> INVITE</span>
+                        </button>
+                      } />
+                    );
+                  })}
                 </div>
-              );
-            })}
-            {tasks.length > TASKS_SHOWN && (
-              <button onClick={() => setShowAllTasks((v) => !v)} className="h-11 rounded-xl border border-[#262626] text-sm font-semibold text-white/70">
-                {showAllTasks ? "Show fewer" : `Show all ${tasks.length} tasks`}
-              </button>
-            )}
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Unread chats */}
+        {/* New messages */}
         {unreadChats.length > 0 && (
           <div ref={chatsRef} className="flex flex-col gap-2.5 pt-1.5 scroll-mt-4">
             {sectionLabel(`NEW · ${unreadTotal}`)}
             {unreadChats.slice(0, 5).map((c) => {
               const color = c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color;
               const title = chatTitle(c);
+              const photo = (gigs || []).find((g) => g.share_token === c.share_token)?.icon_url;
               return (
                 <div key={c.id} className={`${card} flex items-center gap-3 p-3`}>
-                  <span className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center font-bold text-[15px]" style={{ background: tint(color), border: `2px solid ${color}`, color }}>
-                    {title.charAt(0).toUpperCase()}
+                  <span className="w-11 h-11 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-[15px]" style={{ background: tint(color), border: `2px solid ${color}`, color }}>
+                    {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : title.charAt(0).toUpperCase()}
                   </span>
                   <button onClick={() => navigate(chatHref(c))} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
                     <span className="text-[15px] font-semibold text-white truncate">{c.last_body}</span>
@@ -249,10 +309,10 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
               const isTask = c.kind === "task_done";
               return (
                 <div key={c.key} className={`${card} flex items-center gap-3 p-3`}>
-                  <span className="w-11 h-11 shrink-0 rounded-[10px] flex items-center justify-center" style={{ background: isTask ? "#0f1d08" : "#0d1a2a", color: isTask ? "#8CFF3D" : BLUE }}>
+                  <span className="w-11 h-11 shrink-0 rounded-[10px] flex items-center justify-center" style={{ background: isTask ? "#0f1d08" : "#0d1a2a", color: isTask ? G : BLUE }}>
                     {isTask ? <CheckCircle2 className="w-[22px] h-[22px]" /> : <Clock className="w-[22px] h-[22px]" />}
                   </span>
-                  <button onClick={() => openByToken(c.share_token)} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
+                  <button onClick={() => { const g = (gigs || []).find((x) => x.share_token === c.share_token); onOpenGig(g || { share_token: c.share_token }); }} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
                     <span className="text-[15px] font-semibold text-white leading-snug">
                       {isTask ? `Done: ${c.task_title}` : `${c.event_title || "An event"} was updated`}
                     </span>
@@ -266,51 +326,12 @@ export default function NeedsMeHome({ preferences, onPreferencesUpdate, gigs, pr
             })}
           </div>
         )}
-
-        {/* This week */}
-        {!gigsLoading && weekGigs.length > 0 && (
-          <div className="flex flex-col gap-2 pt-1.5">
-            {sectionLabel(weekIsEmpty ? "COMING UP" : "THIS WEEK")}
-            <div className="grid grid-cols-2 gap-2">
-              {weekGigs.map((g) => {
-                const pr = progressByShow?.[g.id];
-                const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : null;
-                const open = pr?.open_tasks || 0;
-                return (
-                  <TicketCard
-                    key={g.share_token || g.id}
-                    color={eventTypeColor(g.event_type) || accent}
-                    date={g.date}
-                    photo={g.icon_url}
-                    compact
-                    stubWidth={44}
-                    notch={6}
-                    shadow={false}
-                    onClick={() => onOpenGig(g)}
-                    ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
-                  >
-                    <span className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-sm font-semibold text-white truncate w-full">{g.event_name || g.band_name || "Untitled"}</span>
-                      <span className="text-[10px] text-white/55 truncate w-full" style={{ fontFamily: SCENE_MONO }}>{(g.venue || "No venue yet").toUpperCase()}</span>
-                      <span className="relative w-full h-1.5 rounded-[3px] bg-[#262626] overflow-hidden">
-                        <span className="absolute left-0 top-0 bottom-0 rounded-[3px]" style={{ width: `${pct ?? 0}%`, background: accent }} />
-                      </span>
-                      <span className="text-[10px]" style={{ fontFamily: SCENE_MONO, color: open ? BLAZE : "#8CFF3D" }}>
-                        {pct == null ? " " : open ? `${open} TASK${open === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
-                      </span>
-                    </span>
-                  </TicketCard>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Undo bar after marking a task done */}
-      {undoTask && (
+      {undo && (
         <div className="fixed left-4 right-4 bottom-[104px] z-50 max-w-lg mx-auto flex items-center gap-3 px-4 h-12 rounded-xl bg-[#222] border border-[#333] shadow-xl">
-          <span className="flex-1 min-w-0 text-sm text-white truncate">Done: {undoTask.title}</span>
+          <span className="flex-1 min-w-0 text-sm text-white truncate">Done: {undo.task.title}</span>
           <button onClick={undoDone} className="h-11 px-2 text-sm font-bold" style={{ color: accent }}>Undo</button>
         </div>
       )}

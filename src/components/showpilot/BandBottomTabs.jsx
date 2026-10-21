@@ -8,7 +8,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
-import { vocab, openQuickAdd } from "@/lib/needsMe";
+import { openQuickAdd } from "@/lib/needsMe";
 
 // Desktop rail destinations (unchanged).
 const TABS = [
@@ -17,9 +17,9 @@ const TABS = [
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
-// Phones: the company phone layout's bottom bar - Needs me / Events / + /
+// Phones: the company phone layout's bottom bar - Needs me / Calendar / + /
 // Chats / Me, with "+" (quick-add a task) in the middle on every screen.
-// Events opens the banner calendar; an event's web opens from there. Me is
+// Calendar opens the banner calendar; an event's web opens from there. Me is
 // your profile and settings, as its own full page (/me, job 73).
 // Desktop (1024px+): a slim left rail with Home / Calendar / Cockpit plus
 // settings, and <body> is tagged so the page shifts over to make room (see
@@ -70,7 +70,6 @@ export default function BandBottomTabs() {
 
 function CompanyPhoneBar({ preferences, pathname, search }) {
   const accent = getAccountTypeStyle(preferences?.account_type).color;
-  const words = vocab(preferences?.account_type);
   const { data } = useNeedsMe();
   const unread = (data?.chats || []).reduce((n, c) => n + Number(c.unread || 0), 0);
   const v = pathname === "/" ? new URLSearchParams(search).get("view") || "needs" : null;
@@ -108,7 +107,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
       >
         <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
           {tab("needs", "/", "Needs me", Zap)}
-          {tab("events", "/band/calendar", words.events, CalendarDays)}
+          {tab("events", "/band/calendar", "Calendar", CalendarDays)}
           <button
             onClick={openQuickAdd}
             aria-label="Quick-add a task"

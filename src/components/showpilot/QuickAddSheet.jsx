@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { X, Search, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -84,7 +85,7 @@ export default function QuickAddSheet({ preferences, accent }) {
       if (!user) { if (!cancelled) setEvents([]); return; }
       const { data, error: err } = await supabase
         .from("shows")
-        .select("id, share_token, event_name, band_name, venue, city, date, event_type")
+        .select("id, share_token, event_name, band_name, venue, city, date, event_type, icon_url")
         .eq("owner_id", user.id)
         .eq("archived", false);
       if (err) console.error(err);
@@ -232,6 +233,8 @@ export default function QuickAddSheet({ preferences, accent }) {
                       <span className="text-[11px]" style={{ color: c }}>{d ? d.toLocaleDateString("en-US", { month: "short" }).toUpperCase() : "—"}</span>
                       <span className="text-xl font-semibold">{d ? String(d.getDate()).padStart(2, "0") : ""}</span>
                     </span>
+                    {/* The event's photo (job 73). */}
+                    <EventTypeIcon type={e.event_type || "Other"} imageUrl={e.icon_url} size={40} />
                     <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
                       <span className="text-[15px] font-semibold truncate">{e.event_name || e.band_name || "Untitled"}</span>
                       <span className="text-xs text-white/55 truncate">{[e.venue, e.city].filter(Boolean).join(" · ") || "No venue yet"}</span>

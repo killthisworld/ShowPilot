@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, MessageCircle } from "lucide-react";
 import useNeedsMe from "@/hooks/useNeedsMe";
+import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { chatHref, chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab } from "@/lib/needsMe";
@@ -21,6 +22,9 @@ export default function CompanyChats({ preferences, gigs }) {
     const list = [...(data?.chats || [])];
     return list.sort((a, b) => (b.unread > 0) - (a.unread > 0) || String(b.last_at).localeCompare(String(a.last_at)));
   }, [data]);
+
+  const photos = useMemo(() => Object.fromEntries((gigs || []).filter((g) => g.share_token && g.icon_url).map((g) => [g.share_token, g.icon_url])), [gigs]);
+  const photoOf = (token) => photos[token] || null;
 
   const upcoming = useMemo(() => {
     const today = localISO();
@@ -50,10 +54,12 @@ export default function CompanyChats({ preferences, gigs }) {
             const color = c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color;
             const title = chatTitle(c);
             const unread = Number(c.unread || 0);
+            const photo = photoOf(c.share_token);
             return (
               <button key={c.id} onClick={() => navigate(chatHref(c))} className="w-full flex items-center gap-3 px-3.5 py-3 text-left active:bg-[#181818]">
-                <span className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center font-bold text-[15px]" style={{ background: color + "1c", border: `2px solid ${color}`, color }}>
-                  {title.charAt(0).toUpperCase()}
+                {/* The event's photo, ringed in the room's color (job 73). */}
+                <span className="w-11 h-11 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-[15px]" style={{ background: color + "1c", border: `2px solid ${color}`, color }}>
+                  {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : title.charAt(0).toUpperCase()}
                 </span>
                 <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
                   <span className="flex items-baseline gap-2">
@@ -68,7 +74,7 @@ export default function CompanyChats({ preferences, gigs }) {
                   </span>
                 </span>
                 {unread > 0 && (
-                  <span className="min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0" style={{ background: BLUE, color: "#0d0d0d" }}>{unread}</span>
+                  <span className="min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0" style={{ background: "#8CFF3D", color: "#0d0d0d" }}>{unread}</span>
                 )}
               </button>
             );
@@ -82,8 +88,11 @@ export default function CompanyChats({ preferences, gigs }) {
           <div className="rounded-xl bg-[#111] border border-[#1f1f1f] divide-y divide-[#1f1f1f] overflow-hidden">
             {upcoming.map((g) => (
               <button key={g.share_token} onClick={() => navigate(`/gig/rooms?token=${g.share_token}`)} className="w-full flex items-center gap-3 px-3.5 min-h-[52px] py-2 text-left active:bg-[#181818]">
-                <span className="w-12 shrink-0 text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>{shortDate(g.date).toUpperCase()}</span>
-                <span className="flex-1 min-w-0 text-sm font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
+                <EventTypeIcon type={g.event_type || "Other"} imageUrl={g.icon_url} size={36} />
+                <span className="flex-1 min-w-0 flex flex-col">
+                  <span className="text-sm font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
+                  <span className="text-[11px] text-white/50" style={{ fontFamily: SCENE_MONO }}>{shortDate(g.date).toUpperCase()}</span>
+                </span>
                 <ChevronRight className="w-4 h-4 text-white/35 shrink-0" />
               </button>
             ))}
