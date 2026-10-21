@@ -18,6 +18,7 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog from "@/components/showpilot/FlightLog";
+import BoardOverview from "@/components/showpilot/BoardOverview";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
@@ -600,7 +601,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         stripCells={stripCells} goBack={goBack} actionButtons={actionButtons} overlays={overlays}
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
-        addTask={addTask} completeTask={completeTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
+        addTask={addTask} completeTask={completeTask} claimTask={claimTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
         onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type} openDj={() => setDjOpen(true)}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
@@ -1651,7 +1652,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
 
 function DesktopGigWeb({
   gig, title, dateLabel, myIcon, nodes, selectedRole, selectedNode, selectRole, stripCells, goBack, actionButtons, overlays,
-  token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask,
+  token, permissions, loadGig, onGigChanged, setMyIcon, user, checkingAuth, rooms, roomMembers, addTask, completeTask, claimTask,
   profileExpanded, setProfileExpanded, roleWeb, hubM, leaving, webSlot, setWebSlot, openFanPage,
   onOpenTask, focus = { role: null, key: null, n: 0 }, ownerType, openDj,
 }) {
@@ -1760,6 +1761,17 @@ function DesktopGigWeb({
               <div className="flex flex-col gap-4">
                 {!selectedRole && (
                   <OverviewBoard hideInvite hideStrips foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                )}
+                {/* Run of show + one To do list; every row opens the page where it gets done (job 120). */}
+                {!selectedRole && (
+                  <BoardOverview
+                    gig={gig} nodes={nodes} isOwner={isOwner} userId={user?.id}
+                    canWork={(section) => !!user && roleEditable(section, permissions)}
+                    onGo={(role, key) => selectRole(role, key || null)}
+                    onOpenTask={(id) => onOpenTask?.(id)}
+                    onClaim={(id) => claimTask(id, true)}
+                    onDone={(id) => completeTask(id, true)}
+                  />
                 )}
                 <EventSections
                   token={token}

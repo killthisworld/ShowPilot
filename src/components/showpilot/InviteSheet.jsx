@@ -42,7 +42,9 @@ function Label({ children, className = "" }) {
 // joined / waiting, copy-again and cancel. Phone = bottom sheet, desktop
 // = two-column pop-up like Fan page settings.
 // `elevated` lifts it above full-screen overlays (Gig Web over Home, z-60).
-export default function InviteSheet({ showId, trigger, elevated = false }) {
+// `preselect`: a role to have picked already when it opens (the Board's
+// "nobody yet" rows, job 120).
+export default function InviteSheet({ showId, trigger, elevated = false, preselect = null }) {
   const { toast } = useToast();
   const desktop = useIsDesktop();
   const [open, setOpen] = useState(false);
@@ -78,6 +80,7 @@ export default function InviteSheet({ showId, trigger, elevated = false }) {
       toast({ title: "Nothing to share", description: "Fill in and save the event before inviting anyone." });
       return;
     }
+    if (preselect && ROLE_ORDER.includes(preselect)) setSelected([preselect]);
     setOpen(true);
   };
 
