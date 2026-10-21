@@ -27,9 +27,9 @@ import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 // The phone layout (Home.jsx) is untouched.
 
 const ROLES = [
-  { id: "venue", label: "VENUE", color: "#60A5FA", soft: "#60A5FA" },
-  { id: "manager", label: "MANAGER/ARTIST", color: "#EF4444", soft: "#F87171" },
-  { id: "engineer", label: "AUDIO/LX", color: "#8CFF3D", soft: "#8CFF3D" },
+  { id: "venue", label: "VENUE", short: "VENUE", color: "#60A5FA", soft: "#60A5FA" },
+  { id: "manager", label: "MANAGER/ARTIST", short: "MGR/ARTIST", tiny: "MGR", color: "#EF4444", soft: "#F87171" },
+  { id: "engineer", label: "AUDIO/LX", short: "AUDIO/LX", color: "#8CFF3D", soft: "#8CFF3D" },
 ];
 // Roles as the database names them -> the three profile boxes.
 const ROLE_BOX = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
@@ -64,7 +64,6 @@ export default function TechConsoleDesk({
   const [toast, setToast] = useState("");
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
-  const groupRefs = useRef({});
   const { data: needs } = useNeedsMe();
 
   // Like the phone: the console shows one week (Mon-Sun, moved with the
@@ -151,25 +150,6 @@ export default function TechConsoleDesk({
     return map;
   }, [needs]);
 
-  // --- 3 · The strips, grouped by month ---
-  const groups = useMemo(() => {
-    const out = [];
-    strips.forEach((s) => {
-      const key = s.date ? s.date.slice(0, 7) : "undated";
-      let g = out.find((x) => x.key === key);
-      if (!g) {
-        const d = s.date ? new Date(s.date + "T00:00:00") : null;
-        const thisYear = new Date().getFullYear();
-        const label = d
-          ? d.toLocaleDateString("en-US", d.getFullYear() === thisYear ? { month: "long" } : { month: "long", year: "numeric" }).toUpperCase()
-          : "NO DATE";
-        g = { key, label, items: [] };
-        out.push(g);
-      }
-      g.items.push(s);
-    });
-    return out;
-  }, [strips]);
 
   const flash = (msg) => {
     setToast(msg);
@@ -211,6 +191,36 @@ export default function TechConsoleDesk({
     setBusyPhoto(null);
   };
 
+  // The week's strips by day (a day with two shows flips between them).
+  const [dayPick, setDayPick] = useState({});
+  const stripsByDay = useMemo(() => {
+    const map = {};
+    strips.forEach((x) => { if (x.date) (map[x.date] = map[x.date] || []).push(x); });
+    return map;
+  }, [strips]);
+  const renderStrip = (x, fluid) => (
+    <Strip
+      key={x.id || x.share_token}
+      fluid={fluid}
+      s={x}
+      accent={accent}
+      photo={photoOverride[x.id || x.share_token] || x.icon_url}
+      pr={progress[x.id]}
+      on={rolesByShow[x.id]}
+      unread={Number(unreadByToken[x.share_token] || 0)}
+      myTasks={Number(myTasksByToken[x.share_token] || 0)}
+      busyPhoto={busyPhoto === (x.id || x.share_token)}
+      menuOpen={menuFor === (x.id || x.share_token)}
+      onMenu={(open) => setMenuFor(open ? x.id || x.share_token : null)}
+      onOpen={onOpen}
+      onFan={() => setFanShow(x)}
+      onShare={() => share(x)}
+      onPhoto={() => pickPhoto(x)}
+      onArchive={() => { setMenuFor(null); onArchive(x); }}
+      onDelete={() => { setMenuFor(null); onDeleteRequest(x); }}
+    />
+  );
+
   // No ALL button: with no bank pressed every show is on; pressing the lit
   // bank again turns it off.
   const banks = SCENE_BANKS;
@@ -238,6 +248,16 @@ export default function TechConsoleDesk({
               <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
             )}
           </label>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            aria-label="Filters"
+            className="h-10 px-2.5 xl:px-3 rounded-[10px] flex items-center gap-1.5 text-[14px] font-semibold shrink-0"
+            style={filtersOpen || hasActiveFilters ? { background: accent, color: "#0d0d0d", border: `1px solid ${accent}` } : { background: "#111", color: "#b5b5b5", border: "1px solid #222" }}
+          >
+            <SlidersHorizontal className="w-4 h-4" /><span className="hidden xl:inline">Filters</span>
+          </button>
           {banks.map((b) => {
             const on = activeTab === b.id;
             return (
@@ -253,113 +273,85 @@ export default function TechConsoleDesk({
               </button>
             );
           })}
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-            aria-label="Filters"
-            className="h-10 px-2.5 xl:px-3 rounded-[10px] flex items-center gap-1.5 text-[14px] font-semibold shrink-0"
-            style={filtersOpen || hasActiveFilters ? { background: accent, color: "#0d0d0d", border: `1px solid ${accent}` } : { background: "#111", color: "#b5b5b5", border: "1px solid #222" }}
-          >
-            <SlidersHorizontal className="w-4 h-4" /><span className="hidden xl:inline">Filters</span>
-          </button>
           <Link to="/show/new" onClick={clearNewShowDraft} aria-label="New show" className="ml-auto h-[44px] px-3 xl:px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0 whitespace-nowrap" style={{ background: accent, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" strokeWidth={2.6} /><span className="hidden xl:inline">New show</span>
           </Link>
         </div>
         {filtersOpen && <div className="px-6 py-2.5 flex gap-2 flex-wrap border-b border-[#1a1a1a]">{filtersNode}</div>}
 
-        {/* This week */}
-        <div className="px-6 pt-3">
-          <div className="flex items-center gap-2.5 mb-2">
-            <h2 className="text-[18px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT }}>{weekOffset === 0 ? "THIS WEEK" : weekOffset === 1 ? "NEXT WEEK" : weekOffset === -1 ? "LAST WEEK" : "WEEK"}</h2>
-            <span className="text-[12px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
-              {weekDays[0].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} – {weekDays[6].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
-            </span>
-            <div className="ml-2 flex items-center gap-1.5">
-              <button type="button" onClick={() => setWeekOffset((w) => w - 1)} aria-label="Previous week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
-              {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
-              <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-2">
-            {weekDays.map((day) => {
-              const isToday = day.key === today;
-              return (
-                <div key={day.key} className="h-[84px] rounded-[10px] px-2 py-1.5 flex flex-col gap-1 min-w-0 overflow-hidden"
-                  style={{ background: isToday ? "#132009" : "#111", border: isToday ? `1.5px solid ${accent}` : "1px solid #1f1f1f", boxShadow: isToday ? "0 0 14px rgba(140,255,61,0.2)" : "none" }}>
-                  <div className="flex items-baseline gap-1.5" style={{ fontFamily: SCENE_MONO }}>
-                    <span className="text-[11px] tracking-[0.1em]" style={{ color: isToday ? accent : "#8f8f8f" }}>{day.d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}</span>
-                    <span className="text-[15px] font-semibold" style={{ color: isToday ? accent : "#e5e5e5" }}>{day.d.getDate()}</span>
-                    {isToday && <span className="ml-auto text-[9px] tracking-[0.1em]" style={{ color: accent }}>TODAY</span>}
-                  </div>
-                  {day.shows.slice(0, 2).map((x) => {
-                    const c = eventTypeColor(x.event_type) || (x.is_owned === false ? "#F472B6" : accent);
-                    return (
-                      <Link key={x.id || x.share_token} to={`/gig/web?token=${x.share_token}`} className="block min-w-0 rounded-md px-1.5 py-0.5 hover:brightness-125" style={{ background: c + "22", borderLeft: `3px solid ${c}` }}>
-                        <span className="block text-[13px] font-semibold truncate">{sceneTitle(x)}</span>
-                        {day.shows.length === 1 && <span className="block text-[11px] text-white/60 truncate">{x.venue || "No venue yet"}</span>}
-                      </Link>
-                    );
-                  })}
-                  {day.shows.length > 2 && <span className="text-[10px] text-white/50" style={{ fontFamily: SCENE_MONO }}>+{day.shows.length - 2} more</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 3 · The strips */}
-        <div className="flex-1 min-h-0 mx-5 mb-[18px] mt-3.5 rounded-[14px] bg-[#101010] border border-[#1d1d1d] p-3.5 pb-3 flex overflow-hidden">
-          {loading ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
-            </div>
-          ) : strips.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-              <p className="text-white/40 text-[15px]">
-                {search ? "No shows match." : weekOffset === 0 ? "Nothing this week." : "Nothing that week."}
-              </p>
-            </div>
-          ) : (
+        {/* The week: one column per day. The day box is the frame of that
+            day's strip, so each fader is exactly as wide as its day. */}
+        <div className="px-6 pt-3 pb-2 flex items-center gap-2.5">
+          <h2 className="text-[18px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT }}>{search ? "SEARCH" : weekOffset === 0 ? "THIS WEEK" : weekOffset === 1 ? "NEXT WEEK" : weekOffset === -1 ? "LAST WEEK" : "WEEK"}</h2>
+          {!search && (
             <>
-              <div className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
-                {groups.map((g, gi) => (
-                  <div
-                    key={g.key}
-                    ref={(el) => { groupRefs.current[g.key] = el; }}
-                    className="flex flex-col gap-2 shrink-0"
-                    style={gi < groups.length - 1 ? { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" } : undefined}
-                  >
-                    <div className="flex-1 min-h-0 flex gap-2">
-                      {g.items.map((s) => (
-                        <Strip
-                          key={s.id || s.share_token}
-                          s={s}
-                          accent={accent}
-                          photo={photoOverride[s.id || s.share_token] || s.icon_url}
-                          pr={progress[s.id]}
-                          on={rolesByShow[s.id]}
-                          unread={Number(unreadByToken[s.share_token] || 0)}
-                          myTasks={Number(myTasksByToken[s.share_token] || 0)}
-                          busyPhoto={busyPhoto === (s.id || s.share_token)}
-                          menuOpen={menuFor === (s.id || s.share_token)}
-                          onMenu={(open) => setMenuFor(open ? s.id || s.share_token : null)}
-                          onOpen={onOpen}
-                          onFan={() => setFanShow(s)}
-                          onShare={() => share(s)}
-                          onPhoto={() => pickPhoto(s)}
-                          onArchive={() => { setMenuFor(null); onArchive(s); }}
-                          onDelete={() => { setMenuFor(null); onDeleteRequest(s); }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <span className="text-[12px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
+                {weekDays[0].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()} – {weekDays[6].d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
+              </span>
+              <div className="ml-2 flex items-center gap-1.5">
+                <button type="button" onClick={() => setWeekOffset((w) => w - 1)} aria-label="Previous week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronLeft className="w-4 h-4" /></button>
+                {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
+                <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
               </div>
             </>
           )}
         </div>
+
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+          </div>
+        ) : search ? (
+          // A search looks through every show: a plain row of strips.
+          <div className="flex-1 min-h-0 mx-5 mb-[18px] rounded-[14px] bg-[#101010] border border-[#1d1d1d] p-3.5 pb-3 flex overflow-hidden">
+            {strips.length === 0 ? (
+              <p className="flex-1 self-center text-center text-white/40 text-[15px]">No shows match.</p>
+            ) : (
+              <div className="flex-1 min-w-0 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+                {strips.map((x) => renderStrip(x, false))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 px-5 pb-[18px] overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+            <div className="h-full grid gap-2" style={{ gridTemplateColumns: "repeat(7, minmax(112px, 1fr))" }}>
+              {weekDays.map((day) => {
+                const isToday = day.key === today;
+                const list = stripsByDay[day.key] || [];
+                const idx = Math.min(dayPick[day.key] || 0, Math.max(0, list.length - 1));
+                const shown = list[idx];
+                const past = day.key < today;
+                return (
+                  <div
+                    key={day.key}
+                    className="min-h-0 min-w-0 flex flex-col rounded-[10px] overflow-hidden"
+                    style={{
+                      background: isToday ? "#0f1709" : "#101010",
+                      border: isToday ? `1.5px solid ${accent}` : "1px solid #1f1f1f",
+                      boxShadow: isToday ? "0 0 14px rgba(140,255,61,0.18)" : "none",
+                      opacity: past && !list.length ? 0.5 : 1,
+                    }}
+                  >
+                    <div className="h-[34px] shrink-0 flex items-center gap-1.5 px-2.5" style={{ fontFamily: SCENE_MONO, borderBottom: `1px solid ${isToday ? accent + "55" : "#1f1f1f"}` }}>
+                      <span className="text-[11px] tracking-[0.1em]" style={{ color: isToday ? accent : "#8f8f8f" }}>{day.d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}</span>
+                      <span className="text-[15px] font-semibold" style={{ color: isToday ? accent : "#e5e5e5" }}>{day.d.getDate()}</span>
+                      {list.length > 1 ? (
+                        <span className="ml-auto flex items-center gap-0.5 text-[11px] text-white/70">
+                          <button type="button" aria-label="Previous show this day" onClick={() => setDayPick((m) => ({ ...m, [day.key]: (idx - 1 + list.length) % list.length }))} className="w-5 h-5 rounded flex items-center justify-center hover:bg-white/10"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                          <span className="hidden xl:inline">{idx + 1}/{list.length}</span>
+                          <button type="button" aria-label="Next show this day" onClick={() => setDayPick((m) => ({ ...m, [day.key]: (idx + 1) % list.length }))} className="w-5 h-5 rounded flex items-center justify-center hover:bg-white/10"><ChevronRight className="w-3.5 h-3.5" /></button>
+                        </span>
+                      ) : isToday ? (
+                        <span className="ml-auto text-[9px] tracking-[0.1em]" style={{ color: accent }}>TODAY</span>
+                      ) : null}
+                    </div>
+                    <div className="flex-1 min-h-0 flex">{shown && renderStrip(shown, true)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {toast && (
@@ -377,7 +369,7 @@ export default function TechConsoleDesk({
   );
 }
 
-function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen, onMenu, onFan, onShare, onPhoto, onArchive, onDelete }) {
+function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen, onMenu, onFan, onShare, onPhoto, onArchive, onDelete }) {
   const color = eventTypeColor(s.event_type) || (s.is_owned === false ? "#F472B6" : accent);
   const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : 0;
   const lvl = pct >= 80 ? "#8CFF3D" : pct >= 40 ? "#FF6A00" : "#E879F9";
@@ -395,7 +387,7 @@ function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen,
   const sendBtn = (c) => ({ background: photo ? "rgba(13,13,13,0.85)" : c + "1c", border: `1px solid ${c}73`, color: c });
 
   return (
-    <div onClick={openWeb} className="w-[210px] shrink-0 h-full flex flex-col rounded-[10px] overflow-hidden relative isolate cursor-pointer hover:brightness-110 transition-[filter]" style={{ background: "#171717", border: `1px solid ${photo ? color : "#2a2a2a"}` }}>
+    <div onClick={openWeb} className={`${fluid ? "w-full min-w-0" : "w-[210px] shrink-0 rounded-[10px]"} h-full flex flex-col overflow-hidden relative isolate cursor-pointer hover:brightness-110 transition-[filter]`} style={{ background: "#171717", border: fluid ? "none" : `1px solid ${photo ? color : "#2a2a2a"}` }}>
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
@@ -407,8 +399,8 @@ function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen,
       {/* Show */}
       <div className="relative shrink-0" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c" }}>
         <Link to={webTo} title="Open the event web" className="w-full px-[11px] pt-2 pb-2.5 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
-          <span className="text-[12px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
-          <span className="text-[18px] font-semibold leading-[1.15] line-clamp-2 w-full">{sceneTitle(s)}</span>
+          {!fluid && <span className="text-[12px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>}
+          <span className="text-[18px] font-semibold pr-5 leading-[1.15] line-clamp-2 w-full">{sceneTitle(s)}</span>
           <span className="text-[13px] text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
         </Link>
         <button type="button" aria-label="More" aria-expanded={menuOpen} onClick={() => onMenu(!menuOpen)} className="absolute top-1 right-1 w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10">
@@ -423,18 +415,25 @@ function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen,
       </div>
 
       <div className="flex-1 min-h-0 flex" style={{ borderTop: `1px solid ${line}`, background: glass }}>
-        <div className="flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 pl-2.5 pr-2">
+        <div className={`flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
           {/* Your tasks -> the event's task page */}
           <Link
             to={`/gig/tasks?token=${s.share_token}`}
             aria-label={myTasks ? `${myTasks} open ${myTasks === 1 ? "task" : "tasks"} for you` : "No tasks for you"}
-            className="h-[44px] shrink-0 flex items-center gap-1.5 px-2 rounded-[9px] hover:brightness-125"
+            className={`h-[44px] shrink-0 flex items-center gap-1.5 ${fluid ? "px-1.5" : "px-2"} rounded-[9px] hover:brightness-125`}
             style={myTasks
               ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00", boxShadow: "0 0 12px rgba(255,106,0,0.3)" }
               : { background: photo ? "rgba(13,13,13,0.85)" : "#151515", border: "1.5px solid #3a3a3a", color: "#a3a3a3" }}
           >
             <ClipboardList className="w-[18px] h-[18px] shrink-0" />
-            <span className="text-[15px] font-bold tracking-[0.03em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+            {fluid ? (
+              <span className="text-[14px] min-[1400px]:text-[15px] font-bold tracking-[0.02em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>
+                <span className="min-[1400px]:hidden">{myTasks || 0}</span>
+                <span className="hidden min-[1400px]:inline">{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+              </span>
+            ) : (
+              <span className="text-[15px] font-bold tracking-[0.03em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+            )}
             <ChevronRight className="w-3.5 h-3.5 ml-auto shrink-0" />
           </Link>
 
@@ -446,18 +445,24 @@ function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen,
               return (
                 <span
                   key={r.id}
-                  className="h-[27px] shrink-0 rounded-[6px] flex items-center px-1.5 text-[13px] font-bold tracking-[0.02em] whitespace-nowrap overflow-hidden"
+                  className={`h-[27px] shrink-0 rounded-[6px] flex items-center whitespace-nowrap overflow-hidden font-bold ${fluid ? "px-1 text-[12px] tracking-0" : "px-1.5 text-[13px] tracking-[0.02em]"}`}
                   style={{ fontFamily: SCENE_FONT, textShadow: "none", background: lit ? r.color : "#141414", border: `1.5px solid ${lit ? r.color : r.color + "59"}`, color: lit ? "#0d0d0d" : r.soft, boxShadow: lit ? `0 0 10px ${r.color}88` : "none" }}
                   title={lit ? `${r.label} is on this show` : `No one on ${r.label} yet`}
                 >
-                  {r.label}
+                  {fluid ? (
+                    <>
+                      <span className="xl:hidden">{r.tiny || r.short}</span>
+                      <span className="hidden xl:inline min-[1400px]:hidden">{r.short}</span>
+                      <span className="hidden min-[1400px]:inline">{r.label}</span>
+                    </>
+                  ) : r.label}
                 </span>
               );
             })}
           </div>
 
           {/* Sends */}
-          <div className={`grid ${FAN_RSVP_OPEN ? "grid-cols-4" : "grid-cols-3"} gap-1.5`}>
+          <div className={`grid ${fluid ? (FAN_RSVP_OPEN ? "grid-cols-2 xl:grid-cols-4 gap-1" : "grid-cols-3 gap-1") : FAN_RSVP_OPEN ? "grid-cols-4 gap-1.5" : "grid-cols-3 gap-1.5"}`}>
             <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="h-[40px] rounded-[9px] flex items-center justify-center relative hover:brightness-125" style={sendBtn(SEND.chat)}>
               <MessageCircle className="w-[18px] h-[18px]" />
               {unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
@@ -478,7 +483,7 @@ function Strip({ s, accent, photo, pr, on, unread, myTasks, busyPhoto, menuOpen,
         </div>
 
         {/* Ready fader */}
-        <div className="w-[46px] shrink-0 flex flex-col items-center gap-1.5 pt-3 pb-2 border-l" style={{ borderColor: line }} title="Profiles confirmed on this show">
+        <div className={`${fluid ? "w-[34px]" : "w-[46px]"} shrink-0 flex flex-col items-center gap-1.5 pt-3 pb-2 border-l`} style={{ borderColor: line }} title="Profiles confirmed on this show">
           <div className="flex-1 min-h-0 flex gap-[9px]">
             <div className="w-2 rounded bg-[#222] relative overflow-hidden" aria-hidden="true">
               <div className="absolute left-0 right-0 bottom-0" style={{ height: `${pct}%`, background: lvl }} />
