@@ -725,6 +725,7 @@ export default function SharedGig() {
   } = useGigInvite({ gigId: gig?.id, user });
   const [engineerCards, setEngineerCards] = useState({});
   const [isLinkedAlready, setIsLinkedAlready] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     const audioId = (gig?.engineer_info || {}).audio?.card_user_id;
@@ -968,17 +969,25 @@ export default function SharedGig() {
   // brought them here - called after any section save so a person only
   // ever touching their own section still ends up properly linked.
   const markLinkedAndAccepted = async () => {
-    if (!user || !gig?.id) return;
+    if (!gig?.id) return;
     // The owner never needs to be linked to their own show - doing so
     // creates a self-referential linked_gigs row that then makes the
     // event appear twice on their own Home page (once as owned, once as
     // linked).
     if (permissions?.is_owner) return;
-    await supabase
+    // Read the signed-in account at click time: someone who signed in from
+    // the shared link can still have a stale `user` from before sign-in.
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const uid = authUser?.id || user?.id;
+    if (!uid) throw new Error("Sign in to save this event to Linked.");
+    const { error: linkError } = await supabase
       .from("linked_gigs")
-      .upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
+      .upsert({ user_id: uid, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id" });
+    // Don't show "Saved" when the event never reached the Linked tab.
+    if (linkError) throw linkError;
     if (inviteToken) {
-      await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
+      const { error: inviteError } = await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
+      if (inviteError) console.error(inviteError);
     }
     setIsLinkedAlready(true);
   };
@@ -1074,6 +1083,7 @@ export default function SharedGig() {
   // everyone else's Save just needs to link/accept the invite.
   const handleSave = async () => {
     setSaving(true);
+    setSaveFailed(false);
     try {
       if (permissions?.is_owner) {
         const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: gig });
@@ -1084,6 +1094,7 @@ export default function SharedGig() {
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
       console.error(e);
+      setSaveFailed(true);
     }
     setSaving(false);
   };
@@ -1158,7 +1169,7 @@ export default function SharedGig() {
                 className="flex items-center gap-1.5 bg-[#8CFF3D] text-black font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#7ae62e] transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
-                {saving ? "Saving..." : saved ? "Saved ✓" : (permissions?.is_owner || isLinkedAlready || techPhone) ? "Save" : "Save to Linked"}
+                {saving ? "Saving..." : saved ? "Saved ✓" : saveFailed ? "Not saved, try again" : (permissions?.is_owner || isLinkedAlready || techPhone) ? "Save" : "Save to Linked"}
               </button>
             </>
           )}
