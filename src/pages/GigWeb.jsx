@@ -1206,9 +1206,8 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
   if (nodes.length === 0) {
     return <p className="text-white/30 text-sm text-center py-4">No roles on this gig yet.</p>;
   }
-  const claimedCount = permissions?.claimed_count ?? 0;
-  const invitedCount = permissions?.invited_count ?? 0;
-  const showHeadcount = claimedCount > 0 || invitedCount > 0;
+  // No "_ claimed · _ invited" line (job 123): a profile on the web lights
+  // up when someone's on it.
   return (
     <div>
       {permissions?.is_owner && gig && (
@@ -1216,13 +1215,6 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
       )}
       {canPersonalIcon && gig && (
         <MyIconControl gig={gig} myIcon={myIcon} onChanged={onMyIconChanged} />
-      )}
-      {showHeadcount && (
-        <div className="flex items-center gap-1.5 mb-2 text-[11px] tracking-[0.08em] text-white/55" style={{ fontFamily: SCENE_MONO }}>
-          <span>{claimedCount} CLAIMED</span>
-          <span className="text-white/20">·</span>
-          <span>{invitedCount} INVITED</span>
-        </div>
       )}
       {!hideStrips && <ProfileStrips nodes={nodes} tasks={gig?.tasks || []} onSelectRole={onSelectRole} />}
 
@@ -1753,7 +1745,6 @@ function DesktopGigWeb({
               ) : (
                 <>
                   <span className="text-white font-bold text-2xl">Board</span>
-                  <span className="ml-auto text-white/40 text-[11px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>{nodes.length} roles</span>
                 </>
               )}
             </div>
