@@ -68,6 +68,8 @@ export default function TechConsoleDesk({
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
   const groupRefs = useRef({});
+  const stripScrollRef = useRef(null);
+  const [visibleMonth, setVisibleMonth] = useState(null);
   const { data: needs } = useNeedsMe();
 
   // Upcoming shows (and undated ones), soonest first. Past shows live in the
@@ -166,6 +168,26 @@ export default function TechConsoleDesk({
     return out;
   }, [strips]);
 
+  // The month dropdown (next to the week arrows) names the month the strips
+  // are scrolled to; picking one scrolls the strips there.
+  const syncVisibleMonth = () => {
+    const box = stripScrollRef.current;
+    if (!box || !groups.length) return;
+    const left = box.getBoundingClientRect().left;
+    const hit = groups.find((g) => {
+      const el = groupRefs.current[g.key];
+      return el && el.getBoundingClientRect().right > left + 40;
+    });
+    setVisibleMonth((hit || groups[0]).key);
+  };
+  useEffect(() => { syncVisibleMonth(); }, [groups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const shownMonth = groups.find((g) => g.key === visibleMonth) || groups[0];
+  const jumpToMonth = (picked) => {
+    const key = nearestMonthKey(picked, groups.map((x) => x.key));
+    groupRefs.current[key]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    setVisibleMonth(key);
+  };
+
   const flash = (msg) => {
     setToast(msg);
     window.setTimeout(() => setToast(""), 2200);
@@ -214,14 +236,54 @@ export default function TechConsoleDesk({
       <TechRail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Title + New show */}
-        <div className="flex items-center gap-[18px] px-6 py-3.5 border-b border-[#1a1a1a]">
-          <h1 className="text-[26px] font-bold shrink-0" style={{ fontFamily: SCENE_FONT }}>Show<span style={{ color: accent }}>Pilot</span></h1>
-          <div className="flex-1" />
-          <Link to="/show/new" onClick={clearNewShowDraft} className="h-[46px] px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0" style={{ background: accent, color: "#0d0d0d" }}>
-            <Plus className="w-4 h-4" strokeWidth={2.6} /> New show
+        {/* Top bar: title, search, banks, filters, New show - one row,
+            like the company desktop home. */}
+        <div className="flex items-center gap-2.5 xl:gap-3 px-6 py-3 border-b border-[#1a1a1a]">
+          <h1 className="text-[26px] font-bold shrink-0 mr-1 xl:mr-2" style={{ fontFamily: SCENE_FONT }}>Show<span style={{ color: accent }}>Pilot</span></h1>
+          <label className="flex-1 min-w-[150px] max-w-[300px] flex items-center gap-2 h-10 px-3 rounded-[10px] bg-[#111] border border-[#222] text-[#8a8a8a] focus-within:border-[#444]">
+            <Search className="w-4 h-4 shrink-0" />
+            <input
+              type="search"
+              aria-label="Search shows"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search shows"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-[14px] text-[#f2f2f2] placeholder:text-[#8a8a8a]"
+            />
+            {search && (
+              <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
+            )}
+          </label>
+          {banks.map((b) => {
+            const on = activeTab === b.id;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setActiveTab(b.id)}
+                aria-pressed={on}
+                className="h-10 px-2 xl:px-3.5 rounded-full text-[15px] xl:text-[17px] font-bold tracking-[0.03em] xl:tracking-[0.04em] shrink-0 whitespace-nowrap"
+                style={{ fontFamily: SCENE_FONT, background: on ? b.color : b.color + "20", color: on ? "#0d0d0d" : b.color, border: `1.5px solid ${on ? b.color : b.color + "55"}` }}
+              >
+                {b.label} <span className="text-[10px] xl:text-[11px] opacity-80" style={{ fontFamily: SCENE_MONO }}>{countFor(b.id)}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            aria-label="Filters"
+            className="h-10 px-2.5 xl:px-3 rounded-[10px] flex items-center gap-1.5 text-[14px] font-semibold shrink-0"
+            style={filtersOpen || hasActiveFilters ? { background: accent, color: "#0d0d0d", border: `1px solid ${accent}` } : { background: "#111", color: "#b5b5b5", border: "1px solid #222" }}
+          >
+            <SlidersHorizontal className="w-4 h-4" /><span className="hidden xl:inline">Filters</span>
+          </button>
+          <Link to="/show/new" onClick={clearNewShowDraft} aria-label="New show" className="ml-auto h-[44px] px-3 xl:px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0 whitespace-nowrap" style={{ background: accent, color: "#0d0d0d" }}>
+            <Plus className="w-4 h-4" strokeWidth={2.6} /><span className="hidden xl:inline">New show</span>
           </Link>
         </div>
+        {filtersOpen && <div className="px-6 py-2.5 flex gap-2 flex-wrap border-b border-[#1a1a1a]">{filtersNode}</div>}
 
         {/* This week */}
         <div className="px-6 pt-3">
@@ -235,6 +297,21 @@ export default function TechConsoleDesk({
               {weekOffset !== 0 && <button type="button" onClick={() => setWeekOffset(0)} className="h-8 px-2.5 rounded-lg bg-[#111] border border-[#262626] text-[12px] font-semibold text-white/75 hover:text-white">This week</button>}
               <button type="button" onClick={() => setWeekOffset((w) => w + 1)} aria-label="Next week" className="w-8 h-8 rounded-lg bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white"><ChevronRight className="w-4 h-4" /></button>
             </div>
+            {shownMonth && (
+              <>
+                <span className="w-px h-6 bg-[#2a2a2a] mx-2" aria-hidden="true" />
+                <MonthDropdown
+                  label={shownMonth.label}
+                  value={shownMonth.key}
+                  options={jumpMonthOptions(groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length })))}
+                  onSelect={jumpToMonth}
+                  accent={accent}
+                  ariaLabel="Jump to a month"
+                  className="px-1 h-8 text-[18px] font-bold tracking-[0.08em]"
+                  style={{ fontFamily: SCENE_FONT, color: accent }}
+                />
+              </>
+            )}
           </div>
           <div className="grid grid-cols-7 gap-2">
             {weekDays.map((day) => {
@@ -263,53 +340,8 @@ export default function TechConsoleDesk({
           </div>
         </div>
 
-        {/* 2 · Filter */}
-        <div className="px-6 py-2.5 flex flex-col gap-2">
-          <div className="flex items-center gap-2.5">
-            <label className="flex-1 min-w-[170px] max-w-[300px] flex items-center gap-2 h-10 px-3 rounded-[10px] bg-[#111] border border-[#222] text-[#8a8a8a] focus-within:border-[#444]">
-              <Search className="w-4 h-4" />
-              <input
-                type="search"
-                aria-label="Search shows"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search artists, venues, cities"
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-[14px] text-[#f2f2f2] placeholder:text-[#8a8a8a]"
-              />
-              {search && (
-                <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
-              )}
-            </label>
-            {banks.map((b) => {
-              const on = activeTab === b.id;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setActiveTab(b.id)}
-                  aria-pressed={on}
-                  className="h-10 px-2.5 xl:px-3.5 rounded-full text-[16px] xl:text-[17px] font-bold tracking-[0.04em] shrink-0"
-                  style={{ fontFamily: SCENE_FONT, background: on ? b.color : b.color + "20", color: on ? "#0d0d0d" : b.color, border: `1.5px solid ${on ? b.color : b.color + "55"}` }}
-                >
-                  {b.label} <span className="text-[11px] opacity-80" style={{ fontFamily: SCENE_MONO }}>{countFor(b.id)}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
-              aria-expanded={filtersOpen}
-              className="h-10 px-3 rounded-[10px] flex items-center gap-1.5 text-[14px] font-semibold shrink-0"
-              style={filtersOpen || hasActiveFilters ? { background: accent, color: "#0d0d0d", border: `1px solid ${accent}` } : { background: "#111", color: "#b5b5b5", border: "1px solid #222" }}
-            >
-              <SlidersHorizontal className="w-4 h-4" /> Filters
-            </button>
-          </div>
-          {filtersOpen && <div className="flex gap-2 flex-wrap">{filtersNode}</div>}
-        </div>
-
         {/* 3 · The strips */}
-        <div className="flex-1 min-h-0 mx-5 mb-[18px] mt-1 rounded-[14px] bg-[#101010] border border-[#1d1d1d] p-3.5 pb-3 flex overflow-hidden">
+        <div className="flex-1 min-h-0 mx-5 mb-[18px] mt-3.5 rounded-[14px] bg-[#101010] border border-[#1d1d1d] p-3.5 pb-3 flex overflow-hidden">
           {loading ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
@@ -328,7 +360,7 @@ export default function TechConsoleDesk({
             </div>
           ) : (
             <>
-              <div className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+              <div ref={stripScrollRef} onScroll={syncVisibleMonth} className="flex-1 min-w-0 flex overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
                 {groups.map((g, gi) => (
                   <div
                     key={g.key}
@@ -336,19 +368,6 @@ export default function TechConsoleDesk({
                     className="flex flex-col gap-2 shrink-0"
                     style={gi < groups.length - 1 ? { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" } : undefined}
                   >
-                    {/* Month heading = dropdown of every month bank; picking one jumps to it. */}
-                    <div className="h-[26px] flex items-center">
-                      <MonthDropdown
-                        label={g.label}
-                        value={g.key}
-                        options={jumpMonthOptions(groups.map((x) => ({ key: x.key, label: x.label, count: x.items.length })))}
-                        onSelect={(picked) => groupRefs.current[nearestMonthKey(picked, groups.map((x) => x.key))]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" })}
-                        accent={gi % 2 ? "#60A5FA" : accent}
-                        ariaLabel="Jump to a month"
-                        className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em]"
-                        style={{ fontFamily: SCENE_FONT, color: gi % 2 ? "#60A5FA" : accent }}
-                      />
-                    </div>
                     <div className="flex-1 min-h-0 flex gap-2">
                       {g.items.map((s) => (
                         <Strip
