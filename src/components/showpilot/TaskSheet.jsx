@@ -21,14 +21,16 @@ export function claimText(task, userId) {
 // that profile's Current tasks. Used by the event boards and the profile web.
 export default function TaskSheet({
   task, color = G, label, userId, isOwner = false, canWork = false, signedIn = true,
-  onClose, onClaim, onRelease, onDone, onSaveDetails, onGoToCurrent,
+  onClose, onClaim, onRelease, onDone, onSaveDetails, onSaveDue, onGoToCurrent,
 }) {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task?.details || "");
+  const [dueEditing, setDueEditing] = useState(false);
+  const [dueDraft, setDueDraft] = useState(task?.due_date || "");
 
-  useEffect(() => { setDraft(task?.details || ""); setEditing(false); setErr(""); }, [task?.id]);
+  useEffect(() => { setDraft(task?.details || ""); setEditing(false); setErr(""); setDueEditing(false); setDueDraft(task?.due_date || ""); }, [task?.id]);
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape" && !busy) onClose?.(); };
     window.addEventListener("keydown", onKey);
@@ -40,6 +42,7 @@ export default function TaskSheet({
   const mine = !!userId && task.claimed_by === userId;
   const holder = claimText(task, userId);
   const takenByOther = !!task.claimed_by && !mine;
+  const canEditDue = isOwner && !done && !!onSaveDue;
 
   const run = async (kind, fn) => {
     if (busy) return;
@@ -56,7 +59,33 @@ export default function TaskSheet({
   const rows = [
     ["PROFILE", label || task.section],
     ["ADDED", [task.created_by_name, shortDate(task.created_at)].filter(Boolean).join(" · ") || "—"],
-    task.due_date ? ["DUE", dueLabel(task.due_date)] : null,
+    // The owner can set, change or clear the due date right here.
+    canEditDue
+      ? ["DUE", dueEditing ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              autoFocus
+              value={dueDraft}
+              onChange={(e) => setDueDraft(e.target.value)}
+              aria-label="Due date"
+              className="h-9 bg-[#121212] border border-[#2a2a2a] rounded-lg px-2.5 text-white text-[14px] [color-scheme:dark] focus:outline-none focus:border-[#8CFF3D]/60"
+            />
+            <button type="button" disabled={!!busy || !dueDraft} onClick={() => run("due", async () => { await onSaveDue(dueDraft); setDueEditing(false); })} className="h-9 px-3 rounded-lg text-[13px] font-bold bg-[#8CFF3D] text-[#0d0d0d] disabled:opacity-50">{busy === "due" ? "Saving..." : "Set"}</button>
+            <button type="button" disabled={!!busy} onClick={() => { setDueEditing(false); setDueDraft(task.due_date || ""); }} className="h-9 px-2 text-[13px] text-white/50 hover:text-white">Cancel</button>
+          </div>
+        ) : (
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className={task.due_date ? "" : "text-white/40"}>{task.due_date ? dueLabel(task.due_date) : "No due date"}</span>
+            <button type="button" disabled={!!busy} onClick={() => { setDueDraft(task.due_date || ""); setDueEditing(true); }} className="flex items-center gap-1 text-[12px] font-semibold text-white/60 hover:text-white">
+              <Pencil className="w-3.5 h-3.5" /> {task.due_date ? "Change" : "Set due date"}
+            </button>
+            {task.due_date && (
+              <button type="button" disabled={!!busy} onClick={() => run("due", () => onSaveDue(null))} className="text-[12px] font-semibold text-white/45 hover:text-white">{busy === "due" ? "Clearing..." : "Clear"}</button>
+            )}
+          </span>
+        )]
+      : task.due_date ? ["DUE", dueLabel(task.due_date)] : null,
     done
       ? ["DONE", [shortDate(task.completed_at), holder && `claimed by ${holder}`].filter(Boolean).join(" · ") || "Done"]
       : ["CLAIMED", holder ? `${holder} · since ${shortDate(task.claimed_at)}` : "Nobody yet"],

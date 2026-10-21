@@ -734,6 +734,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onRelease={() => p.claimTask(openTask.id, false)}
       onDone={async () => { await p.markTaskDone(openTask.id, true); setOpenTaskId(null); }}
       onSaveDetails={(d) => p.setTaskDetails(openTask.id, d)}
+      onSaveDue={p.setTaskDueDate ? (d) => p.setTaskDueDate(openTask.id, d) : undefined}
     />
   ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || (template ? tabs[0] : tabs[1] || tabs[0]);

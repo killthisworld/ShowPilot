@@ -406,7 +406,7 @@ export default function MyTemplates() {
     saving: edSaving,
     saved: edSaved,
     addRequirement: () => {}, updateRequirementStatus: () => {}, deleteRequirement: () => {},
-    claimTask: async () => {}, markTaskDone: async () => {}, setTaskDetails: async () => {}, setTaskDone: () => {},
+    claimTask: async () => {}, markTaskDone: async () => {}, setTaskDetails: async () => {}, setTaskDueDate: async () => {}, setTaskDone: () => {},
     addBand: () => {}, updateBand: () => {}, removeBand: () => {},
   } : null;
   const tplMeta = editing ? { name: editing.name, setName: (n) => setEditing((e) => (e ? { ...e, name: n } : e)) } : null;

@@ -219,13 +219,14 @@ export function useRoleProfile({ role, token, onChanged }) {
   const markTaskDone = (taskId, done = true) => taskRpc("set_gig_task_status", { p_done: done }, taskId);
   const claimTask = (taskId, claim = true) => taskRpc("claim_gig_task", { p_claim: claim }, taskId);
   const setTaskDetails = (taskId, details) => taskRpc("set_gig_task_details", { p_details: details }, taskId);
+  const setTaskDueDate = (taskId, dueDate) => taskRpc("set_gig_task_due_date", { p_due_date: dueDate || null }, taskId);
 
   return {
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,
     handleSave, addRequirement, updateRequirementStatus, deleteRequirement, setTaskDone,
-    markTaskDone, claimTask, setTaskDetails,
+    markTaskDone, claimTask, setTaskDetails, setTaskDueDate,
     iemMonitorColors,
   };
 }

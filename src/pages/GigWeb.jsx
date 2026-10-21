@@ -347,6 +347,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     if (error) throw error;
     mergeTask(taskId, data);
   };
+  // Owner sets, changes or clears a task's due date (null clears it).
+  const saveTaskDue = async (taskId, dueDate) => {
+    const { data, error } = await supabase.rpc("set_gig_task_due_date", { p_token: token, p_task_id: taskId, p_due_date: dueDate || null });
+    if (error) throw error;
+    mergeTask(taskId, data);
+  };
   // After a claim: that profile's Current tasks page, opened in the main space.
   const goToCurrentTasks = (section) => {
     setOpenTaskId(null);
@@ -516,6 +522,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           onRelease={() => claimTask(openTask.id, false)}
           onDone={async () => { await completeTask(openTask.id, true); setOpenTaskId(null); }}
           onSaveDetails={(d) => saveTaskDetails(openTask.id, d)}
+          onSaveDue={(d) => saveTaskDue(openTask.id, d)}
           onGoToCurrent={() => goToCurrentTasks(openTask.section)}
         />
       )}
