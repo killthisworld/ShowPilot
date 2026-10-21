@@ -54,7 +54,9 @@ export function feedRows(gig, perms, userId, today = localISO()) {
 
 export default function useEventFeed(gigs, userId) {
   const [details, setDetails] = useState({}); // share_token -> { gig, perms }
-  const [loading, setLoading] = useState(true);
+  // The event list this feed last finished loading. Until it matches the
+  // current list, the feed counts as loading (no "nothing to do" flash).
+  const [loadedKey, setLoadedKey] = useState(null);
   const runRef = useRef(0);
 
   const events = useMemo(() => {
@@ -68,7 +70,7 @@ export default function useEventFeed(gigs, userId) {
 
   const load = useCallback(async () => {
     const run = ++runRef.current;
-    if (!events.length) { setDetails({}); setLoading(false); return; }
+    if (!events.length) { setDetails({}); setLoadedKey(key); return; }
     const pairs = await Promise.all(events.map(async (g) => {
       const needsGig = !Array.isArray(g.tasks) || !Array.isArray(g.requirements);
       const [gigRes, permRes] = await Promise.all([
@@ -81,11 +83,10 @@ export default function useEventFeed(gigs, userId) {
     }));
     if (run !== runRef.current) return;
     setDetails(Object.fromEntries(pairs));
-    setLoading(false);
+    setLoadedKey(key);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    setLoading(true);
     load();
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
     window.addEventListener(TASK_ADDED_EVENT, load);
@@ -128,5 +129,5 @@ export default function useEventFeed(gigs, userId) {
       .filter(Boolean);
   }, [events, details, userId]);
 
-  return { groups, loading, reload: load, patchTask, patchReq };
+  return { groups, loading: loadedKey !== key, reload: load, patchTask, patchReq };
 }

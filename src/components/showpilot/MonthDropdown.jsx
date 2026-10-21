@@ -38,7 +38,10 @@ export default function MonthDropdown({
       setOpen(false);
     };
     const onKey = (e) => { if (e.key === "Escape") { setOpen(false); btnRef.current?.focus(); } };
-    const onMove = (e) => { if (!listRef.current?.contains(e.target)) setOpen(false); };
+    // A page scroll (including iPhone's bounce when the list hits its end, or
+    // the page nudging as the list takes focus) used to close the list; now
+    // it just follows the button. Only a tap outside or Escape closes it.
+    const onMove = (e) => { if (!listRef.current?.contains(e.target)) place(); };
     window.addEventListener("mousedown", onDown);
     window.addEventListener("touchstart", onDown, { passive: true });
     window.addEventListener("keydown", onKey);
@@ -95,7 +98,8 @@ export default function MonthDropdown({
           aria-label={ariaLabel}
           onKeyDown={onListKey}
           className="fixed z-[200] overflow-y-auto rounded-xl bg-[#161616] border border-[#2e2e2e] shadow-[0_18px_40px_rgba(0,0,0,0.65)] pb-1.5"
-          style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxH, fontFamily: SCENE_FONT }}
+          // Scrolling the list never spills over onto the page behind it.
+          style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxH, fontFamily: SCENE_FONT, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
         >
           {options.map((o) => {
             const head = o.group && o.group !== lastGroup ? o.group : null;

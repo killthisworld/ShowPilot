@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { supabase } from "@/api/supabaseClient";
-import { X, MapPin, Link2, Plus, MessageCircle } from "lucide-react";
+import { X, MapPin, Link2, Plus, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -15,6 +15,7 @@ import StatusStrip from "@/components/showpilot/StatusStrip";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import FanPageButton from "@/components/showpilot/FanPageButton";
+import EventOverviewSheet from "@/components/showpilot/EventOverviewSheet";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -34,6 +35,8 @@ export default function BandCalendar() {
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(moment());
   const [selectedDate, setSelectedDate] = useState(null);
+  // Phone: the event Overview opened from the day list (job 73).
+  const [overviewGig, setOverviewGig] = useState(null);
   const [dayModalKey, setDayModalKey] = useState(null);
 
   useEffect(() => {
@@ -86,7 +89,12 @@ export default function BandCalendar() {
     Object.entries(gigsByDate).forEach(([d, list]) => { const k = d.slice(0, 7); counts[k] = (counts[k] || 0) + list.length; });
     return calendarMonthOptions({ dates: Object.keys(gigsByDate), counts });
   }, [gigsByDate]);
-  const pickMonth = (key) => setCurrentMonth(moment(key + "-01", "YYYY-MM-DD"));
+  // Picking a month also clears a selected day from another month, so the
+  // day list under the grid never shows a month you've left.
+  const pickMonth = (key) => {
+    setCurrentMonth(moment(key + "-01", "YYYY-MM-DD"));
+    setSelectedDate((d) => (d && d.slice(0, 7) === key ? d : null));
+  };
 
   const daysInGrid = useMemo(() => {
     const startOfMonth = currentMonth.clone().startOf("month");
@@ -324,8 +332,9 @@ export default function BandCalendar() {
             })}
           </div>
 
-          {/* The selected day's events, with what you can do from here:
-              open the event web (the Web tab's old job), chat, fan page. */}
+          {/* The selected day's events: an Overview of the event and its fan
+              page ticket. No event web or chat from here on a phone (job 73);
+              the web lives on desktop, chats on the Chats tab. */}
           {selectedDate && (gigsByDate[selectedDate] || []).length > 0 && (
             <div className="mt-4 space-y-2" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
               <p className="text-[11px] tracking-[0.12em] text-white/50 px-1" style={{ fontFamily: SCENE_MONO }}>{moment(selectedDate).format("ddd MMM D").toUpperCase()}</p>
@@ -341,15 +350,9 @@ export default function BandCalendar() {
                       </div>
                       <FanPageButton show={g} />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => openGig(g)} className="h-11 rounded-[10px] flex items-center justify-center gap-2 text-[13px] font-bold text-[#0d0d0d]" style={{ background: color }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4L19.6 9.5L16.7 18.5H7.3L4.4 9.5Z" /><path d="M12 12L12 4M12 12L19.6 9.5M12 12L16.7 18.5M12 12L7.3 18.5M12 12L4.4 9.5" /><circle cx="12" cy="12" r="2.6" fill="currentColor" /></svg>
-                        Open web
-                      </button>
-                      <button onClick={() => navigate(`/gig/rooms?token=${g.share_token}`)} className="h-11 rounded-[10px] flex items-center justify-center gap-2 text-[13px] font-semibold text-white bg-[#1f1f1f]">
-                        <MessageCircle className="w-4 h-4" /> Chat
-                      </button>
-                    </div>
+                    <button onClick={() => setOverviewGig(g)} className="h-12 rounded-[10px] flex items-center justify-center gap-2 text-[14px] font-bold text-[#0d0d0d]" style={{ background: color }}>
+                      <LayoutList className="w-[18px] h-[18px]" /> Overview
+                    </button>
                   </div>
                 );
               })}
@@ -373,7 +376,7 @@ export default function BandCalendar() {
                 const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
                 const color = getGigColor(g);
                 return (
-                  <button key={g.is_owned ? g.id : g.share_token} onClick={() => openGig(g)} className="w-full text-left">
+                  <button key={g.is_owned ? g.id : g.share_token} onClick={() => { setDayModalKey(null); setOverviewGig(g); }} className="w-full text-left">
                     <div className="rounded-xl border p-3 flex items-center gap-3 hover:brightness-110 transition-all" style={{ background: `linear-gradient(90deg, ${color}2e, ${color}10 55%, #111 100%)`, borderColor: color + "55" }}>
                       <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} size={36} />
                       <div className="flex-1 min-w-0">
@@ -401,6 +404,8 @@ export default function BandCalendar() {
           </div>
         </div>
       )}
+
+      {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => setOverviewGig(null)} />}
 
       <BandBottomTabs />
     </div>

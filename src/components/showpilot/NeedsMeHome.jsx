@@ -43,7 +43,7 @@ const Pill = ({ children, style }) => (
 // right here, and changes are acknowledged with Got it.
 //
 // `gigs` come from BandHome, which already loads them for the Calendar.
-export default function NeedsMeHome({ preferences, gigs }) {
+export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.id || null;
@@ -133,7 +133,9 @@ export default function NeedsMeHome({ preferences, gigs }) {
     <span className="block text-[10.5px] tracking-[0.08em] mt-0.5 break-words" style={{ fontFamily: SCENE_MONO, color }}>{text}</span>
   );
   const rowCls = "w-full flex items-center gap-3 px-3 py-3 text-left bg-[#121212] active:bg-[#1a1a1a]";
-  const loading = feedLoading || chatsLoading;
+  // Wait for Home to load your events too, so the empty "Nothing needs you"
+  // card never flashes before the feed arrives.
+  const loading = gigsLoading || feedLoading || chatsLoading;
   const nothing = !loading && rowCount === 0 && unreadChats.length === 0 && changes.length === 0;
 
   return (
