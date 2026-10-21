@@ -9,6 +9,7 @@ import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
+import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 const G = "#8CFF3D";
 const MAX_LINEUP = 12;
@@ -593,7 +594,8 @@ function OwnerSheet({ showId, onClose }) {
           )}
           {note(draft.capacityOn ? "Counts everyone in each party. When it's full, the RSVP form says RSVPs are full." : "Anyone can RSVP.")}
         </>)}
-      {section("Local shows", <>
+      {/* Local shows needs fan accounts to see it (Discover), so it's off while the fan side is (job 110). */}
+      {FAN_SIDE_OPEN && section("Local shows", <>
         {segmented([[false, "Not listed"], [true, "List in local shows"]], draft.discover, (k) => set({ discover: k }), "Local shows")}
         {draft.discover && (draft.hidden.includes("date") || draft.hidden.includes("venue"))
           ? <p className="mt-2.5 text-[15px] leading-relaxed text-[#FF6A00]">Fans nearby won't see it yet: local shows need the date and venue shown, so fans know when and where. Show them on the page, or leave this off to keep the event private.</p>
