@@ -65,7 +65,9 @@ export default function InviteSheet({ showId, trigger, elevated = false, presele
       .select("id, invite_token, invited_role, label, status, accepted_at, created_at, granted_sections")
       .eq("show_id", showId)
       .order("created_at", { ascending: false });
-    setInvites(e ? [] : data || []);
+    // Only the profiles ShowPilot offers now: old promoter / booking agent
+    // invites stay in the database but aren't listed (job 122).
+    setInvites(e ? [] : (data || []).filter((i) => ROLE_ORDER.includes(i.invited_role)));
   }, [showId]);
 
   useEffect(() => { if (open) load(); }, [open, load]);
