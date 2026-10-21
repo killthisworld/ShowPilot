@@ -400,7 +400,7 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
       <div className="relative shrink-0" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c" }}>
         <Link to={webTo} title="Open the event web" className="w-full px-[11px] pt-2 pb-2.5 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
           {!fluid && <span className="text-[12px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>}
-          <span className="text-[18px] font-semibold pr-5 leading-[1.15] line-clamp-2 w-full">{sceneTitle(s)}</span>
+          <span className={`${fluid ? "text-[13px] xl:text-[17px] min-[1400px]:text-[18px] break-words pr-6 xl:pr-5" : "text-[18px] pr-5"} font-semibold leading-[1.15] line-clamp-2 w-full`}>{sceneTitle(s)}</span>
           <span className="text-[13px] text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
         </Link>
         <button type="button" aria-label="More" aria-expanded={menuOpen} onClick={() => onMenu(!menuOpen)} className="absolute top-1 right-1 w-6 h-6 rounded-md flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10">
