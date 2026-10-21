@@ -414,28 +414,7 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
       </div>
 
       <div className="flex-1 min-h-0 flex" style={{ borderTop: `1px solid ${line}`, background: glass }}>
-        <div className={`flex-1 min-w-0 flex flex-col justify-end gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
-          {/* Your tasks -> the event's task page */}
-          <Link
-            to={`/gig/tasks?token=${s.share_token}`}
-            aria-label={myTasks ? `${myTasks} open ${myTasks === 1 ? "task" : "tasks"} for you` : "No tasks for you"}
-            className={`h-[44px] shrink-0 flex items-center gap-1.5 ${fluid ? "px-1.5" : "px-2"} rounded-[9px] hover:brightness-125`}
-            style={myTasks
-              ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00", boxShadow: "0 0 12px rgba(255,106,0,0.3)" }
-              : { background: photo ? "rgba(13,13,13,0.85)" : "#151515", border: "1.5px solid #3a3a3a", color: "#a3a3a3" }}
-          >
-            <ClipboardList className="w-[18px] h-[18px] shrink-0" />
-            {fluid ? (
-              <span className="text-[14px] min-[1400px]:text-[15px] font-bold tracking-[0.02em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>
-                <span className="min-[1400px]:hidden">{myTasks || 0}</span>
-                <span className="hidden min-[1400px]:inline">{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
-              </span>
-            ) : (
-              <span className="text-[15px] font-bold tracking-[0.03em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
-            )}
-            <ChevronRight className="w-3.5 h-3.5 ml-auto shrink-0" />
-          </Link>
-
+        <div className={`flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
           {/* Who's on */}
           <div className="flex flex-col gap-1.5" style={{ textShadow: ts }}>
             <span className="text-[10px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>WHO'S ON</span>
@@ -460,25 +439,45 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
             })}
           </div>
 
-          {/* Sends */}
-          <div className={`grid ${fluid ? (FAN_RSVP_OPEN ? "grid-cols-2 xl:grid-cols-4 gap-1" : "grid-cols-3 gap-1") : FAN_RSVP_OPEN ? "grid-cols-4 gap-1.5" : "grid-cols-3 gap-1.5"}`}>
-            <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="h-[40px] rounded-[9px] flex items-center justify-center relative hover:brightness-125" style={sendBtn(SEND.chat)}>
-              <MessageCircle className="w-[18px] h-[18px]" />
+          {/* Your tasks -> the event's task page */}
+          <Link
+            to={`/gig/tasks?token=${s.share_token}`}
+            aria-label={myTasks ? `${myTasks} open ${myTasks === 1 ? "task" : "tasks"} for you` : "No tasks for you"}
+            className={`h-[44px] shrink-0 flex items-center gap-1.5 ${fluid ? "px-1.5" : "px-2"} rounded-[9px] hover:brightness-125`}
+            style={myTasks
+              ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00", boxShadow: "0 0 12px rgba(255,106,0,0.3)" }
+              : { background: photo ? "rgba(13,13,13,0.85)" : "#151515", border: "1.5px solid #3a3a3a", color: "#a3a3a3" }}
+          >
+            <ClipboardList className="w-[18px] h-[18px] shrink-0" />
+            {fluid ? (
+              <span className="text-[14px] min-[1400px]:text-[15px] font-bold tracking-[0.02em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>
+                <span className="min-[1400px]:hidden">{myTasks || 0}</span>
+                <span className="hidden min-[1400px]:inline">{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+              </span>
+            ) : (
+              <span className="text-[15px] font-bold tracking-[0.03em] whitespace-nowrap" style={{ fontFamily: SCENE_FONT }}>{myTasks ? `${myTasks} ${myTasks === 1 ? "TASK" : "TASKS"}` : "NO TASKS"}</span>
+            )}
+            <ChevronRight className="w-3.5 h-3.5 ml-auto shrink-0" />
+          </Link>
+
+          {/* Sends: a 2 x 2 square at the bottom */}
+          <div className="mt-auto grid grid-cols-2 gap-1.5">
+            <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="aspect-square rounded-[9px] flex items-center justify-center relative hover:brightness-125" style={sendBtn(SEND.chat)}>
+              <MessageCircle className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
               {unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
             </Link>
             {FAN_RSVP_OPEN && (
-              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="h-[40px] rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.fan)}>
-                <Ticket className="w-[18px] h-[18px]" />
+              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="aspect-square rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.fan)}>
+                <Ticket className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
               </button>
             )}
-            <button type="button" aria-label="Share crew link" title="Share crew link" onClick={onShare} className="h-[40px] rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.share)}>
-              <Share2 className="w-[18px] h-[18px]" />
+            <button type="button" aria-label="Share crew link" title="Share crew link" onClick={onShare} className="aspect-square rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.share)}>
+              <Share2 className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
             </button>
-            <button type="button" aria-label={photo ? "Change the strip photo" : "Add a strip photo"} title={photo ? "Change photo" : "Add photo"} onClick={onPhoto} disabled={busyPhoto} className="h-[40px] rounded-[9px] flex items-center justify-center text-white/80 disabled:opacity-50 hover:text-white" style={{ background: photo ? "rgba(13,13,13,0.85)" : "#1a1a1a", border: "1px solid #3a3a3a" }}>
-              <Camera className="w-[17px] h-[17px]" />
+            <button type="button" aria-label={photo ? "Change the strip photo" : "Add a strip photo"} title={photo ? "Change photo" : "Add photo"} onClick={onPhoto} disabled={busyPhoto} className="aspect-square rounded-[9px] flex items-center justify-center text-white/80 disabled:opacity-50 hover:text-white" style={{ background: photo ? "rgba(13,13,13,0.85)" : "#1a1a1a", border: "1px solid #3a3a3a" }}>
+              <Camera className="w-[19px] h-[19px] min-[1400px]:w-[21px] min-[1400px]:h-[21px]" />
             </button>
           </div>
-
         </div>
 
         {/* Ready fader */}
