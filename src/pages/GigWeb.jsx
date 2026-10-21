@@ -1669,6 +1669,15 @@ function DesktopGigWeb({
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
+  // Rooms open from the header icon as a panel on the right (job 117), so the
+  // flight log gets the whole right column.
+  const [roomsOpen, setRoomsOpen] = useState(false);
+  useEffect(() => {
+    if (!roomsOpen) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setRoomsOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [roomsOpen]);
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
   const roleTasks = selectedRole ? openTasks.filter((t) => t.section === sectionOf(selectedRole)) : openTasks;
   const canDo = selectedRole && roleEditable(selectedRole, permissions);
@@ -1708,7 +1717,13 @@ function DesktopGigWeb({
           <p className="text-white/50 text-[11px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Select a role to see its status"}</p>
         </div>
         <div className="flex-1 max-w-[560px] ml-6 min-w-[300px]"><StatusStrip cells={stripCells} /></div>
-        <div className="ml-auto [&_svg]:!w-5 [&_svg]:!h-5 [&_span]:!text-[10px]">{actionButtons}</div>
+        <div className="ml-auto flex items-center gap-1 [&_svg]:!w-5 [&_svg]:!h-5 [&_span]:!text-[10px]">
+          <button type="button" onClick={() => setRoomsOpen((v) => !v)} aria-expanded={roomsOpen} aria-label="Rooms" className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors ${roomsOpen ? "text-white bg-white/10" : "text-white/60 hover:text-white"}`}>
+            <MessageCircle className="w-4 h-4" />
+            <span className="text-[8px] tracking-[0.08em] leading-none" style={{ fontFamily: SCENE_MONO }}>ROOMS</span>
+          </button>
+          {actionButtons}
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
@@ -1780,23 +1795,25 @@ function DesktopGigWeb({
             </div>
           </div>
 
-          <div className="min-h-0 flex flex-col gap-5">
-            <div className="min-h-0" style={{ flex: "3 1 0" }}>
-              <FlightLog nodes={nodes} tasks={gig.tasks || []} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
-            </div>
-
-            <div className="min-h-0 flex flex-col rounded-[3px] bg-[#19141a] border border-[#F472B6]/30 border-l-4 border-l-[#F472B6]" style={{ flex: "2 1 0", boxShadow: "0 10px 18px rgba(0,0,0,0.5)" }}>
-              <div className="flex items-center gap-2 px-4 pt-3 pb-2 shrink-0">
-                <span className="text-white font-bold tracking-[0.08em] text-lg">ROOMS</span>
-                <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-                <RoomsTabPanel selectedRole={selectedRole} roleLabel={selectedNode?.style.label} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
-              </div>
-            </div>
+          <div className="min-h-0 flex flex-col">
+            <FlightLog nodes={nodes} tasks={gig.tasks || []} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
           </div>
         </div>
       </div>
+
+      {/* Rooms: slides in from the right over the board, under the header. */}
+      {roomsOpen && (
+        <div className="absolute right-4 top-[76px] bottom-4 z-30 w-[420px] max-w-[calc(100%-32px)] flex flex-col rounded-2xl bg-[#111] border border-[#2a2a2a]" role="dialog" aria-label="Rooms" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.7)" }}>
+          <div className="flex items-center gap-2 px-4 pt-3 pb-2.5 border-b border-[#1f1f1f] shrink-0">
+            <span className="text-white font-bold tracking-[0.08em] text-lg">ROOMS</span>
+            <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
+            <button type="button" onClick={() => setRoomsOpen(false)} aria-label="Close rooms" className="ml-auto p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <RoomsTabPanel selectedRole={selectedRole} roleLabel={selectedNode?.style.label} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
+          </div>
+        </div>
+      )}
       {overlays}
     </div>
   );

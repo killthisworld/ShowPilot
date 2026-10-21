@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Link2, Archive, FileArchive } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive, FileArchive } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -125,7 +125,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
     <SettingsPanel
       prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
       navItems={[
-        { icon: Link2, label: "Linked", color: "#F472B6", onClick: () => { setOpen(false); navigate("/linked"); } },
+        // No "Linked" here (job 117): the LINKED bank on Home already shows them.
         { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
         { icon: accountStyle.icon, label: "My Templates", sub: "Save your info once so it's ready whenever you need it", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/my-templates"); } },
         // Venue business records (job 104): agreements, riders, advance, insurance.

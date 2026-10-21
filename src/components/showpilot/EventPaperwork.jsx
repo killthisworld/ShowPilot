@@ -65,7 +65,9 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState({});
   const [view, setView] = useState(null);
-  const [dealOpen, setDealOpen] = useState(false);
+  // Each section is a dropdown (job 117); uploading opens it.
+  const [openKinds, setOpenKinds] = useState({});
+  const toggle = (kind) => setOpenKinds((o) => ({ ...o, [kind]: !o[kind] }));
   const inputs = useRef({});
 
   const say = (kind, text) => { setMsg((m) => ({ ...m, [kind]: text })); if (!text.startsWith("Couldn't")) setTimeout(() => setMsg((m) => ({ ...m, [kind]: "" })), 2500); };
@@ -75,6 +77,7 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
     try {
       for (const f of files) await fileRecord(gig.id, { kind, title: label, file: f });
       await onChanged?.();
+      setOpenKinds((o) => ({ ...o, [kind]: true }));
       say(kind, files.length > 1 ? `${files.length} uploaded ✓` : "Uploaded ✓");
     } catch (e) {
       console.error(e);
@@ -103,13 +106,18 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
         const docs = records.filter((r) => r.kind === kind).sort((a, b) => String(b.filed_at).localeCompare(String(a.filed_at)));
         const m = msg[kind];
         const st = kind === "deal" && deal ? DEAL_STATUS[deal.status] : null;
+        const isOpen = !!openKinds[kind];
         return (
           <section key={kind} className="rounded-[12px] border border-[#242424] bg-[#121212] overflow-hidden">
             <div className="flex items-center gap-2.5 px-3 py-2.5">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: docs.length || (kind === "deal" && deal?.status === "accepted") ? G : "rgba(255,255,255,0.22)" }} />
-              <h3 className="min-w-0 flex-1 text-[16px] font-semibold leading-tight truncate">
-                {label}{docs.length > 0 && <span className="ml-1.5 text-[13px] font-normal text-white/40">{docs.length}</span>}
-              </h3>
+              <button type="button" onClick={() => toggle(kind)} aria-expanded={isOpen} className="min-w-0 flex-1 flex items-center gap-2.5 text-left">
+                <ChevronDown className="w-4 h-4 shrink-0 text-white/50 transition-transform" style={{ transform: isOpen ? "rotate(180deg)" : undefined }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: docs.length || (kind === "deal" && deal?.status === "accepted") ? G : "rgba(255,255,255,0.22)" }} />
+                <h3 className="min-w-0 text-[16px] font-semibold leading-tight truncate">
+                  {label}{docs.length > 0 && <span className="ml-1.5 text-[13px] font-normal text-white/40">{docs.length}</span>}
+                </h3>
+                {st && <span className="shrink-0 text-[10.5px] font-bold tracking-[0.1em] px-1.5 py-0.5 rounded" style={{ fontFamily: SCENE_MONO, color: "#0d0d0d", background: deal.status === "accepted" ? G : deal.status === "changes_requested" ? AMBER : deal.status === "draft" ? "#9A9A9A" : color }}>{st.label}</span>}
+              </button>
               {canUpload && (
                 <>
                   <button type="button" disabled={!!busy} onClick={() => inputs.current[kind]?.click()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold tracking-[0.05em] disabled:opacity-40" style={{ background: color, color: "#0d0d0d" }}>
@@ -121,18 +129,14 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
               )}
             </div>
 
-            {kind === "deal" && (
-              <div className="px-3 pb-2.5">
-                <button type="button" onClick={() => setDealOpen((v) => !v)} aria-expanded={dealOpen} className="flex items-center gap-2 text-[13px] font-semibold text-white/65 hover:text-white">
-                  <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: dealOpen ? "rotate(180deg)" : undefined }} />
-                  Deal terms
-                  {st && !dealOpen && <span className="text-[10.5px] font-bold tracking-[0.1em] px-1.5 py-0.5 rounded" style={{ fontFamily: SCENE_MONO, color: "#0d0d0d", background: deal.status === "accepted" ? G : deal.status === "changes_requested" ? AMBER : deal.status === "draft" ? "#9A9A9A" : color }}>{st.label}</span>}
-                </button>
-                {dealOpen && <div className="mt-3"><EventDeal gig={gig} biz={biz} onChanged={onChanged} color={color} compact /></div>}
+            {isOpen && kind === "deal" && (
+              <div className="px-3 pt-1 pb-3 border-t border-[#1f1f1f]">
+                <div className="pt-3"><EventDeal gig={gig} biz={biz} onChanged={onChanged} color={color} compact /></div>
               </div>
             )}
 
-            {docs.length > 0 && (
+            {isOpen && docs.length === 0 && kind !== "deal" && <p className="px-3 pb-3 text-[14px] text-white/35">No documents yet.</p>}
+            {isOpen && docs.length > 0 && (
               <div className="border-t border-[#1f1f1f] divide-y divide-[#1f1f1f]">
                 {docs.map((r) => <DocRow key={r.id} r={r} canDelete={canDelete(r)} onOpen={open} onDelete={remove} busy={busy === `del:${r.id}`} />)}
               </div>
