@@ -36,7 +36,6 @@ const ROLES = [
 const ROLE_BOX = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
 const SEND = { chat: "#60A5FA", fan: "#E879F9", share: "#8CFF3D" };
 
-const ALL_BANK = { id: "all", label: "ALL", color: "#8CFF3D" };
 
 export default function TechConsoleDesk({
   shows, // already filtered by search / bank / dropdown filters
@@ -228,7 +227,9 @@ export default function TechConsoleDesk({
     setBusyPhoto(null);
   };
 
-  const banks = [ALL_BANK, ...SCENE_BANKS];
+  // No ALL button: with no bank pressed every show is on; pressing the lit
+  // bank again turns it off.
+  const banks = SCENE_BANKS;
   const countFor = (id) => (id === "all" ? totalCount : bankCounts[id] || 0);
 
   return (
@@ -260,7 +261,7 @@ export default function TechConsoleDesk({
               <button
                 key={b.id}
                 type="button"
-                onClick={() => setActiveTab(b.id)}
+                onClick={() => setActiveTab(on ? "all" : b.id)}
                 aria-pressed={on}
                 className="h-10 px-2 xl:px-3.5 rounded-full text-[15px] xl:text-[17px] font-bold tracking-[0.03em] xl:tracking-[0.04em] shrink-0 whitespace-nowrap"
                 style={{ fontFamily: SCENE_FONT, background: on ? b.color : b.color + "20", color: on ? "#0d0d0d" : b.color, border: `1.5px solid ${on ? b.color : b.color + "55"}` }}
