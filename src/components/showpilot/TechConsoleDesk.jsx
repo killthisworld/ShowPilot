@@ -322,17 +322,9 @@ export default function TechConsoleDesk({
                 const shown = list[idx];
                 const past = day.key < today;
                 return (
-                  <div
-                    key={day.key}
-                    className="min-h-0 min-w-0 flex flex-col rounded-[10px] overflow-hidden"
-                    style={{
-                      background: isToday ? "#0f1709" : "#101010",
-                      border: isToday ? `1.5px solid ${accent}` : "1px solid #1f1f1f",
-                      boxShadow: isToday ? "0 0 14px rgba(140,255,61,0.18)" : "none",
-                      opacity: past && !list.length ? 0.5 : 1,
-                    }}
-                  >
-                    <div className="h-[34px] shrink-0 flex items-center gap-1.5 px-2.5" style={{ fontFamily: SCENE_MONO, borderBottom: `1px solid ${isToday ? accent + "55" : "#1f1f1f"}` }}>
+                  <div key={day.key} className="min-h-0 min-w-0 flex flex-col gap-2" style={{ opacity: past && !list.length ? 0.5 : 1 }}>
+                    {/* The day */}
+                    <div className="h-[38px] shrink-0 flex items-center gap-1.5 px-2.5 rounded-[10px]" style={{ fontFamily: SCENE_MONO, background: isToday ? "#132009" : "#111", border: isToday ? `1.5px solid ${accent}` : "1px solid #1f1f1f", boxShadow: isToday ? "0 0 14px rgba(140,255,61,0.2)" : "none" }}>
                       <span className="text-[11px] tracking-[0.1em]" style={{ color: isToday ? accent : "#8f8f8f" }}>{day.d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}</span>
                       <span className="text-[15px] font-semibold" style={{ color: isToday ? accent : "#e5e5e5" }}>{day.d.getDate()}</span>
                       {list.length > 1 ? (
@@ -345,7 +337,14 @@ export default function TechConsoleDesk({
                         <span className="ml-auto text-[9px] tracking-[0.1em]" style={{ color: accent }}>TODAY</span>
                       ) : null}
                     </div>
-                    <div className="flex-1 min-h-0 flex">{shown && renderStrip(shown, true)}</div>
+                    {/* Its show's strip, a card of its own under the day (same width) */}
+                    {shown ? (
+                      <div className="flex-1 min-h-0 flex rounded-[10px] overflow-hidden" style={{ border: `1px solid ${eventTypeColor(shown.event_type) || (shown.is_owned === false ? "#F472B6" : "#2a2a2a")}`, boxShadow: "0 6px 14px rgba(0,0,0,0.35)" }}>
+                        {renderStrip(shown, true)}
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-h-0 rounded-[10px] border border-dashed border-[#1c1c1c]" aria-hidden="true" />
+                    )}
                   </div>
                 );
               })}
