@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SceneRow from "@/components/showpilot/SceneRow";
 import { techShowPath, isDesktopNow } from "@/lib/showRoute";
 import CuePad from "@/components/showpilot/CuePad";
+import MonthGroups from "@/components/showpilot/MonthGroups";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip } from "@/lib/homeStats";
 import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
@@ -710,17 +711,27 @@ export default function Home() {
             </p>
           </div>
         ) : isLighting ? (
-          <div className="grid grid-cols-3 gap-2" style={{ paddingBottom: 110 }}>
-            {filtered.map((show) => (
-              <CuePad key={showKey(show)} show={show} selected={loadedShow && showKey(show) === showKey(loadedShow)} onSelect={(s) => setLoadedKey(showKey(s))} />
-            ))}
+          <div style={{ paddingBottom: 110 }}>
+            <MonthGroups shows={filtered} openAll={!!search}>
+              {(list) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {list.map((show) => (
+                    <CuePad key={showKey(show)} show={show} selected={loadedShow && showKey(show) === showKey(loadedShow)} onSelect={(s) => setLoadedKey(showKey(s))} />
+                  ))}
+                </div>
+              )}
+            </MonthGroups>
           </div>
         ) : (
-          <div className="bg-[#111111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
-            {filtered.map((show) => (
-              <SceneRow key={showKey(show)} show={show} onArchive={handleArchive} onDeleteRequest={requestDelete} />
-            ))}
-          </div>
+          <MonthGroups shows={filtered} openAll={!!search}>
+            {(list) => (
+              <div className="bg-[#111111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
+                {list.map((show) => (
+                  <SceneRow key={showKey(show)} show={show} onArchive={handleArchive} onDeleteRequest={requestDelete} />
+                ))}
+              </div>
+            )}
+          </MonthGroups>
         )}
       </div>
 
