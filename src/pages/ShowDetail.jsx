@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, Trash2, Plus, Mail, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Plus, Mail, ImageIcon, StickyNote, Info, Music, Star, Paperclip, FileText, X, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Settings, Building, Mic2, Check, Pencil } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import { isDesktopNow } from "@/lib/showRoute";
@@ -364,7 +364,8 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
     const updatedBands = reordered.map((b, i) => ({ ...b, sort_order: i }));
 
     setBands(updatedBands);
-    setActiveBandIndex(updatedBands.findIndex((b) => b === band));
+    // The moved act stays selected (the rows are new objects, so match by position).
+    setActiveBandIndex(newPos0);
 
     for (const b of updatedBands) {
       if (b.id) {
@@ -1061,6 +1062,12 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
                 onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
                 className="w-14 h-7 bg-[#111] border-[#222] text-white text-xs px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
+              {bands.length > 1 && (
+                <>
+                  <button type="button" aria-label="Move earlier in the lineup" disabled={activeBandIndex === 0} onClick={() => setOpenerPosition(activeBandIndex, activeBandIndex)} className="w-7 h-7 rounded-md border border-[#222] text-white/60 hover:text-white disabled:opacity-25 flex items-center justify-center"><ChevronLeft className="w-4 h-4" /></button>
+                  <button type="button" aria-label="Move later in the lineup" disabled={activeBandIndex >= bands.length - 1} onClick={() => setOpenerPosition(activeBandIndex, activeBandIndex + 2)} className="w-7 h-7 rounded-md border border-[#222] text-white/60 hover:text-white disabled:opacity-25 flex items-center justify-center"><ChevronRight className="w-4 h-4" /></button>
+                </>
+              )}
             </div>
             {bands.length > 1 && (
               <button onClick={() => removeOpener(activeBandIndex)} className="p-1 text-white/30 hover:text-red-400">

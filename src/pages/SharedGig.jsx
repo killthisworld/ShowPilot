@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, Wifi, Speaker, Zap, Lock, User, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle, MessageSquare } from "lucide-react";
+import { MapPin, Calendar, Music, LogIn, UserPlus, Plus, Trash2, Save, ArrowLeft, ArrowUp, ArrowDown, Wifi, Speaker, Zap, Lock, User, ChevronDown, Users, Image as ImageIcon, Copy, Check, X, Headphones, ExternalLink, Share2, FolderOpen, MessageCircle, MessageSquare } from "lucide-react";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
@@ -844,6 +844,15 @@ export default function SharedGig() {
   };
   const addBand = () => update("bands", [...(gig.bands || []), { role: "N/A", band_name: "", genre_tags: [], set_length_minutes: "", sort_order: gig.bands.length }]);
   const removeBand = (i) => update("bands", gig.bands.filter((_, idx) => idx !== i));
+  // Lineup order (job 120): move an act up or down; saved with the section.
+  const moveBand = (i, dir) => {
+    const j = i + dir;
+    const list = [...(gig.bands || [])];
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    update("bands", list.map((b, k) => ({ ...b, sort_order: k })));
+    setExpandedBands(new Set());
+  };
 
   // Loads a saved venue/artist template (from My Templates) into this
   // shared gig - a venue template fills the Venue section, an artist
@@ -922,6 +931,9 @@ export default function SharedGig() {
 
   const canEdit = !!user;
   const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  // Tech profiles only see what matters to the tech side of the show (job 120):
+  // no requirements checklists, no guest list.
+  const techView = isTechProductionAccount;
   // On a tech phone the event is just these dropdowns: no web, tasks in a box from the header.
   const techPhone = isTechProductionAccount && !isDesktop;
   const myAccountType = preferences?.account_type;
@@ -1123,6 +1135,9 @@ export default function SharedGig() {
   }
 
   const title = gig.event_name || gig.band_name || "Untitled Gig";
+  // Only the event owner or the Manager / Artist can change the lineup (the
+  // server refuses anyone else); everyone else sees it read-only, in order.
+  const canEditLineup = canEdit && (!!permissions?.is_owner || canEditSection("manager"));
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const managerInfo = gig.manager_info || {};
 
@@ -1321,6 +1336,7 @@ export default function SharedGig() {
             )}
           </div>
           <DocumentsUploader documents={gig.venue_documents} onChange={(docs) => update("venue_documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/venue`} editable={canEditSection("venue")} />
+          {!techView && (
           <RequirementsList
             requirements={(gig.requirements || []).filter((r) => r.section === "venue")}
             editable={canEditSection("venue")}
@@ -1328,6 +1344,7 @@ export default function SharedGig() {
             onUpdateStatus={updateRequirementStatus}
             onDelete={deleteRequirement}
           />
+          )}
         </GigSection>
         </div>
         )}
@@ -1356,8 +1373,9 @@ export default function SharedGig() {
               <p className="mt-1 text-white/70 text-sm">{managerInfo.advancing_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
           </div>
-          <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />
+          {!techView && <Field label="Guest List" value={managerInfo.guest_list} onChange={(v) => updateSection("manager_info", "guest_list", v)} editable={canEditSection("manager")} placeholder="Names for the door" />}
           <DocumentsUploader documents={managerInfo.documents} onChange={(docs) => updateSection("manager_info", "documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/manager`} editable={canEditSection("manager")} />
+          {!techView && (
           <RequirementsList
             requirements={(gig.requirements || []).filter((r) => r.section === "manager")}
             editable={canEditSection("manager")}
@@ -1365,6 +1383,7 @@ export default function SharedGig() {
             onUpdateStatus={updateRequirementStatus}
             onDelete={deleteRequirement}
           />
+          )}
 
           <div className="pt-2 border-t border-white/10">
             <div className="flex items-center justify-between mb-3 pt-2">
@@ -1373,15 +1392,15 @@ export default function SharedGig() {
                 <p className="text-white font-semibold text-sm">Lineup</p>
               </div>
               <div className="flex items-center gap-1.5">
-                {isTechProductionAccount && canEdit && (
+                {isTechProductionAccount && canEditLineup && (
                   <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplateAsNewBand} />
                 )}
-                {myAccountType === "band" && canEdit && (
+                {myAccountType === "band" && canEditLineup && (
                   <button onClick={loadOwnBandAsNewAct} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full border border-white/20 text-white/60 hover:text-white hover:border-white/40 transition-colors shrink-0">
                     <FolderOpen className="w-3 h-3" /> Load My Artist
                   </button>
                 )}
-                {canEdit && (
+                {canEditLineup && (
                   <button onClick={addBand} className="flex items-center gap-1 text-[#8CFF3D] text-xs font-semibold hover:bg-[#8CFF3D]/10 px-2 py-1 rounded-lg">
                     <Plus className="w-3.5 h-3.5" /> Add Act
                   </button>
@@ -1389,14 +1408,14 @@ export default function SharedGig() {
               </div>
             </div>
 
-            {(!gig.bands || gig.bands.length === 0) && !canEdit && (
+            {(!gig.bands || gig.bands.length === 0) && !canEditLineup && (
               <p className="text-white/30 text-sm">No lineup info yet.</p>
             )}
 
             <div className="space-y-2">
             {(gig.bands || []).map((b, i) => {
               const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
-              if (!canEdit) {
+              if (!canEditLineup) {
                 if (!b.band_name) return null;
                 const hasDetails = (b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes || b.submitter_name || b.submitter_phone || b.submitter_email;
                 const expanded = expandedBands.has(i);
@@ -1407,6 +1426,7 @@ export default function SharedGig() {
                       className={`flex items-center justify-between px-3 py-2.5 ${hasDetails ? "cursor-pointer" : ""}`}
                     >
                       <div className="min-w-0 flex items-center gap-1.5">
+                        <span className="w-5 shrink-0 text-center text-white/45 text-xs font-semibold tabular-nums">{i + 1}</span>
                         {hasDetails && <ChevronDown className={`w-3.5 h-3.5 text-white/30 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />}
                         <div className="min-w-0">
                           <p className="text-white text-sm font-medium truncate">{b.band_name}</p>
@@ -1430,7 +1450,12 @@ export default function SharedGig() {
               return (
                 <div key={i} className="bg-[#1a1a1a] rounded-xl p-3 space-y-2">
                   <div className="flex items-center gap-2">
+                    <span className="w-5 shrink-0 text-center text-white/45 text-xs font-semibold tabular-nums" aria-label={`Position ${i + 1}`}>{i + 1}</span>
                     <Input value={b.band_name || ""} onChange={(e) => updateBand(i, "band_name", e.target.value)} placeholder="Artist / Group Name" className="flex-1 h-8 bg-[#111] border-[#222] text-white text-sm" />
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button type="button" onClick={() => moveBand(i, -1)} disabled={i === 0} aria-label="Move up in the lineup" className="w-7 h-7 rounded-md border border-[#2a2a2a] text-white/60 hover:text-white disabled:opacity-25 flex items-center justify-center"><ArrowUp className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => moveBand(i, 1)} disabled={i === (gig.bands || []).length - 1} aria-label="Move down in the lineup" className="w-7 h-7 rounded-md border border-[#2a2a2a] text-white/60 hover:text-white disabled:opacity-25 flex items-center justify-center"><ArrowDown className="w-3.5 h-3.5" /></button>
+                    </div>
                     {b.requested_order && <span className="text-white/30 text-[10px] shrink-0" title="Requested lineup position">#{b.requested_order}</span>}
                     <button onClick={() => removeBand(i)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1514,13 +1539,6 @@ export default function SharedGig() {
               </div>
             );
           })}
-          <RequirementsList
-            requirements={(gig.requirements || []).filter((r) => r.section === "engineer")}
-            editable={canEditEngineerSection()}
-            onAdd={(name, value) => addRequirement("engineer", name, value)}
-            onUpdateStatus={updateRequirementStatus}
-            onDelete={deleteRequirement}
-          />
         </GigSection>
         </div>
         )}
