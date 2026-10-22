@@ -100,11 +100,14 @@ function SwipeRow({ onOpen, onDelete, children, label }) {
 // Swipe a chat left to delete it from your list (it comes back if someone
 // sends a new message). Below it, a quick way into any upcoming event's rooms
 // (also swipe-to-delete). Only events that haven't happened yet are listed.
-export default function CompanyChats({ preferences, gigs }) {
+export default function CompanyChats({ preferences, gigs, gigsLoading = false }) {
   const navigate = useNavigate();
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const words = vocab(preferences?.account_type);
-  const { data, loading, failed, reload } = useNeedsMe();
+  const { data, loading: chatsLoading, failed, reload } = useNeedsMe();
+  // Wait for Home's events too, so "No conversations yet" never flashes
+  // before the event rooms arrive.
+  const loading = chatsLoading || gigsLoading;
   const [gone, setGone] = useState(() => new Set());
   const [hiddenEvents, setHiddenEvents] = useState(() => readHiddenEventRooms());
   const today = localISO();
@@ -190,7 +193,7 @@ export default function CompanyChats({ preferences, gigs }) {
         </>
       )}
 
-      {upcoming.length > 0 && (
+      {!loading && upcoming.length > 0 && (
         <div className={`${chats.length ? "pt-6" : ""} flex flex-col gap-2`}>
           <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{words.event.toUpperCase()} ROOMS</div>
           <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden">
@@ -209,9 +212,6 @@ export default function CompanyChats({ preferences, gigs }) {
         </div>
       )}
 
-      {!loading && !failed && (chats.length > 0 || upcoming.length > 0) && (
-        <p className="mt-2.5 px-0.5 text-[12px] text-white/35">Swipe left to delete. A chat comes back if someone sends a new message.</p>
-      )}
     </div>
   );
 }

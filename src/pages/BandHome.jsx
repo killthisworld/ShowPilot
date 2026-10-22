@@ -722,7 +722,7 @@ export default function BandHome() {
   if (phoneView === "chats") {
     return (
       <div className="min-h-screen bg-[#0d0d0d] pb-28">
-        <CompanyChats preferences={preferences} gigs={gigs} />
+        <CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} />
         {overlays}
       </div>
     );
