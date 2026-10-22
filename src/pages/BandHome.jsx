@@ -19,6 +19,8 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import TicketCard from "@/components/showpilot/TicketCard";
+import MyTasksPanel from "@/components/showpilot/MyTasksPanel";
+import useNeedsMe from "@/hooks/useNeedsMe";
 import NeedsMeHome from "@/components/showpilot/NeedsMeHome";
 import CompanyChats from "@/components/showpilot/CompanyChats";
 import CompanyChatsDesk from "@/components/showpilot/CompanyChatsDesk";
@@ -54,6 +56,16 @@ export default function BandHome() {
   const [webToken, setWebToken] = useState(null);
   const [webVisible, setWebVisible] = useState(false);
   const [search, setSearch] = useState("");
+  // Desktop MY TASKS (job 144): every open task that's yours, across your
+  // events, in a side panel; tickets just get a dot.
+  const { data: needs } = useNeedsMe();
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const myTasks = needs?.tasks || [];
+  const myTasksByToken = useMemo(() => {
+    const m = {};
+    myTasks.forEach((t) => { m[t.share_token] = (m[t.share_token] || 0) + 1; });
+    return m;
+  }, [needs]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showPast, setShowPast] = useState(false);
   // Desktop: four months at a time; 0 = starting this month, each step is
   // four months (job 113). "No date" events get their own view.
@@ -606,6 +618,18 @@ export default function BandHome() {
             </div>
           )}
           <div className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setTasksOpen((v) => !v)}
+            aria-expanded={tasksOpen}
+            aria-label={myTasks.length ? `My tasks, ${myTasks.length} open` : "My tasks"}
+            className="h-11 px-3.5 rounded-[10px] flex items-center gap-2 text-lg font-bold tracking-[0.04em] shrink-0 whitespace-nowrap"
+            style={tasksOpen || myTasks.length ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00" } : { background: "#111", border: "1px solid #262626", color: "#b5b5b5" }}
+          >
+            <ClipboardList className="w-[18px] h-[18px]" />
+            <span className="hidden xl:inline">MY TASKS</span>
+            {myTasks.length > 0 && <span className="min-w-[20px] h-5 px-1 rounded-full bg-[#FF6A00] text-[#0d0d0d] text-[12px] flex items-center justify-center" style={{ fontFamily: "Inter, sans-serif" }}>{myTasks.length}</span>}
+          </button>
           <button onClick={handleCreateEvent} aria-label="New event" className="flex items-center gap-2 h-11 px-3.5 xl:px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /><span className="hidden xl:inline">New event</span>
           </button>
@@ -673,7 +697,7 @@ export default function BandHome() {
                         const d = g.date ? new Date(g.date + "T00:00:00") : null;
                         const pr = progressByShow[g.id];
                         const pct = pr && pr.total_roles ? Math.round((pr.confirmed_roles / pr.total_roles) * 100) : null;
-                        const tasksOpen = pr?.open_tasks;
+                        const mine = Number(myTasksByToken[g.share_token] || 0);
                         return (
                           <TicketCard
                             key={gigKey(g)}
@@ -682,15 +706,14 @@ export default function BandHome() {
                             photo={g.icon_url}
                             dim={!!g.date && g.date < todayISO}
                             onClick={() => openGig(g)}
-                            ariaLabel={`Open ${g.event_name || g.band_name || "event"}${tasksOpen ? `, ${tasksOpen} open task${tasksOpen === 1 ? "" : "s"}` : ""}`}
+                            ariaLabel={`Open ${g.event_name || g.band_name || "event"}${mine ? `, ${mine} task${mine === 1 ? "" : "s"} for you` : ""}`}
                             stubWidth={84}
                             centered
-                            // Job 127: fan page under the date, open tasks as a number in the corner.
+                            // Job 127: fan page under the date.
                             stubFooter={<FanPageButton show={g} className="!px-1.5" />}
-                            corner={tasksOpen > 0 ? (
-                              <span className="flex items-center gap-1 h-6 pl-1.5 pr-2 rounded-full text-[12px] font-bold text-[#0d0d0d]" style={{ background: "#FF6A00", fontFamily: SCENE_MONO, boxShadow: "0 2px 8px rgba(0,0,0,0.5)" }} title={`${tasksOpen} open task${tasksOpen === 1 ? "" : "s"}`}>
-                                <ClipboardList className="w-3.5 h-3.5" /> {tasksOpen}
-                              </span>
+                            // Job 144: a dot when you have tasks here; the list lives in MY TASKS.
+                            corner={mine > 0 ? (
+                              <span className="block w-3 h-3 rounded-full" style={{ background: "#FF6A00", boxShadow: "0 0 0 2px #0d0d0d, 0 0 8px #FF6A00aa" }} title={`${mine} task${mine === 1 ? "" : "s"} for you`} />
                             ) : null}
                           >
                             {/* Centered: name, where, progress. The ticket's photo is the picture. */}
@@ -716,6 +739,7 @@ export default function BandHome() {
         </div>
 
         <BandBottomTabs />
+        {tasksOpen && <MyTasksPanel tasks={myTasks} onClose={() => setTasksOpen(false)} top={69} />}
         {overlays}
       </div>
     );
