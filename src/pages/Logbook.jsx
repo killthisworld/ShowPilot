@@ -8,6 +8,7 @@ import { ArrowLeft, X, MapPin, Calendar, Link2, Users, ExternalLink } from "luci
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
 import StarSummary from "@/components/showpilot/StarSummary";
+import { fetchMyIcons } from "@/lib/eventIcons";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -80,6 +81,9 @@ export default function Logbook() {
         ownShows = [...ownShows, ...linkedDetails.filter((g) => g && g.date && g.date < todayISO)];
       }
 
+      // Your own picture for an event (if you set one) wins, as on Home.
+      const myIcons = await fetchMyIcons().catch(() => ({}));
+      ownShows = ownShows.map((g) => (myIcons?.[g.id] ? { ...g, icon_url: myIcons[g.id] } : g));
       setShows(ownShows);
 
       if (settingsRes.error) console.error(settingsRes.error);
