@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -56,7 +57,9 @@ const emptyBand = (role, sortOrder) => ({
 // embeddedId: render inside another screen (the SHOW tab of the show's web,
 // job 72) instead of as its own page: no page header or back button, a
 // compact action row instead, and onSaved() after each save.
-export default function ShowDetail({ embeddedId, onSaved } = {}) {
+// actionSlot (job 135): a DOM node in the host's header; the action buttons
+// (notes, star, invite, `beforeSave`, Save) render there instead of in a row.
+export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, beforeSave = null } = {}) {
   const routeParams = useParams();
   const id = embeddedId || routeParams.id;
   const embedded = !!embeddedId;
@@ -799,7 +802,29 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
         </div>
       )}
 
-      {embedded ? (
+      {embedded && actionSlot ? createPortal(
+        <>
+          <button onClick={() => setShowFxModal(true)} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-[#8CFF3D]/60 hover:text-[#8CFF3D]" title="FX / Artist Notes" aria-label="FX / Artist Notes">
+            <StickyNote className="w-5 h-5 lg:w-4 lg:h-4" />
+          </button>
+          <button onClick={toggleStar} className={`w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`} aria-label={show.starred ? "Unstar" : "Star"}>
+            <Star className="w-5 h-5 lg:w-4 lg:h-4" fill={show.starred ? "currentColor" : "none"} />
+          </button>
+          <InviteSheet
+            showId={id}
+            trigger={
+              <button className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-white/55 hover:text-white" title="Invite" aria-label="Invite">
+                <Mail className="w-5 h-5 lg:w-4 lg:h-4" />
+              </button>
+            }
+          />
+          {beforeSave}
+          <Button onClick={handleSave} disabled={saving} className="ml-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-11 px-4 text-[15px] rounded-xl">
+            <Save className="w-4 h-4 mr-1.5" /> {saving ? "..." : "Save"}
+          </Button>
+        </>,
+        actionSlot
+      ) : embedded ? (
         // Sticks under the web's header so Save stays in reach on a long form.
         <div className="sticky top-[60px] z-30 -mx-3 -mt-3 px-3 py-2 mb-2 bg-[#111111]/95 backdrop-blur border-b border-[#1f1f1f] rounded-t-2xl flex items-center gap-1">
           <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`} aria-label={show.starred ? "Unstar" : "Star"}>
@@ -830,26 +855,26 @@ export default function ShowDetail({ embeddedId, onSaved } = {}) {
             <h1 className="hidden lg:block text-white text-2xl font-bold truncate">{show.event_name || (isNew ? "New show" : "Untitled show")}</h1>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
-              <StickyNote className="w-4 h-4" />
+            <button onClick={() => setShowFxModal(true)} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
+              <StickyNote className="w-5 h-5 lg:w-4 lg:h-4" />
             </button>
-            <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
-              <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
+            <button onClick={toggleStar} className={`w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
+              <Star className="w-5 h-5 lg:w-4 lg:h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
             <InviteSheet
               showId={isNew ? null : id}
               trigger={
-                <button className="p-2 rounded-lg transition-colors text-white/50 hover:text-white" title="Invite">
-                  <Mail className="w-4 h-4" />
+                <button className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-white/50 hover:text-white" title="Invite">
+                  <Mail className="w-5 h-5 lg:w-4 lg:h-4" />
                 </button>
               }
             />
             {!isNew && (
-              <button onClick={handleDelete} className="p-2 rounded-lg transition-colors text-red-400/60 hover:text-red-400">
-                <Trash2 className="w-4 h-4" />
+              <button onClick={handleDelete} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-red-400/60 hover:text-red-400">
+                <Trash2 className="w-5 h-5 lg:w-4 lg:h-4" />
               </button>
             )}
-            <Button onClick={handleSave} disabled={saving} size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 rounded-lg">
+            <Button onClick={handleSave} disabled={saving} className="ml-1 bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-11 px-4 text-[15px] rounded-xl lg:h-8 lg:px-3 lg:text-sm lg:rounded-lg">
               <Save className="w-3.5 h-3.5 mr-1.5" /> {saving ? "..." : "Save"}
             </Button>
           </div>

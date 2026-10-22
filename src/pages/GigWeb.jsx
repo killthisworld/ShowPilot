@@ -202,6 +202,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [leaving, setLeaving] = useState(false);
   const [hubAnim, setHubAnim] = useState(0);
   const [webSlot, setWebSlot] = useState(null);
+  const [actionSlot, setActionSlot] = useState(null); // tech phone header slot for the show buttons (job 135)
   // Bulletin board task summaries: the task open in TaskSheet, and where a
   // claim sends you (that profile's web, opened on its Current tasks node).
   const [openTaskId, setOpenTaskId] = useState(null);
@@ -631,13 +632,14 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             {/* Title, date and photo live in the event banner below; no chat
                 icon - chats are on the Chats tab (job 134). */}
             <div className="flex-1" />
-            <TasksButton token={token} />
+            {/* The show's buttons land here: notes, star, invite, tasks, Save (job 135). */}
+            <div ref={setActionSlot} className="flex items-center gap-0.5 shrink-0" />
           </div>
         </div>
         <div className="px-4 pt-3 max-w-lg mx-auto">
           <div className="mb-3"><EventBanner gig={gig} imageUrl={myIcon} title={title} /></div>
           <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
-            <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+            <ShowDetail embeddedId={gig.id} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
           </Suspense>
         </div>
         {user && <BottomTabs />}
