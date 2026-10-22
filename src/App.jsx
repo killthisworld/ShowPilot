@@ -20,6 +20,7 @@ import BandCalendar from '@/pages/BandCalendar';
 import ShowDetail from '@/pages/ShowDetail';
 import CalendarPage from '@/pages/CalendarPage';
 import Experience from '@/pages/Experience';
+import TechChats from '@/pages/TechChats';
 import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
 import PilotCardView from '@/pages/PilotCardView';
@@ -106,6 +107,7 @@ const AuthenticatedApp = () => {
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/experience" element={<Experience />} />
+        <Route path="/chats" element={<TechChats />} />
         <Route path="/archived" element={<ArchivedShows />} />
         <Route path="/manager-links" element={<ManagerLinksPage />} />
         {/* Old single-template page; templates for every profile live in My Templates now. */}

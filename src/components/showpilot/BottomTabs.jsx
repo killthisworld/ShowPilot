@@ -1,16 +1,19 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff, MessageCircle } from "lucide-react";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import TechRail from "@/components/showpilot/TechRail";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
-import { isCompanyType } from "@/lib/needsMe";
+import { isCompanyType, visibleChats } from "@/lib/needsMe";
+import useNeedsMe from "@/hooks/useNeedsMe";
 
 const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/calendar", label: "Calendar", icon: CalendarDays },
+  // Chats, like the company phone bar (job 121); shows how many are unread.
+  { path: "/chats", label: "Chats", icon: MessageCircle, unread: true },
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
@@ -59,12 +62,27 @@ export default function BottomTabs({ railOnly = false }) {
                 active ? "text-[#8CFF3D]" : "text-white/40 hover:text-white/60"
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <span className="relative">
+                <tab.icon className="w-5 h-5" />
+                {tab.unread && <UnreadDot />}
+              </span>
               <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>
           );
         })}
       </div>
     </div>
+  );
+}
+
+// Unread chats across your events, on the Chats tab.
+function UnreadDot() {
+  const { data } = useNeedsMe();
+  const n = visibleChats(data?.chats).reduce((sum, c) => sum + Number(c.unread || 0), 0);
+  if (!n) return null;
+  return (
+    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-[#0d0d0d]" style={{ background: "#8CFF3D" }}>
+      {n > 99 ? "99+" : n}
+    </span>
   );
 }
