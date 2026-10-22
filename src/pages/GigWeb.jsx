@@ -19,6 +19,7 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog from "@/components/showpilot/FlightLog";
 import BoardOverview from "@/components/showpilot/BoardOverview";
+import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
@@ -965,28 +966,36 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
     onChanged?.();
     onIconChanged?.();
   };
-  const uploadIcon = async (e) => {
+  // Picking an image opens the crop tool first (job 128); Crop on an image
+  // that's already there re-crops it. The cropped square is what's saved.
+  const [cropFile, setCropFile] = useState(null);
+  const uploadIcon = (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { setIconError("Image must be under 2 MB"); return; }
+    if (file.size > 20 * 1024 * 1024) { setIconError("Image must be under 20 MB"); return; }
+    setIconError("");
+    setCropFile(file);
+  };
+  const recropIcon = async () => {
+    setIconError("");
+    const f = await fileFromUrl(gig.icon_url);
+    if (f) setCropFile(f); else setIconError("Couldn't open that image to crop");
+  };
+  const saveCropped = async (blob) => {
+    setCropFile(null);
     setIconBusy(true);
     setIconError("");
     try {
-      const { data: { user: u } } = await supabase.auth.getUser();
-      if (!u) throw new Error("Not logged in");
-      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const filePath = `${u.id}/event-icons/${Date.now()}.${ext || "png"}`;
-      const { error: upErr } = await supabase.storage.from("profile-photos").upload(filePath, file);
-      if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(filePath);
-      await setIcon(urlData.publicUrl);
+      const url = await uploadIconImage(new File([blob], "event.jpg", { type: "image/jpeg" }));
+      await setIcon(url);
     } catch (err) {
       console.error(err);
       setIconError("Couldn't upload that image");
     }
     setIconBusy(false);
   };
+  const cropper = cropFile && createPortal(<ImageCropModal file={cropFile} aspectW={1} aspectH={1} onCancel={() => setCropFile(null)} onCropped={saveCropped} />, document.body);
   const removeIcon = async () => {
     setIconBusy(true);
     setIconError("");
@@ -1050,9 +1059,11 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
         {(iconError || (gig.icon_url && !iconBusy)) && (
           <div className="mt-1 px-1 flex items-center gap-3 text-[11px]">
             {iconError && <span className="text-red-400">{iconError}</span>}
+            {gig.icon_url && !iconBusy && <button type="button" onClick={recropIcon} className="text-white/50 hover:text-white">Crop image</button>}
             {gig.icon_url && !iconBusy && <button type="button" onClick={removeIcon} className="text-white/35 hover:text-red-400">Remove image</button>}
           </div>
         )}
+        {cropper}
       </div>
     );
   }
@@ -1072,9 +1083,13 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
               <input type="file" accept="image/*" className="hidden" disabled={iconBusy} onChange={uploadIcon} />
             </label>
             {gig.icon_url && !iconBusy && (
+              <button type="button" onClick={recropIcon} className="text-xs text-white/55 hover:text-white">Crop</button>
+            )}
+            {gig.icon_url && !iconBusy && (
               <button type="button" onClick={removeIcon} className="text-xs text-white/40 hover:text-red-400">Remove</button>
             )}
           </div>
+          {cropper}
           {iconError && <p className="text-red-400 text-[11px] mt-1">{iconError}</p>}
           <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this gig.</p>
         </div>
@@ -1092,24 +1107,49 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
   );
 }
 
+// An image already on the event, as a File the crop tool can open.
+async function fileFromUrl(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new File([blob], "image", { type: blob.type || "image/jpeg" });
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
 // Anyone linked to a gig (not just its owner) can give it their own icon.
 // It's personal - only they see it on their lists and Gig Web - and takes
 // priority over the owner's shared icon and the automatic type icon.
 function MyIconControl({ gig, myIcon, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const upload = async (e) => {
+  // Crop first, like the event image (job 128).
+  const [cropFile, setCropFile] = useState(null);
+  const upload = (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2 MB"); return; }
+    if (file.size > 20 * 1024 * 1024) { setError("Image must be under 20 MB"); return; }
+    setError("");
+    setCropFile(file);
+  };
+  const saveCropped = async (blob) => {
+    setCropFile(null);
     setBusy(true); setError("");
     try {
-      const url = await uploadIconImage(file);
+      const url = await uploadIconImage(new File([blob], "icon.jpg", { type: "image/jpeg" }));
       await saveMyIcon(gig.id, url);
       onChanged?.(url);
     } catch (err) { console.error(err); setError("Couldn't save that image"); }
     setBusy(false);
+  };
+  const recrop = async () => {
+    const f = await fileFromUrl(myIcon);
+    if (f) setCropFile(f); else setError("Couldn't open that image to crop");
   };
   const remove = async () => {
     setBusy(true); setError("");
@@ -1125,8 +1165,10 @@ function MyIconControl({ gig, myIcon, onChanged }) {
           {busy ? "Working..." : myIcon ? "Change image" : "Upload image"}
           <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={upload} />
         </label>
+        {myIcon && !busy && <button type="button" onClick={recrop} className="text-xs text-white/55 hover:text-white">Crop</button>}
         {myIcon && !busy && <button type="button" onClick={remove} className="text-xs text-white/40 hover:text-red-400">Remove</button>}
       </div>
+      {cropFile && createPortal(<ImageCropModal file={cropFile} aspectW={1} aspectH={1} onCancel={() => setCropFile(null)} onCropped={saveCropped} />, document.body)}
       {error && <p className="text-red-400 text-[11px] mt-1">{error}</p>}
       <p className="text-white/25 text-[10px] mt-1">Only you see this one, on your own lists.</p>
     </div>

@@ -836,6 +836,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // a page shows on its own, with a way back to the list.
     if (solo) {
       const page = tabs.find((t) => t.key === active) || null;
+      // Save at the top of every profile board (job 128, just "SAVE"), pinned while you
+      // scroll; the one at the bottom stays for long pages.
+      const topSave = ed ? (
+        <button type="button" onClick={p.handleSave} disabled={p.saving} className="shrink-0 px-4 py-2 rounded-[10px] text-[13px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+          {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
+        </button>
+      ) : null;
       return (
         <>
           {web}
@@ -843,7 +850,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
-                <div className="flex items-center gap-3">
+                <div className="sticky top-0 z-20 -mx-5 px-5 py-2 -mt-2 flex items-center gap-3 bg-[#151515]">
                   <button type="button" onClick={() => setActive(null)} className="flex items-center gap-1 text-[14px] font-semibold text-white/55 hover:text-white shrink-0">
                     <ChevronLeft className="w-4 h-4" /> All {ROLE_TITLE[role]} pages
                   </button>
@@ -851,6 +858,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                     <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
                     {page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
                   </span>
+                  {topSave}
                 </div>
                 <h2 className="text-[26px] font-bold leading-none">{page.label}</h2>
                 <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">
@@ -859,8 +867,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               </>
             ) : (
               <>
-                <div className="text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
-                  {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
+                <div className="sticky top-0 z-20 -mx-5 px-5 py-2 -mt-2 flex items-center gap-3 bg-[#151515]">
+                  <span className="text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
+                    {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
+                  </span>
+                  <span className="ml-auto" />
+                  {topSave}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {tabs.map((t) => (
@@ -878,7 +890,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             )}
             {ed && (
               <button type="button" onClick={p.handleSave} disabled={p.saving} className="mt-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
-                {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : `SAVE ${ROLE_TITLE[role].toUpperCase()}`}
+                {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
               </button>
             )}
           </div>
