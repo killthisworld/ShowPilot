@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MessageCircle, Ticket, Camera, Plus, Search, MoreHorizontal, Archive, Trash2, X, Share2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { MessageCircle, Ticket, Camera, Plus, Search, MoreHorizontal, Archive, Trash2, X, Share2, ChevronLeft, ChevronRight, ClipboardList, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { localISO, addDaysISO } from "@/lib/needsMe";
 import { shareLink } from "@/lib/share";
-import useNeedsMe from "@/hooks/useNeedsMe";
+import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import TechRail from "@/components/showpilot/TechRail";
@@ -59,6 +59,8 @@ export default function TechConsoleDesk({
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
   const { data: needs } = useNeedsMe();
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const myTaskTotal = (needs?.tasks || []).length;
 
   // Home is a look at the coming week: today and the six days after, moved
   // a week at a time with the arrows. Nothing that week = nothing on the
@@ -218,9 +220,9 @@ export default function TechConsoleDesk({
       <TechRail accent={accent} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Top bar: title, search, banks, filters, New show - one row,
+        {/* Top bar: title, search, My tasks, New show - one row,
             like the company desktop home. */}
-        <div className="flex items-center gap-2.5 xl:gap-3 px-6 py-3 border-b border-[#1a1a1a]">
+        <div className="h-[68px] shrink-0 flex items-center gap-2.5 xl:gap-3 px-6 border-b border-[#1a1a1a]">
           <h1 className="text-[26px] font-bold shrink-0 mr-1 xl:mr-2" style={{ fontFamily: SCENE_FONT }}>Show<span style={{ color: accent }}>Pilot</span></h1>
           <label className="flex-1 min-w-[150px] max-w-[300px] flex items-center gap-2 h-10 px-3 rounded-[10px] bg-[#111] border border-[#222] text-[#8a8a8a] focus-within:border-[#444]">
             <Search className="w-4 h-4 shrink-0" />
@@ -236,7 +238,20 @@ export default function TechConsoleDesk({
               <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
             )}
           </label>
-          <Link to="/show/new" onClick={clearNewShowDraft} aria-label="New show" className="ml-auto h-[44px] px-3 xl:px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0 whitespace-nowrap" style={{ background: accent, color: "#0d0d0d" }}>
+          {/* Every task that's yours, across all your events, in a side panel */}
+          <button
+            type="button"
+            onClick={() => setTasksOpen((v) => !v)}
+            aria-expanded={tasksOpen}
+            aria-label={myTaskTotal ? `My tasks, ${myTaskTotal} open` : "My tasks"}
+            className="ml-auto h-10 px-3 rounded-[10px] flex items-center gap-2 text-[16px] xl:text-[17px] font-bold tracking-[0.04em] shrink-0 whitespace-nowrap"
+            style={{ fontFamily: SCENE_FONT, ...(tasksOpen || myTaskTotal ? { background: "#341c0b", border: "1.5px solid #FF6A00", color: "#FF6A00" } : { background: "#111", border: "1px solid #262626", color: "#b5b5b5" }) }}
+          >
+            <ClipboardList className="w-[18px] h-[18px]" />
+            <span className="hidden xl:inline">MY TASKS</span>
+            {myTaskTotal > 0 && <span className="min-w-[20px] h-5 px-1 rounded-full bg-[#FF6A00] text-[#0d0d0d] text-[12px] flex items-center justify-center" style={{ fontFamily: "Inter, sans-serif" }}>{myTaskTotal}</span>}
+          </button>
+          <Link to="/show/new" onClick={clearNewShowDraft} aria-label="New show" className="h-[44px] px-3 xl:px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0 whitespace-nowrap" style={{ background: accent, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" strokeWidth={2.6} /><span className="hidden xl:inline">New show</span>
           </Link>
         </div>
@@ -315,6 +330,7 @@ export default function TechConsoleDesk({
         )}
       </div>
 
+      {tasksOpen && <MyTasksPanel tasks={needs?.tasks || []} onClose={() => setTasksOpen(false)} />}
       {toast && (
         <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded-lg bg-[#1f1f1f] border border-[#333] text-sm text-white">{toast}</div>
       )}
@@ -457,5 +473,74 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
         </div>
       </div>
     </div>
+  );
+}
+
+// My tasks: every open task in your sections across all your events (the
+// same list that feeds the strips' task counts), grouped by when it's due.
+// Tick one off right here, or click it to open that event's task page.
+function MyTasksPanel({ tasks, onClose }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState("");
+  const today = localISO();
+  const weekEnd = addDaysISO(6);
+  const groups = [
+    { key: "now", label: "OVERDUE / TODAY", color: "#FF6A00", items: tasks.filter((t) => t.due_date && t.due_date <= today) },
+    { key: "week", label: "THIS WEEK", color: "#60A5FA", items: tasks.filter((t) => t.due_date && t.due_date > today && t.due_date <= weekEnd) },
+    { key: "later", label: "LATER", color: "#a3a3a3", items: tasks.filter((t) => !t.due_date || t.due_date > weekEnd) },
+  ];
+  const dueLabel = (t) => {
+    if (!t.due_date) return "NO DUE DATE";
+    if (t.due_date === today) return "TODAY";
+    const d = new Date(t.due_date + "T00:00:00");
+    const txt = d.toLocaleDateString("en-US", t.due_date <= weekEnd ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" }).toUpperCase();
+    return t.due_date < today ? `WAS DUE ${txt}` : txt;
+  };
+  const done = async (t) => {
+    setBusy(t.id); setErr("");
+    const { error } = await supabase.rpc("set_gig_task_status", { p_token: t.share_token, p_task_id: t.id, p_done: true });
+    if (error) setErr("Couldn't mark that done. Try again.");
+    else patchNeedsMe((d) => ({ ...d, tasks: (d.tasks || []).filter((x) => x.id !== t.id) }));
+    setBusy(null);
+  };
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <>
+      <div className="fixed inset-0 left-[84px] top-[68px] z-[60] bg-black/55" onClick={onClose} aria-hidden="true" />
+      <aside aria-label="My tasks" className="fixed right-0 top-[68px] bottom-0 z-[61] w-[440px] max-w-[90vw] flex flex-col bg-[#121212] border-l border-[#262626]" style={{ boxShadow: "-18px 0 40px rgba(0,0,0,0.55)" }}>
+        <div className="flex items-center gap-2.5 px-[18px] pt-4 pb-2.5 shrink-0">
+          <h2 className="text-[24px] font-bold" style={{ fontFamily: SCENE_FONT }}>My tasks</h2>
+          <span className="text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>{tasks.length} OPEN</span>
+          <button type="button" onClick={onClose} aria-label="Close" className="ml-auto w-8 h-8 rounded-lg border border-[#333] flex items-center justify-center text-white/70 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+        {err && <p className="mx-[18px] mb-2 text-[13px] text-red-400">{err}</p>}
+        <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-5 flex flex-col gap-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+          {tasks.length === 0 && <p className="text-white/45 text-[15px] pt-8 text-center">Nothing on your list.</p>}
+          {groups.filter((g) => g.items.length).map((g) => (
+            <section key={g.key} className="flex flex-col gap-1.5">
+              <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: g.color }}>{g.label} · {g.items.length}</span>
+              {g.items.map((t) => (
+                <div key={t.id} className="flex items-start gap-2.5 px-3 py-2.5 rounded-[9px] bg-[#181818] border border-[#262626] hover:border-[#3a3a3a]" style={{ borderLeft: `3px solid ${g.color}` }}>
+                  <button type="button" onClick={() => done(t)} disabled={busy === t.id} aria-label={`Mark "${t.title}" done`} title="Done" className="w-[22px] h-[22px] mt-px shrink-0 rounded-md flex items-center justify-center hover:brightness-125 disabled:opacity-50" style={{ border: `2px solid ${g.color}`, color: g.color }}>
+                    {busy === t.id && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                  <button type="button" onClick={() => navigate(`/gig/tasks?token=${t.share_token}`)} className="flex-1 min-w-0 text-left flex flex-col gap-[3px]">
+                    <span className="text-[14px] font-semibold leading-snug">{t.title}</span>
+                    <span className="text-[10.5px] text-white/60 truncate" style={{ fontFamily: SCENE_MONO }}>{(t.event_title || "Event").toUpperCase()} · {dueLabel(t)}</span>
+                  </button>
+                  <ChevronRight className="w-4 h-4 mt-1 shrink-0 text-white/35" />
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      </aside>
+    </>
   );
 }
