@@ -11,6 +11,7 @@ import { Plus, Trash2, Send, CheckCircle, Music, Users, Wifi, Save, X, Paperclip
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import { useToast } from "@/components/ui/use-toast";
 import IntakeRating from "@/components/showpilot/IntakeRating";
+import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
@@ -741,28 +742,7 @@ export default function TourManagerIntake({ link } = {}) {
         </div>
 
         {tmRequest?.include_services && (
-          <div className="bg-[#111] rounded-2xl p-4">
-            <p className="text-white/50 text-xs">Additional Services <span className="text-white/30">(optional)</span></p>
-            <p className="text-white text-sm font-semibold mt-2">Interested in getting your set multi-track recorded?</p>
-            <p className="text-white/40 text-xs mt-1">No payment now. This just gives the engineer a heads-up so you can talk details at the event.</p>
-            <div className="grid grid-cols-2 gap-2 mt-3" role="radiogroup" aria-label="Multi-track recording">
-              {[[true, "Yes"], [false, "No"]].map(([v, text]) => {
-                const on = form.multitrack_interest === v;
-                return (
-                  <button
-                    key={text}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => update("multitrack_interest", on ? null : v)}
-                    className={`h-11 rounded-xl border text-sm font-semibold transition-colors ${on ? "border-[#8CFF3D]/60 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/60 hover:text-white"}`}
-                  >
-                    {text}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <MultitrackQuestion value={form.multitrack_interest} onChange={(v) => update("multitrack_interest", v)} />
         )}
 
         {error && <p className="text-red-400 text-sm px-1">{error}</p>}

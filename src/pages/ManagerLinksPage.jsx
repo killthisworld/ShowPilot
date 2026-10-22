@@ -4,6 +4,7 @@ import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Copy, Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
 
 export default function ManagerLinksPage() {
   const navigate = useNavigate(); const goBack = useGoBack();
@@ -16,6 +17,8 @@ export default function ManagerLinksPage() {
   const [confirmAction, setConfirmAction] = useState(null);
   const [showCleanupMenu, setShowCleanupMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // "Include additional services?" before making an opener link: { request, include }
+  const [servicesAsk, setServicesAsk] = useState(null);
 
   useEffect(() => {
     const init = async () => {
@@ -52,8 +55,9 @@ export default function ManagerLinksPage() {
     init();
   }, []);
 
-  const generateOpenerLink = async (request) => {
+  const generateOpenerLink = async (request, includeServices = false) => {
     if (!user) return;
+    setServicesAsk(null);
     setGeneratingFor(request.id);
     try {
       const nextOrder = (request.openers?.length || 0) + 1;
@@ -63,6 +67,7 @@ export default function ManagerLinksPage() {
           tour_manager_request_id: request.id,
           engineer_user_id: user.id,
           order_index: nextOrder,
+          include_services: !!includeServices,
         })
         .select()
         .single();
@@ -179,6 +184,37 @@ export default function ManagerLinksPage() {
         </div>
       )}
 
+      {servicesAsk && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setServicesAsk(null)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-base mb-1">Additional Link</h3>
+            <p className="text-white/40 text-xs mb-3">For another act on {servicesAsk.request.event_name || servicesAsk.request.band_name || "this event"}.</p>
+            <label className="text-white/50 text-xs">Include additional services?</label>
+            <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Include additional services">
+              {[[true, "Yes"], [false, "No"]].map(([v, text]) => (
+                <button
+                  key={text}
+                  type="button"
+                  role="radio"
+                  aria-checked={servicesAsk.include === v}
+                  onClick={() => setServicesAsk((a) => ({ ...a, include: v }))}
+                  className={`h-11 rounded-xl border text-sm font-semibold transition-colors ${servicesAsk.include === v ? "border-[#8CFF3D]/60 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/50 hover:text-white"}`}
+                >
+                  {text}
+                </button>
+              ))}
+            </div>
+            <p className="text-white/35 text-[11px] mt-1.5">Asks the act if they're interested in getting their set multi-track recorded.</p>
+            <Button onClick={() => generateOpenerLink(servicesAsk.request, servicesAsk.include)} className="w-full bg-[#8CFF3D] text-black hover:bg-[#7ae62e] font-semibold rounded-xl mt-4">
+              Generate Link
+            </Button>
+            <button onClick={() => setServicesAsk(null)} className="w-full text-center py-2.5 mt-1 text-white/40 hover:text-white text-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {shareMenuLink && (
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 px-4 pb-4 sm:pb-0" onClick={() => setShareMenuLink(null)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-2 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
@@ -256,6 +292,7 @@ export default function ManagerLinksPage() {
                       ? new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                       : `Sent ${new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
                   </p>
+                  {r.include_services && r.status === "submitted" && <div className="mt-1.5"><MultitrackChip value={r.multitrack_interest} /></div>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full ${r.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>
@@ -272,7 +309,10 @@ export default function ManagerLinksPage() {
                   {r.openers.map((o) => (
                     <div key={o.id} className="w-full flex items-center gap-2 bg-[#111] rounded-lg px-3 py-2">
                       <div className="flex-1 flex items-center justify-between min-w-0">
-                        <span className="text-white/70 text-xs truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
+                        <div className="min-w-0">
+                          <span className="block text-white/70 text-xs truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
+                          {o.include_services && o.status === "submitted" && <div className="mt-1"><MultitrackChip value={o.multitrack_interest} small /></div>}
+                        </div>
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${o.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>
                           {o.status === "submitted" ? "Submitted" : "Pending"}
                         </span>
@@ -286,7 +326,7 @@ export default function ManagerLinksPage() {
               )}
 
               <Button
-                onClick={() => generateOpenerLink(r)}
+                onClick={() => setServicesAsk({ request: r, include: !!r.include_services })}
                 disabled={generatingFor === r.id}
                 variant="outline"
                 size="sm"

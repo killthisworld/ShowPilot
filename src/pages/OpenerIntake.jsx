@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Send, CheckCircle, Music, X, Paperclip, User, ExternalLink, ChevronDown } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
+import IntakeRating from "@/components/showpilot/IntakeRating";
+import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import { useToast } from "@/components/ui/use-toast";
 
 const ROLE_COLORS = {
@@ -38,6 +40,7 @@ export default function OpenerIntake() {
     submitter_email: "",
     submitter_card_user_id: "",
     requested_order: "",
+    multitrack_interest: null,
   });
   const [currentUser, setCurrentUser] = useState(null);
   const [engineerCard, setEngineerCard] = useState(null);
@@ -246,6 +249,7 @@ export default function OpenerIntake() {
           <CheckCircle className="w-16 h-16 text-[#8CFF3D] mx-auto mb-4" />
           <h2 className="text-white text-2xl font-bold mb-2">Submitted!</h2>
           <p className="text-white/50 text-sm">Your set info has been added to the gig.</p>
+          {submitted && <IntakeRating token={token} />}
         </div>
       </div>
     );
@@ -542,6 +546,10 @@ export default function OpenerIntake() {
             </button>
           )}
         </div>
+
+        {context.include_services && (
+          <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} />
+        )}
 
         {error && <p className="text-red-400 text-sm px-1">{error}</p>}
 
