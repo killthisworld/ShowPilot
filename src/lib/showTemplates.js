@@ -17,6 +17,7 @@ export const emptyVenueTemplate = () => ({
 export const emptyArtistTemplate = () => ({
   set_length_minutes: null, genre_tags: [], genre_tag: "", genre_color: "",
   band_members: [], stage_plot_url: "", stage_plot_files: [], general_notes: "", artist_fx_notes: [],
+  photo_url: "",
 });
 
 // Older artist templates kept each member's notes on the member
@@ -69,5 +70,7 @@ export function artistFromTemplate(name, data = {}) {
     stage_plot_files: d.stage_plot_files || [],
     general_notes: d.general_notes || "",
     artist_fx_notes: d.artist_fx_notes,
+    // The artist's photo, only when the template has one (keeps the act's own otherwise).
+    ...(d.photo_url ? { photo_url: d.photo_url } : {}),
   };
 }

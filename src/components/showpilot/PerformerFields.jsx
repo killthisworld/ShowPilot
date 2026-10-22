@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import VenuePhoto from "@/components/showpilot/VenuePhoto";
 
 // The Performer (artist) fields, shared by a show's act (ShowDetail) and a
 // saved artist template (My Templates) so both ask for exactly the same
@@ -80,6 +81,7 @@ export default function PerformerFields({
 
   return (
     <div className="space-y-3">
+      <VenuePhoto kind="artist" accent="#EF4444" value={b.photo_url || ""} onChange={(url) => onPatch({ photo_url: url })} />
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-white/50 text-xs">Artist / Group Name *</Label>

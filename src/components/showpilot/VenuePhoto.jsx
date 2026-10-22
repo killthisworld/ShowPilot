@@ -10,18 +10,25 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 // and the venue company's Venue section (RoleWorkspace). The picture is a
 // 16:9 JPEG in the profile-photos bucket; `value` is its public URL and
 // `onChange(url | "")` saves it wherever the caller keeps it.
+// kind="artist" makes it an act / artist photo (Performer section, Artist
+// templates, the manager / artist Contact page): same tool, artist wording.
 const MAX_MB = 15;
+const TEXT = {
+  venue: { noun: "venue", folder: "venue-photos", alt: "Venue", frame: "Frame the venue: drag to move, slide to zoom" },
+  artist: { noun: "artist", folder: "artist-photos", alt: "Artist", frame: "Frame the artist: drag to move, slide to zoom" },
+};
 
-async function uploadVenuePhoto(blob) {
+async function uploadVenuePhoto(blob, folder) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not logged in");
-  const path = `${user.id}/venue-photos/${Date.now()}.jpg`;
+  const path = `${user.id}/${folder}/${Date.now()}.jpg`;
   const { error } = await supabase.storage.from("profile-photos").upload(path, blob, { contentType: "image/jpeg" });
   if (error) throw error;
   return supabase.storage.from("profile-photos").getPublicUrl(path).data.publicUrl;
 }
 
-export default function VenuePhoto({ value, onChange, editable = true, accent = "#60A5FA", className = "" }) {
+export default function VenuePhoto({ value, onChange, editable = true, accent = "#60A5FA", className = "", kind = "venue" }) {
+  const t = TEXT[kind] || TEXT.venue;
   const [cropFile, setCropFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -45,7 +52,7 @@ export default function VenuePhoto({ value, onChange, editable = true, accent = 
       const res = await fetch(value);
       if (!res.ok) throw new Error("fetch");
       const blob = await res.blob();
-      setCropFile(new File([blob], "venue.jpg", { type: blob.type || "image/jpeg" }));
+      setCropFile(new File([blob], `${t.noun}.jpg`, { type: blob.type || "image/jpeg" }));
     } catch {
       setErr("Couldn't open the photo to adjust it. Use Change instead.");
     }
@@ -56,7 +63,7 @@ export default function VenuePhoto({ value, onChange, editable = true, accent = 
     setBusy(true);
     setErr("");
     try {
-      onChange?.(await uploadVenuePhoto(blob));
+      onChange?.(await uploadVenuePhoto(blob, t.folder));
     } catch (e) {
       console.error(e);
       setErr("Couldn't upload that photo. Try again.");
@@ -73,13 +80,13 @@ export default function VenuePhoto({ value, onChange, editable = true, accent = 
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
       {value ? (
         <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#222] bg-[#111]">
-          <img src={value} alt="Venue" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={value} alt={t.alt} className="absolute inset-0 w-full h-full object-cover" />
           {busy && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /></div>}
           {editable && !busy && (
             <div className="absolute left-2 right-2 bottom-2 flex flex-wrap gap-1.5 justify-end">
               <button type="button" onClick={adjust} className={btn}><Crop className="w-4 h-4" /> Adjust</button>
               <button type="button" onClick={pick} className={btn}><Camera className="w-4 h-4" /> Change</button>
-              <button type="button" onClick={() => onChange?.("")} aria-label="Remove venue photo" className={`${btn} text-red-300`}><Trash2 className="w-4 h-4" /> Remove</button>
+              <button type="button" onClick={() => onChange?.("")} aria-label={`Remove ${t.noun} photo`} className={`${btn} text-red-300`}><Trash2 className="w-4 h-4" /> Remove</button>
             </div>
           )}
         </div>
@@ -96,8 +103,8 @@ export default function VenuePhoto({ value, onChange, editable = true, accent = 
           ) : (
             <>
               <ImagePlus className="w-6 h-6" style={{ color: accent }} />
-              <span className="text-[14px] font-semibold">Add a venue photo</span>
-              <span className="text-[11px] tracking-[0.1em] text-white/35" style={{ fontFamily: SCENE_MONO }}>SAVED WITH YOUR VENUE TEMPLATE</span>
+              <span className="text-[14px] font-semibold">{kind === "artist" ? "Add an artist photo" : "Add a venue photo"}</span>
+              <span className="text-[11px] tracking-[0.1em] text-white/35" style={{ fontFamily: SCENE_MONO }}>SAVED WITH YOUR {t.noun.toUpperCase()} TEMPLATE</span>
             </>
           )}
         </button>
@@ -110,7 +117,7 @@ export default function VenuePhoto({ value, onChange, editable = true, accent = 
           aspectH={9}
           fit="cover"
           outWidth={1280}
-          title="Frame the venue: drag to move, slide to zoom"
+          title={t.frame}
           onCancel={() => setCropFile(null)}
           onCropped={saveCropped}
         />,

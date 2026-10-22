@@ -454,6 +454,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([mi.contact_name, mi.contact_phone, mi.contact_email]), 3),
         render: () => (
           <>
+            <VenuePhoto kind="artist" value={mi.photo_url || ""} onChange={(url) => setMi("photo_url", url)} editable={!off} accent={color} />
             <Grid><In label="Name" value={mi.contact_name} onChange={(v) => setMi("contact_name", v)} disabled={off} /><In label="Title" value={mi.contact_title} onChange={(v) => setMi("contact_title", v)} disabled={off} placeholder="Manager, tour manager, member" /></Grid>
             <Grid><In label="Phone" value={mi.contact_phone} onChange={(v) => setMi("contact_phone", v)} disabled={off} /><In label="Email" value={mi.contact_email} onChange={(v) => setMi("contact_email", v)} disabled={off} /></Grid>
           </>
