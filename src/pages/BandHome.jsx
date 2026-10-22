@@ -57,6 +57,8 @@ export default function BandHome() {
   const [showPast, setShowPast] = useState(false);
   // Desktop: four months at a time; 0 = starting this month, each step is
   // four months (job 113). "No date" events get their own view.
+  // Months from this month to the first of the four on screen (job 132:
+  // the month picker can start the four anywhere; arrows step four).
   const [monthPage, setMonthPage] = useState(0);
   const [showUndated, setShowUndated] = useState(false);
   // Same search + filter panel, in the same spot, as the tech Home: a
@@ -342,7 +344,7 @@ export default function BandHome() {
     const target = dated.find((d) => d >= todayISO) || dated[dated.length - 1];
     const diff = Number(target.slice(0, 4)) * 12 + Number(target.slice(5, 7)) - 1 - (now.getFullYear() * 12 + now.getMonth());
     setShowUndated(false);
-    setMonthPage(Math.floor(diff / 4));
+    setMonthPage(diff);
   }, [isDesktop, search, hasActiveFilters, filteredGigs]);
 
   // Each month heading is a dropdown of every month group; picking one jumps
@@ -539,7 +541,7 @@ export default function BandHome() {
       if (!g.date) { undatedGigs.push(g); return; }
       (byMonth[g.date.slice(0, 7)] ||= []).push(g);
     });
-    const startIdx = nowIdx + monthPage * 4;
+    const startIdx = nowIdx + monthPage;
     const windowKeys = [0, 1, 2, 3].map((i) => keyOf(startIdx + i));
     const columns = showUndated ? [["undated", undatedGigs]] : windowKeys.map((k) => [k, byMonth[k] || []]);
     const shortMonth = (key) => new Date(key + "-01T00:00:00").toLocaleDateString("en-US", { month: "short" }).toUpperCase();
@@ -551,9 +553,9 @@ export default function BandHome() {
     const jumpDesk = (key) => {
       if (key === "undated") { setShowUndated(true); return; }
       setShowUndated(false);
-      setMonthPage(Math.floor((idxOf(key) - nowIdx) / 4));
+      setMonthPage(idxOf(key) - nowIdx);
     };
-    const step = (n) => { setShowUndated(false); setMonthPage((p) => p + n); };
+    const step = (n) => { setShowUndated(false); setMonthPage((p) => p + 4 * n); };
     const pagerBtn = "w-10 h-10 rounded-[10px] bg-[#111] border border-[#262626] flex items-center justify-center text-white/70 hover:text-white";
     return (
       <div className="h-screen flex flex-col bg-[#0d0d0d] overflow-hidden" style={{ fontFamily: SCENE_FONT }}>
@@ -610,8 +612,10 @@ export default function BandHome() {
         </div>
 
         <div className="px-6 pt-3 flex items-center gap-2 flex-wrap shrink-0">
-          {/* Four months at a time: back / forward four, back to now. */}
-          <div className="ml-auto flex items-center gap-1.5">
+          {/* Four months at a time, centered (job 132): back / forward four, the
+              month picker in the middle (starts the four at the month you pick),
+              back to now. */}
+          <div className="mx-auto flex items-center gap-1.5">
             {(monthPage !== 0 || showUndated) && (
               <button type="button" onClick={() => { setShowUndated(false); setMonthPage(0); }} className="h-10 px-3 rounded-[10px] bg-[#111] border border-[#262626] text-[14px] font-semibold text-white/75 hover:text-white">This month</button>
             )}
@@ -622,7 +626,17 @@ export default function BandHome() {
               </button>
             )}
             <button type="button" onClick={() => step(-1)} aria-label="Previous four months" className={pagerBtn}><ChevronLeft className="w-5 h-5" /></button>
-            <span className="min-w-[150px] text-center text-[15px] font-bold tracking-[0.08em] text-white/85" style={{ fontFamily: SCENE_MONO }}>{showUndated ? "NO DATE" : rangeLabel}</span>
+            <MonthDropdown
+              label={showUndated ? "NO DATE" : rangeLabel}
+              value={showUndated ? "undated" : windowKeys[0]}
+              options={deskMonthOptions}
+              onSelect={jumpDesk}
+              accent={accountStyle.color}
+              align="center"
+              ariaLabel="Pick the first month to show"
+              className="min-w-[170px] justify-center h-10 px-3 rounded-[10px] text-[15px] font-bold tracking-[0.08em] text-white/85 hover:text-white"
+              style={{ fontFamily: SCENE_MONO }}
+            />
             <button type="button" onClick={() => step(1)} aria-label="Next four months" className={pagerBtn}><ChevronRight className="w-5 h-5" /></button>
           </div>
         </div>
@@ -648,16 +662,8 @@ export default function BandHome() {
                 return (
                   <div key={monthKey} data-home-month={monthKey} className="flex-1 min-w-0 min-h-0 flex flex-col" style={{ maxWidth: showUndated ? 420 : undefined, ...(last ? {} : { paddingRight: 14, marginRight: 14, borderRight: "1px solid #222" }) }}>
                     <div className="h-[34px] flex items-center gap-2 pb-2 shrink-0">
-                      <MonthDropdown
-                        label={bankLabel(monthKey)}
-                        value={monthKey}
-                        options={deskMonthOptions}
-                        onSelect={jumpDesk}
-                        accent={accent}
-                        ariaLabel="Jump to a month"
-                        className="-ml-1 px-1 h-[28px] text-[20px] font-bold tracking-[0.08em] min-w-0"
-                        style={{ fontFamily: SCENE_FONT, color: accent }}
-                      />
+                      {/* Plain heading; months are picked in the bar above (job 132). */}
+                      <span className="h-[28px] flex items-center text-[20px] font-bold tracking-[0.08em] truncate" style={{ fontFamily: SCENE_FONT, color: accent }}>{bankLabel(monthKey)}</span>
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-1">
                       {monthGigs.length === 0 && <p className="px-1 pt-1 text-[14px] text-white/30">No events</p>}
