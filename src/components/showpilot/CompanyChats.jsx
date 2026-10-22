@@ -64,8 +64,10 @@ function SwipeRow({ onOpen, onDelete, children, label }) {
     onOpen();
   };
 
+  // Each row is its own card with a gap between, so neighbouring chats'
+  // photos don't run together (job 137).
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden rounded-xl border border-[#262626]">
       <button
         type="button"
         onClick={onDelete}
@@ -161,7 +163,7 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
         </div>
       ) : (
         <>
-          <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden">
+          <div className="flex flex-col gap-2">
             {chats.map((c) => {
               const color = c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color;
               const title = chatTitle(c);
@@ -196,7 +198,7 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
       {!loading && upcoming.length > 0 && (
         <div className={`${chats.length ? "pt-6" : ""} flex flex-col gap-2`}>
           <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{words.event.toUpperCase()} ROOMS</div>
-          <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden">
+          <div className="flex flex-col gap-2">
             {upcoming.map((g) => (
               <SwipeRow key={g.share_token} label={`${g.event_name || g.band_name || "Event"} rooms`} onOpen={() => navigate(`/gig/rooms?token=${g.share_token}`)} onDelete={() => removeEvent(g)}>
                 <PhotoBar photo={g.icon_url} color={eventTypeColor(g.event_type) || accent} className="min-h-[76px] flex items-center gap-3 pl-4 pr-3.5 py-3">

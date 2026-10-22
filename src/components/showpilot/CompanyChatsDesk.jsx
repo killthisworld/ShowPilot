@@ -103,7 +103,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
           ) : null}
 
           {!loading && chats.length > 0 && (
-            <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden shrink-0">
+            <div className="flex flex-col gap-2 shrink-0">
               {chats.map((c) => {
                 const color = chatColor(c);
                 const title = chatTitle(c);
@@ -113,8 +113,8 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
                   <div key={c.id} role="button" tabIndex={0} aria-pressed={on} aria-label={`${title}, ${c.event_title || ""}`}
                     onClick={() => setSel({ kind: "chat", id: c.id })}
                     onKeyDown={(e) => { if (e.key === "Enter") setSel({ kind: "chat", id: c.id }); if (e.key === "Delete") remove(c); }}
-                    className="group relative cursor-pointer">
-                    {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2" style={{ borderColor: color }} />}
+                    className="group relative cursor-pointer rounded-xl overflow-hidden border border-[#262626]">
+                    {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2 rounded-xl" style={{ borderColor: color }} />}
                     <PhotoBar photo={byToken[c.share_token]?.icon_url} color={color} className="min-h-[88px] flex items-center gap-3 pl-4 pr-2 py-3">
                       <span className="flex-1 min-w-0 flex flex-col gap-1">
                         <span className="flex items-baseline gap-2">
@@ -138,7 +138,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
           {!loading && upcoming.length > 0 && (
             <div className="flex flex-col gap-2 shrink-0">
               <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{words.event.toUpperCase()} ROOMS</div>
-              <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden">
+              <div className="flex flex-col gap-2">
                 {upcoming.map((g) => {
                   const color = eventTypeColor(g.event_type) || accent;
                   const on = selEvent?.share_token === g.share_token;
@@ -146,8 +146,8 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
                     <div key={g.share_token} role="button" tabIndex={0} aria-pressed={on} aria-label={`${g.event_name || g.band_name || "Event"} rooms`}
                       onClick={() => setSel({ kind: "event", token: g.share_token })}
                       onKeyDown={(e) => { if (e.key === "Enter") setSel({ kind: "event", token: g.share_token }); }}
-                      className="group relative cursor-pointer">
-                    {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2" style={{ borderColor: color }} />}
+                      className="group relative cursor-pointer rounded-xl overflow-hidden border border-[#262626]">
+                    {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2 rounded-xl" style={{ borderColor: color }} />}
                       <PhotoBar photo={g.icon_url} color={color} className="min-h-[70px] flex items-center gap-3 pl-4 pr-2 py-3">
                         <span className="flex-1 min-w-0 flex flex-col gap-1">
                           <span className="text-[16px] font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
