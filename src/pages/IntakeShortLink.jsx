@@ -2,9 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import TourManagerIntake from "@/pages/TourManagerIntake";
+import OpenerIntake from "@/pages/OpenerIntake";
 
-// Short Performer Intake link: showpilot.space/intake/7KQ2XM. Looks the code
-// up and opens the same intake form the long /tm-intake?token=... link does.
+// Short intake link: showpilot.space/intake/7KQ2XM. Looks the code up and
+// opens the Performer Intake form (long /tm-intake?token=... link) or, for
+// an opener link, the Opener Set Info form (/opener-intake?token=...).
 export default function IntakeShortLink() {
   const { code } = useParams();
   const [link, setLink] = useState(undefined); // undefined = loading, null = not found
@@ -35,5 +37,6 @@ export default function IntakeShortLink() {
       </div>
     );
   }
+  if (link.kind === "opener") return <OpenerIntake link={{ token: link.token }} />;
   return <TourManagerIntake link={{ token: link.token, engineer: link.engineer, name: link.name }} />;
 }

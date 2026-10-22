@@ -75,7 +75,10 @@ export default function ManagerLinksPage() {
 
       setRequests((prev) => prev.map((r) => (r.id === request.id ? { ...r, openers: [...r.openers, data] } : r)));
 
-      const url = `${window.location.origin}/opener-intake?token=${data.invite_token}`;
+      // Short link (showpilot.space/intake/7KQ2XM); the long one if the code is missing.
+      const url = data.short_code
+        ? `${window.location.origin}/intake/${data.short_code}`
+        : `${window.location.origin}/opener-intake?token=${data.invite_token}`;
       setShareMenuLink({ url, label: `Opener ${nextOrder} Link` });
     } catch (e) {
       console.error(e);

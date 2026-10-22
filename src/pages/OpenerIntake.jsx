@@ -20,9 +20,11 @@ const ROLE_COLORS = {
 };
 const ROLE_OPTIONS = ["Opener", "Headliner", "Performer/Group", "N/A"];
 
-export default function OpenerIntake() {
+// `link` comes from a short /intake/<code> link (IntakeShortLink); the long
+// /opener-intake?token=... link uses the URL instead.
+export default function OpenerIntake({ link } = {}) {
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
+  const token = link?.token || params.get("token");
 
   const [context, setContext] = useState(null);
   const [loadingView, setLoadingView] = useState(true);
