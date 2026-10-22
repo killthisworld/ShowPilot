@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
 import EventBackdrop from "@/components/showpilot/EventBackdrop";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -136,9 +137,11 @@ export default function GigRooms() {
             <h1 className="text-white font-bold text-2xl leading-tight truncate">{gigTitle}</h1>
             <p className="text-white/45 text-xs mt-0.5">Rooms</p>
           </div>
+          {DIRECT_MESSAGES_OPEN && (
           <Link to={`/gig/messages?token=${token}`} className="ml-auto h-10 px-4 rounded-[10px] flex items-center gap-2 bg-[#161616] border border-[#262626] text-white/80 hover:text-white text-sm font-semibold">
             <Mail className="w-4 h-4" /> Private messages
           </Link>
+          )}
         </div>
         <div className="flex-1 min-h-0 flex gap-4 px-5 py-4">
           <nav aria-label="Rooms" className="w-[260px] shrink-0 flex flex-col gap-1.5">
@@ -191,9 +194,11 @@ export default function GigRooms() {
             <p className="text-white/40 text-xs mt-0.5">Rooms</p>
           </div>
           {/* Private messages live here now that the event header has a single chat icon (job 119). */}
+          {DIRECT_MESSAGES_OPEN && (
           <Link to={`/gig/messages?token=${token}`} aria-label="Private messages" className="shrink-0 h-10 px-3 rounded-xl flex items-center gap-1.5 bg-[#161616] border border-[#262626] text-white/80 hover:text-white text-[13px] font-semibold">
             <Mail className="w-4 h-4" /> Private
           </Link>
+          )}
         </div>
         {rooms.length > 0 && (
           <div className="flex gap-1.5 px-4 pb-3 max-w-lg mx-auto overflow-x-auto">

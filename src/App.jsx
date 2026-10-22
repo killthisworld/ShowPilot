@@ -48,7 +48,7 @@ import DjTools from '@/pages/DjTools';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
 import { NavTracker } from '@/lib/navHistory';
-import { FAN_RSVP_OPEN } from '@/lib/hiddenProfiles';
+import { FAN_RSVP_OPEN, DIRECT_MESSAGES_OPEN } from '@/lib/hiddenProfiles';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -94,7 +94,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/role" element={<RoleFullProfile />} />
       <Route path="/gig/rooms" element={<GigRooms />} />
       <Route path="/gig/tasks" element={<EventTasks />} />
-      <Route path="/gig/messages" element={<GigDirectMessages />} />
+      <Route path="/gig/messages" element={DIRECT_MESSAGES_OPEN ? <GigDirectMessages /> : <MessagesToRooms />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />
       <Route path="/dj/set/:token" element={<DjSetUpload />} />
@@ -144,3 +144,10 @@ function App() {
 }
 
 export default App
+
+// Private messages are switched off (lib/hiddenProfiles.js): old links land
+// on the same event's rooms instead.
+function MessagesToRooms() {
+  const token = new URLSearchParams(window.location.search).get("token");
+  return <Navigate to={token ? `/gig/rooms?token=${token}` : "/"} replace />;
+}

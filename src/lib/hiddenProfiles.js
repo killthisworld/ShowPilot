@@ -13,6 +13,11 @@ export const FAN_SIDE_OPEN = false;
 // Fan page editor stay on: events already use them. No fan accounts.
 export const FAN_RSVP_OPEN = true;
 
+// Private (direct) messages between two people are switched off (2026-10-21):
+// conversation happens in each event's rooms. Old messages stay in the
+// database; /gig/messages sends people to the event's rooms instead.
+export const DIRECT_MESSAGES_OPEN = false;
+
 export const HIDDEN_ACCOUNT_TYPES = FAN_SIDE_OPEN ? [] : ["fan"];
 
 export const isProfileOpen = (accountType) => !HIDDEN_ACCOUNT_TYPES.includes(accountType);

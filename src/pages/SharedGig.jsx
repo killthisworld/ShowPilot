@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -1172,13 +1173,13 @@ export default function SharedGig() {
           {canEdit && (
             <>
               {!techPhone && (<>
-              <button
+              {DIRECT_MESSAGES_OPEN && <button
                 onClick={() => navigate(`/gig/messages?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>DMs</span>
-              </button>
+              </button>}
               <button
                 onClick={() => navigate(`/gig/rooms?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -1538,13 +1539,13 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
                   </div>
                   <span className="text-white text-sm truncate">{m.display_name || "Someone"}</span>
                 </div>
-                <button
+                {DIRECT_MESSAGES_OPEN && <button
                   onClick={() => startDM(m.user_id)}
                   disabled={!!startingDM}
                   className="flex items-center gap-1 text-[10px] font-semibold text-white/60 hover:text-white border border-white/15 hover:border-white/30 rounded-full px-2.5 py-1 shrink-0 disabled:opacity-50"
                 >
                   <MessageCircle className="w-3 h-3" /> {startingDM === m.user_id ? "..." : "Message"}
-                </button>
+                </button>}
               </div>
             ))}
           </div>
@@ -1552,9 +1553,11 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
       ) : (
         <div className="flex items-center justify-between gap-2">
           <p className="text-white/30 text-xs">Everyone connected to this gig can post here.</p>
+          {DIRECT_MESSAGES_OPEN && (
           <a href={`/gig/messages?token=${token}`} className="flex items-center gap-1 text-[10px] font-semibold text-white/60 hover:text-white border border-white/15 hover:border-white/30 rounded-full px-2.5 py-1 shrink-0">
             <MessageCircle className="w-3 h-3" /> Private Messages
           </a>
+          )}
         </div>
       )}
 
