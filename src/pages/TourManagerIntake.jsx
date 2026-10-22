@@ -52,6 +52,7 @@ export default function TourManagerIntake() {
     submitter_email: "",
     submitter_card_user_id: "",
     requested_order: "",
+    multitrack_interest: null,
   });
   const [engineerCard, setEngineerCard] = useState(null);
   const [shareMyCard, setShareMyCard] = useState(false);
@@ -344,6 +345,14 @@ export default function TourManagerIntake() {
             <p className="text-white/40 text-xs uppercase tracking-wider font-semibold mb-3">Previously Submitted</p>
             <p className="text-white font-semibold">{tmRequest.band_name}</p>
             <p className="text-white/50 text-sm">{tmRequest.date}{tmRequest.venue ? ` · ${tmRequest.venue}` : ""}{tmRequest.location ? ` · ${tmRequest.location}` : ""}</p>
+            {tmRequest.include_services && (
+              <p className="text-sm text-white/70">
+                Multi-track recording:{" "}
+                <span className={tmRequest.multitrack_interest ? "text-[#8CFF3D] font-semibold" : "text-white/45"}>
+                  {tmRequest.multitrack_interest === true ? "Yes, interested" : tmRequest.multitrack_interest === false ? "No" : "No answer"}
+                </span>
+              </p>
+            )}
             {tmRequest.band_members?.length > 0 && (
               <div className="mt-2 space-y-1">
                 {tmRequest.band_members.filter(m => m.name).map((m, i) => (
@@ -728,6 +737,31 @@ export default function TourManagerIntake() {
             </button>
           )}
         </div>
+
+        {tmRequest?.include_services && (
+          <div className="bg-[#111] rounded-2xl p-4">
+            <p className="text-white/50 text-xs">Additional Services <span className="text-white/30">(optional)</span></p>
+            <p className="text-white text-sm font-semibold mt-2">Interested in getting your set multi-track recorded?</p>
+            <p className="text-white/40 text-xs mt-1">No payment now. This just gives the engineer a heads-up so you can talk details at the event.</p>
+            <div className="grid grid-cols-2 gap-2 mt-3" role="radiogroup" aria-label="Multi-track recording">
+              {[[true, "Yes"], [false, "No"]].map(([v, text]) => {
+                const on = form.multitrack_interest === v;
+                return (
+                  <button
+                    key={text}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => update("multitrack_interest", on ? null : v)}
+                    className={`h-11 rounded-xl border text-sm font-semibold transition-colors ${on ? "border-[#8CFF3D]/60 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/60 hover:text-white"}`}
+                  >
+                    {text}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm px-1">{error}</p>}
 
