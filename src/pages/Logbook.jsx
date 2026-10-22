@@ -51,8 +51,13 @@ export default function Logbook() {
       if (!user) { setLoading(false); return; }
       setCurrentUserId(user.id);
 
+      // The Logbook goes by the date (job 131): every event whose date has
+      // passed is in it, marked done or not (the nightly job and the wrap-up
+      // mark it done too). Events shared with you only once they're past.
+      const now = new Date();
+      const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const [showsRes, settingsRes, prefsRes] = await Promise.all([
-        supabase.from("shows").select("*").eq("owner_id", user.id).eq("done", true).order("date", { ascending: false }),
+        supabase.from("shows").select("*").eq("owner_id", user.id).or(`done.eq.true,date.lt.${todayISO}`).order("date", { ascending: false }),
         supabase.from("logbook_month_settings").select("*").eq("user_id", user.id),
         supabase.from("user_preferences").select("logbook_bio").eq("user_id", user.id).maybeSingle(),
       ]);
@@ -72,7 +77,7 @@ export default function Logbook() {
             return data ? { ...data, is_linked: true, share_token: link.share_token, done: true } : null;
           })
         );
-        ownShows = [...ownShows, ...linkedDetails.filter(Boolean)];
+        ownShows = [...ownShows, ...linkedDetails.filter((g) => g && g.date && g.date < todayISO)];
       }
 
       setShows(ownShows);
