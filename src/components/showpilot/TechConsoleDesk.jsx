@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MessageCircle, Ticket, Camera, Plus, Search, SlidersHorizontal, MoreHorizontal, Archive, Trash2, X, Share2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { MessageCircle, Ticket, Camera, Plus, Search, MoreHorizontal, Archive, Trash2, X, Share2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneTitle } from "@/lib/sceneStyle";
+import { SCENE_FONT, SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { localISO, addDaysISO } from "@/lib/needsMe";
@@ -39,17 +39,12 @@ const SEND = { chat: "#60A5FA", fan: "#E879F9", share: "#8CFF3D" };
 export default function TechConsoleDesk({
   shows, // already filtered by search / bank / dropdown filters
   pool, // every show that passes the dropdown filters (no bank, no search)
-  inTab, // (show, bankId) => boolean, the same rule the phone uses
   loading,
   accent = "#8CFF3D",
   preferences,
   onPreferencesUpdate,
   search,
   setSearch,
-  activeTab,
-  setActiveTab,
-  filtersNode,
-  hasActiveFilters,
   onOpen,
   onArchive,
   onDeleteRequest,
@@ -59,42 +54,38 @@ export default function TechConsoleDesk({
   const [photoOverride, setPhotoOverride] = useState({});
   const [fanShow, setFanShow] = useState(null);
   const [busyPhoto, setBusyPhoto] = useState(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [menuFor, setMenuFor] = useState(null);
   const [toast, setToast] = useState("");
   const fileRef = useRef(null);
   const photoTarget = useRef(null);
   const { data: needs } = useNeedsMe();
 
-  // Like the phone: the console shows one week (Mon-Sun, moved with the
-  // arrows), opening on this week from today on. Nothing that week = nothing
-  // on the console. The banks narrow it; a search looks through everything.
+  // Home is a look at the coming week: today and the six days after, moved
+  // a week at a time with the arrows. Nothing that week = nothing on the
+  // console. Event types (New / Frequent / Worked / Starred / Linked) and
+  // filters live on the Calendar; a search still looks through everything.
   const [weekOffset, setWeekOffset] = useState(0);
-  const today0 = localISO();
   const weekDays = useMemo(() => {
-    const now = new Date();
-    const dow = now.getDay();
-    const monday = addDaysISO(-(dow === 0 ? 6 : dow - 1) + weekOffset * 7);
-    const base = new Date(monday + "T00:00:00");
+    const first = addDaysISO(weekOffset * 7); // the coming 7 days, starting today
+    const base = new Date(first + "T00:00:00");
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const key = localISO(d);
-      return { key, d, shows: (pool || []).filter((x) => x.date === key && inTab(x, activeTab)) };
+      return { key, d, shows: (pool || []).filter((x) => x.date === key) };
     });
-  }, [weekOffset, pool, activeTab, inTab]);
-  const weekStart = weekOffset === 0 ? today0 : weekDays[0].key;
+  }, [weekOffset, pool]);
+  const weekStart = weekDays[0].key;
   const weekEnd = weekDays[6].key;
   const weekPool = useMemo(
     () => (pool || []).filter((s) => s.date && s.date >= weekStart && s.date <= weekEnd),
     [pool, weekStart, weekEnd]
   );
-  const countFor = (id) => weekPool.filter((s) => inTab(s, id)).length;
 
   const strips = useMemo(() => {
-    const list = search ? [...shows] : weekPool.filter((s) => inTab(s, activeTab));
+    const list = search ? [...shows] : [...weekPool];
     return list.sort((a, b) => (!a.date ? 1 : !b.date ? -1 : a.date.localeCompare(b.date)));
-  }, [shows, search, weekPool, activeTab, inTab]);
+  }, [shows, search, weekPool]);
 
   const stripIds = useMemo(() => strips.map((s) => s.id).filter(Boolean).join(","), [strips]);
 
@@ -221,9 +212,6 @@ export default function TechConsoleDesk({
     />
   );
 
-  // No ALL button: with no bank pressed every show is on; pressing the lit
-  // bank again turns it off.
-  const banks = SCENE_BANKS;
 
   return (
     <div className="fixed inset-0 flex bg-[#0d0d0d] text-[#f2f2f2] overflow-hidden" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -248,41 +236,15 @@ export default function TechConsoleDesk({
               <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
             )}
           </label>
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((v) => !v)}
-            aria-expanded={filtersOpen}
-            aria-label="Filters"
-            className="h-10 px-2.5 xl:px-3 rounded-[10px] flex items-center gap-1.5 text-[14px] font-semibold shrink-0"
-            style={filtersOpen || hasActiveFilters ? { background: accent, color: "#0d0d0d", border: `1px solid ${accent}` } : { background: "#111", color: "#b5b5b5", border: "1px solid #222" }}
-          >
-            <SlidersHorizontal className="w-4 h-4" /><span className="hidden xl:inline">Filters</span>
-          </button>
-          {banks.map((b) => {
-            const on = activeTab === b.id;
-            return (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => setActiveTab(on ? "all" : b.id)}
-                aria-pressed={on}
-                className="h-10 px-2 xl:px-3.5 rounded-full text-[15px] xl:text-[17px] font-bold tracking-[0.03em] xl:tracking-[0.04em] shrink-0 whitespace-nowrap"
-                style={{ fontFamily: SCENE_FONT, background: on ? b.color : b.color + "20", color: on ? "#0d0d0d" : b.color, border: `1.5px solid ${on ? b.color : b.color + "55"}` }}
-              >
-                {b.label} <span className="text-[10px] xl:text-[11px] opacity-80" style={{ fontFamily: SCENE_MONO }}>{countFor(b.id)}</span>
-              </button>
-            );
-          })}
           <Link to="/show/new" onClick={clearNewShowDraft} aria-label="New show" className="ml-auto h-[44px] px-3 xl:px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold shrink-0 whitespace-nowrap" style={{ background: accent, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" strokeWidth={2.6} /><span className="hidden xl:inline">New show</span>
           </Link>
         </div>
-        {filtersOpen && <div className="px-6 py-2.5 flex gap-2 flex-wrap border-b border-[#1a1a1a]">{filtersNode}</div>}
 
         {/* The week: one column per day. The day box is the frame of that
             day's strip, so each fader is exactly as wide as its day. */}
         <div className="px-6 pt-3 pb-2 flex items-center gap-2.5">
-          <h2 className="text-[18px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT }}>{search ? "SEARCH" : weekOffset === 0 ? "THIS WEEK" : weekOffset === 1 ? "NEXT WEEK" : weekOffset === -1 ? "LAST WEEK" : "WEEK"}</h2>
+          <h2 className="text-[18px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT }}>{search ? "SEARCH" : weekOffset === 0 ? "COMING WEEK" : weekOffset > 0 ? "LATER" : "EARLIER"}</h2>
           {!search && (
             <>
               <span className="text-[12px] text-white/55" style={{ fontFamily: SCENE_MONO }}>

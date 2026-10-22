@@ -12,7 +12,7 @@ import { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import { eventTypeColor } from "@/lib/eventTypes";
-import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { SCENE_FONT, SCENE_MONO, SCENE_BANKS } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import MonthDropdown from "@/components/showpilot/MonthDropdown";
@@ -147,16 +147,26 @@ export default function CalendarPage() {
     return () => { isMounted = false; };
   }, []);
 
+  // Event types live here (the desktop console is just the coming week):
+  // New / Frequent / Worked / Starred / Linked. None pressed = every show.
+  const [bank, setBank] = useState(null);
+  const inBank = (s, id) => {
+    if (id === "linked") return !!s.is_linked;
+    if (id === "starred") return !!s.starred;
+    return !s.is_linked && !s.starred && (s.status || "not_started") === id;
+  };
+  const shownShows = useMemo(() => (bank ? shows.filter((s) => inBank(s, bank)) : shows), [shows, bank]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const showsByDate = useMemo(() => {
     const map = {};
-    shows.forEach((s) => {
+    shownShows.forEach((s) => {
       if (s.date) {
         if (!map[s.date]) map[s.date] = [];
         map[s.date].push(s);
       }
     });
     return map;
-  }, [shows]);
+  }, [shownShows]);
 
   // Month dropdown: every month around your events, with how many each has.
   const monthOptions = useMemo(() => {
@@ -328,7 +338,24 @@ export default function CalendarPage() {
             className="-ml-2 px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em]"
           />
           <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
-          <div className="flex-1 max-w-[440px] ml-auto hidden xl:block"><StatusStrip cells={headerCells} /></div>
+          <div className="flex items-center gap-2 ml-2">
+            {SCENE_BANKS.map((b) => {
+              const on = bank === b.id;
+              const n = shows.filter((x) => x.date && moment(x.date).isSame(currentMonth, "month") && inBank(x, b.id)).length;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setBank(on ? null : b.id)}
+                  className="h-10 px-2.5 xl:px-3.5 rounded-full text-[16px] xl:text-[17px] font-bold tracking-[0.04em] shrink-0 whitespace-nowrap"
+                  style={{ background: on ? b.color : b.color + "20", color: on ? "#0d0d0d" : b.color, border: `1.5px solid ${on ? b.color : b.color + "55"}` }}
+                >
+                  {b.label} <span className="text-[10px] xl:text-[11px] opacity-80" style={{ fontFamily: SCENE_MONO }}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
           <button type="button" onClick={() => newShowOnDate(activeKey)} style={{ marginLeft: "auto" }} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New show
           </button>

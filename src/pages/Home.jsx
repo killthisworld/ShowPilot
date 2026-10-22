@@ -511,17 +511,12 @@ export default function Home() {
         <TechConsoleDesk
           shows={filtered}
           pool={deskPool}
-          inTab={inTab}
           loading={loading}
           accent={accountStyle.color}
           preferences={preferences}
           onPreferencesUpdate={reload}
           search={search}
           setSearch={setSearch}
-          activeTab={deskTab}
-          setActiveTab={setDeskTab}
-          filtersNode={filterSelects}
-          hasActiveFilters={hasActiveFilters}
           onOpen={openShow}
           onArchive={handleArchive}
           onDeleteRequest={requestDelete}
