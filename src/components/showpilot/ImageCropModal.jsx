@@ -4,16 +4,22 @@ import { Button } from "@/components/ui/button";
 // A lightweight crop tool: drag the image to reposition, slider to zoom,
 // exports exactly what's visible in the frame as a JPEG blob. No external
 // libraries — just the Canvas API.
-export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspectH = 1, onCancel, onCropped }) {
+// fit="height" (default) starts the image at the frame's height; fit="cover"
+// starts it filling the whole frame (no bars), for wide frames like a venue
+// photo. outWidth sets the exported width in pixels.
+export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspectH = 1, onCancel, onCropped, fit = "height", outWidth = 600, title = "Drag to reposition, slide to zoom" }) {
   const [imgSrc, setImgSrc] = useState(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const imgRef = useRef(null);
+  const [nat, setNat] = useState(null); // the image's natural size, once loaded
 
   const VIEWPORT_W = 288;
   const VIEWPORT_H = Math.round((VIEWPORT_W * aspectH) / aspectW);
+  // Height the image is shown at before zooming.
+  const baseH = fit === "cover" && nat ? Math.max(VIEWPORT_H, (VIEWPORT_W * nat.h) / nat.w) : VIEWPORT_H;
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
@@ -37,7 +43,7 @@ export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspe
     const img = imgRef.current;
     if (!img) return;
 
-    const outW = 600;
+    const outW = outWidth;
     const outH = Math.round((outW * aspectH) / aspectW);
     const canvas = document.createElement("canvas");
     canvas.width = outW;
@@ -46,7 +52,7 @@ export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspe
 
     // Image is displayed pinned to the viewport height, scaled by `scale`,
     // and shifted by `offset` — this must match the inline style below exactly.
-    const dispH = VIEWPORT_H * scale;
+    const dispH = baseH * scale;
     const dispW = (img.naturalWidth / img.naturalHeight) * dispH;
     const dispX = (VIEWPORT_W - dispW) / 2 + offset.x;
     const dispY = (VIEWPORT_H - dispH) / 2 + offset.y;
@@ -64,7 +70,7 @@ export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspe
   return (
     <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center px-4" onClick={onCancel}>
       <div onClick={(e) => e.stopPropagation()} className="bg-[#161616] rounded-2xl p-4 w-full max-w-sm">
-        <p className="text-white text-sm font-semibold mb-3 text-center">Drag to reposition, slide to zoom</p>
+        <p className="text-white text-sm font-semibold mb-3 text-center">{title}</p>
         <div
           className={`relative overflow-hidden mx-auto bg-black ${shape === "circle" ? "rounded-full" : "rounded-xl"}`}
           style={{ width: VIEWPORT_W, height: VIEWPORT_H, touchAction: "none" }}
@@ -79,11 +85,12 @@ export default function ImageCropModal({ file, shape = "rect", aspectW = 1, aspe
               src={imgSrc}
               alt=""
               draggable={false}
+              onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
               className="absolute select-none"
               style={{
                 left: "50%",
                 top: "50%",
-                height: VIEWPORT_H,
+                height: baseH,
                 width: "auto",
                 maxWidth: "none",
                 transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${scale})`,

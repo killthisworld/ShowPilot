@@ -62,6 +62,9 @@ export function templateFromGig(role, gig = {}) {
   const data = { section: cleanSection(role, gig[sectionKey]), gig: g };
   if (role === "venue") {
     for (const k of VENUE_TECH_KEYS) if (!isEmpty(gig[k])) data[k] = gig[k];
+    // The venue photo lives in venue_info.photo_url; engineer templates read it top-level.
+    // Always written (empty when removed) so an old copy can't come back.
+    data.venue_photo_url = data.section?.photo_url || "";
   }
   return data;
 }
@@ -75,6 +78,7 @@ export function gigFromTemplate(role, name, data = {}) {
   if (role === "venue") {
     for (const k of VENUE_TECH_KEYS) if (isEmpty(gig[k]) && !isEmpty(data[k])) gig[k] = data[k];
     if (isEmpty(gig.venue) && name) gig.venue = name;
+    if (isEmpty(gig[sectionKey].photo_url) && !isEmpty(data.venue_photo_url)) gig[sectionKey].photo_url = data.venue_photo_url;
   }
   return gig;
 }

@@ -211,7 +211,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           // more recently than the draft (e.g. saved from another device) —
           // load fresh data below instead of the stale local draft.
           const [parsedCity, parsedState] = (showRes.data.location || "").split(",").map((s) => s.trim());
-          setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "" });
+          // venue_photo_url: the venue's photo (kept in venue_info.photo_url, shared with the venue's section).
+          setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "", venue_photo_url: showRes.data.venue_info?.photo_url || "" });
           if (bandsRes.data && bandsRes.data.length > 0) {
             setBands(bandsRes.data);
           } else {
@@ -412,6 +413,19 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         general_notes: headliner.general_notes,
       };
       if (show.share_token) sharedPayload.share_token = show.share_token;
+      // Venue photo: merge into the latest venue_info (the venue company edits
+      // the rest of it), only when the photo actually changed.
+      const photo = show.venue_photo_url || "";
+      if (isNew) {
+        if (photo) sharedPayload.venue_info = { photo_url: photo };
+      } else {
+        const { data: cur } = await supabase.from("shows").select("venue_info").eq("id", id).maybeSingle();
+        const vi = cur?.venue_info && typeof cur.venue_info === "object" ? cur.venue_info : {};
+        if ((vi.photo_url || "") !== photo) {
+          const { photo_url, ...rest } = vi;
+          sharedPayload.venue_info = photo ? { ...rest, photo_url: photo } : rest;
+        }
+      }
 
       let showId = id;
       let createdToken = null;

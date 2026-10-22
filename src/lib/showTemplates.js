@@ -6,10 +6,12 @@
 // Venue template data keys (the venue's name is the template's name).
 export const VENUE_TEMPLATE_KEYS = [
   "city", "state", "contacts", "venue_checklist", "wifi_network", "wifi_password", "console", "power_notes",
+  "venue_photo_url",
 ];
 
 export const emptyVenueTemplate = () => ({
   city: "", state: "", contacts: [], venue_checklist: {}, wifi_network: "", wifi_password: "", console: "", power_notes: "",
+  venue_photo_url: "",
 });
 
 export const emptyArtistTemplate = () => ({

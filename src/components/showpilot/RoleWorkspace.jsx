@@ -14,6 +14,7 @@ import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness } from "@/lib/eventBusiness";
+import VenuePhoto from "@/components/showpilot/VenuePhoto";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -228,6 +229,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([gig.venue, gig.city, vi.address]), 3),
         render: () => (
           <>
+            <VenuePhoto value={vi.photo_url || ""} onChange={(url) => setVi("photo_url", url)} editable={!off} accent={color} />
             <In label="Venue" value={gig.venue} onChange={(v) => p.update("venue", v)} disabled={off} placeholder="Venue name" />
             <In label="Street address" value={vi.address} onChange={(v) => setVi("address", v)} disabled={off} placeholder="1604 8th Ave S" />
             <Grid><In label="City" value={gig.city} onChange={(v) => p.update("city", v)} disabled={off} /><In label="State" value={gig.state} onChange={(v) => p.update("state", v)} disabled={off} /></Grid>

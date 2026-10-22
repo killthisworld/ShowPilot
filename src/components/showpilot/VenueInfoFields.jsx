@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import VenuePhoto from "@/components/showpilot/VenuePhoto";
 
 // The Venue Info fields, shared by a show (ShowDetail) and a saved venue
 // template (My Templates) so the two always ask for exactly the same things.
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 //
 // `value` holds: venue (name), city, state, contacts [{ name, role, phone,
 // email }], venue_checklist { [key]: { checked, notes } }, wifi_network,
-// wifi_password, console, power_notes.
+// wifi_password, console, power_notes, venue_photo_url (the venue's photo).
 // `onChange(field, val)` sets one of those. `nameAction` sits beside the
 // Venue label (e.g. the Load Venue button on a show).
 
@@ -62,6 +63,7 @@ export default function VenueInfoFields({ value, onChange, nameAction = null, na
 
   return (
     <div className="space-y-4 pt-3">
+      <VenuePhoto value={v.venue_photo_url || ""} onChange={(url) => onChange("venue_photo_url", url)} />
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-white/50 text-xs">Venue</Label>
