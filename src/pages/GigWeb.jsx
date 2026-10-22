@@ -19,6 +19,7 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog from "@/components/showpilot/FlightLog";
+import { latestBySection, firstName, agoLabel } from "@/lib/gigActivity";
 import BoardOverview from "@/components/showpilot/BoardOverview";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
@@ -99,8 +100,7 @@ function roleInvited(role, permissions) {
 }
 
 // Mirrors set_gig_task_status's own permission check exactly - owner, holds
-// the role, was granted the section, or is the first visitor to an
-// invited-but-unclaimed section - computed from the permissions Gig Web
+// the role, or was granted the section - computed from the permissions Gig Web
 // already has at the top level, so the Tasks tab can show the right Mark
 // done control for whichever role is selected without a second fetch.
 function roleEditable(role, permissions) {
@@ -108,7 +108,9 @@ function roleEditable(role, permissions) {
   if (permissions.is_owner) return true;
   if ((permissions.my_roles || []).some((r) => SECTION_HOLDERS[role].includes(r))) return true;
   if ((permissions.granted_sections || []).includes(sectionOf(role))) return true;
-  return roleInvited(role, permissions) && !roleClaimed(role, permissions);
+  // A pending invite no longer lets just anyone in (job 143): the invited
+  // person joins when they open their link signed in.
+  return false;
 }
 
 // The event web's profile circles: a tint of the role color, a ring that's
@@ -1693,6 +1695,18 @@ function DesktopGigWeb({
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
+  // Who changed what (job 143): the flight log's UPDATED rows and the
+  // "Updated by" line on the open profile. Refreshes whenever the gig does.
+  const [activity, setActivity] = useState([]);
+  useEffect(() => {
+    if (!token || !user) return;
+    let live = true;
+    supabase.rpc("get_gig_activity", { p_token: token }).then(({ data, error }) => {
+      if (live && !error && Array.isArray(data)) setActivity(data);
+    });
+    return () => { live = false; };
+  }, [token, user?.id, gig]);
+  const lastBySection = latestBySection(activity);
   // No chat on the desktop event page (job 130): every chat lives on the
   // Chats page in the rail.
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
@@ -1771,6 +1785,9 @@ function DesktopGigWeb({
                     <span className="text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
                     <span className="text-white/40 text-[10px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>
                       {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
+                      {lastBySection[sectionOf(selectedRole)] && (
+                        <> · Updated by {firstName(lastBySection[sectionOf(selectedRole)].user_name)} {agoLabel(lastBySection[sectionOf(selectedRole)].at)}</>
+                      )}
                     </span>
                   </span>
                 </>
@@ -1819,7 +1836,7 @@ function DesktopGigWeb({
           </div>
 
           <div className="min-h-0 flex flex-col">
-            <FlightLog nodes={nodes} tasks={gig.tasks || []} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
+            <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { useAuth } from "@/lib/AuthContext";
 import { WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { fieldsLabel, firstName, sectionLabel as activitySection } from "@/lib/gigActivity";
 import {
   dueInfo, localISO, shortDate, timeAgo, chatHref, chatTitle,
   readSeenChanges, rememberSeenChange, sectionMeta, vocab, visibleChats,
@@ -337,10 +338,17 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                   </span>
                   <span className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
                     <span className="text-[15px] font-semibold text-white leading-snug">
-                      {isTask ? `Done: ${c.task_title}` : `${c.event_title || "An event"} was updated`}
+                      {isTask
+                        ? `Done: ${c.task_title}`
+                        : c.kind === "section_updated"
+                          ? `${firstName(c.by_name)} updated ${activitySection(c.section)}`
+                          : `${c.event_title || "An event"} was updated`}
                     </span>
                     <span className="text-xs text-white/55 truncate">
-                      {[isTask ? (c.by_name || sectionMeta(c.section).label) : null, isTask ? c.event_title : (c.event_date ? shortDate(c.event_date) : null), timeAgo(c.at)].filter(Boolean).join(" · ")}
+                      {(c.kind === "section_updated"
+                        ? [fieldsLabel(c.fields), c.event_title, timeAgo(c.at)]
+                        : [isTask ? (c.by_name || sectionMeta(c.section).label) : null, isTask ? c.event_title : (c.event_date ? shortDate(c.event_date) : null), timeAgo(c.at)]
+                      ).filter(Boolean).join(" · ")}
                     </span>
                   </span>
                   <button onClick={() => gotIt(c)} className="h-11 px-3.5 shrink-0 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold">Got it</button>

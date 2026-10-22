@@ -57,17 +57,28 @@ export default function InviteSheet({ showId, trigger, elevated = false, presele
   const [fresh, setFresh] = useState([]); // ids generated this visit
   const [copied, setCopied] = useState(null);
   const [confirmCancel, setConfirmCancel] = useState(null);
+  const [names, setNames] = useState({}); // user_id -> display name of who joined
 
   const load = useCallback(async () => {
     if (!showId) return;
     const { data, error: e } = await supabase
       .from("gig_invites")
-      .select("id, invite_token, invited_role, label, status, accepted_at, created_at, granted_sections")
+      .select("id, invite_token, invited_role, label, status, accepted_at, accepted_by, opened_at, created_at, granted_sections")
       .eq("show_id", showId)
       .order("created_at", { ascending: false });
     // Only the profiles ShowPilot offers now: old promoter / booking agent
     // invites stay in the database but aren't listed (job 122).
     setInvites(e ? [] : (data || []).filter((i) => ROLE_ORDER.includes(i.invited_role)));
+    // Who joined: names come from the event's collaborator list (job 143).
+    try {
+      const { data: show } = await supabase.from("shows").select("share_token").eq("id", showId).maybeSingle();
+      if (show?.share_token) {
+        const { data: col } = await supabase.rpc("get_gig_collaborators", { p_token: show.share_token });
+        const map = {};
+        for (const p of [col?.owner, ...(col?.linked || [])]) if (p?.user_id && p.display_name) map[p.user_id] = p.display_name;
+        setNames(map);
+      }
+    } catch { /* names are a nice-to-have */ }
   }, [showId]);
 
   useEffect(() => { if (open) load(); }, [open, load]);
@@ -280,7 +291,13 @@ export default function InviteSheet({ showId, trigger, elevated = false, presele
           </div>
           <div className="flex items-center gap-1.5 mt-0.5 text-[11.5px] tracking-[0.04em]" style={{ fontFamily: SCENE_MONO }}>
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: joined ? r.color : "transparent", border: `1.5px solid ${r.color}` }} />
-            <span className="text-white/55">{joined ? `JOINED ${shortDate(inv.accepted_at).toUpperCase()}` : "LINK NOT USED YET"}</span>
+            <span className="text-white/55 truncate">
+              {joined
+                ? `JOINED${names[inv.accepted_by] ? ` · ${names[inv.accepted_by].toUpperCase()}` : ""} · ${shortDate(inv.accepted_at).toUpperCase()}`
+                : inv.opened_at
+                  ? `OPENED ${shortDate(inv.opened_at).toUpperCase()}, NOT JOINED`
+                  : "NOT OPENED YET"}
+            </span>
             {extra.length > 0 && (
               <span className="flex items-center gap-1 ml-1">
                 <span className="text-white/35">+</span>

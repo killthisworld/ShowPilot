@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Plane } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import { fieldsLabel, firstName } from "@/lib/gigActivity";
 
 const AMBER = "#F5B83D";
 
@@ -25,8 +26,8 @@ function stamp(iso, now) {
 // The progress feed on the desktop board, styled like an airport
 // departures board: a runway per role with the plane moving along it as
 // the section fills in, then a log of what happened (tasks filed and
-// cleared), newest first.
-export default function FlightLog({ nodes = [], tasks = [], codes = {}, onSelectRole, selectedRole }) {
+// cleared, and who updated which profile), newest first.
+export default function FlightLog({ nodes = [], tasks = [], activity = [], codes = {}, onSelectRole, selectedRole }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000); // keeps "5M AGO" honest
@@ -40,8 +41,9 @@ export default function FlightLog({ nodes = [], tasks = [], codes = {}, onSelect
       if (t.created_at) out.push({ at: t.created_at, kind: "FILED", task: t });
       if (t.status === "done" && t.completed_at) out.push({ at: t.completed_at, kind: "CLEARED", task: t });
     });
-    return out.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 40);
-  }, [tasks]);
+    (activity || []).forEach((a) => out.push({ at: a.at, kind: "UPDATED", act: a }));
+    return out.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 60);
+  }, [tasks, activity]);
 
   const avg = nodes.length ? Math.round(nodes.reduce((s, n) => s + (n.percent || 0), 0) / nodes.length) : 0;
   const landed = nodes.filter((n) => n.percent >= 100).length;
@@ -85,9 +87,23 @@ export default function FlightLog({ nodes = [], tasks = [], codes = {}, onSelect
           <span>TIME</span><span>FROM</span><span>STATUS</span>
         </div>
         {events.length === 0 ? (
-          <p className="px-4 py-3 text-[11px] text-white/30 tracking-[0.04em]">NO MOVEMENT YET. TASKS SHOW UP HERE AS THEY'RE FILED AND CLEARED.</p>
+          <p className="px-4 py-3 text-[11px] text-white/30 tracking-[0.04em]">NO MOVEMENT YET. TASKS AND PROFILE UPDATES SHOW UP HERE.</p>
         ) : (
           events.map((e, i) => {
+            if (e.kind === "UPDATED") {
+              const a = e.act;
+              const n = byRole[a.section];
+              return (
+                <div key={`a-${a.id}-${i}`} className="grid grid-cols-[62px_64px_minmax(0,1fr)] gap-x-2 px-4 py-1.5 border-t border-[#161616] items-baseline">
+                  <span className="text-[11px] tabular-nums text-white/55">{stamp(e.at, now)}</span>
+                  <span className="text-[11px] font-semibold truncate" style={{ color: n?.style.color || "#9a9a9a" }}>{a.section === "event" ? "EVENT" : codes[a.section] || a.section}</span>
+                  <span className="min-w-0 text-[12px] leading-snug">
+                    <span className="font-semibold tracking-[0.06em] mr-1.5 text-white/55">UPDATED</span>
+                    <span className="text-white/80">{firstName(a.user_name)} · {fieldsLabel(a.fields)}</span>
+                  </span>
+                </div>
+              );
+            }
             const n = byRole[e.task.section];
             const cleared = e.kind === "CLEARED";
             return (

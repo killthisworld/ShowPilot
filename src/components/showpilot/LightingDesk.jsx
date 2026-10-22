@@ -37,6 +37,7 @@ const VIEWS = [
 function changeText(c) {
   if (c.kind === "task_done") return `${c.by_name || "Someone"} finished: ${c.task_title || "a task"}`;
   if (c.kind === "event_updated") return "Event details changed";
+  if (c.kind === "section_updated") return `${(c.by_name || "Someone").split(" ")[0]} updated ${c.section === "engineer" ? "Audio / Lighting" : c.section === "manager" ? "Manager / Artist" : c.section === "venue" ? "Venue" : "the event"}`;
   return c.task_title || "Something changed";
 }
 

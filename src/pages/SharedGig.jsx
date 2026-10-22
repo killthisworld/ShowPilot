@@ -20,6 +20,7 @@ import EventBanner from "@/components/showpilot/EventBanner";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
+import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 
 export const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -729,6 +730,10 @@ export default function SharedGig() {
   const [engineerCards, setEngineerCards] = useState({});
   const [isLinkedAlready, setIsLinkedAlready] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  // Invite link (job 143): what it's for, and what happened when we accepted it.
+  const [inviteInfo, setInviteInfo] = useState(null);
+  const [inviteState, setInviteState] = useState(null); // null | "accepted" | "taken" | "error"
+  const [inviteMsg, setInviteMsg] = useState("");
 
   useEffect(() => {
     const audioId = (gig?.engineer_info || {}).audio?.card_user_id;
@@ -763,6 +768,7 @@ export default function SharedGig() {
       try {
         const { data, error } = await supabase.rpc("get_gig_invite", { p_token: inviteToken });
         if (error || !data || !data.share_token) { setNotFound(true); setLoading(false); return; }
+        setInviteInfo(data);
         setResolvedToken(data.share_token);
       } catch (e) {
         console.error(e);
@@ -808,6 +814,35 @@ export default function SharedGig() {
     };
     load();
   }, [resolvedToken]);
+
+  // Accept the invite as soon as the person is signed in on its link (job
+  // 143) - before, it only happened on their first Save here, so most
+  // invites stayed "waiting". The server allows one person per invite.
+  const acceptedFor = useRef(null);
+  useEffect(() => {
+    if (!inviteToken || !user?.id || !resolvedToken || !gig?.id) return;
+    const key = `${inviteToken}:${user.id}`;
+    if (acceptedFor.current === key) return;
+    acceptedFor.current = key;
+    (async () => {
+      const { data, error } = await supabase.rpc("accept_gig_invite", { p_token: inviteToken });
+      if (error) {
+        console.error(error);
+        const taken = /already joined/i.test(error.message || "");
+        setInviteState(taken ? "taken" : "error");
+        setInviteMsg(taken ? error.message : "Couldn't join with this invite just now. Try reloading the page.");
+        return;
+      }
+      if (data?.status === "owner") return;
+      // You're on the event now: link it to your account and refresh what you can edit.
+      await supabase.from("linked_gigs").upsert({ user_id: user.id, show_id: gig.id, share_token: resolvedToken }, { onConflict: "user_id,show_id", ignoreDuplicates: true });
+      setIsLinkedAlready(true);
+      const { data: perms } = await supabase.rpc("get_gig_section_permissions", { p_token: resolvedToken });
+      if (perms) setPermissions(perms);
+      if (data?.status === "accepted") setInviteState("accepted");
+    })();
+  }, [inviteToken, user?.id, resolvedToken, gig?.id]);
+  const inviteRoleLabel = inviteInfo ? (ACCOUNT_TYPE_STYLES[inviteInfo.invited_role]?.label || inviteInfo.invited_role) : "";
 
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
   const updateSection = (section, field, val) =>
@@ -962,10 +997,10 @@ export default function SharedGig() {
     // outright - it's a deliberate grant, so it isn't blocked by someone
     // else already holding the section.
     if (permissions?.granted_sections?.includes(section)) return true;
-    // An un-invited section is locked to the owner only. A pending invite
-    // (generated but not yet accepted by anyone) still lets its first
-    // recipient in, so they can save and thereby accept it.
-    return !!permissions?.invited_roles?.includes(section) && !permissions?.claimed_roles?.includes(section);
+    // Everything else is locked. A pending invite no longer opens a section
+    // to everyone (job 143): the invited person joins when they open their
+    // link signed in, and then holds the role.
+    return false;
   };
   const isLocked = (section) => canEdit && !permissions?.is_owner && !canEditSection(section);
 
@@ -977,9 +1012,7 @@ export default function SharedGig() {
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
     if (permissions?.granted_sections?.includes("engineer") || permissions?.granted_sections?.includes("lighting")) return true;
-    const invited = permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting");
-    const claimed = permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting");
-    return !!invited && !claimed;
+    return false;
   };
   const isEngineerLocked = () => canEdit && !permissions?.is_owner && !canEditEngineerSection();
   // Every event has all three profiles (venue, manager / artist, audio / lighting).
@@ -1214,9 +1247,17 @@ export default function SharedGig() {
       </div>
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
+        {inviteState === "accepted" && (
+          <div className="rounded-2xl p-3.5 flex items-center gap-2 text-[13px]" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: "#8CFF3D" }}>
+            <Check className="w-4 h-4 shrink-0" /> You're on this event as {inviteRoleLabel}. It's in your Linked events.
+          </div>
+        )}
+        {(inviteState === "taken" || inviteState === "error") && (
+          <div className="rounded-2xl p-3.5 text-[13px] text-red-300 bg-red-500/10 border border-red-400/30">{inviteMsg}</div>
+        )}
         {!canEdit && (
           <div className="bg-[#111] border border-[#222] rounded-2xl p-4 flex items-center justify-between gap-3">
-            <p className="text-white/50 text-xs">Sign in to edit this gig</p>
+            <p className="text-white/50 text-xs">{inviteToken && inviteRoleLabel ? `Sign in or create an account to join this event as ${inviteRoleLabel}` : "Sign in to edit this gig"}</p>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => {

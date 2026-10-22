@@ -104,16 +104,15 @@ export function useRoleProfile({ role, token, onChanged }) {
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes(section)) return true;
     if (permissions?.granted_sections?.includes(section)) return true;
-    return !!permissions?.invited_roles?.includes(section) && !permissions?.claimed_roles?.includes(section);
+    // A pending invite doesn't open the section to everyone (job 143).
+    return false;
   };
   const canEditEngineerSection = () => {
     if (!canEdit) return false;
     if (permissions?.is_owner) return true;
     if (permissions?.my_roles?.includes("engineer") || permissions?.my_roles?.includes("lighting")) return true;
     if (permissions?.granted_sections?.includes("engineer") || permissions?.granted_sections?.includes("lighting")) return true;
-    const invited = permissions?.invited_roles?.includes("engineer") || permissions?.invited_roles?.includes("lighting");
-    const claimed = permissions?.claimed_roles?.includes("engineer") || permissions?.claimed_roles?.includes("lighting");
-    return !!invited && !claimed;
+    return false;
   };
   const myEngineerRole = () => (permissions?.my_roles?.includes("lighting") && !permissions?.my_roles?.includes("engineer") ? "lighting" : "engineer");
   const editable = role === "engineer" ? canEditEngineerSection() : canEditSection(role);
