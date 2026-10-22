@@ -29,11 +29,13 @@ const formatPhoneNumber = (value) => {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
-export default function TourManagerIntake() {
+// `link` comes from a short /intake/<code> link (IntakeShortLink); the long
+// /tm-intake?token=...&engineer=...&name=... link uses the URL instead.
+export default function TourManagerIntake({ link } = {}) {
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("token");
-  const engineerUserId = params.get("engineer");
-  const engineerName = params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
+  const token = link?.token || params.get("token");
+  const engineerUserId = link?.engineer || params.get("engineer");
+  const engineerName = link ? (link.name || "your audio engineer") : params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
 
   const [form, setForm] = usePersistedState(`tm_intake_draft_${token}`, {
     role: "Headliner",

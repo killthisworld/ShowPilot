@@ -23,6 +23,7 @@ import Experience from '@/pages/Experience';
 import TechChats from '@/pages/TechChats';
 import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
+import IntakeShortLink from '@/pages/IntakeShortLink';
 import PilotCardView from '@/pages/PilotCardView';
 import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
@@ -80,6 +81,7 @@ const AuthenticatedApp = () => {
       <Route path="/email-change" element={<EmailChange />} />
       <Route path="/shared/:id" element={<SharedShow />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
+      <Route path="/intake/:code" element={<IntakeShortLink />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />

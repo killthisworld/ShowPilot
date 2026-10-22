@@ -75,7 +75,10 @@ export default function CalendarPage() {
       if (error) throw error;
 
       const name = encodeURIComponent(engineerName || "your engineer");
-      const url = `${window.location.origin}/tm-intake?token=${request.invite_token}&engineer=${user.id}&name=${name}&email=${encodeURIComponent(user.email || "")}`;
+      // Short link (showpilot.space/intake/7KQ2XM); the long one if the code is missing.
+      const url = request.short_code
+        ? `${window.location.origin}/intake/${request.short_code}`
+        : `${window.location.origin}/tm-intake?token=${request.invite_token}&engineer=${user.id}&name=${name}`;
       setTmLink(url);
       setShowLinkForm(false);
       setLinkEventName("");
