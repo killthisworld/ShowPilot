@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Send, CheckCircle, Music, Users, Wifi, Save, X, Paperclip, User, ExternalLink, ChevronDown } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import { useToast } from "@/components/ui/use-toast";
+import IntakeRating from "@/components/showpilot/IntakeRating";
 
 const EVENT_TYPES = ["Concert", "Comedy Show", "Theatre Play", "Corporate Event", "Private Party", "Festival", "Open Mic", "Other"];
 
@@ -416,6 +417,7 @@ export default function TourManagerIntake() {
           <p className="text-white/50 text-sm">
             Your gig info has been sent to {engineerName}. The show has been added to their ShowPilot profile.
           </p>
+          <IntakeRating token={token} />
         </div>
       </div>
     );
