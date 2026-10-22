@@ -5,7 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
-import { localISO, addDaysISO } from "@/lib/needsMe";
+import { localISO, addDaysISO, visibleChats } from "@/lib/needsMe";
 import { shareLink } from "@/lib/share";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -139,7 +139,7 @@ export default function TechConsoleDesk({
 
   const unreadByToken = useMemo(() => {
     const map = {};
-    (needs?.chats || []).forEach((c) => { map[c.share_token] = (map[c.share_token] || 0) + Number(c.unread || 0); });
+    visibleChats(needs?.chats).forEach((c) => { map[c.share_token] = (map[c.share_token] || 0) + Number(c.unread || 0); });
     return map;
   }, [needs]);
 

@@ -21,3 +21,10 @@ export const DIRECT_MESSAGES_OPEN = false;
 export const HIDDEN_ACCOUNT_TYPES = FAN_SIDE_OPEN ? [] : ["fan"];
 
 export const isProfileOpen = (accountType) => !HIDDEN_ACCOUNT_TYPES.includes(accountType);
+
+// Each event still has Promoter and Booking agent rooms from before those
+// profiles were removed (2026-10-19). Every chat list and room tab drops
+// them; the rooms and their messages stay in the database.
+export const HIDDEN_ROOM_SECTIONS = ["promoter", "booking_agent"];
+export const isRoomOpen = (section) => !HIDDEN_ROOM_SECTIONS.includes(section);
+export const openRooms = (rooms) => (rooms || []).filter((r) => isRoomOpen(r.section));

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
+import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
 import EventBackdrop from "@/components/showpilot/EventBackdrop";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -51,7 +51,7 @@ export default function GigRooms() {
         const { data, error } = await supabase.rpc("ensure_my_gig_room_membership", { p_token: token });
         if (error) throw error;
         setGigTitle(data.gig_title || "Gig");
-        const sorted = (data.rooms || []).sort((a, b) => ROOM_ORDER.indexOf(a.section) - ROOM_ORDER.indexOf(b.section));
+        const sorted = openRooms(data.rooms).sort((a, b) => ROOM_ORDER.indexOf(a.section) - ROOM_ORDER.indexOf(b.section));
         setRooms(sorted);
         if (sorted.length > 0) {
           // A pilot-card back link can ask to land back on the specific

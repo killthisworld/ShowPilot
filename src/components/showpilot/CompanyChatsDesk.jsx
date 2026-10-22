@@ -8,6 +8,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
 import { PhotoBar } from "@/components/showpilot/CompanyChats";
+import { openRooms } from "@/lib/hiddenProfiles";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 import { ROOM_META, ROOM_ORDER } from "@/pages/GigRooms";
 
@@ -221,7 +222,7 @@ function EventRooms({ gig, user, color }) {
     supabase.rpc("ensure_my_gig_room_membership", { p_token: gig.share_token }).then(({ data, error }) => {
       if (off) return;
       if (error) { console.error(error); setRooms([]); return; }
-      const list = (data?.rooms || []).slice().sort((a, b) => ROOM_ORDER.indexOf(a.section) - ROOM_ORDER.indexOf(b.section));
+      const list = openRooms(data?.rooms).sort((a, b) => ROOM_ORDER.indexOf(a.section) - ROOM_ORDER.indexOf(b.section));
       setRooms(list);
       setActive(list[0]?.id || null);
     });

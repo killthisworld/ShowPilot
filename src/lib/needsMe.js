@@ -1,4 +1,4 @@
-import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
+import { DIRECT_MESSAGES_OPEN, isRoomOpen } from "@/lib/hiddenProfiles";
 import { supabase } from "@/api/supabaseClient";
 
 // Shared bits for the company phone layout (Needs me home, the "+" quick-add
@@ -149,10 +149,11 @@ export function isChatHidden(chat, hidden = readHiddenChats()) {
   return !!at && !(chat.last_at && new Date(chat.last_at).getTime() > new Date(at).getTime());
 }
 // Every chat list (Chats, Needs me, the unread badge) goes through here, so
-// private messages drop out everywhere while they're switched off.
+// private messages drop out everywhere while they're switched off, and so do
+// the rooms of removed profiles (Promoter, Booking agent).
 export function visibleChats(chats) {
   const hidden = readHiddenChats();
-  return (chats || []).filter((c) => !isChatHidden(c, hidden) && (DIRECT_MESSAGES_OPEN || c.kind !== "direct"));
+  return (chats || []).filter((c) => !isChatHidden(c, hidden) && (DIRECT_MESSAGES_OPEN || c.kind !== "direct") && isRoomOpen(c.section));
 }
 export async function hideChat(chat) {
   try {

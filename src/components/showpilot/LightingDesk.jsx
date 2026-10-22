@@ -4,7 +4,7 @@ import { Plus, Search, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
-import { chatHref, chatTitle, dueInfo, localISO, readSeenChanges, rememberSeenChange, timeAgo, shortDate } from "@/lib/needsMe";
+import { chatHref, chatTitle, dueInfo, localISO, readSeenChanges, rememberSeenChange, timeAgo, shortDate, visibleChats } from "@/lib/needsMe";
 import { shareLink } from "@/lib/share";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -76,7 +76,7 @@ export default function LightingDesk({ shows, accent = "#8CFF3D", preferences, o
         urgent: !!due?.urgent, sortKey: t.due_date && t.due_date <= today ? 0 : 3,
       };
     });
-    const chats = (needs.chats || []).filter((c) => Number(c.unread) > 0).map((c) => ({
+    const chats = visibleChats(needs.chats).filter((c) => Number(c.unread) > 0).map((c) => ({
       id: "c:" + c.id, kind: "CHAT", raw: c,
       what: `${c.last_sender_name || chatTitle(c)}: ${c.last_body || "New message"}`,
       event: c.event_title || "Event", show_id: c.show_id, share_token: c.share_token,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
-import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
+import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -274,7 +274,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   useEffect(() => {
     if (checkingAuth || !user || !token) return;
     supabase.rpc("ensure_my_gig_room_membership", { p_token: token }).then(({ data, error }) => {
-      if (!error && data) setRooms(data.rooms || []);
+      if (!error && data) setRooms(openRooms(data.rooms));
     });
   }, [checkingAuth, user, token]);
 
