@@ -14,7 +14,7 @@ const DELETE_W = 96;
 // A full-width bar with the event's photo across it (job 73): the photo
 // fills the bar, a dark wash on the left keeps the text readable, and a
 // strip in `color` runs down the left edge.
-function PhotoBar({ photo, color, children, className = "" }) {
+export function PhotoBar({ photo, color, children, className = "" }) {
   return (
     <div className={`relative isolate overflow-hidden ${className}`}>
       {photo ? (

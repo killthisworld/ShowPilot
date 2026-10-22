@@ -21,6 +21,7 @@ import FanPageButton from "@/components/showpilot/FanPageButton";
 import TicketCard from "@/components/showpilot/TicketCard";
 import NeedsMeHome from "@/components/showpilot/NeedsMeHome";
 import CompanyChats from "@/components/showpilot/CompanyChats";
+import CompanyChatsDesk from "@/components/showpilot/CompanyChatsDesk";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
@@ -506,6 +507,17 @@ export default function BandHome() {
       <BandBottomTabs />
     </>
   );
+
+  // Desktop Chats (job 129): the rail's Chats tab, the phone Chats laid out wide.
+  if (isDesktop && phoneView === "chats") {
+    return (
+      <>
+        <CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} />
+        <BandBottomTabs />
+        {overlays}
+      </>
+    );
+  }
 
   if (isDesktop) {
     // Month banks like the tech desktop console: heading = month name (year

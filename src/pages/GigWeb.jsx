@@ -1740,9 +1740,9 @@ function DesktopGigWeb({
         </div>
         <div className="flex-1 max-w-[560px] ml-6 min-w-[300px]"><StatusStrip cells={stripCells} /></div>
         <div className="ml-auto flex items-center gap-1 [&_svg]:!w-5 [&_svg]:!h-5 [&_span]:!text-[10px]">
-          <button type="button" onClick={() => setRoomsOpen((v) => !v)} aria-expanded={roomsOpen} aria-label="Rooms" className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors ${roomsOpen ? "text-white bg-white/10" : "text-white/60 hover:text-white"}`}>
+          <button type="button" onClick={() => setRoomsOpen((v) => !v)} aria-expanded={roomsOpen} aria-label="Room" className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors ${roomsOpen ? "text-white bg-white/10" : "text-white/60 hover:text-white"}`}>
             <MessageCircle className="w-4 h-4" />
-            <span className="text-[8px] tracking-[0.08em] leading-none" style={{ fontFamily: SCENE_MONO }}>ROOMS</span>
+            <span className="text-[8px] tracking-[0.08em] leading-none" style={{ fontFamily: SCENE_MONO }}>ROOM</span>
           </button>
           {actionButtons}
         </div>
@@ -1835,14 +1835,15 @@ function DesktopGigWeb({
 
       {/* Rooms: slides in from the right over the board, under the header. */}
       {roomsOpen && (
-        <div className="absolute right-4 top-[76px] bottom-4 z-30 w-[420px] max-w-[calc(100%-32px)] flex flex-col rounded-2xl bg-[#111] border border-[#2a2a2a]" role="dialog" aria-label="Rooms" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.7)" }}>
+        <div className="absolute right-4 top-[76px] bottom-4 z-30 w-[420px] max-w-[calc(100%-32px)] flex flex-col rounded-2xl bg-[#111] border border-[#2a2a2a]" role="dialog" aria-label="Room" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.7)" }}>
+          {/* The event's one room: its General chat (job 129). */}
           <div className="flex items-center gap-2 px-4 pt-3 pb-2.5 border-b border-[#1f1f1f] shrink-0">
-            <span className="text-white font-bold tracking-[0.08em] text-lg">ROOMS</span>
-            <span className="text-white/50 text-[11px] uppercase" style={{ fontFamily: SCENE_MONO }}>· {selectedNode ? selectedNode.style.label : "General"}</span>
-            <button type="button" onClick={() => setRoomsOpen(false)} aria-label="Close rooms" className="ml-auto p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
+            <span className="text-white font-bold tracking-[0.08em] text-lg">ROOM</span>
+            <span className="text-white/50 text-[11px] uppercase truncate" style={{ fontFamily: SCENE_MONO }}>· {title}</span>
+            <button type="button" onClick={() => setRoomsOpen(false)} aria-label="Close room" className="ml-auto p-1 text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4">
-            <RoomsTabPanel selectedRole={selectedRole} roleLabel={selectedNode?.style.label} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
+            <RoomsTabPanel selectedRole={null} token={token} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers} />
           </div>
         </div>
       )}

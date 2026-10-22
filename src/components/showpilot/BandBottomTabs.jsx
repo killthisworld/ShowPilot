@@ -10,10 +10,12 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
 import { openQuickAdd, visibleChats } from "@/lib/needsMe";
 
-// Desktop rail destinations (unchanged).
+// Desktop rail destinations. Chats (job 129) sits between Calendar and
+// Cockpit and opens Home's ?view=chats, the desktop Chats page.
 const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/band/calendar", label: "Calendar", icon: CalendarDays },
+  { path: "/?view=chats", label: "Chats", icon: MessageCircle, chats: true },
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
@@ -28,7 +30,8 @@ export default function BandBottomTabs() {
   const { pathname, search } = useLocation();
   const { preferences, reload } = usePreferences();
   const isDesktop = useIsDesktop();
-  const isActive = (tab) => (tab.path === "/" ? pathname === "/" : pathname.startsWith(tab.path));
+  const onChats = pathname === "/" && new URLSearchParams(search).get("view") === "chats";
+  const isActive = (tab) => (tab.chats ? onChats : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {
     document.body.classList.add("has-rail");
@@ -54,7 +57,10 @@ export default function BandBottomTabs() {
                 active ? "text-[#8CFF3D] bg-[#8CFF3D]/10" : "text-white/50 hover:text-white/80 hover:bg-white/5"
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <span className="relative">
+                <tab.icon className="w-5 h-5" />
+                {tab.chats && <RailUnread />}
+              </span>
               <span className="text-xs font-semibold tracking-[0.04em]">{tab.label}</span>
             </Link>
           );
@@ -65,6 +71,19 @@ export default function BandBottomTabs() {
         </Link>
       </nav>
     </>
+  );
+}
+
+// Unread count on the rail's Chats tab (desktop only, so the phone bar's own
+// count isn't fetched twice).
+function RailUnread() {
+  const { data } = useNeedsMe();
+  const n = visibleChats(data?.chats).reduce((sum, c) => sum + Number(c.unread || 0), 0);
+  if (!n) return null;
+  return (
+    <span className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#8CFF3D] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">
+      {n > 99 ? "99+" : n}
+    </span>
   );
 }
 
