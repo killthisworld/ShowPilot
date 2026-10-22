@@ -16,7 +16,8 @@ import { venueFromTemplate, artistFromTemplate } from "@/lib/showTemplates";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { usePreferences } from "@/hooks/usePreferences";
 import useIsDesktop from "@/hooks/useIsDesktop";
-import RoomsButton from "@/components/showpilot/RoomsButton";
+import EventBanner from "@/components/showpilot/EventBanner";
+import { fetchMyIcons } from "@/lib/eventIcons";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
 
@@ -937,6 +938,15 @@ export default function SharedGig() {
   const techView = isTechProductionAccount;
   // On a tech phone the event is just these dropdowns: no web, tasks in a box from the header.
   const techPhone = isTechProductionAccount && !isDesktop;
+  // Your own picture for this event (if you set one) for the banner.
+  const [myIcon, setMyIcon] = useState(null);
+  const gigId = gig?.id;
+  useEffect(() => {
+    if (!techPhone || !gigId) return;
+    let off = false;
+    fetchMyIcons().then((m) => { if (!off) setMyIcon(m?.[gigId] || null); }).catch(() => {});
+    return () => { off = true; };
+  }, [techPhone, gigId]);
   const myAccountType = preferences?.account_type;
   const busPresets = preferences?.mix_bus_presets || [];
   const iemMonitorColors = {
@@ -1150,17 +1160,18 @@ export default function SharedGig() {
             <button onClick={() => goBack()} className="p-1 text-white/60 hover:text-white shrink-0">
               <ArrowLeft className="w-5 h-5" />
             </button>
+            {/* Tech phones: the title lives in the event banner below (job 134). */}
+            {!techPhone && (
             <div className="min-w-0">
               <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
-              {!techPhone && <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>}
+              <p className="text-white/40 text-xs mt-0.5">{canEdit ? "Editing shared gig" : "Viewing shared gig"}</p>
             </div>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {techPhone ? (
-              <>
-                {canEdit && <RoomsButton token={resolvedToken} />}
-                <TasksButton token={resolvedToken} />
-              </>
+              // No chat icon: chats live on the Chats tab (job 134).
+              <TasksButton token={resolvedToken} />
             ) : (
               <button
                 onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
@@ -1229,6 +1240,9 @@ export default function SharedGig() {
           </div>
         )}
 
+        {techPhone && <EventBanner gig={gig} imageUrl={myIcon} title={title} />}
+
+        {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
           {/* Only the owner can actually persist these (update_shared_gig
               rejects anyone else), so show them as editable only for the
@@ -1270,6 +1284,7 @@ export default function SharedGig() {
             </>
           )}
         </div>
+        )}
 
         {(() => {
           // Tech phones: no Needs Attention block (job 119).

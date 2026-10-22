@@ -7,7 +7,7 @@ import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
-import RoomsButton from "@/components/showpilot/RoomsButton";
+import EventBanner from "@/components/showpilot/EventBanner";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
@@ -628,17 +628,14 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
           <div className="px-4 py-3 max-w-lg mx-auto flex items-center gap-3">
             <button onClick={goBack} className="p-1 text-white/60 hover:text-white shrink-0"><ArrowLeft className="w-5 h-5" /></button>
-            <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={36} />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
-              <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ")}</p>
-            </div>
-            {/* Chat is an icon beside Tasks instead of a SHOW / ROOMS tab row (job 119). */}
-            <RoomsButton token={token} />
+            {/* Title, date and photo live in the event banner below; no chat
+                icon - chats are on the Chats tab (job 134). */}
+            <div className="flex-1" />
             <TasksButton token={token} />
           </div>
         </div>
         <div className="px-4 pt-3 max-w-lg mx-auto">
+          <div className="mb-3"><EventBanner gig={gig} imageUrl={myIcon} title={title} /></div>
           <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
             <ShowDetail embeddedId={gig.id} onSaved={() => { loadGig(); onGigChanged?.(); }} />
           </Suspense>
