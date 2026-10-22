@@ -5,7 +5,7 @@ import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { chatHref, chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat } from "@/lib/needsMe";
+import { chatHref, chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
 
 const BLUE = "#60A5FA";
 const G = "#8CFF3D";
@@ -98,31 +98,45 @@ function SwipeRow({ onOpen, onDelete, children, label }) {
 // The company phone layout's Chats tab: every chat you're in across all your
 // events, newest first, unread on top, each bar showing its event's photo.
 // Swipe a chat left to delete it from your list (it comes back if someone
-// sends a new message). Below it, a quick way into any upcoming event's rooms.
+// sends a new message). Below it, a quick way into any upcoming event's rooms
+// (also swipe-to-delete). Only events that haven't happened yet are listed.
 export default function CompanyChats({ preferences, gigs }) {
   const navigate = useNavigate();
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const words = vocab(preferences?.account_type);
   const { data, loading, failed, reload } = useNeedsMe();
   const [gone, setGone] = useState(() => new Set());
+  const [hiddenEvents, setHiddenEvents] = useState(() => readHiddenEventRooms());
+  const today = localISO();
 
+  // Chats for events that haven't happened yet (no date counts as upcoming).
   const chats = useMemo(() => {
-    const list = visibleChats(data?.chats).filter((c) => !gone.has(c.id));
+    const list = visibleChats(data?.chats).filter((c) => !gone.has(c.id) && (!c.event_date || c.event_date >= today));
     return list.sort((a, b) => (b.unread > 0) - (a.unread > 0) || String(b.last_at).localeCompare(String(a.last_at)));
-  }, [data, gone]);
+  }, [data, gone, today]);
 
   const byToken = useMemo(() => Object.fromEntries((gigs || []).filter((g) => g.share_token).map((g) => [g.share_token, g])), [gigs]);
 
+  // An event's rooms row you deleted stays gone until one of its chats has
+  // something new (it's back in the chat list above).
   const upcoming = useMemo(() => {
-    const today = localISO();
-    return (gigs || []).filter((g) => g.share_token && g.date && g.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
-  }, [gigs]);
+    const active = new Set(chats.map((c) => c.share_token));
+    return (gigs || [])
+      .filter((g) => g.share_token && g.date && g.date >= today && (!hiddenEvents[g.share_token] || active.has(g.share_token)))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 8);
+  }, [gigs, today, hiddenEvents, chats]);
 
   const remove = (c) => {
     setGone((s) => new Set([...s, c.id]));
     // Drop it from the shared copy too, so the Chats badge and Needs me update.
     patchNeedsMe((d) => ({ ...d, chats: (d.chats || []).filter((x) => x.id !== c.id) }));
     hideChat(c);
+  };
+  const removeEvent = (g) => {
+    hideEventRooms(g.share_token);
+    setHiddenEvents((h) => ({ ...h, [g.share_token]: new Date().toISOString() }));
+    chats.filter((c) => c.share_token === g.share_token).forEach(remove);
   };
 
   return (
@@ -136,11 +150,11 @@ export default function CompanyChats({ preferences, gigs }) {
           <p className="flex-1 m-0 text-sm text-white/70">Couldn't load your chats just now.</p>
           <button onClick={reload} className="h-11 px-3.5 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold">Retry</button>
         </div>
-      ) : chats.length === 0 ? (
+      ) : chats.length === 0 ? (upcoming.length > 0 ? null :
         <div className="rounded-xl bg-[#151515] border border-[#262626] p-5 flex flex-col items-center gap-2 text-center">
           <MessageCircle className="w-8 h-8 text-white/40" />
           <p className="m-0 text-base font-semibold text-white">No conversations yet</p>
-          <p className="m-0 text-sm text-white/55">Open an {words.event}'s rooms below to start one.</p>
+          <p className="m-0 text-sm text-white/55">Your upcoming {words.events.toLowerCase()}' rooms show up here.</p>
         </div>
       ) : (
         <>
@@ -173,16 +187,15 @@ export default function CompanyChats({ preferences, gigs }) {
               );
             })}
           </div>
-          <p className="mt-2 px-0.5 text-[12px] text-white/35">Swipe a chat left to delete it. It comes back if someone sends a new message.</p>
         </>
       )}
 
       {upcoming.length > 0 && (
-        <div className="pt-6 flex flex-col gap-2">
+        <div className={`${chats.length ? "pt-6" : ""} flex flex-col gap-2`}>
           <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{words.event.toUpperCase()} ROOMS</div>
           <div className="rounded-xl border border-[#1f1f1f] divide-y divide-black overflow-hidden">
             {upcoming.map((g) => (
-              <button key={g.share_token} onClick={() => navigate(`/gig/rooms?token=${g.share_token}`)} className="block w-full text-left active:opacity-80">
+              <SwipeRow key={g.share_token} label={`${g.event_name || g.band_name || "Event"} rooms`} onOpen={() => navigate(`/gig/rooms?token=${g.share_token}`)} onDelete={() => removeEvent(g)}>
                 <PhotoBar photo={g.icon_url} color={eventTypeColor(g.event_type) || accent} className="min-h-[76px] flex items-center gap-3 pl-4 pr-3.5 py-3">
                   <span className="flex-1 min-w-0 flex flex-col gap-1">
                     <span className="text-[16px] font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
@@ -190,10 +203,14 @@ export default function CompanyChats({ preferences, gigs }) {
                   </span>
                   <ChevronRight className="w-5 h-5 text-white/60 shrink-0" />
                 </PhotoBar>
-              </button>
+              </SwipeRow>
             ))}
           </div>
         </div>
+      )}
+
+      {!loading && !failed && (chats.length > 0 || upcoming.length > 0) && (
+        <p className="mt-2.5 px-0.5 text-[12px] text-white/35">Swipe left to delete. A chat comes back if someone sends a new message.</p>
       )}
     </div>
   );

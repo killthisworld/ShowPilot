@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import EventBackdrop from "@/components/showpilot/EventBackdrop";
 import { useNavigate, Link } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -389,8 +390,10 @@ export default function GigDirectMessages() {
   }
 
   return (
-    <div className="h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
-      <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+    <div className="relative isolate h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
+      {/* The event's photo behind private messages (job 73). */}
+      <EventBackdrop token={token} />
+      <div className="shrink-0 bg-[#0d0d0d]/85 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button
             onClick={() => (activeThread ? setActiveThread(null) : goBack(`/gig/web?token=${token}`))}

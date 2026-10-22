@@ -162,3 +162,18 @@ export async function hideChat(chat) {
   const { error } = await supabase.rpc("hide_conversation", { p_conversation_id: chat.id });
   if (error && error.code !== "PGRST202") console.error(error);
 }
+
+// Swipe to delete an event's rooms row on the Chats tab (job 73): kept on
+// this device. It comes back on its own once one of that event's chats has
+// a new message (the chat shows up in the list again).
+const HIDDEN_EVENTS_KEY = "showpilot_hidden_event_rooms";
+export function readHiddenEventRooms() {
+  try { return JSON.parse(localStorage.getItem(HIDDEN_EVENTS_KEY) || "{}"); } catch { return {}; }
+}
+export function hideEventRooms(shareToken) {
+  try {
+    const hidden = readHiddenEventRooms();
+    hidden[shareToken] = new Date().toISOString();
+    localStorage.setItem(HIDDEN_EVENTS_KEY, JSON.stringify(hidden));
+  } catch { /* private mode: it just shows again next visit */ }
+}

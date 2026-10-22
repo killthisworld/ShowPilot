@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import EventBackdrop from "@/components/showpilot/EventBackdrop";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -177,8 +178,10 @@ export default function GigRooms() {
   }
 
   return (
-    <div className="h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
-      <div className="shrink-0 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
+    <div className="relative isolate h-[100dvh] bg-[#0d0d0d] flex flex-col overflow-hidden">
+      {/* The event's photo behind the room (job 73). */}
+      <EventBackdrop token={token} />
+      <div className="shrink-0 bg-[#0d0d0d]/85 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto flex items-center gap-3">
           <button onClick={() => goBack(`/gig/web?token=${token}`)} className="p-1 text-white/60 hover:text-white shrink-0">
             <ArrowLeft className="w-5 h-5" />

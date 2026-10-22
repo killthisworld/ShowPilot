@@ -145,7 +145,9 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
               )}
               <div
                 className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${isMe ? "bg-[#8CFF3D] text-black" : "text-white"}`}
-                style={isMe ? undefined : { backgroundColor: senderColor + "26", borderLeft: `3px solid ${senderColor}` }}
+                // A solid dark base under the sender tint, so bubbles stay
+                // readable over an event photo (job 73).
+                style={isMe ? undefined : { backgroundColor: "rgba(20,20,20,0.92)", backgroundImage: `linear-gradient(${senderColor}26, ${senderColor}26)`, borderLeft: `3px solid ${senderColor}` }}
               >
                 {!isMe && (
                   <p className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: senderColor }}>
@@ -163,7 +165,7 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
   );
 
   const composer = (
-    <div style={fill ? { paddingBottom: "max(12px, env(safe-area-inset-bottom))" } : undefined} className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 pt-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full" : "flex items-center gap-2 pt-3 mt-3 border-t border-[#1a1a1a]"}>
+    <div style={fill ? { paddingBottom: "max(12px, env(safe-area-inset-bottom))" } : undefined} className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 pt-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full bg-[#0d0d0d]/85 backdrop-blur-lg" : "flex items-center gap-2 pt-3 mt-3 border-t border-[#1a1a1a]"}>
       <div className="flex items-center gap-2">
         <input
           value={draft}
