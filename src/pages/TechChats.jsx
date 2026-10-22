@@ -46,11 +46,20 @@ export default function TechChats() {
     return () => { alive = false; };
   }, []);
 
+  // Desktop: the company desktop Chats page as is (one screen, no page
+  // scroll), beside the tech rail.
+  if (isDesktop) {
+    return (
+      <>
+        <CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} />
+        <BottomTabs />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0d0d] pb-28">
-      {isDesktop
-        ? <CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} />
-        : <CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} />}
+      <CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} />
       <BottomTabs />
     </div>
   );
