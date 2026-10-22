@@ -22,6 +22,9 @@ export default function TicketCard({
   shadow = true,
   className = "",
   ariaLabel,
+  stubFooter = null, // under the date on the stub (job 127: the fan page button)
+  corner = null,     // pinned to the body's top-right corner (job 127: task count)
+  centered = false,  // centered body text: an even scrim over the photo
   children,
 }) {
   const d = date ? new Date(date + "T00:00:00") : null;
@@ -58,6 +61,7 @@ export default function TicketCard({
         ) : (
           <span className="text-[10px] tracking-[0.1em] text-white/60 text-center px-1">NO DATE</span>
         )}
+        {stubFooter && <div className="mt-2 flex justify-center">{stubFooter}</div>}
       </div>
       <span
         aria-hidden="true"
@@ -70,9 +74,10 @@ export default function TicketCard({
             readable on any image. */}
         <EventBarPhoto url={photo} opacity={0.6} />
         {photo && (
-          <span aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(21,21,21,0.92) 0%, rgba(21,21,21,0.55) 55%, rgba(21,21,21,0.15) 100%)" }} />
+          <span aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none" style={{ background: centered ? "radial-gradient(ellipse at 50% 50%, rgba(21,21,21,0.78), rgba(21,21,21,0.45) 75%)" : "linear-gradient(90deg, rgba(21,21,21,0.92) 0%, rgba(21,21,21,0.55) 55%, rgba(21,21,21,0.15) 100%)" }} />
         )}
         {children}
+        {corner && <div className="absolute top-2 right-2 z-10">{corner}</div>}
       </div>
     </div>
     </div>

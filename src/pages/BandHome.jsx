@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, PlaneTakeoff } from "lucide-react";
+import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, PlaneTakeoff, ClipboardList } from "lucide-react";
 import MonthDropdown, { jumpMonthOptions, nearestMonthKey, calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
@@ -16,7 +16,6 @@ import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip, getRoleBanks } from "@/lib/homeStats";
 import { SCENE_MONO, SCENE_FONT } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
-import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import EventBarPhoto from "@/components/showpilot/EventBarPhoto";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import TicketCard from "@/components/showpilot/TicketCard";
@@ -665,28 +664,27 @@ export default function BandHome() {
                             photo={g.icon_url}
                             dim={!!g.date && g.date < todayISO}
                             onClick={() => openGig(g)}
-                            ariaLabel={`Open ${g.event_name || g.band_name || "event"}`}
+                            ariaLabel={`Open ${g.event_name || g.band_name || "event"}${tasksOpen ? `, ${tasksOpen} open task${tasksOpen === 1 ? "" : "s"}` : ""}`}
+                            stubWidth={84}
+                            centered
+                            // Job 127: fan page under the date, open tasks as a number in the corner.
+                            stubFooter={<FanPageButton show={g} className="!px-1.5" />}
+                            corner={tasksOpen > 0 ? (
+                              <span className="flex items-center gap-1 h-6 pl-1.5 pr-2 rounded-full text-[12px] font-bold text-[#0d0d0d]" style={{ background: "#FF6A00", fontFamily: SCENE_MONO, boxShadow: "0 2px 8px rgba(0,0,0,0.5)" }} title={`${tasksOpen} open task${tasksOpen === 1 ? "" : "s"}`}>
+                                <ClipboardList className="w-3.5 h-3.5" /> {tasksOpen}
+                              </span>
+                            ) : null}
                           >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <EventTypeIcon type={g.event_type} imageUrl={g.icon_url} />
-                              <div className="min-w-0 flex-1 flex flex-col justify-center gap-[3px]">
-                                <div className="text-xl font-semibold leading-[1.1] text-white truncate">{g.event_name || g.band_name || "Untitled Gig"}</div>
-                                <div className="text-[10.5px] tracking-[0.04em] text-white/50 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
-                                  {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
-                                  {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
-                                </div>
-                                <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5 mt-1">
-                                  {pct != null && (
-                                    <>
-                                      <span className="relative w-[56px] h-1 rounded-sm bg-[#222] overflow-hidden shrink-0"><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
-                                      <span className="text-[10px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: tasksOpen ? "#FF6A00" : "#8CFF3D" }}>
-                                        {tasksOpen ? `${tasksOpen} TASK${tasksOpen === 1 ? "" : "S"} OPEN` : "ALL CLEAR"}
-                                      </span>
-                                    </>
-                                  )}
-                                  <span className="ml-auto shrink-0"><FanPageButton show={g} /></span>
-                                </div>
+                            {/* Centered: name, where, progress. The ticket's photo is the picture. */}
+                            <div className="min-h-[74px] flex flex-col items-center justify-center gap-1 text-center min-w-0 px-7">
+                              <div className="w-full text-[19px] font-semibold leading-[1.1] text-white line-clamp-2 break-words" style={{ textShadow: g.icon_url ? "0 1px 4px rgba(0,0,0,0.8)" : undefined }}>{g.event_name || g.band_name || "Untitled Gig"}</div>
+                              <div className="w-full text-[10.5px] tracking-[0.04em] text-white/60 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
+                                {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
+                                {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
                               </div>
+                              {pct != null && (
+                                <span className="mt-1 relative w-[110px] h-1 rounded-sm bg-[#222] overflow-hidden" title={`${pct}% of roles confirmed`}><span className="absolute left-0 top-0 bottom-0" style={{ width: `${pct}%`, background: color }} /></span>
+                              )}
                             </div>
                           </TicketCard>
                         );
