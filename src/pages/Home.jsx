@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
+import TicketCard from "@/components/showpilot/TicketCard";
 import { Search, Plus, SlidersHorizontal, X, CalendarDays, Archive, Trash2, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -666,20 +667,30 @@ export default function Home() {
           {thisWeekShows.length === 0 ? (
             <p className="text-white/30 text-sm">No shows scheduled this week — enjoy the break.</p>
           ) : (
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
+            // Each of this week's events is a small ticket with its picture (job 149),
+            // like the company phone's tickets; scroll sideways for more.
+            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               {thisWeekShows.map((show) => {
-                const d = new Date(show.date + "T00:00:00");
                 const color = sceneAccent(show);
                 return (
-                  <Link
+                  <TicketCard
                     key={show.is_owned === false ? show.share_token : show.id}
-                    to={techShowPath(show, { desktop: isDesktopNow() })}
-                    className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 hover:brightness-110 transition-all shrink-0"
-                    style={{ backgroundColor: color + "1a", borderLeft: `2px solid ${color}` }}
+                    className="shrink-0 w-[164px]"
+                    color={color}
+                    date={show.date}
+                    photo={show.icon_url}
+                    compact
+                    stubWidth={42}
+                    notch={6}
+                    shadow={false}
+                    ariaLabel={`${sceneTitle(show)}, ${show.date}`}
+                    onClick={() => navigate(techShowPath(show, { desktop: isDesktopNow() }))}
                   >
-                    <span className="text-[15px] font-bold truncate max-w-[130px]" style={{ color }}>{sceneTitle(show)}</span>
-                    <span className="text-[9.5px] text-white/55" style={{ fontFamily: SCENE_MONO }}>{d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</span>
-                  </Link>
+                    <div className="h-full min-h-[50px] flex flex-col justify-center gap-0.5">
+                      <span className="text-[13.5px] font-bold leading-tight text-white line-clamp-2 break-words" style={{ fontFamily: SCENE_FONT }}>{sceneTitle(show)}</span>
+                      {show.venue && <span className="text-[9px] tracking-[0.06em] text-white/65 truncate" style={{ fontFamily: SCENE_MONO }}>{String(show.venue).toUpperCase()}</span>}
+                    </div>
+                  </TicketCard>
                 );
               })}
             </div>
