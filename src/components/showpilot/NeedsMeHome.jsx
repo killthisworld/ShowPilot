@@ -1,6 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, Clock, Reply, CheckCircle2, UserPlus } from "lucide-react";
+import { Check, CheckCircle2, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import useEventFeed from "@/lib/eventFeed";
@@ -13,15 +12,13 @@ import { WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { fieldsLabel, firstName, sectionLabel as activitySection } from "@/lib/gigActivity";
 import {
-  dueInfo, localISO, shortDate, timeAgo, chatHref, chatTitle,
-  readSeenChanges, rememberSeenChange, sectionMeta, vocab, visibleChats,
+  dueInfo, localISO, shortDate, timeAgo,
+  readSeenChanges, rememberSeenChange, sectionMeta, vocab,
 } from "@/lib/needsMe";
 
-const BLUE = "#60A5FA";
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-// Count tiles (job 73): due now = red, new messages = Show Pilot green,
-// changed = yellow.
+// Overdue / due today, and the CHANGED pill (job 73).
 const RED = "#FF4545";
 const CHANGED_YELLOW = "#FACC15";
 
@@ -37,15 +34,16 @@ const Pill = ({ children, style }) => (
 // every event you're part of. The main feed is one To do list - the desktop
 // event Board's rows (conflicts, requests, open tasks, profiles with nobody
 // on them) - grouped by event, each with the event's photo, so anything can
-// be checked or done on the go. Then new messages and recent changes.
-// Adding a task lives on the "+" button; the calendar lives on Calendar.
+// be checked or done on the go. Recent changes on an event (CHANGED, with
+// Got it) sit in that event's group too, so everything is one list. New
+// messages live on the Chats tab (its badge); adding a task on the "+"
+// button; the calendar on Calendar.
 // Nothing here opens the event web: that's the desktop's job. Requests are
 // confirmed in place, a task opens its summary box (Claim / Done / details)
 // right here, and changes are acknowledged with Got it.
 //
 // `gigs` come from BandHome, which already loads them for the Calendar.
 export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.id || null;
   const accountType = preferences?.account_type;
@@ -59,16 +57,26 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const [busy, setBusy] = useState(null);
   const [undo, setUndo] = useState(null); // { token, task }
   const undoTimer = useRef(null);
-  const feedRef = useRef(null);
-  const chatsRef = useRef(null);
-  const changesRef = useRef(null);
 
   const todayISO = localISO();
-  const unreadChats = visibleChats(data?.chats).filter((c) => c.unread > 0);
-  const unreadTotal = unreadChats.reduce((n, c) => n + Number(c.unread || 0), 0);
   const changes = (data?.changes || []).filter((c) => !seen.has(c.key));
-  const rowCount = groups.reduce((n, g) => n + g.rows.length, 0);
-  const dueNow = groups.reduce((n, g) => n + g.rows.filter((r) => r.kind === "task" && r.task.due_date && r.task.due_date <= todayISO).length, 0);
+
+  // The feed: each event's to-dos plus its recent changes, nearest event
+  // first. An event with only changes still gets its own group.
+  const feed = useMemo(() => {
+    const byToken = new Map(groups.map((g) => [g.gig.share_token, { ...g, changes: [] }]));
+    changes.forEach((c) => {
+      if (!byToken.has(c.share_token)) {
+        const gig = (gigs || []).find((x) => x.share_token === c.share_token)
+          || { share_token: c.share_token, event_name: c.event_title, date: c.event_date, venue: c.venue };
+        byToken.set(c.share_token, { gig, perms: null, rows: [], changes: [] });
+      }
+      byToken.get(c.share_token).changes.push(c);
+    });
+    return [...byToken.values()].sort((a, b) =>
+      (a.gig.date ? 0 : 1) - (b.gig.date ? 0 : 1) || String(a.gig.date || "").localeCompare(String(b.gig.date || "")));
+  }, [groups, changes, gigs]);
+  const rowCount = feed.reduce((n, g) => n + g.rows.length + g.changes.length, 0);
 
   // Today's / tonight's event(s), for the card at the top.
   const todays = useMemo(() => (gigs || []).filter((g) => g.date === todayISO), [gigs, todayISO]);
@@ -120,8 +128,6 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
     setSeen((s) => new Set([...s, change.key]));
   };
 
-  const scrollTo = (ref) => ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-
   const dateLine = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const tint = (c) => c + "1c";
   const sectionLabel = (txt, right) => (
@@ -137,7 +143,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   // Wait for Home to load your events too, so the empty "Nothing needs you"
   // card never flashes before the feed arrives.
   const loading = gigsLoading || feedLoading || chatsLoading;
-  const nothing = !loading && rowCount === 0 && unreadChats.length === 0 && changes.length === 0;
+  const nothing = !loading && rowCount === 0;
 
   return (
     <div className="max-w-lg mx-auto pb-6" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -169,25 +175,6 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
         </div>
       ))}
 
-      {/* Count tiles */}
-      <div className="grid grid-cols-3 gap-2 px-5 pb-3.5">
-        {[
-          { n: dueNow, label: "DUE NOW", color: RED, ref: feedRef },
-          { n: unreadTotal, label: "NEW", color: G, ref: chatsRef },
-          { n: changes.length, label: "CHANGED", color: CHANGED_YELLOW, ref: changesRef },
-        ].map((t) => (
-          <button
-            key={t.label}
-            onClick={() => scrollTo(t.ref)}
-            className="flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left"
-            style={{ background: tint(t.color), border: `1.5px solid ${t.color}`, color: t.color }}
-          >
-            <span className="text-2xl font-semibold leading-none" style={{ fontFamily: SCENE_MONO }}>{loading ? "–" : t.n}</span>
-            <span className="text-[13px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_FONT }}>{t.label}</span>
-          </button>
-        ))}
-      </div>
-
       <div className="flex flex-col gap-2.5 px-5">
         {loading && (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: accent + "40", borderTopColor: accent }} /></div>
@@ -197,15 +184,15 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
           <div className={`${card} p-5 flex flex-col items-center gap-2 text-center`}>
             <CheckCircle2 className="w-8 h-8" style={{ color: accent }} />
             <p className="m-0 text-base font-semibold text-white">Nothing needs you right now</p>
-            <p className="m-0 text-sm text-white/55">Conflicts, requests, tasks, new messages and changes on your {words.events.toLowerCase()} show up here.</p>
+            <p className="m-0 text-sm text-white/55">Conflicts, requests, tasks, invites and changes on your {words.events.toLowerCase()} show up here.</p>
           </div>
         )}
 
         {/* The feed: every event's To do, nearest event first. */}
-        {!feedLoading && rowCount > 0 && (
-          <div ref={feedRef} className="flex flex-col gap-2.5 scroll-mt-4">
+        {!loading && rowCount > 0 && (
+          <div className="flex flex-col gap-2.5">
             {sectionLabel("TO DO", `${rowCount} OPEN`)}
-            {groups.map(({ gig, rows }) => (
+            {feed.map(({ gig, rows, changes: evChanges }) => (
               <div key={gig.share_token} className="rounded-xl border border-[#242424] overflow-hidden">
                 {/* Event header: its photo, name and date (on a phone the full
                     event lives on desktop, so this doesn't open the web). */}
@@ -296,72 +283,35 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                       } />
                     );
                   })}
+                  {/* Something changed on this event: yellow CHANGED + Got it. */}
+                  {evChanges.map((c) => {
+                    const isTask = c.kind === "task_done";
+                    const title = isTask
+                      ? `Done: ${c.task_title}`
+                      : c.kind === "section_updated"
+                        ? `${firstName(c.by_name)} updated ${activitySection(c.section)}`
+                        : "Event details were updated";
+                    const detail = (c.kind === "section_updated"
+                      ? [fieldsLabel(c.fields), timeAgo(c.at)]
+                      : [isTask ? (c.by_name || sectionMeta(c.section).label) : null, timeAgo(c.at)]
+                    ).filter(Boolean).join(" · ");
+                    return (
+                      <div key={c.key} className={rowCls}>
+                        <Pill style={{ background: CHANGED_YELLOW, color: "#0d0d0d" }}>CHANGED</Pill>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[15px] text-white leading-snug">{title}</span>
+                          {meta("rgba(255,255,255,0.55)", detail.toUpperCase())}
+                        </span>
+                        <button type="button" onClick={() => gotIt(c)} className="shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/85">GOT IT</button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* New messages */}
-        {unreadChats.length > 0 && (
-          <div ref={chatsRef} className="flex flex-col gap-2.5 pt-1.5 scroll-mt-4">
-            {sectionLabel(`NEW · ${unreadTotal}`)}
-            {unreadChats.slice(0, 5).map((c) => {
-              const color = c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color;
-              const title = chatTitle(c);
-              const photo = (gigs || []).find((g) => g.share_token === c.share_token)?.icon_url;
-              return (
-                <div key={c.id} className={`${card} flex items-center gap-3 p-3`}>
-                  <span className="w-11 h-11 shrink-0 rounded-full overflow-hidden flex items-center justify-center font-bold text-[15px]" style={{ background: tint(color), border: `2px solid ${color}`, color }}>
-                    {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : title.charAt(0).toUpperCase()}
-                  </span>
-                  <button onClick={() => navigate(chatHref(c))} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
-                    <span className="text-[15px] font-semibold text-white truncate">{c.last_body}</span>
-                    <span className="text-xs text-white/55 truncate">
-                      {[c.last_sender_name, c.kind === "direct" ? null : title, c.event_title].filter(Boolean).join(" · ")} · {c.unread} new
-                    </span>
-                  </button>
-                  <button onClick={() => navigate(chatHref(c))} aria-label={`Reply in ${title}`} className="w-11 h-11 shrink-0 rounded-[10px] bg-[#1f1f1f] text-white flex items-center justify-center">
-                    <Reply className="w-5 h-5" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Changes */}
-        {changes.length > 0 && (
-          <div ref={changesRef} className="flex flex-col gap-2.5 pt-1.5 scroll-mt-4">
-            {sectionLabel("CHANGED")}
-            {changes.slice(0, 5).map((c) => {
-              const isTask = c.kind === "task_done";
-              return (
-                <div key={c.key} className={`${card} flex items-center gap-3 p-3`}>
-                  <span className="w-11 h-11 shrink-0 rounded-[10px] flex items-center justify-center" style={{ background: isTask ? "#0f1d08" : "#0d1a2a", color: isTask ? G : BLUE }}>
-                    {isTask ? <CheckCircle2 className="w-[22px] h-[22px]" /> : <Clock className="w-[22px] h-[22px]" />}
-                  </span>
-                  <span className="flex-1 min-w-0 flex flex-col gap-[3px] text-left">
-                    <span className="text-[15px] font-semibold text-white leading-snug">
-                      {isTask
-                        ? `Done: ${c.task_title}`
-                        : c.kind === "section_updated"
-                          ? `${firstName(c.by_name)} updated ${activitySection(c.section)}`
-                          : `${c.event_title || "An event"} was updated`}
-                    </span>
-                    <span className="text-xs text-white/55 truncate">
-                      {(c.kind === "section_updated"
-                        ? [fieldsLabel(c.fields), c.event_title, timeAgo(c.at)]
-                        : [isTask ? (c.by_name || sectionMeta(c.section).label) : null, isTask ? c.event_title : (c.event_date ? shortDate(c.event_date) : null), timeAgo(c.at)]
-                      ).filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  <button onClick={() => gotIt(c)} className="h-11 px-3.5 shrink-0 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold">Got it</button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* A task's summary box, right here (no event web on a phone). */}
