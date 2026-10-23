@@ -12,6 +12,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { sectionPhotoSave } from "@/lib/sectionPhotos";
+import { donePagesSave } from "@/lib/donePages";
 import { Field, RequirementsList, BandDetails, ROLE_COLORS, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // The real, full-page editor for one role's section on one gig - reached
@@ -244,8 +245,18 @@ export function useRoleProfile({ role, token, onChanged }) {
     onChanged?.();
   };
 
+  // "Mark as done" on one page (job 148), saved straight away like the picture.
+  const markPage = async (forRole, key, done) => {
+    const [section, updates, field, patch] = donePagesSave(forRole, gig, key, done, myEngineerRole());
+    const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: section, p_updates: updates });
+    if (error) throw error;
+    setGig((g) => ({ ...g, [field]: { ...(g[field] || {}), ...patch } }));
+    await markLinkedAndAccepted();
+    onChanged?.();
+  };
+
   return {
-    savePhoto,
+    savePhoto, markPage,
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,

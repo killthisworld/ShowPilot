@@ -17,6 +17,7 @@ import { useEventBusiness } from "@/lib/eventBusiness";
 import VenuePhoto from "@/components/showpilot/VenuePhoto";
 import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
 import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
+import { isPageMarkedDone } from "@/lib/donePages";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -468,7 +469,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
-            <p className="text-[14px] text-white/50 -mt-2">Acts in playing order. Times flow to the day sheet and run of show. Press Save after reordering.</p>
             <TableBox>
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
@@ -712,10 +712,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       // Tasks aren't a page of the profile any more: they live in the Tasks
       // feature in the web's corner, which opens the event's task page
       // (/gig/tasks, Oct 21).
-      return list;
+      // A page marked done counts as done (job 148).
+      return list.map((t) => (isPageMarkedDone(role, gig, t.key) ? { ...t, state: "done", marked: true } : t));
     },
+    // The pages' render() reads p (e.g. which acts are expanded), so the
+    // list is rebuilt when those change too (job 148: the Members dropdown).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role, gig, ed, p.canEdit, biz]
+    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors]
   );
   const [active, setActive] = useState(initialTab || null);
   // "pages" layout (the event's main space): this profile is one dropdown, its
@@ -815,6 +818,28 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
   ].filter(Boolean);
 
+  // Mark as done (job 148): on every page you can edit. Done pages light up
+  // on the web; tap again to undo.
+  const [markBusy, setMarkBusy] = useState(null);
+  const markDoneBtn = (page) => {
+    if (!ed || template || !p.markPage || !page || page.key === "tasks") return null;
+    const on = !!page.marked;
+    const toggle = async () => {
+      setMarkBusy(page.key);
+      try { await p.markPage(role, page.key, !on); } catch (e) { console.error(e); }
+      setMarkBusy(null);
+    };
+    return (
+      <button type="button" onClick={toggle} disabled={markBusy === page.key} aria-pressed={on}
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em] disabled:opacity-60"
+        style={on ? { background: G + "1f", border: `1px solid ${G}`, color: G } : { background: "#111", border: "1px solid #333", color: "rgba(255,255,255,0.8)" }}
+      >
+        <Check className="w-3.5 h-3.5" strokeWidth={3} />
+        {markBusy === page.key ? "..." : on ? "DONE" : "MARK AS DONE"}
+      </button>
+    );
+  };
+
   // The profile's own picture (job 147): set from the center of its web.
   const photoControl = ed && !template && p.savePhoto ? (
     <SectionPhotoButton
@@ -874,8 +899,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   </button>
                   <span className="ml-auto flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
                     <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
-                    {page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
+                    {page.marked ? "MARKED DONE" : page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
                   </span>
+                  {markDoneBtn(page)}
                   {topSave}
                 </div>
                 <h2 className="text-[26px] font-bold leading-none">{page.label}</h2>
@@ -905,11 +931,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   ))}
                 </div>
               </>
-            )}
-            {ed && (
-              <button type="button" onClick={p.handleSave} disabled={p.saving} className="mt-1 py-3 rounded-[10px] text-[15px] font-bold tracking-[0.06em] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
-                {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
-              </button>
             )}
           </div>
         </>
@@ -1072,7 +1093,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           {tabChips}
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
-            <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{sw[0]}</span>
+            <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{current?.marked ? "MARKED DONE" : sw[0]}</span>
+            <span className="ml-auto" />
+            {current && markDoneBtn(current)}
           </div>
           <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">{current?.render()}</div>
           {templateTools}
