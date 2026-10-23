@@ -213,10 +213,12 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
                       const pill = r.kind === "conflict" ? ["CONFLICT", { background: AMBER, color: "#0d0d0d" }]
                         : r.kind === "request" ? ["REQUEST", { background: "#fff", color: "#0d0d0d" }]
                         : r.kind === "task" ? ["TASK", { background: "#3b2a12", color: "#FF9A3D", border: `1px solid ${AMBER}66` }]
+                        : r.kind === "pending" ? ["PENDING", { background: AMBER, color: "#0d0d0d" }]
                         : ["INVITE", { background: "#2a2a2a", color: "#ddd" }];
-                      const text = r.kind === "task" ? r.task.title : r.kind === "invite" ? `${WEB_LABELS[r.role]} has nobody yet` : `${r.req.name}${r.req.value ? ` · ${r.req.value}` : ""}`;
-                      const sec = r.kind === "invite" ? WEB_LABELS[r.role] : SECTION_LABEL[r.section] || r.section;
-                      const c = ROLE_COLOR[r.kind === "invite" ? r.role : r.section] || "#9A9A9A";
+                      const isInvite = r.kind === "invite" || r.kind === "pending";
+                      const text = r.kind === "task" ? r.task.title : r.kind === "invite" ? `${WEB_LABELS[r.role]} has nobody yet` : r.kind === "pending" ? `${WEB_LABELS[r.role]} invite sent` : `${r.req.name}${r.req.value ? ` · ${r.req.value}` : ""}`;
+                      const sec = r.kind === "pending" ? `${WEB_LABELS[r.role]} · waiting to accept` : isInvite ? WEB_LABELS[r.role] : SECTION_LABEL[r.section] || r.section;
+                      const c = r.kind === "pending" ? AMBER : ROLE_COLOR[isInvite ? r.role : r.section] || "#9A9A9A";
                       return (
                         <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
                           <span className="shrink-0 w-[76px] text-center text-[10px] font-bold tracking-[0.1em] py-[4px] rounded" style={{ fontFamily: SCENE_MONO, ...pill[1] }}>{pill[0]}</span>

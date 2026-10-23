@@ -53,7 +53,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const accent = style.color;
   const words = vocab(accountType);
   const { data, loading: chatsLoading } = useNeedsMe();
-  const { groups, loading: feedLoading, patchTask, patchReq } = useEventFeed(gigs, userId);
+  const { groups, loading: feedLoading, patchTask, patchReq, reload: reloadFeed } = useEventFeed(gigs, userId);
   const [openTask, setOpenTask] = useState(null); // { gig, perms, taskId }
   const [seen, setSeen] = useState(() => readSeenChanges());
   const [busy, setBusy] = useState(null);
@@ -275,18 +275,23 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                         </div>
                       );
                     }
-                    // Invite: a profile on your event nobody's on yet.
+                    // A profile on your event nobody's on yet: INVITE until an
+                    // invite goes out, then orange PENDING until it's accepted
+                    // (then the row leaves). Either opens the invite sheet.
                     const c = SECTION_COLOR[r.role] || "#9A9A9A";
                     const label = WEB_LABELS[r.role] || r.role;
+                    const pending = r.kind === "pending";
                     return (
-                      <InviteSheet key={r.id} showId={gig.id} elevated preselect={r.role} trigger={
-                        <button type="button" className={rowCls}>
-                          <Pill style={{ background: "#2a2a2a", color: "#ddd" }}>INVITE</Pill>
+                      <InviteSheet key={r.id} showId={gig.id} elevated preselect={pending ? null : r.role} onChanged={reloadFeed} trigger={
+                        <button type="button" className={rowCls} aria-label={pending ? `${label} invite pending` : `Invite someone as ${label}`}>
+                          <Pill style={pending ? { background: AMBER, color: "#0d0d0d" } : { background: "#2a2a2a", color: "#ddd" }}>{pending ? "PENDING" : "INVITE"}</Pill>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[15px] text-white leading-snug">{label} has nobody yet</span>
-                            {meta(c, label.toUpperCase())}
+                            <span className="block text-[15px] text-white leading-snug">{pending ? `${label} invite sent` : `${label} has nobody yet`}</span>
+                            {meta(pending ? AMBER : c, pending ? `${label.toUpperCase()} · WAITING TO ACCEPT` : label.toUpperCase())}
                           </span>
-                          <span className="shrink-0 h-9 flex items-center gap-1 px-3 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/80"><UserPlus className="w-3.5 h-3.5" /> INVITE</span>
+                          {!pending && (
+                            <span className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-[#2a2a2a] text-white/80"><UserPlus className="w-4 h-4" /></span>
+                          )}
                         </button>
                       } />
                     );

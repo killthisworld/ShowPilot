@@ -44,7 +44,9 @@ function Label({ children, className = "" }) {
 // `elevated` lifts it above full-screen overlays (Gig Web over Home, z-60).
 // `preselect`: a role to have picked already when it opens (the Board's
 // "nobody yet" rows, job 120).
-export default function InviteSheet({ showId, trigger, elevated = false, preselect = null }) {
+// `onChanged`: called after invites are made or cancelled, so a To do list
+// can flip a profile between INVITE and PENDING right away (job 73).
+export default function InviteSheet({ showId, trigger, elevated = false, preselect = null, onChanged = null }) {
   const { toast } = useToast();
   const desktop = useIsDesktop();
   const [open, setOpen] = useState(false);
@@ -137,6 +139,7 @@ export default function InviteSheet({ showId, trigger, elevated = false, presele
       setInvites((p) => [...made, ...(p || [])]);
       setFresh((p) => [...made.map((i) => i.id), ...p]);
       setSelected([]); setLabels({}); setGranted({});
+      onChanged?.();
       // One link: put it straight on the clipboard so it's ready to paste.
       if (made.length === 1 && (await copy(inviteUrl(made[0].invite_token), made[0].id))) {
         toast({ title: "Invite link copied", description: `${roleOf(made[0].invited_role).label}${made[0].label ? ` · ${made[0].label}` : ""}: paste it to send.` });
@@ -154,6 +157,7 @@ export default function InviteSheet({ showId, trigger, elevated = false, presele
     if (e) { toast({ title: "Couldn't cancel that invite" }); return; }
     setInvites((p) => (p || []).filter((i) => i.id !== inv.id));
     setFresh((p) => p.filter((id) => id !== inv.id));
+    onChanged?.();
   };
 
   const freshInvites = (invites || []).filter((i) => fresh.includes(i.id));

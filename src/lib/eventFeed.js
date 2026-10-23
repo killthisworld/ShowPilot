@@ -45,9 +45,11 @@ export function feedRows(gig, perms, userId, today = localISO()) {
       String(a.due_date || "").localeCompare(String(b.due_date || "")))
     .forEach((t) => rows.push({ kind: "task", id: `t-${t.id}`, task: t, section: sectionOf(t.section), canWork: !!userId && canWorkSection(t.section, perms) }));
 
+  // Your event's profiles nobody's on yet: INVITE until an invite goes out,
+  // then PENDING until someone accepts; once accepted the row is gone.
   if (perms?.is_owner) {
-    WEB_ROLES.filter((role) => !claimedRole(role, perms) && !invitedRole(role, perms))
-      .forEach((role) => rows.push({ kind: "invite", id: `i-${role}`, role }));
+    WEB_ROLES.filter((role) => !claimedRole(role, perms))
+      .forEach((role) => rows.push({ kind: invitedRole(role, perms) ? "pending" : "invite", id: `i-${role}`, role }));
   }
   return rows;
 }

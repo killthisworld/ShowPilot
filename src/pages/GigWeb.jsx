@@ -1827,6 +1827,7 @@ function DesktopGigWeb({
                     onOpenTask={(id) => onOpenTask?.(id)}
                     onClaim={(id) => claimTask(id, true)}
                     onDone={(id) => completeTask(id, true)}
+                    onInvitesChanged={loadGig}
                   />
                 )}
                 <EventSections

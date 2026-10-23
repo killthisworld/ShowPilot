@@ -21,7 +21,7 @@ const Pill = ({ children, style }) => (
   <span className="shrink-0 w-[84px] text-center text-[10px] font-bold tracking-[0.1em] py-[3px] rounded" style={{ fontFamily: SCENE_MONO, ...style }}>{children}</span>
 );
 
-export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone }) {
+export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone, onInvitesChanged = null }) {
   const [busy, setBusy] = useState(null);
   const node = (role) => nodes.find((n) => n.role === role);
   const roleFor = (section) => nodes.find((n) => sectionOf(n.role) === section)?.role || section;
@@ -38,7 +38,9 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
     .sort((a, b) => (a.status === "conflict" ? 0 : 1) - (b.status === "conflict" ? 0 : 1));
   const tasks = (gig.tasks || []).filter((t) => t.status !== "done")
     .sort((a, b) => Number(b.claimed_by === userId) - Number(a.claimed_by === userId));
-  const empty = isOwner ? nodes.filter((n) => !n.claimed && !n.invited) : [];
+  // Profiles nobody's on: INVITE until an invite goes out, then orange
+  // PENDING until someone accepts (then the row leaves).
+  const empty = isOwner ? nodes.filter((n) => !n.claimed) : [];
   const total = reqs.length + tasks.length + empty.length;
 
   const act = async (e, id, fn) => {
@@ -121,18 +123,21 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
                 </div>
               );
             })}
-            {empty.length > 0 && gig?.id && empty.map((n) => (
-              <InviteSheet key={`i-${n.role}`} showId={gig.id} elevated preselect={n.role} trigger={
-                <button type="button" className={rowCls}>
-                  <Pill style={{ background: "#2a2a2a", color: "#ddd" }}>INVITE</Pill>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] truncate">{labelOf(n.role)} has nobody yet</span>
-                    <span className="block text-[10.5px] tracking-[0.08em] mt-0.5" style={{ fontFamily: SCENE_MONO, color: colorOf(n.role) }}>{labelOf(n.role).toUpperCase()}</span>
-                  </span>
-                  <span className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/80"><UserPlus className="w-3.5 h-3.5" /> INVITE</span>
-                </button>
-              } />
-            ))}
+            {empty.length > 0 && gig?.id && empty.map((n) => {
+              const pending = !!n.invited;
+              return (
+                <InviteSheet key={`i-${n.role}`} showId={gig.id} elevated preselect={pending ? null : n.role} onChanged={onInvitesChanged} trigger={
+                  <button type="button" className={rowCls} aria-label={pending ? `${labelOf(n.role)} invite pending` : `Invite someone as ${labelOf(n.role)}`}>
+                    <Pill style={pending ? { background: AMBER, color: "#0d0d0d" } : { background: "#2a2a2a", color: "#ddd" }}>{pending ? "PENDING" : "INVITE"}</Pill>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] truncate">{pending ? `${labelOf(n.role)} invite sent` : `${labelOf(n.role)} has nobody yet`}</span>
+                      <span className="block text-[10.5px] tracking-[0.08em] mt-0.5" style={{ fontFamily: SCENE_MONO, color: pending ? AMBER : colorOf(n.role) }}>{labelOf(n.role).toUpperCase()}{pending ? " · WAITING TO ACCEPT" : ""}</span>
+                    </span>
+                    {!pending && <span className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[#2a2a2a] text-white/80"><UserPlus className="w-4 h-4" /></span>}
+                  </button>
+                } />
+              );
+            })}
           </div>
         )}
       </section>
