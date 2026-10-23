@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { X, MapPin, Link2, Star } from "lucide-react";
+import { X, MapPin, Link2 } from "lucide-react";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 
@@ -68,12 +68,6 @@ export default function StarSummary({ show, color, onClose, children }) {
             <span className="absolute inset-0 -z-10" style={{ background: `radial-gradient(120% 120% at 70% 0%, ${accent}55, #111111 70%)` }} />
           )}
           <span className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(17,17,17,0.2) 0%, rgba(17,17,17,0.55) 45%, #111111 100%)" }} />
-          <span
-            className="absolute left-4 top-3.5 flex items-center gap-1.5 text-[10px] tracking-[0.16em] px-2 py-1 rounded-full bg-black/55"
-            style={{ fontFamily: SCENE_MONO, color: accent }}
-          >
-            <Star className="w-3 h-3" fill={accent} strokeWidth={0} /> LOGBOOK
-          </span>
           <button
             onClick={onClose}
             aria-label="Close"
