@@ -27,6 +27,7 @@ export default function PerformerFields({
   band,
   onPatch,
   nameAction = null,     // e.g. Load Artist
+  withPhoto = true,      // false hides the artist photo (tech phone event page, job 148)
   afterName = null,      // show-only bits (submitted by, requested order)
   genreTags = [],        // the person's genre list [{ name, color }]
   onAddGenre,            // "+" beside Genre / Tag
@@ -81,7 +82,7 @@ export default function PerformerFields({
 
   return (
     <div className="space-y-3">
-      <VenuePhoto kind="artist" accent="#EF4444" value={b.photo_url || ""} onChange={(url) => onPatch({ photo_url: url })} />
+      {withPhoto && <VenuePhoto kind="artist" accent="#EF4444" value={b.photo_url || ""} onChange={(url) => onPatch({ photo_url: url })} />}
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-white/50 text-xs">Artist / Group Name *</Label>

@@ -45,7 +45,8 @@ export const formatPhoneNumber = (value) => {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
-export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name" }) {
+// withPhoto=false hides the venue photo (tech phone event page, job 148).
+export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name", withPhoto = true }) {
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const v = value || {};
   const contacts = v.contacts || [];
@@ -63,7 +64,7 @@ export default function VenueInfoFields({ value, onChange, nameAction = null, na
 
   return (
     <div className="space-y-4 pt-3">
-      <VenuePhoto value={v.venue_photo_url || ""} onChange={(url) => onChange("venue_photo_url", url)} />
+      {withPhoto && <VenuePhoto value={v.venue_photo_url || ""} onChange={(url) => onChange("venue_photo_url", url)} />}
       <div>
         <div className="flex items-center justify-between">
           <Label className="text-white/50 text-xs">Venue</Label>

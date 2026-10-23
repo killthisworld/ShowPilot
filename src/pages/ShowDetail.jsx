@@ -68,6 +68,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const { preferences, reload: reloadPreferences } = usePreferences();
   const isDesktop = useIsDesktop();
   const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
+  // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
+  const sectionPhotos = !(isTechProductionAccount && !isDesktop);
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
   const hadDraftRef = useRef(null);
@@ -1034,6 +1036,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             <VenueInfoFields
               value={show}
               onChange={update}
+              withPhoto={sectionPhotos}
               nameAction={isTechProductionAccount ? <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} /> : null}
             />
         </CollapsibleSection>
@@ -1116,6 +1119,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           </div>
           <PerformerFields
             band={activeBand}
+            withPhoto={sectionPhotos}
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
             nameAction={isTechProductionAccount ? <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} /> : null}
             afterName={<>
