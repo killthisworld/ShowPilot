@@ -34,6 +34,8 @@ const FIELD_LABELS = {
   date: "Date",
   event_type: "Event type",
   image: "Event image",
+  photo_url: "Picture",
+  artist_photo_url: "Artist picture",
 };
 
 const humanize = (k) => {

@@ -106,7 +106,11 @@ const CORNERS = [[9, 9], [91, 9], [9, 91], [91, 91]];
 
 export default function ProfileWeb({
   color, title, sub, tabs = [], activeKey, onPick, dcas = [], onBack, leaving = false, home = null,
+  imageUrl = "", photoControl = null,
 }) {
+  // imageUrl: the profile's own picture on this event (job 147), behind its
+  // title in the center. photoControl: a button to change it, pinned to the
+  // center circle's lower right (only when you can edit the profile).
   // home: { title, imageUrl, eventType, onClick } - the event itself, as the
   // top-left corner box with its picture. Tapping it returns to the event web
   // (it replaces the old Back / Overview buttons). Features then use the
@@ -229,16 +233,27 @@ export default function ProfileWeb({
         type="button"
         onClick={onBack}
         aria-label={`${title}. Back to the event web`}
-        className="absolute rounded-full flex flex-col items-center justify-center gap-1 px-2"
+        className="absolute rounded-full flex flex-col items-center justify-center gap-1 px-2 overflow-hidden"
         style={{
           left: "50%", top: "50%", width: Math.round(98 * k), height: Math.round(98 * k),
           ...m.center,
           background: tintOnDark(color, 0.16), border: `2px solid ${color}`, boxShadow: `0 0 26px ${color}55`,
         }}
       >
-        <span className="font-bold leading-[0.95] tracking-[0.03em] text-center uppercase" style={{ color, fontSize: Math.round((String(title).length > 10 ? 13.5 : 17) * k) }}>{title}</span>
-        {sub && <span className="tracking-[0.08em] text-white/70 text-center" style={{ fontFamily: SCENE_MONO, fontSize: Math.round(8.5 * k) }}>{sub}</span>}
+        {imageUrl && (
+          <>
+            <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+            <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 75%)" }} />
+          </>
+        )}
+        <span className="relative font-bold leading-[0.95] tracking-[0.03em] text-center uppercase" style={{ color, fontSize: Math.round((String(title).length > 10 ? 13.5 : 17) * k), textShadow: imageUrl ? "0 0 3px #000, 0 1px 6px #000, 0 0 12px rgba(0,0,0,0.8)" : undefined }}>{title}</span>
+        {sub && <span className="relative tracking-[0.08em] text-white/70 text-center" style={{ fontFamily: SCENE_MONO, fontSize: Math.round(8.5 * k), textShadow: imageUrl ? "0 1px 4px rgba(0,0,0,0.9)" : undefined }}>{sub}</span>}
       </button>
+      {photoControl && (
+        <div className="absolute z-10" style={{ left: `calc(50% + ${Math.round(34 * k)}px)`, top: `calc(50% + ${Math.round(34 * k)}px)`, transform: "translate(-50%, -50%)", ...m.fade(1) }}>
+          {photoControl}
+        </div>
+      )}
     </div>
   );
 }

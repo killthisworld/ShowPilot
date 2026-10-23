@@ -20,6 +20,7 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog from "@/components/showpilot/FlightLog";
 import { latestBySection, firstName, agoLabel } from "@/lib/gigActivity";
+import { sectionPhoto } from "@/lib/sectionPhotos";
 import BoardOverview from "@/components/showpilot/BoardOverview";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
@@ -123,6 +124,19 @@ function roleCircle(n, active) {
     border: `2px ${n.claimed ? "solid" : "dashed"} ${n.claimed || n.invited ? c : `${c}66`}`,
     boxShadow: active ? `0 0 0 3px ${c}40, 0 0 22px ${c}88` : n.claimed ? `0 0 14px ${c}38` : "none",
   };
+}
+
+// A profile's own picture behind its circle (job 147), darkened so the code
+// and progress on top stay readable.
+const PHOTO_TEXT_SHADOW = "0 0 3px #000, 0 1px 6px #000, 0 0 10px rgba(0,0,0,0.8)";
+function CirclePhoto({ url }) {
+  if (!url) return null;
+  return (
+    <>
+      <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+      <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 50% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0.3) 78%)" }} />
+    </>
+  );
 }
 
 // The color of a profile nobody is on yet and nothing is filled in for.
@@ -719,17 +733,18 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 type="button"
                 onClick={() => selectRole(n.role)}
                 aria-label={`${SECTION_LABELS[n.role]}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
-                className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0"
+                className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0 overflow-hidden"
                 style={{
                   left: n.x, top: n.y, ...hubM.node(n.x - cx, n.y - cy), width: 72, height: 72, zIndex: 1,
                   ...roleCircle(n, active),
                 }}
               >
-                <span className="font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, fontSize: ROLE_CODES[n.role].length > 5 ? 13 : 15 }}>{ROLE_CODES[n.role]}</span>
-                <span className="w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
+                <CirclePhoto url={sectionPhoto(n.role, gig)} />
+                <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: ROLE_CODES[n.role].length > 5 ? 13 : 15 }}>{ROLE_CODES[n.role]}</span>
+                <span className="relative w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
-                <span className={`text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO }}>{n.percent}%</span>
+                <span className={`relative text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{n.percent}%</span>
               </button>
             );
           })}
@@ -1650,17 +1665,18 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             type="button"
             onClick={() => selectRole(nd.role)}
             aria-label={`${SECTION_LABELS[nd.role]}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
-            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0"
+            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0 overflow-hidden"
             style={{
               left: `${nd.px}%`, top: `${nd.py}%`, ...m.node(((nd.px - 50) / 100) * size, ((nd.py - 50) / 100) * size), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
               ...roleCircle(nd, active),
             }}
           >
-            <span className="font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, fontSize: Math.max(12, Math.round((ROLE_CODES[nd.role].length > 5 ? 14.5 : 20) * k)) }}>{ROLE_CODES[nd.role]}</span>
-            <span className="h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
+            <CirclePhoto url={sectionPhoto(nd.role, gig)} />
+            <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(12, Math.round((ROLE_CODES[nd.role].length > 5 ? 14.5 : 20) * k)) }}>{ROLE_CODES[nd.role]}</span>
+            <span className="relative h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />
             </span>
-            <span className={`text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO }}>{nd.percent}%</span>
+            <span className={`relative text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{nd.percent}%</span>
           </button>
         );
       })}

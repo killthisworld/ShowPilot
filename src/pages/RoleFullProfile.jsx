@@ -11,6 +11,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
+import { sectionPhotoSave } from "@/lib/sectionPhotos";
 import { Field, RequirementsList, BandDetails, ROLE_COLORS, ROLE_OPTIONS } from "@/pages/SharedGig";
 
 // The real, full-page editor for one role's section on one gig - reached
@@ -31,6 +32,15 @@ export const ROLE_SECTION_LABELS = { venue: "Venue", manager: "Manager / Artist"
 // mounts this know a save/requirement-change happened, so a parent
 // showing its own copy of this gig's progress (Gig Web's web + bulletin
 // board) can refetch instead of going stale mid-session.
+// Only the picture's key from a section object (keeps other unsaved edits).
+function photoOnly(role, value) {
+  if (role === "venue") return { photo_url: value.photo_url };
+  if (role === "manager") return { photo_url: value.photo_url };
+  if (role === "band") return { artist_photo_url: value.artist_photo_url };
+  const k = role === "lighting" ? "lighting" : "audio";
+  return { [k]: value[k] };
+}
+
 export function useRoleProfile({ role, token, onChanged }) {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -223,7 +233,19 @@ export function useRoleProfile({ role, token, onChanged }) {
   const setTaskDetails = (taskId, details) => taskRpc("set_gig_task_details", { p_details: details }, taskId);
   const setTaskDueDate = (taskId, dueDate) => taskRpc("set_gig_task_due_date", { p_due_date: dueDate || null }, taskId);
 
+  // A profile's picture on this event (job 147) saves straight away, on its
+  // own, so the web's circles pick it up without waiting for SAVE.
+  const savePhoto = async (forRole, url) => {
+    const [section, updates, local] = sectionPhotoSave(forRole, gig, url, myEngineerRole());
+    const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: section, p_updates: updates });
+    if (error) throw error;
+    setGig((g) => ({ ...g, [local.field]: { ...(g[local.field] || {}), ...photoOnly(forRole, local.value) } }));
+    await markLinkedAndAccepted();
+    onChanged?.();
+  };
+
   return {
+    savePhoto,
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,

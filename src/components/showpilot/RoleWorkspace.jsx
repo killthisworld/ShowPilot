@@ -15,6 +15,8 @@ import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness } from "@/lib/eventBusiness";
 import VenuePhoto from "@/components/showpilot/VenuePhoto";
+import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
+import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -813,6 +815,17 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
   ].filter(Boolean);
 
+  // The profile's own picture (job 147): set from the center of its web.
+  const photoControl = ed && !template && p.savePhoto ? (
+    <SectionPhotoButton
+      value={ownSectionPhoto(role, gig)}
+      onSave={(url) => p.savePhoto(role, url)}
+      color={color}
+      label={ROLE_TITLE[role].toLowerCase()}
+      wide={role === "venue" || role === "manager"}
+    />
+  ) : null;
+
   if (layout === "pages") {
     const dotColor = { done: G, partial: AMBER, empty: "rgba(255,255,255,0.22)" };
     const real = counted(tabs);
@@ -831,6 +844,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             onBack={onBack}
             leaving={leaving}
             home={{ title: gig.event_name || gig.band_name, imageUrl: homeIcon || gig.icon_url, eventType: gig.event_type, onClick: onBack }}
+            imageUrl={sectionPhoto(role, gig)}
+            photoControl={photoControl}
           />,
           webSlot
         )
@@ -974,6 +989,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             onBack={onBack}
             leaving={leaving}
             home={{ title: gig.event_name || gig.band_name, imageUrl: homeIcon || gig.icon_url, eventType: gig.event_type, onClick: onBack }}
+            imageUrl={sectionPhoto(role, gig)}
+            photoControl={photoControl}
           />,
           webSlot
         )
