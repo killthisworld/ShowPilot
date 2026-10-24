@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
@@ -252,6 +253,12 @@ export default function TourManagerIntake({ link } = {}) {
     const instruments = [...getInstruments(members[i])];
     instruments[ii] = { ...instruments[ii], [f]: v };
     members[i] = { ...members[i], instruments };
+    update("band_members", members);
+  };
+  // Vocals? Yes / No per member (job 152).
+  const setVocals = (i, yes) => {
+    const members = [...form.band_members];
+    members[i] = setMemberVocals(members[i], getInstruments(members[i]), yes);
     update("band_members", members);
   };
   const removeInstrument = (i, ii) => {
@@ -606,9 +613,11 @@ export default function TourManagerIntake({ link } = {}) {
                   instrumentSummary && <p className="text-white/30 text-xs pl-7 truncate">{instrumentSummary}</p>
                 ) : (
                   <>
+                <VocalsQuestion value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
                 <div className="space-y-2">
                   <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
-                  {getInstruments(m).map((inst, ii) => (
+                  {/* The vocal line is the Vocals? answer above, not a row here. */}
+                  {getInstruments(m).map((inst, ii) => isVocalInput(inst) ? null : (
                     <div key={ii} className="flex items-center gap-1.5">
                       <Input
                         value={inst.name}
