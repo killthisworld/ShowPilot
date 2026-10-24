@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { Trash2, Plus, ChevronDown, Settings, Paperclip, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,8 @@ export default function PerformerFields({
     m[i] = { ...m[i], instruments: inst };
     setMembers(m);
   };
+  // Vocals? Yes / No per member, as on the intake forms (job 153).
+  const setVocals = (i, yes) => { const m = [...members]; m[i] = setMemberVocals(m[i], getInstruments(m[i]), yes); setMembers(m); };
   const removeInstrument = (i, ii) => { const m = [...members]; m[i] = { ...m[i], instruments: getInstruments(m[i]).filter((_, idx) => idx !== ii) }; setMembers(m); };
 
   const selectedGenres = b.genre_tags || (b.genre_tag ? [b.genre_tag] : []);
@@ -172,9 +175,11 @@ export default function PerformerFields({
           {collapsed[i] === false && (
             <>
               <Input value={m.name || ""} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
+              <VocalsQuestion value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
               <div className="space-y-2">
                 <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
-                {getInstruments(m).map((inst, ii) => (
+                {/* The vocal line is the Vocals? answer above, not a row here. */}
+                {getInstruments(m).map((inst, ii) => isVocalInput(inst) ? null : (
                   <div key={ii} className="flex items-center gap-1.5">
                     <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="e.g. Guitar" className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
                     <div className="flex items-center gap-1 shrink-0">

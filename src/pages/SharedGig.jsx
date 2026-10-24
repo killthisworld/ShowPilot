@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -413,6 +414,12 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
     next[i] = { ...next[i], instruments };
     updateMembers(next);
   };
+  // Vocals? Yes / No per member, as on the intake forms (job 153).
+  const setVocals = (i, yes) => {
+    const next = [...members];
+    next[i] = setMemberVocals(next[i], next[i].instruments || [], yes);
+    updateMembers(next);
+  };
   const removeInstrument = (i, ii) => {
     const next = [...members];
     next[i] = { ...next[i], instruments: (next[i].instruments || []).filter((_, idx) => idx !== ii) };
@@ -609,7 +616,8 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
                 </p>
               ) : (
                 <>
-              {(m.instruments || []).map((inst, ii) => (
+              <div className="pl-2"><VocalsQuestion value={memberSings(m, m.instruments || [])} onChange={(yes) => setVocals(i, yes)} /></div>
+              {(m.instruments || []).map((inst, ii) => isVocalInput(inst) ? null : (
                 <div key={ii} className="flex items-center gap-1.5 pl-2">
                   <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
                   <select
