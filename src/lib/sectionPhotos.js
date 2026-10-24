@@ -4,7 +4,10 @@
 // - Venue: venue_info.photo_url (the venue photo, job 145)
 // - Manager: manager_info.photo_url (the manager / artist Contact photo, job 146)
 // - Artist: manager_info.artist_photo_url, else the first act's photo
-// - Audio / Lighting: engineer_info.audio.photo_url / engineer_info.lighting.photo_url
+// - Audio / Lighting: engineer_info.audio.photo_url / engineer_info.lighting.photo_url,
+//   else the profile photo of the tech on the event (gig.tech_photos, from
+//   get_shared_gig: the owner if they're a tech, else whoever accepted the
+//   Audio / Lighting invite; supabase/tech_profile_photo_migration.sql)
 const ENGINEER_KEY = { engineer: "audio", lighting: "lighting" };
 
 export function sectionPhoto(role, gig) {
@@ -12,13 +15,17 @@ export function sectionPhoto(role, gig) {
   if (role === "venue") return gig.venue_info?.photo_url || "";
   if (role === "manager") return gig.manager_info?.photo_url || "";
   if (role === "band") return gig.manager_info?.artist_photo_url || (gig.bands || []).find((b) => b.photo_url)?.photo_url || "";
-  if (ENGINEER_KEY[role]) return gig.engineer_info?.[ENGINEER_KEY[role]]?.photo_url || "";
+  if (ENGINEER_KEY[role]) {
+    const k = ENGINEER_KEY[role];
+    return gig.engineer_info?.[k]?.photo_url || gig.tech_photos?.[k] || "";
+  }
   return "";
 }
 
 // The section's own picture only (no fallback to an act photo), for editing.
 export function ownSectionPhoto(role, gig) {
   if (role === "band") return gig?.manager_info?.artist_photo_url || "";
+  if (ENGINEER_KEY[role]) return gig?.engineer_info?.[ENGINEER_KEY[role]]?.photo_url || "";
   return sectionPhoto(role, gig);
 }
 
