@@ -59,7 +59,10 @@ const emptyBand = (role, sortOrder) => ({
 // compact action row instead, and onSaved() after each save.
 // actionSlot (job 135): a DOM node in the host's header; the action buttons
 // (notes, star, invite, `beforeSave`, Save) render there instead of in a row.
-export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, beforeSave = null } = {}) {
+// banner (job 156): a node (the tech phone's EventBanner) shown on top; tapping
+// it opens / closes the event info block, which starts closed.
+export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, beforeSave = null, banner = null } = {}) {
+  const [infoOpen, setInfoOpen] = useState(false);
   const routeParams = useParams();
   const id = embeddedId || routeParams.id;
   const embedded = !!embeddedId;
@@ -902,6 +905,23 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           Performer side by side (stacked under each other below 1280px). */}
       <div className={embedded ? "space-y-3" : "px-4 pt-4 max-w-lg mx-auto space-y-3 lg:max-w-none lg:px-6 lg:pt-5 lg:space-y-0 lg:grid lg:gap-5 lg:items-start lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_minmax(0,1fr)]"}>
         <div className="space-y-3 lg:sticky lg:top-[76px] lg:row-span-2 xl:row-span-1">
+        {/* Tech phone (job 156): the event banner on top; tap it to open the
+            event info (status, name, type, picture, fan page, date) below. */}
+        {banner && (
+          <button
+            type="button"
+            onClick={() => setInfoOpen((o) => !o)}
+            aria-expanded={infoOpen}
+            aria-label={infoOpen ? "Hide event info" : "Edit event info"}
+            className="relative block w-full text-left p-0 bg-transparent border-0 rounded-2xl"
+          >
+            {banner}
+            <span className="absolute right-3 bottom-3 w-9 h-9 rounded-full bg-black/55 border border-white/15 flex items-center justify-center text-white/85">
+              <ChevronDown className={`w-5 h-5 transition-transform ${infoOpen ? "rotate-180" : ""}`} />
+            </span>
+          </button>
+        )}
+        {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
             {isTechProductionAccount && (
@@ -1029,6 +1049,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
         </div>
+        </>)}
         </div>
 
         <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">

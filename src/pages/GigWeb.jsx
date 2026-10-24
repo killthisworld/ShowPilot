@@ -655,9 +655,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           </div>
         </div>
         <div className="px-4 pt-3 max-w-lg mx-auto">
-          <div className="mb-3"><EventBanner gig={gig} imageUrl={myIcon} title={title} /></div>
           <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
-            <ShowDetail embeddedId={gig.id} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+            <ShowDetail embeddedId={gig.id} banner={<EventBanner gig={gig} imageUrl={myIcon} title={title} />} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
           </Suspense>
         </div>
         {user && <BottomTabs />}
