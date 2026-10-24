@@ -784,6 +784,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onDone={async () => { await p.markTaskDone(openTask.id, true); setOpenTaskId(null); }}
       onSaveDetails={(d) => p.setTaskDetails(openTask.id, d)}
       onSaveDue={p.setTaskDueDate ? (d) => p.setTaskDueDate(openTask.id, d) : undefined}
+      shareToken={p.token || null}
+      onChanged={(d) => p.mergeTask?.(openTask.id, d)}
     />
   ) : null;
   const current = tabs.find((t) => t.key === active) || tabs.find((t) => t.key === "tasks" && t.state === "partial") || tabs[0];

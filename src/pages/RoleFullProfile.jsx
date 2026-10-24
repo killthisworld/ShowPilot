@@ -262,6 +262,8 @@ export function useRoleProfile({ role, token, onChanged }) {
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,
     handleSave, addRequirement, updateRequirementStatus, deleteRequirement, setTaskDone,
     markTaskDone, claimTask, setTaskDetails, setTaskDueDate,
+    // For the task window (TaskSheet): it submits / sets up tasks itself.
+    token, mergeTask,
     iemMonitorColors,
   };
 }

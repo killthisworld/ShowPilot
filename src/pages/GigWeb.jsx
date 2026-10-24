@@ -561,6 +561,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           onSaveDetails={(d) => saveTaskDetails(openTask.id, d)}
           onSaveDue={(d) => saveTaskDue(openTask.id, d)}
           onGoToCurrent={() => goToCurrentTasks(openTask.section)}
+          shareToken={token}
+          onChanged={(d) => mergeTask(openTask.id, d)}
         />
       )}
       {showFanSheet && gig?.id && <FanPageSheet showId={permissions?.is_owner ? gig.id : undefined} shareToken={permissions?.is_owner ? undefined : token} onClose={() => setShowFanSheet(false)} />}

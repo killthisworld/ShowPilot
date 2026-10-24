@@ -338,6 +338,8 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
             onDone={async () => { await taskRpc(gig, t, "set_gig_task_status", { p_done: true }); setOpenTask(null); }}
             onSaveDetails={isOwner ? (details) => taskRpc(gig, t, "set_gig_task_details", { p_details: details }) : undefined}
             onSaveDue={isOwner ? (due) => taskRpc(gig, t, "set_gig_task_due_date", { p_due_date: due || null }) : undefined}
+            shareToken={gig.share_token}
+            onChanged={(d) => patchTask(gig.share_token, t.id, d)}
           />
         );
       })()}
