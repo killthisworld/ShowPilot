@@ -36,8 +36,12 @@ export default function StarSummary({ show, color, onClose, children }) {
   const accent = color || typeColor;
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-  const title = eventTitle(gig);
-  const artist = gig.event_name && gig.band_name && gig.band_name !== gig.event_name ? gig.band_name : null;
+  // A title that only repeats the venue isn't a real event title: lead with the
+  // headliner instead (and don't repeat them underneath).
+  const norm = (v) => String(v || "").trim().toLowerCase();
+  const nameIsVenue = norm(gig.event_name) && norm(gig.event_name) === norm(gig.venue);
+  const title = nameIsVenue && norm(gig.band_name) ? String(gig.band_name).trim() : eventTitle(gig);
+  const artist = gig.event_name && gig.band_name && !nameIsVenue && gig.band_name !== gig.event_name ? gig.band_name : null;
   const photo = broken ? null : gig.icon_url;
 
   return createPortal(
