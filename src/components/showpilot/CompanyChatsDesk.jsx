@@ -8,6 +8,7 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
 import { PhotoBar } from "@/components/showpilot/CompanyChats";
+import NightSky from "@/components/showpilot/NightSky";
 import { openRooms } from "@/lib/hiddenProfiles";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
 import { ROOM_META, ROOM_ORDER } from "@/pages/GigRooms";
@@ -206,7 +207,10 @@ function Conversation({ roomId, user, title, sub, color, photo, eventHref, tabs 
         )}
       </PhotoBar>
       {tabs}
-      <div className="flex-1 min-h-0 flex flex-col">
+      {/* The About page's moving night sky behind the messages (desktop only;
+          phones show the event photo behind the whole chat). */}
+      <div className="relative isolate flex-1 min-h-0 flex flex-col">
+        <NightSky />
         <RoomChatPanel roomId={roomId} user={user} fill placeholder={`Message ${title}...`} />
       </div>
     </>

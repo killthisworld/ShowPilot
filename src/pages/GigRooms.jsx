@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
 import EventBackdrop, { useEventPhoto } from "@/components/showpilot/EventBackdrop";
 import { PhotoBar } from "@/components/showpilot/CompanyChats";
+import NightSky from "@/components/showpilot/NightSky";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -168,7 +169,9 @@ export default function GigRooms() {
               );
             })}
           </nav>
-          <div className="flex-1 min-w-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+          <div className="relative isolate flex-1 min-w-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+            {/* The About page's moving night sky behind the room (desktop). */}
+            <NightSky />
             {/* The open room as a banner on the event's photo, like the desktop Chats page. */}
             {activeRoom && (
               <PhotoBar photo={eventPhoto} color={activeMeta.color} className="shrink-0 px-5 py-3.5 flex items-center gap-3 border-b border-[#1f1f1f]">
