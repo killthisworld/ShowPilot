@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { eventTitle } from "@/lib/eventTitle";
+import IntakeEventPicker from "@/components/showpilot/IntakeEventPicker";
 import { supabase } from "@/api/supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { Star, ClipboardList, Copy, X, Check, Plus, Link2 } from "lucide-react";
@@ -299,25 +300,13 @@ export default function CalendarPage() {
       {/* Name the event before generating the link */}
       {showLinkForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 h-[100dvh]" onClick={() => setShowLinkForm(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-4 w-full max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-white font-bold text-base mb-1">Performer Intake</h3>
             <p className="text-white/40 text-xs mb-3">Optional — helps you and the performer both know what this link is for.</p>
             <div className="space-y-3">
               <div>
-                <label className="text-white/50 text-xs" htmlFor="intake-event">Event</label>
-                <select
-                  id="intake-event"
-                  value={linkShowId}
-                  onChange={(e) => setLinkShowId(e.target.value)}
-                  className="mt-1 block w-full h-11 bg-[#111] border border-[#2a2a2a] rounded-xl px-3 text-white text-sm focus:outline-none focus:border-[#a855f7]/50"
-                >
-                  <option value="">New event</option>
-                  {linkableShows.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {eventTitle(s)}{s.date && (s.event_name || s.band_name) ? ` · ${new Date(s.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}{s.date && s.date < todayIso ? " (past)" : ""}
-                    </option>
-                  ))}
-                </select>
+                <span className="text-white/50 text-xs">Event</span>
+                <IntakeEventPicker shows={linkableShows} value={linkShowId} onChange={setLinkShowId} colorOf={getShowAccentColor} />
                 {linkShow && <p className="text-white/35 text-[11px] mt-1.5">The performer's info goes into this event's lineup.</p>}
               </div>
               {!linkShow && (<>
