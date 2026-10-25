@@ -107,7 +107,7 @@ export default function EventTasks() {
     );
   }
 
-  const eventTitle = eventTitle(gig);
+  const titleText = eventTitle(gig);
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "";
   const eyebrow = ["TASKS", dateLabel, (gig.venue || "").toUpperCase()].filter(Boolean).join(" · ");
 
@@ -119,7 +119,7 @@ export default function EventTasks() {
         </button>
         <div className="min-w-0 flex-1 lg:flex-none">
           <div className="text-[11px] tracking-[0.12em] text-white/50 truncate" style={{ fontFamily: SCENE_MONO }}>{eyebrow}</div>
-          <h1 className="text-[22px] lg:text-[26px] font-bold leading-tight truncate">{eventTitle}</h1>
+          <h1 className="text-[22px] lg:text-[26px] font-bold leading-tight truncate">{titleText}</h1>
         </div>
         <div className="w-full lg:w-auto lg:ml-auto flex flex-wrap items-center gap-2">
           {perms?.is_owner && (
