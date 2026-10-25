@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Check, ClipboardList, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -106,7 +107,7 @@ export default function EventTasks() {
     );
   }
 
-  const eventTitle = gig.event_name || gig.band_name || "Untitled show";
+  const eventTitle = eventTitle(gig);
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "";
   const eyebrow = ["TASKS", dateLabel, (gig.venue || "").toUpperCase()].filter(Boolean).join(" · ");
 

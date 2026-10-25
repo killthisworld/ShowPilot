@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
@@ -768,6 +769,31 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           </div>
   );
 
+  // Optional event name + picture (tech phone, job 157 / 158): folded; on a new
+  // event it sits at the top of the event card, afterwards at the top of Venue Info.
+  const identityBlock = (
+              <div className={isNew ? "" : "pt-3"}>
+                <button
+                  type="button"
+                  onClick={() => setIdentityOpen((o) => !o)}
+                  aria-expanded={identityOpen}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#111] border border-[#222] text-left"
+                >
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-white/80 text-sm font-semibold">Event name &amp; picture <span className="text-white/35 font-normal">(optional)</span></span>
+                    <span className="block text-white/40 text-xs truncate">{show.event_name ? show.event_name : "None - the headliner is the title"}</span>
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-white/40 shrink-0 transition-transform ${identityOpen ? "rotate-180" : ""}`} />
+                </button>
+                {identityOpen && (
+                  <div className="mt-2 p-3 rounded-xl bg-[#111] border border-[#222] space-y-3">
+                    {eventNameField}
+                    {eventIconField}
+                  </div>
+                )}
+              </div>
+  );
+
   return (
     <div className={embedded ? "" : "min-h-screen bg-[#0d0d0d] pb-8"}>
       {savedToast && (
@@ -902,7 +928,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             <button onClick={() => goBack(backTo)} className="p-2 -ml-2 rounded-lg hover:bg-white/5">
               <ArrowLeft className="w-5 h-5 text-white/70" />
             </button>
-            <h1 className="hidden lg:block text-white text-2xl font-bold truncate">{show.event_name || (isNew ? "New show" : "Untitled show")}</h1>
+            <h1 className="hidden lg:block text-white text-2xl font-bold truncate">{isNew && !show.event_name ? "New show" : eventTitle({ ...show, band_name: show.band_name || bands?.[0]?.band_name })}</h1>
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setShowFxModal(true)} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
@@ -1016,6 +1042,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
+          {techPhone && isNew && identityBlock}
           {!techPhone && eventNameField}
           <div>
             <div className="flex items-center justify-between">
@@ -1069,28 +1096,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
 
         <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">
           <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
-            {techPhone && (
-              <div className="pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIdentityOpen((o) => !o)}
-                  aria-expanded={identityOpen}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#111] border border-[#222] text-left"
-                >
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-white/80 text-sm font-semibold">Event name &amp; picture <span className="text-white/35 font-normal">(optional)</span></span>
-                    <span className="block text-white/40 text-xs truncate">{show.event_name ? show.event_name : "None - the headliner is the title"}</span>
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-white/40 shrink-0 transition-transform ${identityOpen ? "rotate-180" : ""}`} />
-                </button>
-                {identityOpen && (
-                  <div className="mt-2 p-3 rounded-xl bg-[#111] border border-[#222] space-y-3">
-                    {eventNameField}
-                    {eventIconField}
-                  </div>
-                )}
-              </div>
-            )}
+            {techPhone && !isNew && identityBlock}
             <VenueInfoFields
               value={show}
               onChange={update}

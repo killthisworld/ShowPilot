@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { Link } from "react-router-dom";
 import { ExternalLink, MessageCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -152,7 +153,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
                     {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2 rounded-xl" style={{ borderColor: color }} />}
                       <PhotoBar photo={g.icon_url} color={color} className="min-h-[70px] flex items-center gap-3 pl-4 pr-2 py-3">
                         <span className="flex-1 min-w-0 flex flex-col gap-1">
-                          <span className="text-[16px] font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
+                          <span className="text-[16px] font-semibold text-white truncate">{eventTitle(g)}</span>
                           <span className="text-[11px] text-white/60 truncate" style={{ fontFamily: SCENE_MONO }}>{[shortDate(g.date), g.venue].filter(Boolean).join(" · ").toUpperCase()}</span>
                         </span>
                         {trash(`${g.event_name || "event"} rooms`, () => removeEvent(g))}

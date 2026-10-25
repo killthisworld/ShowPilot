@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { Link, useNavigate } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, MessageCircle, Ticket, Camera, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -256,7 +257,7 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
                   {/* Show */}
                   <Link to={`/gig/web?token=${s.share_token}`} className="shrink-0 px-2.5 pt-1.5 pb-2 flex flex-col gap-[2px] text-left" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c", textShadow: photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none" }}>
                     <span className="text-[12px] leading-tight" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
-                    <span className="text-[16px] font-semibold leading-snug truncate w-full">{s.event_name || s.band_name || "Untitled"}</span>
+                    <span className="text-[16px] font-semibold leading-snug truncate w-full">{eventTitle(s)}</span>
                     <span className="text-[12px] leading-tight text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
                   </Link>
 

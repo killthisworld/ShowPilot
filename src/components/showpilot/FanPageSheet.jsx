@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Eye, EyeOff, FileText, ImagePlus, MapPin, Paperclip, Pencil, Plus, Share2, Ticket, Users, X } from "lucide-react";
 import { shareLink } from "@/lib/share";
@@ -337,7 +338,7 @@ function OwnerSheet({ showId, onClose }) {
   const dateText = row?.date ? new Date(row.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "";
   const placeText = [row?.city, row?.state].filter(Boolean).join(", ");
   const doors = row?.promoter_info?.door_time || "";
-  const title = row?.event_name || row?.band_name || "Untitled event";
+  const title = row ? eventTitle(row) : "New event";
 
   // ---- Editors for each part of the page ----
   const PARTS = {

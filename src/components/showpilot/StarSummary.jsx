@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, MapPin, Link2 } from "lucide-react";
@@ -35,7 +36,7 @@ export default function StarSummary({ show, color, onClose, children }) {
   const accent = color || typeColor;
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-  const title = gig.event_name || gig.band_name || gig.venue || "Untitled";
+  const title = eventTitle(gig);
   const artist = gig.event_name && gig.band_name && gig.band_name !== gig.event_name ? gig.band_name : null;
   const photo = broken ? null : gig.icon_url;
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
 // A calendar day box filled with its events' photos (the same image as the
@@ -17,7 +18,7 @@ export default function DayPhotoBands({
   events,
   colorOf,
   keyOf,
-  titleOf = (e) => e.event_name || e.band_name || "Untitled",
+  titleOf = (e) => eventTitle(e),
   onOpen,          // when set, each band is a button that opens its event
   max = 3,
   titleClass = "text-[13px]",

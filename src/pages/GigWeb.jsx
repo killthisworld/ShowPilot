@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
@@ -437,7 +438,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // Every event always shows all three profiles, so the web stays even. A
   // profile nobody is invited to (and nothing is filled in for) stays unlit.
   const roles = ROLE_ORDER;
-  const title = gig.event_name || gig.band_name || "Untitled Gig";
+  const title = eventTitle(gig);
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
   // Sized down slightly from the original 340/170/128 to bring the board

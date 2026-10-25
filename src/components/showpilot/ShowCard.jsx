@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { Calendar, MapPin, Star, Archive, Trash2, Building, Mic2 } from "lucide-react";
 import StatusBadge from "./StatusBadge";
@@ -89,7 +90,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <h3 className="text-white font-semibold text-sm truncate">
-                  {show.event_name || show.band_name || "Untitled Gig"}
+                  {eventTitle(show)}
                 </h3>
                 {show.starred && <Star className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="currentColor" />}
               </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import TicketCard from "@/components/showpilot/TicketCard";
 import MonthDropdown, { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import { X, Search, Check } from "lucide-react";
@@ -265,7 +266,7 @@ export default function QuickAddSheet({ preferences, accent }) {
                   >
                     {/* Centered like the desktop Home tickets (job 127). */}
                     <span className="flex flex-col items-center justify-center gap-1 min-w-0 min-h-[56px] text-center">
-                      <span className="text-[17px] font-semibold leading-tight text-white line-clamp-2 break-words">{e.event_name || e.band_name || "Untitled"}</span>
+                      <span className="text-[17px] font-semibold leading-tight text-white line-clamp-2 break-words">{eventTitle(e)}</span>
                       <span className="text-[10.5px] tracking-[0.04em] text-white/60 truncate max-w-full uppercase" style={{ fontFamily: SCENE_MONO }}>{[e.venue, e.city].filter(Boolean).join(" · ") || "No venue yet"}</span>
                     </span>
                   </TicketCard>
@@ -283,7 +284,7 @@ export default function QuickAddSheet({ preferences, accent }) {
               style={{ border: `1.5px solid ${evColor(ev)}` }}
             >
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: evColor(ev) }} />
-              <span className="truncate">{ev.event_name || ev.band_name || "Untitled"}{ev.date ? ` · ${shortDate(ev.date)}` : ""}</span>
+              <span className="truncate">{eventTitle(ev)}{ev.date ? ` · ${shortDate(ev.date)}` : ""}</span>
               <span className="text-white/55 font-medium shrink-0">Change</span>
             </button>
 
@@ -366,7 +367,7 @@ export default function QuickAddSheet({ preferences, accent }) {
             <h2 className="m-0 text-[30px] font-bold text-white" style={{ fontFamily: SCENE_FONT }}>Task added</h2>
             <p className="m-0 text-base leading-[1.45] text-white">
               “{text.trim()}”<br />
-              <span className="text-white/55">on {ev.event_name || ev.band_name || "Untitled"}{ev.date ? ` · ${shortDate(ev.date)}` : ""}</span>
+              <span className="text-white/55">on {eventTitle(ev)}{ev.date ? ` · ${shortDate(ev.date)}` : ""}</span>
             </p>
             <p className="m-0 text-[13px] text-white/55 leading-[1.45]">
               {[dueISO && !added?.dueNote ? `Due ${shortDate(dueISO)}` : null, section === homeSection ? "For you" : `For ${sectionMeta(section).label}`].filter(Boolean).join(" · ")}.

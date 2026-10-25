@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -518,7 +519,7 @@ export default function RoleFullProfile() {
           </div>
           <div className="min-w-0">
             <h1 className="text-white font-bold text-lg leading-tight truncate">{title}</h1>
-            <p className="text-white/40 text-xs mt-0.5 truncate">{p.gig.event_name || p.gig.band_name || "Untitled Gig"}</p>
+            <p className="text-white/40 text-xs mt-0.5 truncate">{eventTitle(p.gig)}</p>
           </div>
         </div>
       </div>

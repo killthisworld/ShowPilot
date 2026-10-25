@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { CalendarDays, Plus, Search, MapPin, Link2, SlidersHorizontal, X, ChevronDown, ChevronLeft, ChevronRight, PlaneTakeoff, ClipboardList } from "lucide-react";
@@ -718,7 +719,7 @@ export default function BandHome() {
                           >
                             {/* Centered: name, where, progress. The ticket's photo is the picture. */}
                             <div className="min-h-[74px] flex flex-col items-center justify-center gap-1 text-center min-w-0 px-7">
-                              <div className="w-full text-[19px] font-semibold leading-[1.1] text-white line-clamp-2 break-words" style={{ textShadow: g.icon_url ? "0 1px 4px rgba(0,0,0,0.8)" : undefined }}>{g.event_name || g.band_name || "Untitled Gig"}</div>
+                              <div className="w-full text-[19px] font-semibold leading-[1.1] text-white line-clamp-2 break-words" style={{ textShadow: g.icon_url ? "0 1px 4px rgba(0,0,0,0.8)" : undefined }}>{eventTitle(g)}</div>
                               <div className="w-full text-[10.5px] tracking-[0.04em] text-white/60 truncate uppercase" style={{ fontFamily: SCENE_MONO }}>
                                 {[g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No venue yet"}
                                 {!g.is_owned && <span className="text-pink-400/80"> · LINKED</span>}
@@ -875,7 +876,7 @@ export default function BandHome() {
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {thisWeekGigs.map((g) => {
                 const d = new Date(g.date + "T00:00:00");
-                const title = g.event_name || g.band_name || "Untitled Gig";
+                const title = eventTitle(g);
                 const color = eventTypeColor(g.event_type) || (g.is_owned ? "#8CFF3D" : "#F472B6");
                 return (
                   <button
@@ -962,7 +963,7 @@ export default function BandHome() {
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="min-w-0 flex-1">
-                            <p className="text-white text-[15px] font-semibold truncate">{g.event_name || g.band_name || "Untitled Gig"}</p>
+                            <p className="text-white text-[15px] font-semibold truncate">{eventTitle(g)}</p>
                             <div className="flex items-center gap-1 text-white/50 text-xs mt-0.5 min-w-0">
                               {g.venue && (
                                 <span className="flex items-center gap-0.5 min-w-0">

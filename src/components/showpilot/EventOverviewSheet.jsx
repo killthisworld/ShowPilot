@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
 import { ArrowLeft, MapPin, Phone, Mail, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -53,7 +54,7 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
   }, [onClose]);
 
   const color = eventTypeColor(gig.event_type) || G;
-  const title = gig.event_name || gig.band_name || "Untitled";
+  const title = eventTitle(gig);
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const vi = gig.venue_info || {};
   const mi = gig.manager_info || {};

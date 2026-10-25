@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
 import { useNavigate } from "react-router-dom";
@@ -1186,7 +1187,7 @@ export default function SharedGig() {
     );
   }
 
-  const title = gig.event_name || gig.band_name || "Untitled Gig";
+  const title = eventTitle(gig);
   // Only the event owner or the Manager / Artist can change the lineup (the
   // server refuses anyone else); everyone else sees it read-only, in order.
   const canEditLineup = canEdit && (!!permissions?.is_owner || canEditSection("manager"));

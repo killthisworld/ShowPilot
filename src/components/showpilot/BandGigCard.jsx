@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { MapPin, Calendar, Star, Link2, Archive, Trash2 } from "lucide-react";
 import GigProgressBar from "./GigProgressBar";
 
@@ -36,7 +37,7 @@ export default function BandGigCard({ gig, progress, onOpen, onArchive, onDelete
     onOpen(gig);
   };
 
-  const title = gig.event_name || gig.band_name || "Untitled Gig";
+  const title = eventTitle(gig);
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" \u00b7 ");
   const ownerLabel = gig.is_owned ? "You" : (gig.owner_display_name || "Unknown");
   const accent = gig.is_owned ? "#8CFF3D" : "#F472B6";

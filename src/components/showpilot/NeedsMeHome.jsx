@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { Check, CheckCircle2, ChevronDown, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import useEventFeed from "@/lib/eventFeed";
@@ -158,7 +159,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
             <span>{words.today.toUpperCase()}</span>
             {g.event_time && <span>{g.event_time.toUpperCase()}</span>}
           </span>
-          <span className="text-lg font-semibold truncate w-full">{g.event_name || g.band_name || "Untitled"}</span>
+          <span className="text-lg font-semibold truncate w-full">{eventTitle(g)}</span>
           {g.venue && <span className="text-xs text-white/70 truncate w-full" style={{ fontFamily: SCENE_MONO }}>{[g.venue, g.city].filter(Boolean).join(" · ").toUpperCase()}</span>}
         </div>
       ))}
@@ -194,7 +195,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                   <span className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(22,22,22,0.92) 30%, rgba(22,22,22,0.55))" }} />
                   <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={36} />
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-semibold text-white truncate">{gig.event_name || gig.band_name || "Untitled"}</span>
+                    <span className="block text-[15px] font-semibold text-white truncate">{eventTitle(gig)}</span>
                     <span className="block text-[10.5px] tracking-[0.08em] text-white/50 truncate" style={{ fontFamily: SCENE_MONO }}>
                       {[gig.date ? (gig.date === todayISO ? words.today : shortDate(gig.date)) : "NO DATE", gig.venue].filter(Boolean).join(" · ").toUpperCase()}
                     </span>

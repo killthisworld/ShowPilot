@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, MessageCircle, Trash2 } from "lucide-react";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
@@ -203,7 +204,7 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
               <SwipeRow key={g.share_token} label={`${g.event_name || g.band_name || "Event"} rooms`} onOpen={() => navigate(`/gig/rooms?token=${g.share_token}`)} onDelete={() => removeEvent(g)}>
                 <PhotoBar photo={g.icon_url} color={eventTypeColor(g.event_type) || accent} className="min-h-[76px] flex items-center gap-3 pl-4 pr-3.5 py-3">
                   <span className="flex-1 min-w-0 flex flex-col gap-1">
-                    <span className="text-[16px] font-semibold text-white truncate">{g.event_name || g.band_name || "Untitled"}</span>
+                    <span className="text-[16px] font-semibold text-white truncate">{eventTitle(g)}</span>
                     <span className="text-[11px] text-white/60 truncate" style={{ fontFamily: SCENE_MONO }}>{[shortDate(g.date), g.venue].filter(Boolean).join(" · ").toUpperCase()}</span>
                   </span>
                   <ChevronRight className="w-5 h-5 text-white/60 shrink-0" />

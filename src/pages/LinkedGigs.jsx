@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -37,7 +38,7 @@ function SwipeableGigCard({ gig, onOpen, onArchive, onRemove }) {
     onOpen();
   };
 
-  const title = gig.event_name || gig.band_name || "Untitled Gig";
+  const title = eventTitle(gig);
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
 
   return (

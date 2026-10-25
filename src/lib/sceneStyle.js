@@ -1,4 +1,5 @@
 // Look shared by the routing / scene-select home that the audio and
+import { eventTitle } from "@/lib/eventTitle";
 // lighting profiles use (Home.jsx): console-style status banks, a scene
 // list, and cue pads.
 export const SCENE_FONT = "'Barlow Condensed', 'Inter', sans-serif";
@@ -45,5 +46,5 @@ export function sceneDate(show) {
 }
 
 export function sceneTitle(show) {
-  return show.event_name || show.band_name || "Untitled Gig";
+  return eventTitle(show);
 }

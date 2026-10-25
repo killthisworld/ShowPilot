@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { MapPin } from "lucide-react";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -10,7 +11,7 @@ import { sectionPhoto } from "@/lib/sectionPhotos";
 // No photo -> a glow in the event type's color.
 export default function EventBanner({ gig, imageUrl, title }) {
   const color = eventTypeColor(gig.event_type) || "#8CFF3D";
-  const name = title || gig.event_name || gig.band_name || "Untitled";
+  const name = title || eventTitle(gig);
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   // No event picture (common for concerts, job 157): the headliner's photo,

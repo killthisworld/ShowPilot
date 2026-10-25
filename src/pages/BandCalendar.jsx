@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import moment from "moment";
 import { supabase } from "@/api/supabaseClient";
@@ -219,7 +220,7 @@ export default function BandCalendar() {
                               className="text-left min-w-0 px-1.5 py-0.5 rounded"
                               style={{ background: color + "26", borderLeft: `3px solid ${color}` }}
                             >
-                              <span className="block text-[13px] font-semibold leading-[1.15] text-white truncate">{g.event_name || g.band_name || "Untitled Gig"}</span>
+                              <span className="block text-[13px] font-semibold leading-[1.15] text-white truncate">{eventTitle(g)}</span>
                             </button>
                           );
                         })}
@@ -250,7 +251,7 @@ export default function BandCalendar() {
                             className="flex items-center gap-2 px-2.5 py-2 rounded-md text-left border transition-colors"
                             style={on ? { background: color + "1f", borderColor: color } : { background: "#1a1a1a", borderColor: "#262626" }}>
                             <span className="w-1 self-stretch rounded-sm shrink-0" style={{ background: color }} />
-                            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">{g.event_name || g.band_name || "Untitled Gig"}</span>
+                            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">{eventTitle(g)}</span>
                             {!g.is_owned && <Link2 className="w-3 h-3 shrink-0" style={{ color }} />}
                           </button>
                         );
@@ -336,7 +337,7 @@ export default function BandCalendar() {
                       <div key={g.is_owned ? g.id : g.share_token} className="w-full mt-1 px-1.5 pb-1">
                         <div className="rounded-md px-1.5 py-1 text-left" style={{ backgroundColor: color + "22", borderLeft: `2px solid ${color}` }}>
                           <p className="text-[10px] font-medium leading-tight truncate" style={{ color }}>
-                            {g.event_name || g.band_name || "Untitled Gig"}
+                            {eventTitle(g)}
                           </p>
                         </div>
                       </div>
@@ -363,7 +364,7 @@ export default function BandCalendar() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="w-1 self-stretch rounded-full" style={{ background: color }} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-white text-[15px] font-semibold truncate">{g.event_name || g.band_name || "Untitled"}</p>
+                        <p className="text-white text-[15px] font-semibold truncate">{eventTitle(g)}</p>
                         <p className="text-white/55 text-xs truncate">{[g.venue, g.city].filter(Boolean).join(" · ") || "No venue yet"}</p>
                       </div>
                       <FanPageButton show={g} />
@@ -390,7 +391,7 @@ export default function BandCalendar() {
             </div>
             <div className="space-y-2 mb-4">
               {(gigsByDate[dayModalKey] || []).map((g) => {
-                const title = g.event_name || g.band_name || "Untitled Gig";
+                const title = eventTitle(g);
                 const location = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
                 const color = getGigColor(g);
                 return (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { ArrowRight, Link2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
@@ -21,7 +22,7 @@ export default function DayEventOverview({ gig, color = "#8CFF3D", onOpen }) {
   }, [gig?.share_token]);
 
   const g = { ...gig, ...(full || {}) };
-  const title = g.event_name || g.band_name || "Untitled Gig";
+  const title = eventTitle(g);
   const place = [g.venue, [g.city, g.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const ros = full ? buildRunOfShow(g) : [];
   const acts = (g.bands || []).filter((b) => b.band_name);

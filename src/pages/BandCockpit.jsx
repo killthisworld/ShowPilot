@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { Users, Link2, Wallet, MapPin, Calendar, X } from "lucide-react";
@@ -164,7 +165,7 @@ export default function BandCockpit() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onClick={() => setSelectedGig(null)}>
           <div className="bg-[#141414] border border-white/10 rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-4">
-              <h2 className="text-white font-bold text-xl">{selectedGig.event_name || selectedGig.band_name || "Untitled"}</h2>
+              <h2 className="text-white font-bold text-xl">{eventTitle(selectedGig)}</h2>
               <button onClick={() => setSelectedGig(null)} className="text-white/40 hover:text-white">
                 <X className="w-5 h-5" />
               </button>

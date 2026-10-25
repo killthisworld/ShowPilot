@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { eventTitle } from "@/lib/eventTitle";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -176,7 +177,7 @@ export default function ArchivedShows() {
                           <div key={s.is_owned ? s.id : s.share_token} className="flex items-center justify-between gap-2">
                             <button onClick={() => openShow(s)} className="text-left min-w-0 flex-1">
                               <p className="text-white text-sm truncate hover:text-[#8CFF3D] transition-colors">
-                                {s.event_name || s.band_name || "Untitled Gig"}
+                                {eventTitle(s)}
                               </p>
                               <p className="text-white/40 text-xs truncate">
                                 {s.venue}{!s.is_owned ? ` \u00b7 Owner: ${s.owner_display_name || "Unknown"}` : ""}
