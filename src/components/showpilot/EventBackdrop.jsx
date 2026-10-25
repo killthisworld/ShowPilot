@@ -10,11 +10,13 @@ import { fetchMyIcons } from "@/lib/eventIcons";
 // at -z-10, above that background and under everything else.
 const cache = {};
 
-export default function EventBackdrop({ token }) {
+// The event's photo URL (your own icon for it first), cached per token.
+export function useEventPhoto(token) {
   const [url, setUrl] = useState(() => (token ? cache[token] ?? null : null));
 
   useEffect(() => {
-    if (!token || cache[token] !== undefined) return undefined;
+    if (!token) return undefined;
+    if (cache[token] !== undefined) { setUrl(cache[token]); return undefined; }
     let off = false;
     (async () => {
       const [{ data }, mine] = await Promise.all([
@@ -27,6 +29,12 @@ export default function EventBackdrop({ token }) {
     })().catch(() => {});
     return () => { off = true; };
   }, [token]);
+
+  return url;
+}
+
+export default function EventBackdrop({ token }) {
+  const url = useEventPhoto(token);
 
   if (!url) return null;
   return (

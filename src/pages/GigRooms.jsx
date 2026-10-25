@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
-import EventBackdrop from "@/components/showpilot/EventBackdrop";
+import EventBackdrop, { useEventPhoto } from "@/components/showpilot/EventBackdrop";
+import { PhotoBar } from "@/components/showpilot/CompanyChats";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -78,6 +79,8 @@ export default function GigRooms() {
     if (!token || !activeRoomId) return;
     navigate(`/gig/rooms?token=${token}&room=${activeRoomId}`, { replace: true });
   }, [token, activeRoomId]);
+
+  const eventPhoto = useEventPhoto(token);
 
   if (checkingAuth || loading) {
     return (
@@ -166,11 +169,14 @@ export default function GigRooms() {
             })}
           </nav>
           <div className="flex-1 min-w-0 min-h-0 flex flex-col rounded-2xl border border-[#1f1f1f] bg-[#101010] overflow-hidden">
+            {/* The open room as a banner on the event's photo, like the desktop Chats page. */}
             {activeRoom && (
-              <div className="shrink-0 px-6 py-3 border-b border-[#1a1a1a] flex items-center gap-2" style={{ color: activeMeta.color }}>
-                <activeMeta.icon className="w-4 h-4" />
-                <span className="text-sm font-bold tracking-wide">{activeMeta.label}</span>
-              </div>
+              <PhotoBar photo={eventPhoto} color={activeMeta.color} className="shrink-0 px-5 py-3.5 flex items-center gap-3 border-b border-[#1f1f1f]">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[20px] font-bold text-white truncate">{activeMeta.label}</span>
+                  <span className="block text-[11px] tracking-[0.06em] uppercase truncate" style={{ color: activeMeta.color }}>{gigTitle}</span>
+                </span>
+              </PhotoBar>
             )}
             {chat}
           </div>
