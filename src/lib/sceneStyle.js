@@ -23,16 +23,24 @@ export const SCENE_BANKS = [
   { id: "linked", label: "LINK", color: SCENE_COLORS.linked },
 ];
 
+// NEW / FREQ / WORKED (job 161): an event that hasn't been checked as done is
+// NEW, whatever its status says. Once done it's FREQ (marked Frequent) or
+// WORKED. (Past events get done automatically each night, job 131.)
+export function sceneStatus(show) {
+  if (!show.done) return "not_started";
+  return show.status === "in_progress" ? "in_progress" : "complete";
+}
+
 export function sceneAccent(show) {
   if (show.is_owned === false) return SCENE_COLORS.linked;
   if (show.starred) return SCENE_COLORS.starred;
-  return SCENE_COLORS[show.status] || SCENE_COLORS.not_started;
+  return SCENE_COLORS[sceneStatus(show)] || SCENE_COLORS.not_started;
 }
 
 export function sceneBankOf(show) {
   if (show.is_owned === false) return "linked";
   if (show.starred) return "starred";
-  return show.status || "not_started";
+  return sceneStatus(show);
 }
 
 export function scenePlace(show) {

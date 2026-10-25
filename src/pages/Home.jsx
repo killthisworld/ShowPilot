@@ -14,7 +14,7 @@ import CuePad from "@/components/showpilot/CuePad";
 import MonthGroups from "@/components/showpilot/MonthGroups";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip } from "@/lib/homeStats";
-import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
+import { SCENE_FONT, SCENE_MONO, SCENE_BANKS, sceneAccent, sceneBankOf, sceneStatus, scenePlace, sceneDate, sceneTitle } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import useIsDesktop from "@/hooks/useIsDesktop";
@@ -317,7 +317,7 @@ export default function Home() {
     if (t === "all") return true; // desktop console: every show, owned and linked
     if (t === "starred") return !!s.starred;
     if (t === "linked") return !s.is_owned;
-    return !!s.is_owned && !s.starred && s.status === t;
+    return !!s.is_owned && !s.starred && sceneStatus(s) === t; // not done = NEW (job 161)
   };
   const matchesDropdowns = (s) => {
     if (yearFilter !== "all" && !s.date?.startsWith(yearFilter)) return false;
