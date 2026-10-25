@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { withEventImage } from "@/lib/eventImage";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -84,7 +85,7 @@ export default function Logbook() {
       // Your own picture for an event (if you set one) wins, as on Home.
       const myIcons = await fetchMyIcons().catch(() => ({}));
       ownShows = ownShows.map((g) => (myIcons?.[g.id] ? { ...g, icon_url: myIcons[g.id] } : g));
-      setShows(ownShows);
+      setShows(ownShows.map(withEventImage)); // no event image -> venue photo (job 163)
 
       if (settingsRes.error) console.error(settingsRes.error);
       else {

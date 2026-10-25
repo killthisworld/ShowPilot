@@ -14,10 +14,10 @@ export default function EventBanner({ gig, imageUrl, title }) {
   const name = title || eventTitle(gig);
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-  // No event picture (common for concerts, job 157): the headliner's photo,
-  // else any act's / the artist's, else the venue's photo.
+  // No event picture: the venue's photo (job 163), else the headliner's /
+  // an act's / the artist's photo (job 157).
   const headliner = (gig.bands || []).find((b) => b.photo_url && b.band_name && b.band_name === gig.band_name);
-  const src = imageUrl || gig.icon_url || headliner?.photo_url || sectionPhoto("band", gig) || gig.venue_info?.photo_url || "";
+  const src = imageUrl || gig.icon_url || gig.venue_info?.photo_url || headliner?.photo_url || sectionPhoto("band", gig) || "";
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [src]);
   const img = broken ? null : src;

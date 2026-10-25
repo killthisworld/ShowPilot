@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { withEventImage } from "@/lib/eventImage";
 import { eventTitle } from "@/lib/eventTitle";
 import IntakeEventPicker from "@/components/showpilot/IntakeEventPicker";
 import { supabase } from "@/api/supabaseClient";
@@ -161,7 +162,7 @@ export default function CalendarPage() {
         ownShows = [...ownShows, ...linkedDetails.filter(Boolean)];
       }
 
-      if (isMounted) setShows(ownShows);
+      if (isMounted) setShows(ownShows.map(withEventImage)); // no event image -> venue photo (job 163)
       if (isMounted) setLoading(false);
     }
 

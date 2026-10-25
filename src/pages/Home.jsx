@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { withEventImage } from "@/lib/eventImage";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
@@ -185,8 +186,9 @@ export default function Home() {
 
       if (isMounted) {
         setShows([
-          ...activeShows.map((s) => ({ ...s, is_owned: true, opener_names: openersByShow[s.id] || [] })),
-          ...linkedGigs,
+          // No event image -> the venue's photo (job 163).
+          ...activeShows.map((s) => withEventImage({ ...s, is_owned: true, opener_names: openersByShow[s.id] || [] })),
+          ...linkedGigs.map(withEventImage),
         ]);
         setLoading(false);
       }
