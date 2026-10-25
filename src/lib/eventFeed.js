@@ -28,17 +28,33 @@ export function canWorkSection(section, p) {
   return invitedRole(section, p) && !claimedRole(section, p);
 }
 
+// The sections of an event that are yours: the profiles you hold or were
+// granted, plus (on your own event) the section your account type works in.
+export function mySections(perms, homeSection) {
+  const out = new Set();
+  (perms?.my_roles || []).forEach((r) => out.add(sectionOf(r)));
+  (perms?.granted_sections || []).forEach((sct) => out.add(sectionOf(sct)));
+  if (perms?.is_owner && homeSection) out.add(sectionOf(homeSection));
+  return out;
+}
+
 // The rows for one event, most urgent first.
-export function feedRows(gig, perms, userId, today = localISO()) {
+// `mine` (Needs me, job 73): only what's needed from YOU - requests and
+// conflicts on your sections, tasks you've claimed or open tasks on your
+// sections, and (on your own event) profiles still to invite / pending.
+// Without it (the event Overview) every open item on the event is listed.
+export function feedRows(gig, perms, userId, today = localISO(), { mine = false, homeSection = null } = {}) {
   const rows = [];
+  const yours = mine ? mySections(perms, homeSection) : null;
+  const onMine = (section) => !mine || yours.has(sectionOf(section));
   (gig.requirements || [])
-    .filter((r) => r.status === "conflict" || r.status === "requested")
+    .filter((r) => (r.status === "conflict" || r.status === "requested") && onMine(r.section))
     .sort((a, b) => (a.status === "conflict" ? 0 : 1) - (b.status === "conflict" ? 0 : 1))
     .forEach((r) => rows.push({ kind: r.status === "conflict" ? "conflict" : "request", id: `r-${r.id}`, req: r, section: sectionOf(r.section), canWork: !!userId && canWorkSection(sectionOf(r.section), perms) }));
 
   const dueRank = (t) => (t.due_date ? (t.due_date <= today ? 0 : 1) : 2);
   (gig.tasks || [])
-    .filter((t) => t.status !== "done")
+    .filter((t) => t.status !== "done" && (!mine || (userId && t.claimed_by === userId) || (!t.claimed_by && onMine(t.section))))
     .sort((a, b) =>
       Number(b.claimed_by === userId) - Number(a.claimed_by === userId) ||
       dueRank(a) - dueRank(b) ||
@@ -54,7 +70,7 @@ export function feedRows(gig, perms, userId, today = localISO()) {
   return rows;
 }
 
-export default function useEventFeed(gigs, userId) {
+export default function useEventFeed(gigs, userId, rowOptions = {}) {
   const [details, setDetails] = useState({}); // share_token -> { gig, perms }
   // The event list this feed last finished loading. Until it matches the
   // current list, the feed counts as loading (no "nothing to do" flash).
@@ -125,11 +141,11 @@ export default function useEventFeed(gigs, userId) {
       .map((g) => {
         const e = details[g.share_token];
         if (!e) return null;
-        const rows = feedRows(e.gig, e.perms, userId, today);
+        const rows = feedRows(e.gig, e.perms, userId, today, { mine: !!rowOptions.mine, homeSection: rowOptions.homeSection || null });
         return rows.length ? { gig: e.gig, perms: e.perms, rows } : null;
       })
       .filter(Boolean);
-  }, [events, details, userId]);
+  }, [events, details, userId, rowOptions.mine, rowOptions.homeSection]);
 
   return { groups, loading: loadedKey !== key, reload: load, patchTask, patchReq };
 }

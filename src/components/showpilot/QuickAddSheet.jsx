@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import TicketCard from "@/components/showpilot/TicketCard";
+import MonthDropdown, { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import { X, Search, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -30,6 +31,8 @@ export default function QuickAddSheet({ preferences, accent }) {
   const [step, setStep] = useState("event"); // event | task | done
   const [events, setEvents] = useState(null);
   const [query, setQuery] = useState("");
+  // Month picker beside the search (job 73): "" = all months, else "YYYY-MM".
+  const [month, setMonth] = useState("");
   const [ev, setEv] = useState(null);
   const [text, setText] = useState("");
   const [due, setDue] = useState(null); // null | today | tomorrow | week | date
@@ -43,7 +46,7 @@ export default function QuickAddSheet({ preferences, accent }) {
   const words = vocab(preferences?.account_type);
 
   const reset = () => {
-    setStep("event"); setQuery(""); setEv(null); setText(""); setDue(null); setDueDate("");
+    setStep("event"); setQuery(""); setMonth(""); setEv(null); setText(""); setDue(null); setDueDate("");
     setSection(homeSection); setError(""); setAdded(null);
   };
 
@@ -110,11 +113,20 @@ export default function QuickAddSheet({ preferences, accent }) {
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const matches = (e) => !q || [e.event_name, e.band_name, e.venue, e.city].some((v) => v?.toLowerCase().includes(q));
+    // A month picked: every event that month, in date order.
+    if (month) return (events || []).filter((e) => e.date?.startsWith(month) && matches(e)).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 60);
     if (!q) return ordered.slice(0, 6);
-    return ordered.filter((e) =>
-      [e.event_name, e.band_name, e.venue, e.city].some((v) => v?.toLowerCase().includes(q))
-    ).slice(0, 30);
-  }, [ordered, query]);
+    return ordered.filter(matches).slice(0, 30);
+  }, [ordered, events, query, month]);
+
+  // Every month around your events, with how many each has; "All months" first.
+  const monthOptions = useMemo(() => {
+    const counts = {};
+    (events || []).forEach((e) => { if (e.date) { const k = e.date.slice(0, 7); counts[k] = (counts[k] || 0) + 1; } });
+    return [{ key: "all", label: "All months", group: "ANY" }, ...calendarMonthOptions({ dates: (events || []).map((e) => e.date).filter(Boolean), counts })];
+  }, [events]);
+  const monthName = (key) => new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
 
   const dueISO = due === "today" ? localISO() : due === "tomorrow" ? addDaysISO(1) : due === "week" ? endOfWeekISO() : due === "date" ? (dueDate || null) : null;
 
@@ -197,7 +209,8 @@ export default function QuickAddSheet({ preferences, accent }) {
         {step === "event" && (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
             <h2 className="m-0 text-[28px] font-bold tracking-[0.02em] text-white" style={{ fontFamily: SCENE_FONT }}>Add a task to…</h2>
-            <label className="flex items-center gap-2.5 h-[46px] px-3.5 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-white/55">
+            <div className="flex items-center gap-2">
+            <label className="flex-1 min-w-0 flex items-center gap-2.5 h-[46px] px-3.5 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-white/55">
               <Search className="w-[18px] h-[18px]" />
               <input
                 type="search"
@@ -208,15 +221,28 @@ export default function QuickAddSheet({ preferences, accent }) {
                 className="flex-1 min-w-0 bg-transparent border-none outline-none text-white text-base placeholder:text-white/40"
               />
             </label>
+            {/* Look up a specific month. */}
+            <MonthDropdown
+              label={month ? monthName(month) : "Month"}
+              value={month || "all"}
+              options={monthOptions}
+              onSelect={(k) => setMonth(k === "all" ? "" : k)}
+              align="right"
+              accent={accent}
+              ariaLabel="Show one month"
+              className="shrink-0 h-[46px] px-3 bg-[#1a1a1a] border border-[#2a2a2a] text-[15px] font-semibold"
+              style={{ color: month ? accent : "rgba(255,255,255,0.75)", fontFamily: "Inter, system-ui, sans-serif" }}
+            />
+            </div>
             <div className="text-[13px] font-bold tracking-[0.08em] text-white/55" style={{ fontFamily: SCENE_FONT }}>
-              {query.trim() ? "MATCHES" : "UP NEXT & RECENT"}
+              {month ? `${monthName(month).toUpperCase()}${query.trim() ? " · MATCHES" : ""}` : query.trim() ? "MATCHES" : "UP NEXT & RECENT"}
             </div>
             <div className="flex flex-col gap-2 overflow-y-auto min-h-0 pb-2">
               {events === null ? (
                 <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>
               ) : shown.length === 0 ? (
                 <p className="text-white/45 text-sm py-6 text-center">
-                  {query.trim() ? `No ${words.events.toLowerCase()} match "${query.trim()}".` : `You don't own any ${words.events.toLowerCase()} yet. Tasks can be added by an ${words.event}'s owner.`}
+                  {month && !query.trim() ? `No ${words.events.toLowerCase()} in ${monthName(month)}.` : query.trim() ? `No ${words.events.toLowerCase()} match "${query.trim()}".` : `You don't own any ${words.events.toLowerCase()} yet. Tasks can be added by an ${words.event}'s owner.`}
                 </p>
               ) : shown.map((e) => {
                 const isPast = e.date && e.date < localISO();

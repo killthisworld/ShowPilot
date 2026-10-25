@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Check, CheckCircle2, UserPlus } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import useNeedsMe from "@/hooks/useNeedsMe";
 import useEventFeed from "@/lib/eventFeed";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
@@ -10,17 +9,14 @@ import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { useAuth } from "@/lib/AuthContext";
 import { WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { fieldsLabel, firstName, sectionLabel as activitySection } from "@/lib/gigActivity";
 import {
-  dueInfo, localISO, shortDate, timeAgo,
-  readSeenChanges, rememberSeenChange, sectionMeta, vocab,
+  dueInfo, localISO, shortDate, vocab, SECTION_FOR_TYPE,
 } from "@/lib/needsMe";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
-// Overdue / due today, and the CHANGED pill (job 73).
+// Overdue / due today (job 73).
 const RED = "#FF4545";
-const CHANGED_YELLOW = "#FACC15";
 
 // Section / profile colors and names, as on the event Board.
 const SECTION_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engineer: "#8CFF3D", lighting: "#8CFF3D" };
@@ -34,10 +30,11 @@ const Pill = ({ children, style }) => (
 // every event you're part of. The main feed is one To do list - the desktop
 // event Board's rows (conflicts, requests, open tasks, profiles with nobody
 // on them) - grouped by event, each with the event's photo, so anything can
-// be checked or done on the go. Recent changes on an event (CHANGED, with
-// Got it) sit in that event's group too, so everything is one list. New
-// messages live on the Chats tab (its badge); adding a task on the "+"
-// button; the calendar on Calendar.
+// be checked or done on the go. Only what's needed from YOU: requests and
+// conflicts on your sections, tasks you've claimed or open ones on your
+// sections, invites on your own events. Each event is a dropdown (nearest
+// open). Updates and new messages live elsewhere (Chats tab); adding a task
+// on the "+" button; the calendar on Calendar.
 // Nothing here opens the event web: that's the desktop's job. Requests are
 // confirmed in place, a task opens its summary box (Claim / Done / details)
 // right here, and changes are acknowledged with Got it.
@@ -50,33 +47,28 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const style = getAccountTypeStyle(accountType);
   const accent = style.color;
   const words = vocab(accountType);
-  const { data, loading: chatsLoading } = useNeedsMe();
-  const { groups, loading: feedLoading, patchTask, patchReq, reload: reloadFeed } = useEventFeed(gigs, userId);
+  // Only what's needed from you (job 73): your sections, your tasks, your invites.
+  const feedOpts = useMemo(() => ({ mine: true, homeSection: SECTION_FOR_TYPE[accountType] || null }), [accountType]);
+  const { groups, loading: feedLoading, patchTask, patchReq, reload: reloadFeed } = useEventFeed(gigs, userId, feedOpts);
+  // Each event is a dropdown; the nearest one starts open.
+  const [openEvents, setOpenEvents] = useState(null); // Set of share tokens, null = default
   const [openTask, setOpenTask] = useState(null); // { gig, perms, taskId }
-  const [seen, setSeen] = useState(() => readSeenChanges());
   const [busy, setBusy] = useState(null);
   const [undo, setUndo] = useState(null); // { token, task }
   const undoTimer = useRef(null);
 
   const todayISO = localISO();
-  const changes = (data?.changes || []).filter((c) => !seen.has(c.key));
 
   // The feed: each event's to-dos plus its recent changes, nearest event
   // first. An event with only changes still gets its own group.
-  const feed = useMemo(() => {
-    const byToken = new Map(groups.map((g) => [g.gig.share_token, { ...g, changes: [] }]));
-    changes.forEach((c) => {
-      if (!byToken.has(c.share_token)) {
-        const gig = (gigs || []).find((x) => x.share_token === c.share_token)
-          || { share_token: c.share_token, event_name: c.event_title, date: c.event_date, venue: c.venue };
-        byToken.set(c.share_token, { gig, perms: null, rows: [], changes: [] });
-      }
-      byToken.get(c.share_token).changes.push(c);
-    });
-    return [...byToken.values()].sort((a, b) =>
-      (a.gig.date ? 0 : 1) - (b.gig.date ? 0 : 1) || String(a.gig.date || "").localeCompare(String(b.gig.date || "")));
-  }, [groups, changes, gigs]);
-  const rowCount = feed.reduce((n, g) => n + g.rows.length + g.changes.length, 0);
+  const feed = groups;
+  const rowCount = feed.reduce((n, g) => n + g.rows.length, 0);
+  const isOpen = (token, i) => (openEvents ? openEvents.has(token) : i === 0);
+  const toggleEvent = (token, i) => setOpenEvents((cur) => {
+    const next = new Set(cur || (feed[0] ? [feed[0].gig.share_token] : []));
+    if (isOpen(token, i)) next.delete(token); else next.add(token);
+    return next;
+  });
 
   // Today's / tonight's event(s), for the card at the top.
   const todays = useMemo(() => (gigs || []).filter((g) => g.date === todayISO), [gigs, todayISO]);
@@ -123,10 +115,6 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
     patchTask(u.token, u.task.id, { status: u.task.status || "open" });
   };
 
-  const gotIt = (change) => {
-    rememberSeenChange(change.key);
-    setSeen((s) => new Set([...s, change.key]));
-  };
 
   const dateLine = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const tint = (c) => c + "1c";
@@ -142,7 +130,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const rowCls = "w-full flex items-center gap-3 px-3 py-3 text-left bg-[#121212] active:bg-[#1a1a1a]";
   // Wait for Home to load your events too, so the empty "Nothing needs you"
   // card never flashes before the feed arrives.
-  const loading = gigsLoading || feedLoading || chatsLoading;
+  const loading = gigsLoading || feedLoading;
   const nothing = !loading && rowCount === 0;
 
   return (
@@ -184,7 +172,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
           <div className={`${card} p-5 flex flex-col items-center gap-2 text-center`}>
             <CheckCircle2 className="w-8 h-8" style={{ color: accent }} />
             <p className="m-0 text-base font-semibold text-white">Nothing needs you right now</p>
-            <p className="m-0 text-sm text-white/55">Conflicts, requests, tasks, invites and changes on your {words.events.toLowerCase()} show up here.</p>
+            <p className="m-0 text-sm text-white/55">Requests, conflicts, tasks and invites that need you on your {words.events.toLowerCase()} show up here.</p>
           </div>
         )}
 
@@ -192,11 +180,16 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
         {!loading && rowCount > 0 && (
           <div className="flex flex-col gap-2.5">
             {sectionLabel("TO DO", `${rowCount} OPEN`)}
-            {feed.map(({ gig, rows, changes: evChanges }) => (
+            {feed.map(({ gig, rows }, gi) => {
+              const open = isOpen(gig.share_token, gi);
+              const urgent = rows.filter((r) => r.kind === "conflict" || (r.kind === "task" && r.task.due_date && r.task.due_date <= todayISO)).length;
+              return (
               <div key={gig.share_token} className="rounded-xl border border-[#242424] overflow-hidden">
-                {/* Event header: its photo, name and date (on a phone the full
-                    event lives on desktop, so this doesn't open the web). */}
-                <div className="relative isolate overflow-hidden w-full flex items-center gap-3 px-3 py-2.5 text-left bg-[#161616] border-b border-[#242424]">
+                {/* Event header: photo, name, date, how many things need you;
+                    tap to open or close this event's list (job 73). It never
+                    opens the event web on a phone. */}
+                <button type="button" onClick={() => toggleEvent(gig.share_token, gi)} aria-expanded={open}
+                  className={`relative isolate overflow-hidden w-full flex items-center gap-3 px-3 py-2.5 text-left bg-[#161616] active:bg-[#1c1c1c] ${open ? "border-b border-[#242424]" : ""}`}>
                   {gig.icon_url && <img src={gig.icon_url} alt="" className="absolute inset-0 -z-10 w-full h-full object-cover opacity-25" />}
                   <span className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(22,22,22,0.92) 30%, rgba(22,22,22,0.55))" }} />
                   <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={36} />
@@ -206,9 +199,12 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                       {[gig.date ? (gig.date === todayISO ? words.today : shortDate(gig.date)) : "NO DATE", gig.venue].filter(Boolean).join(" · ").toUpperCase()}
                     </span>
                   </span>
-                </div>
+                  {urgent > 0 && <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: RED, boxShadow: `0 0 8px ${RED}` }} aria-label="Something urgent" />}
+                  <span className="shrink-0 min-w-[26px] h-[26px] px-2 rounded-full flex items-center justify-center text-[12px] font-bold" style={{ fontFamily: SCENE_MONO, background: accent, color: "#0d0d0d" }}>{rows.length}</span>
+                  <ChevronDown className={`w-5 h-5 shrink-0 text-white/60 transition-transform ${open ? "rotate-180" : ""}`} />
+                </button>
 
-                <div className="divide-y divide-[#1f1f1f]">
+                {open && <div className="divide-y divide-[#1f1f1f]">
                   {rows.map((r) => {
                     if (r.kind === "conflict" || r.kind === "request") {
                       const c = SECTION_COLOR[r.section] || "#9A9A9A";
@@ -283,32 +279,10 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                       } />
                     );
                   })}
-                  {/* Something changed on this event: yellow CHANGED + Got it. */}
-                  {evChanges.map((c) => {
-                    const isTask = c.kind === "task_done";
-                    const title = isTask
-                      ? `Done: ${c.task_title}`
-                      : c.kind === "section_updated"
-                        ? `${firstName(c.by_name)} updated ${activitySection(c.section)}`
-                        : "Event details were updated";
-                    const detail = (c.kind === "section_updated"
-                      ? [fieldsLabel(c.fields), timeAgo(c.at)]
-                      : [isTask ? (c.by_name || sectionMeta(c.section).label) : null, timeAgo(c.at)]
-                    ).filter(Boolean).join(" · ");
-                    return (
-                      <div key={c.key} className={rowCls}>
-                        <Pill style={{ background: CHANGED_YELLOW, color: "#0d0d0d" }}>CHANGED</Pill>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[15px] text-white leading-snug">{title}</span>
-                          {meta("rgba(255,255,255,0.55)", detail.toUpperCase())}
-                        </span>
-                        <button type="button" onClick={() => gotIt(c)} className="shrink-0 h-9 px-3 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/85">GOT IT</button>
-                      </div>
-                    );
-                  })}
-                </div>
+                </div>}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
