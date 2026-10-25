@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { MapPin } from "lucide-react";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { sectionPhoto } from "@/lib/sectionPhotos";
 
 // The event banner on tech phone event pages (job 134): the event photo as the
 // background with the type tag, title, date and place over it - the same look
@@ -12,7 +13,10 @@ export default function EventBanner({ gig, imageUrl, title }) {
   const name = title || gig.event_name || gig.band_name || "Untitled";
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-  const src = imageUrl || gig.icon_url;
+  // No event picture (common for concerts, job 157): the headliner's photo,
+  // else any act's / the artist's, else the venue's photo.
+  const headliner = (gig.bands || []).find((b) => b.photo_url && b.band_name && b.band_name === gig.band_name);
+  const src = imageUrl || gig.icon_url || headliner?.photo_url || sectionPhoto("band", gig) || gig.venue_info?.photo_url || "";
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [src]);
   const img = broken ? null : src;

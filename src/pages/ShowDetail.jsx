@@ -73,6 +73,11 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
   // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
   const sectionPhotos = !(isTechProductionAccount && !isDesktop);
+  // Tech phones (job 157): concerts first. New events start as Concert, and the
+  // event name + picture are optional, tucked in at the top of Venue Info
+  // (the banner falls back to the headliner and their / the venue's photo).
+  const techPhone = isTechProductionAccount && !isDesktop;
+  const [identityOpen, setIdentityOpen] = useState(false);
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
   const hadDraftRef = useRef(null);
@@ -102,6 +107,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
     wifi_network: "", wifi_password: "", console: "",
     status: "not_started", starred: false, contacts: [],
     power_notes: "", share_token: "", venue_checklist: {},
+    ...(techPhone ? { event_type: "Concert" } : {}),
   };
 
   const [show, setShow] = usePersistedState(`${draftKey}_show`, emptyShow);
@@ -737,6 +743,31 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
     Monitor: busPresets.find(p => p.bus_type === "Monitor")?.color || "#F97316",
   };
 
+  // Event name + picture fields: in the event card, or (tech phone, job 157)
+  // as an optional block at the top of Venue Info.
+  const eventNameField = (
+          <div>
+            <Label className="text-white/50 text-xs">Event Name</Label>
+            <Input value={show.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
+          </div>
+  );
+  const eventIconField = (
+          <div>
+            <Label className="text-white/50 text-xs">Event Icon</Label>
+            <div className="mt-1 flex items-center gap-3">
+              <EventTypeIcon type={show.event_type || "Other"} imageUrl={show.icon_url} size={44} />
+              <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
+                {uploadingIcon ? "Uploading..." : show.icon_url ? "Change image" : "Upload image"}
+                <input type="file" accept="image/*" className="hidden" disabled={uploadingIcon} onChange={handleIconUpload} />
+              </label>
+              {show.icon_url && (
+                <button type="button" onClick={() => update("icon_url", null)} className="text-xs text-white/40 hover:text-red-400">Remove</button>
+              )}
+            </div>
+            <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
+          </div>
+  );
+
   return (
     <div className={embedded ? "" : "min-h-screen bg-[#0d0d0d] pb-8"}>
       {savedToast && (
@@ -985,10 +1016,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
         <div ref={mainCaptureRef} className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
-          <div>
-            <Label className="text-white/50 text-xs">Event Name</Label>
-            <Input value={show.event_name || ""} onChange={(e) => update("event_name", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white" placeholder="e.g. Friday Night Showcase" />
-          </div>
+          {!techPhone && eventNameField}
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-white/50 text-xs">Event Type</Label>
@@ -1014,20 +1042,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-white/50 text-xs">Event Icon</Label>
-            <div className="mt-1 flex items-center gap-3">
-              <EventTypeIcon type={show.event_type || "Other"} imageUrl={show.icon_url} size={44} />
-              <label className="text-xs font-semibold px-3 py-2 rounded-lg border border-white/15 text-white/70 hover:text-white hover:border-white/30 cursor-pointer">
-                {uploadingIcon ? "Uploading..." : show.icon_url ? "Change image" : "Upload image"}
-                <input type="file" accept="image/*" className="hidden" disabled={uploadingIcon} onChange={handleIconUpload} />
-              </label>
-              {show.icon_url && (
-                <button type="button" onClick={() => update("icon_url", null)} className="text-xs text-white/40 hover:text-red-400">Remove</button>
-              )}
-            </div>
-            <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this event. Without one, the event-type icon is used.</p>
-          </div>
+          {!techPhone && eventIconField}
           {/* Fan page: set up from the event once it exists, not while creating it. */}
           {FAN_RSVP_OPEN && !isNew && <div>
             <Label className="text-white/50 text-xs">Fan page</Label>
@@ -1054,6 +1069,28 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
 
         <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">
           <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
+            {techPhone && (
+              <div className="pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIdentityOpen((o) => !o)}
+                  aria-expanded={identityOpen}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#111] border border-[#222] text-left"
+                >
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-white/80 text-sm font-semibold">Event name &amp; picture <span className="text-white/35 font-normal">(optional)</span></span>
+                    <span className="block text-white/40 text-xs truncate">{show.event_name ? show.event_name : "None - the headliner is the title"}</span>
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-white/40 shrink-0 transition-transform ${identityOpen ? "rotate-180" : ""}`} />
+                </button>
+                {identityOpen && (
+                  <div className="mt-2 p-3 rounded-xl bg-[#111] border border-[#222] space-y-3">
+                    {eventNameField}
+                    {eventIconField}
+                  </div>
+                )}
+              </div>
+            )}
             <VenueInfoFields
               value={show}
               onChange={update}
