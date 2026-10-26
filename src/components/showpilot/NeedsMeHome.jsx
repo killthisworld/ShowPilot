@@ -3,6 +3,7 @@ import { eventTitle } from "@/lib/eventTitle";
 import { Check, CheckCircle2, ChevronDown, UserPlus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import useEventFeed from "@/lib/eventFeed";
+import { nextNotNeeded } from "@/lib/inviteGroups";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
@@ -55,6 +56,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const [openEvents, setOpenEvents] = useState(null); // Set of share tokens, null = default
   const [openTask, setOpenTask] = useState(null); // { gig, perms, taskId }
   const [busy, setBusy] = useState(null);
+  const [openInvite, setOpenInvite] = useState(null); // "<token>:<group>" of the invite row that's open
   const [undo, setUndo] = useState(null); // { token, task }
   const undoTimer = useRef(null);
 
@@ -88,6 +90,12 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
     try { await fn(); } catch (err) { console.error(err); }
     setBusy(null);
   };
+  // Owner marks a profile Not needed on this event, or needed again (job 174).
+  const setNotNeeded = (gig, perms, role, on) => run(`nn-${gig.id}-${role}`, async () => {
+    const { error } = await supabase.from("shows").update({ not_needed_roles: nextNotNeeded(perms, role, on) }).eq("id", gig.id);
+    if (error) throw error;
+    await reloadFeed();
+  });
   const claim = (gig, t) => run(t.id, async () => {
     const { data: next, error } = await supabase.rpc("claim_gig_task", { p_token: gig.share_token, p_task_id: t.id, p_claim: true });
     if (error) throw error;
@@ -181,7 +189,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
         {!loading && rowCount > 0 && (
           <div className="flex flex-col gap-2.5">
             {sectionLabel("TO DO", `${rowCount} OPEN`)}
-            {feed.map(({ gig, rows }, gi) => {
+            {feed.map(({ gig, rows, perms }, gi) => {
               const open = isOpen(gig.share_token, gi);
               const urgent = rows.filter((r) => r.kind === "conflict" || (r.kind === "task" && r.task.due_date && r.task.due_date <= todayISO)).length;
               return (
@@ -259,25 +267,51 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
                         </div>
                       );
                     }
-                    // A profile on your event nobody's on yet: INVITE until an
-                    // invite goes out, then orange PENDING until it's accepted
-                    // (then the row leaves). Either opens the invite sheet.
+                    // Profiles on your event nobody's on yet, one row per pair
+                    // (job 174): INVITE, or orange PENDING once the invites are
+                    // out. Tap to open it: Invite each profile, or mark it
+                    // Not needed (then it stops asking).
                     const c = SECTION_COLOR[r.role] || "#9A9A9A";
-                    const label = WEB_LABELS[r.role] || r.role;
+                    const g = r.group;
                     const pending = r.kind === "pending";
+                    const expanded = openInvite === `${gig.share_token}:${g.key}`;
+                    const names = g.open.map((m) => WEB_LABELS[m.role]).join(" · ");
                     return (
-                      <InviteSheet key={r.id} showId={gig.id} elevated preselect={pending ? null : r.role} onChanged={reloadFeed} trigger={
-                        <button type="button" className={rowCls} aria-label={pending ? `${label} invite pending` : `Invite someone as ${label}`}>
+                      <div key={r.id}>
+                        <button type="button" onClick={() => setOpenInvite(expanded ? null : `${gig.share_token}:${g.key}`)} aria-expanded={expanded} className={rowCls}>
                           <Pill style={pending ? { background: AMBER, color: "#0d0d0d" } : { background: "#2a2a2a", color: "#ddd" }}>{pending ? "PENDING" : "INVITE"}</Pill>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[15px] text-white leading-snug">{pending ? `${label} invite sent` : `${label} has nobody yet`}</span>
-                            {meta(pending ? AMBER : c, pending ? `${label.toUpperCase()} · WAITING TO ACCEPT` : label.toUpperCase())}
+                            <span className="block text-[15px] text-white leading-snug">{pending ? `${g.label} invite sent` : `${g.label} has nobody yet`}</span>
+                            {meta(pending ? AMBER : c, `${names.toUpperCase()}${pending ? " · WAITING TO ACCEPT" : g.members.length > 1 ? " · STILL NEEDED" : ""}`)}
                           </span>
-                          {!pending && (
-                            <span className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-[#2a2a2a] text-white/80"><UserPlus className="w-4 h-4" /></span>
-                          )}
+                          <ChevronDown className={`w-5 h-5 shrink-0 text-white/60 transition-transform ${expanded ? "rotate-180" : ""}`} />
                         </button>
-                      } />
+                        {expanded && (
+                          <div className="px-3 pb-3 pt-1 bg-[#101010] flex flex-col gap-2">
+                            {g.members.filter((m) => !m.claimed).map((m) => (
+                              <div key={m.role} className="flex items-center gap-2">
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-[15px] truncate" style={{ color: m.notNeeded ? "rgba(255,255,255,0.4)" : "#fff" }}>{WEB_LABELS[m.role]}</span>
+                                  <span className="block text-[10px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: m.notNeeded ? "rgba(255,255,255,0.35)" : m.invited ? AMBER : SECTION_COLOR[m.role] }}>
+                                    {m.notNeeded ? "NOT NEEDED" : m.invited ? "PENDING" : "NOBODY YET"}
+                                  </span>
+                                </span>
+                                {!m.notNeeded && (
+                                  <InviteSheet showId={gig.id} elevated preselect={m.invited ? null : m.role} onChanged={reloadFeed} trigger={
+                                    <button type="button" className="h-10 px-3 shrink-0 flex items-center gap-1 rounded-lg text-[12px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/85">
+                                      <UserPlus className="w-4 h-4" /> {m.invited ? "INVITES" : "INVITE"}
+                                    </button>
+                                  } />
+                                )}
+                                <button type="button" disabled={busy === `nn-${gig.id}-${m.role}`} onClick={() => setNotNeeded(gig, perms, m.role, !m.notNeeded)}
+                                  className="h-10 px-3 shrink-0 rounded-lg text-[12px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/60 disabled:opacity-50">
+                                  {m.notNeeded ? "NEEDED" : "NOT NEEDED"}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>}

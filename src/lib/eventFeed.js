@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { HOLDERS, SECTION_HOLDERS, WEB_ROLES, sectionOf } from "@/lib/eventRoles";
+import { SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 import { localISO, addDaysISO, TASK_ADDED_EVENT } from "@/lib/needsMe";
+import { openInviteGroups } from "@/lib/inviteGroups";
 
 // The company phone's Needs me feed (job 73): one To do list across every
 // event you're part of - the same rows as the desktop event Board's To do
@@ -16,8 +17,6 @@ import { localISO, addDaysISO, TASK_ADDED_EVENT } from "@/lib/needsMe";
 
 const MAX_EVENTS = 20;
 
-const claimedRole = (role, p) => !!p?.claimed_roles?.some((r) => HOLDERS[role].includes(r));
-const invitedRole = (role, p) => !!p?.invited_roles?.some((r) => HOLDERS[role].includes(r));
 
 // Mirrors GigWeb's roleEditable (and set_gig_task_status's own check).
 export function canWorkSection(section, p) {
@@ -25,7 +24,8 @@ export function canWorkSection(section, p) {
   if (p.is_owner) return true;
   if ((p.my_roles || []).some((r) => SECTION_HOLDERS[section]?.includes(r))) return true;
   if ((p.granted_sections || []).includes(sectionOf(section))) return true;
-  return invitedRole(section, p) && !claimedRole(section, p);
+  // A pending invite doesn't open the section to anyone (job 143).
+  return false;
 }
 
 // The sections of an event that are yours: the profiles you hold or were
@@ -63,9 +63,12 @@ export function feedRows(gig, perms, userId, today = localISO(), { mine = false,
 
   // Your event's profiles nobody's on yet: INVITE until an invite goes out,
   // then PENDING until someone accepts; once accepted the row is gone.
+  // One row per profile pair (job 174): Manager / Artist, Audio / Lighting.
+  // Profiles marked Not needed, and the owner's own, don't ask for an invite.
   if (perms?.is_owner) {
-    WEB_ROLES.filter((role) => !claimedRole(role, perms))
-      .forEach((role) => rows.push({ kind: invitedRole(role, perms) ? "pending" : "invite", id: `i-${role}`, role }));
+    openInviteGroups(perms).forEach((g) => rows.push({
+      kind: g.pending ? "pending" : "invite", id: `g-${g.key}`, role: g.open[0].role, label: g.label, group: g,
+    }));
   }
   return rows;
 }

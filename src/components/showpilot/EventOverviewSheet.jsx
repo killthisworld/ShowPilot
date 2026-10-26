@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import { feedRows } from "@/lib/eventFeed";
+import { roleStatus } from "@/lib/inviteGroups";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { HOLDERS, WEB_ROLES, WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -172,13 +173,15 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
               {label("WHO'S ON IT")}
               <div className={`${box} divide-y divide-[#1f1f1f] overflow-hidden`}>
                 {WEB_ROLES.map((role) => {
-                  const on = !!perms?.claimed_roles?.some((r) => HOLDERS[role].includes(r));
-                  const invited = !on && !!perms?.invited_roles?.some((r) => HOLDERS[role].includes(r));
+                  // Owner's own profile counts as on it; Not needed shows as such (job 174).
+                  const st = roleStatus(role, perms);
+                  const on = st.claimed;
+                  const invited = st.invited;
                   return (
                     <div key={role} className="flex items-center gap-3 px-3 py-2.5">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: on || invited ? ROLE_COLOR[role] : "#3a3a3a" }} />
                       <span className="flex-1 text-[15px] text-white">{WEB_LABELS[role]}</span>
-                      <span className="text-[10.5px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: on ? G : invited ? "#EAB308" : "rgba(255,255,255,0.4)" }}>{on ? "ON IT" : invited ? "INVITED" : "NOBODY YET"}</span>
+                      <span className="text-[10.5px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: on ? G : invited ? "#EAB308" : "rgba(255,255,255,0.4)" }}>{on ? "ON IT" : st.notNeeded ? "NOT NEEDED" : invited ? "INVITED" : "NOBODY YET"}</span>
                     </div>
                   );
                 })}
@@ -217,8 +220,8 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
                         : r.kind === "pending" ? ["PENDING", { background: AMBER, color: "#0d0d0d" }]
                         : ["INVITE", { background: "#2a2a2a", color: "#ddd" }];
                       const isInvite = r.kind === "invite" || r.kind === "pending";
-                      const text = r.kind === "task" ? r.task.title : r.kind === "invite" ? `${WEB_LABELS[r.role]} has nobody yet` : r.kind === "pending" ? `${WEB_LABELS[r.role]} invite sent` : `${r.req.name}${r.req.value ? ` · ${r.req.value}` : ""}`;
-                      const sec = r.kind === "pending" ? `${WEB_LABELS[r.role]} · waiting to accept` : isInvite ? WEB_LABELS[r.role] : SECTION_LABEL[r.section] || r.section;
+                      const text = r.kind === "task" ? r.task.title : r.kind === "invite" ? `${r.label || WEB_LABELS[r.role]} has nobody yet` : r.kind === "pending" ? `${r.label || WEB_LABELS[r.role]} invite sent` : `${r.req.name}${r.req.value ? ` · ${r.req.value}` : ""}`;
+                      const sec = r.kind === "pending" ? `${r.label || WEB_LABELS[r.role]} · waiting to accept` : isInvite ? (r.group ? r.group.open.map((m) => WEB_LABELS[m.role]).join(" · ") : WEB_LABELS[r.role]) : SECTION_LABEL[r.section] || r.section;
                       const c = r.kind === "pending" ? AMBER : ROLE_COLOR[isInvite ? r.role : r.section] || "#9A9A9A";
                       return (
                         <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
