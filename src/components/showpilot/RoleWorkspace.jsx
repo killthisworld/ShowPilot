@@ -734,6 +734,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     () => {
       let list = builders[role]();
       if (template) return list.filter((t) => (TEMPLATE_TABS[role] || []).includes(t.key));
+      // No Documents page on an event (job 171): files go in Paperwork's
+      // Other section. Templates keep theirs (they have no Paperwork).
+      list = list.filter((t) => t.key !== "documents");
       const extra = bizTabs();
       if (extra.length) {
         const at = list.findIndex((t) => t.key === "requests");
