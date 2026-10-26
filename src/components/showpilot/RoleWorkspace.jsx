@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
@@ -33,6 +33,14 @@ import { isDesktopNow } from "@/lib/showRoute";
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
 const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engineer: "#8CFF3D", lighting: "#8CFF3D" };
+// An icon for each page of a profile (job 168), by page key.
+const PAGE_ICONS = {
+  address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
+  hospitality: Coffee, documents: FileText, requests: MessageSquare, paperwork: FileSignature,
+  contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
+  merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb,
+};
+
 const ROLE_TITLE = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio", lighting: "Lighting" };
 
 // ---------- small helpers ----------
@@ -948,17 +956,23 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   <span className="ml-auto" />
                   {topSave}
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  {tabs.map((t) => (
-                    <button key={t.key} type="button" onClick={() => setActive(t.key)} className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border border-[#232323] bg-[#151515] hover:border-white/25 text-left">
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor[t.state] || dotColor.empty }} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[16px] font-semibold leading-tight truncate">{t.label}</span>
-                        {t.summary && <span className="block text-[13px] text-white/40 leading-tight truncate mt-0.5">{t.summary}</span>}
-                      </span>
-                      <ChevronRight className="w-4 h-4 shrink-0 text-white/30" />
-                    </button>
-                  ))}
+                {/* Two cards a row, each with an icon for what's on the page (job 168). */}
+                <div className="grid grid-cols-2 gap-2">
+                  {tabs.map((t) => {
+                    const Icon = PAGE_ICONS[t.key] || FileText;
+                    return (
+                      <button key={t.key} type="button" onClick={() => setActive(t.key)} className="relative min-w-0 flex items-center gap-2.5 pl-2.5 pr-3 py-2.5 rounded-xl border border-[#232323] bg-[#151515] hover:border-white/25 text-left">
+                        <span className="w-9 h-9 shrink-0 rounded-[9px] flex items-center justify-center" style={{ background: color + "1a", color }}>
+                          <Icon className="w-[18px] h-[18px]" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[15px] font-semibold leading-tight truncate pr-3">{t.label}</span>
+                          {t.summary && <span className="block text-[12px] text-white/40 leading-tight truncate mt-0.5">{t.summary}</span>}
+                        </span>
+                        <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: dotColor[t.state] || dotColor.empty }} aria-label={t.state === "done" ? "Done" : t.state === "partial" ? "In progress" : "Not started"} />
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
