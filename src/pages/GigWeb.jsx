@@ -1908,11 +1908,11 @@ function DesktopGigWeb({
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
-        {/* Three columns: the web and the flight log have set widths that
-            glide when the flight log folds (job 178/179); the board takes
-            the rest. */}
+        {/* Three columns. The web keeps one width so it never resizes (and
+            shakes) while the flight log folds; only the flight log's width
+            glides and the board takes the rest (job 178-180). */}
         <div className="h-full flex gap-6 p-6">
-          <div className="relative min-h-0 shrink-0 flex flex-col items-center justify-center gap-4" style={{ width: logOpen ? "clamp(340px, 29vw, 480px)" : "clamp(320px, 25vw, 440px)", transition: `width ${FOLD_MS}ms ${FOLD_EASE}` }}>
+          <div className="relative min-h-0 shrink-0 flex flex-col items-center justify-center gap-4" style={{ width: "clamp(340px, 29vw, 480px)" }}>
             <div className="w-full flex-1 min-h-0 flex items-center">
               {roleWeb ? (
                 <div ref={setWebSlot} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto" />
