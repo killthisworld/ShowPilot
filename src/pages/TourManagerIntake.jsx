@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import NightSky from "@/components/showpilot/NightSky";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
@@ -342,7 +343,7 @@ export default function TourManagerIntake({ link } = {}) {
                 <Music className="w-4 h-4 text-[#8CFF3D]" />
               </div>
               <div>
-                <h1 className="text-white font-bold text-base leading-tight">Submitted Gig Info</h1>
+                <h1 className="text-white font-bold text-base leading-tight">Submitted Event Info</h1>
                 <p className="text-white/40 text-xs">Add your details below — syncs to the show</p>
               </div>
             </div>
@@ -429,12 +430,14 @@ export default function TourManagerIntake({ link } = {}) {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
+      <div className="relative isolate min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
+        {/* The night sky behind the intake form (job 173), fixed while the form scrolls. */}
+        <div aria-hidden="true" className="fixed inset-0 -z-10 pointer-events-none"><NightSky dim={0.35} /></div>
         <div className="text-center max-w-sm">
           <CheckCircle className="w-16 h-16 text-[#8CFF3D] mx-auto mb-4" />
           <h2 className="text-white text-2xl font-bold mb-2">Submitted!</h2>
           <p className="text-white/50 text-sm">
-            Your gig info has been sent to {engineerName}. The show has been added to their ShowPilot profile.
+            Your event info has been sent to {engineerName}. The event has been added to their ShowPilot profile.
           </p>
           <IntakeRating token={token} />
         </div>
@@ -443,7 +446,9 @@ export default function TourManagerIntake({ link } = {}) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-16">
+    <div className="relative isolate min-h-screen bg-[#0d0d0d] pb-16">
+        {/* The night sky behind the intake form (job 173), fixed while the form scrolls. */}
+        <div aria-hidden="true" className="fixed inset-0 -z-10 pointer-events-none"><NightSky dim={0.35} /></div>
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="px-4 py-4 max-w-lg mx-auto">
@@ -461,7 +466,7 @@ export default function TourManagerIntake({ link } = {}) {
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
         <p className="text-white/40 text-xs pb-1">
-          Fill in your act's info below and hit Submit — this will create the gig directly on {engineerName}'s ShowPilot profile.
+          Fill in your act's info below and hit Submit — this will create the event directly on {engineerName}'s ShowPilot profile.
         </p>
 
         {(tmRequest?.event_name || tmRequest?.date) && (
