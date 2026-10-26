@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { DIRECT_MESSAGES_OPEN } from "@/lib/hiddenProfiles";
@@ -547,18 +548,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
             </div>
           </div>
         )}
-        {(band.submitter_name || band.submitter_phone || band.submitter_email) && (
-          <div>
-            <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
-            <p className="text-white/70 text-sm">{band.submitter_name || "Unnamed"}</p>
-            <p className="text-white/40 text-xs">{[band.submitter_phone, band.submitter_email].filter(Boolean).join(" · ")}</p>
-            {band.submitter_card_share_token && (
-              <a href={`/pilot/${band.submitter_card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
-                View {band.submitter_card_display_name || "their"} ShowPilot card
-              </a>
-            )}
-          </div>
-        )}
+        <SubmittedBy name={band.submitter_name} phone={band.submitter_phone} email={band.submitter_email} cardToken={band.submitter_card_share_token} cardName={band.submitter_card_display_name} boxed={false} />
         {band.general_notes && (
           <div>
             <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">General Notes</p>
@@ -684,18 +674,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
         </div>
       </div>
 
-      {(band.submitter_name || band.submitter_phone || band.submitter_email) && (
-        <div className="bg-[#111] border border-[#222] rounded-lg p-2.5">
-          <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
-          <p className="text-white/70 text-sm">{band.submitter_name || "Unnamed"}</p>
-          <p className="text-white/40 text-xs">{[band.submitter_phone, band.submitter_email].filter(Boolean).join(" · ")}</p>
-          {band.submitter_card_share_token && (
-            <a href={`/pilot/${band.submitter_card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
-              View {band.submitter_card_display_name || "their"} ShowPilot card
-            </a>
-          )}
-        </div>
-      )}
+      <SubmittedBy name={band.submitter_name} phone={band.submitter_phone} email={band.submitter_email} cardToken={band.submitter_card_share_token} cardName={band.submitter_card_display_name} />
 
       <button
         onClick={() => setNoteModal({ label: "General Notes", value: band.general_notes || "", onChange: (v) => onUpdate("general_notes", v) })}

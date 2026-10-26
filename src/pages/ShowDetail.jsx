@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
@@ -1187,18 +1188,13 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
             nameAction={isTechProductionAccount ? <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} /> : null}
             afterName={<>
-          {(activeBand.submitter_name || activeBand.submitter_phone || activeBand.submitter_email || activeBand.submitter_card_user_id) && (
-            <div className="bg-[#111] border border-[#222] rounded-xl p-3">
-              <p className="text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1">Submitted By</p>
-              <p className="text-white/70 text-sm">{activeBand.submitter_name || "Unnamed"}</p>
-              <p className="text-white/40 text-xs">{[activeBand.submitter_phone, activeBand.submitter_email].filter(Boolean).join(" · ")}</p>
-              {submitterCard?.card_share_token && (
-                <a href={`/pilot/${submitterCard.card_share_token}`} target="_blank" rel="noopener noreferrer" className="text-[#8CFF3D] text-xs hover:underline">
-                  View {submitterCard.display_name || "their"} ShowPilot card
-                </a>
-              )}
-            </div>
-          )}
+          <SubmittedBy
+            name={activeBand.submitter_name}
+            phone={activeBand.submitter_phone}
+            email={activeBand.submitter_email}
+            cardToken={submitterCard?.card_share_token}
+            cardName={submitterCard?.display_name}
+          />
           {activeBand.requested_order && (
             <p className="text-white/30 text-xs -mt-1">Requested lineup position: #{activeBand.requested_order}</p>
           )}
