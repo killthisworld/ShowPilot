@@ -24,6 +24,10 @@ function Shell({ children }) {
   );
 }
 
+// In the venue's preview, uploads stay on this screen (nothing is stored).
+let PREVIEW = false;
+const uploadFile = (code, f) => (PREVIEW ? Promise.resolve({ url: URL.createObjectURL(f), name: f.name, type: f.type }) : uploadActFile(code, f));
+
 const fmtDay = (d) => (d ? new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "");
 
 function FileAsk({ code, value, onChange }) {
@@ -35,7 +39,7 @@ function FileAsk({ code, value, onChange }) {
     e.target.value = "";
     if (!f) return;
     setBusy(true); setErr("");
-    try { onChange(await uploadActFile(code, f)); } catch (x) { console.error(x); setErr("Couldn't upload that file. Try again."); }
+    try { onChange(await uploadFile(code, f)); } catch (x) { console.error(x); setErr("Couldn't upload that file. Try again."); }
     setBusy(false);
   };
   return (
@@ -64,7 +68,7 @@ function InputsAsk({ code, value, onChange }) {
     if (!list.length) return;
     setBusy(true);
     const added = [];
-    for (const f of list) { try { added.push(await uploadActFile(code, f)); } catch (x) { console.error(x); } }
+    for (const f of list) { try { added.push(await uploadFile(code, f)); } catch (x) { console.error(x); } }
     set({ files: [...files, ...added] });
     setBusy(false);
   };
@@ -106,6 +110,10 @@ function YesNoAsk({ value, onChange, hint }) {
 
 export default function EventLink() {
   const { code } = useParams();
+  // ?preview=1: the venue looking at what acts get (job 176). Starts blank,
+  // never loads or saves an act's answers.
+  const preview = new URLSearchParams(window.location.search).get("preview") === "1";
+  PREVIEW = preview;
   const [info, setInfo] = useState(undefined); // undefined loading, null not found
   const [actName, setActName] = useState("");
   const [answers, setAnswers] = useState({});
@@ -119,10 +127,10 @@ export default function EventLink() {
 
   useEffect(() => {
     let live = true;
-    fetchPublicLink(code, getStoredToken(code)).then((d) => {
+    fetchPublicLink(code, preview ? null : getStoredToken(code)).then((d) => {
       if (!live) return;
       setInfo(d || null);
-      if (d?.response) {
+      if (d?.response && !preview) {
         setActName(d.response.act_name || "");
         setAnswers(d.response.answers || {});
         setSubmitted(!!d.response.submitted_at);
@@ -132,6 +140,7 @@ export default function EventLink() {
   }, [code]);
 
   const persist = useCallback(async (name, ans, submit = false) => {
+    if (preview) return false;
     setStatus("saving");
     try {
       const r = await saveResponse(code, tokenRef.current, name, ans, submit);
@@ -142,7 +151,7 @@ export default function EventLink() {
       dirty.current = false;
       return true;
     } catch (e) { console.error(e); setStatus("error"); return false; }
-  }, [code]);
+  }, [code, preview]);
 
   // Save a moment after the last change, once the act has typed a name.
   useEffect(() => {
@@ -174,6 +183,11 @@ export default function EventLink() {
 
   return (
     <Shell>
+      {preview && (
+        <div className="sticky top-2 z-10 rounded-[12px] px-4 py-3 text-[14px] font-semibold text-[#0d0d0d]" style={{ background: BLUE }}>
+          Preview: this is what acts see. Nothing you type here is saved or sent.
+        </div>
+      )}
       <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4" style={{ borderTop: `3px solid ${BLUE}` }}>
         {info.venue && <div className="text-[11px] tracking-[0.1em]" style={{ ...mono, color: BLUE }}>{String(info.venue).toUpperCase()}</div>}
         <h1 className="mt-1.5 text-[30px] leading-[1.05] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
@@ -229,7 +243,7 @@ export default function EventLink() {
         {(answers.__questions || []).map((q, i) => <p key={i} className="mt-2 text-[14px] text-white/75 bg-[#101010] border border-[#242424] rounded-[10px] px-3 py-2">You: {q.text}</p>)}
         <div className="mt-2 flex gap-2">
           <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={actName.trim() ? "Write a question" : "Add your band name first"} disabled={!actName.trim()} className={inputCls} />
-          <button type="button" onClick={sendQuestion} disabled={!question.trim() || !actName.trim()} className="min-h-[44px] px-4 rounded-[10px] font-bold text-[14px] disabled:opacity-40" style={{ background: BLUE, color: "#0d0d0d" }}>Ask</button>
+          <button type="button" onClick={sendQuestion} disabled={preview || !question.trim() || !actName.trim()} className="min-h-[44px] px-4 rounded-[10px] font-bold text-[14px] disabled:opacity-40" style={{ background: BLUE, color: "#0d0d0d" }}>Ask</button>
         </div>
       </div>
 
@@ -238,11 +252,13 @@ export default function EventLink() {
           {submitted ? (
             <div className="min-h-[52px] rounded-[12px] flex items-center justify-center gap-2 font-bold text-[15px]" style={{ background: `${GREEN}22`, color: GREEN }}><CheckCircle className="w-5 h-5" />Sent to the venue. You can still make changes.</div>
           ) : (
-            <button type="button" disabled={!actName.trim() || status === "saving"} onClick={() => persist(actName, answers, true)} className="min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Send to venue</button>
+            <button type="button" disabled={preview || !actName.trim() || status === "saving"} onClick={() => persist(actName, answers, true)} className="min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Send to venue</button>
           )}
           <p className="text-center text-[12px] text-white/40" style={mono}>
-            {status === "saving" ? "SAVING…" : status === "error" ? "COULDN'T SAVE, TRY AGAIN" : status === "saved" ? "SAVED" : !actName.trim() ? "ADD YOUR BAND NAME TO START" : ""}
-            {!submitted && missing.length > 0 && status !== "saving" ? `${status ? " · " : ""}${missing.length} NEEDED` : ""}
+            {[
+              preview ? "PREVIEW · NOTHING IS SAVED" : status === "saving" ? "SAVING…" : status === "error" ? "COULDN'T SAVE, TRY AGAIN" : status === "saved" ? "SAVED" : !actName.trim() ? "ADD YOUR BAND NAME TO START" : "",
+              !submitted && missing.length > 0 && status !== "saving" ? `${missing.length} NEEDED` : "",
+            ].filter(Boolean).join(" · ")}
           </p>
         </div>
       </div>

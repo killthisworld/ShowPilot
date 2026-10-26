@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Check, Copy, Plus, Trash2, ChevronDown } from "lucide-react";
+import { Check, Copy, Plus, Trash2, ChevronDown, Pencil, Upload, Eye } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink } from "@/lib/eventLink";
 
@@ -36,6 +36,31 @@ function Check1({ on, onChange, label, sub, color }) {
       <span className="min-w-0"><span className="block text-[15px]">{label}</span>{sub && <span className="block text-[13px] text-white/45 truncate">{sub}</span>}</span>
     </button>
   );
+}
+
+// What each question looks like to the act, empty (job 176).
+const ASK_VERB = { file: "ACTS UPLOAD THIS", yesno: "ACTS PICK ONE", inputs: "ACTS FILL THIS IN", text: "ACTS FILL THIS IN", longtext: "ACTS FILL THIS IN" };
+const dash = "border-[1.5px] border-dashed border-[#3a3a3a] rounded-[10px] text-[13px] text-white/45";
+function BlankField({ ask }) {
+  if (ask.type === "file") {
+    return <span className={`${dash} h-[64px] flex items-center justify-center gap-2`}><Upload className="w-4 h-4" />{ask.hint && !/^upload$/i.test(ask.hint.trim()) ? `Goes here · ${ask.hint}` : "File goes here"}</span>;
+  }
+  if (ask.type === "yesno") {
+    return (
+      <span className="flex gap-2">
+        <span className={`${dash} flex-1 h-[44px] flex items-center justify-center`}>Yes</span>
+        <span className={`${dash} flex-1 h-[44px] flex items-center justify-center`}>No</span>
+      </span>
+    );
+  }
+  if (ask.type === "inputs") {
+    return (
+      <span className={`${dash} h-[64px] px-3 grid grid-cols-2 content-center gap-x-3 gap-y-1`}>
+        <span>Member name</span><span>What they plug in</span><span>Member name</span><span>What they plug in</span>
+      </span>
+    );
+  }
+  return <span className={`${dash} ${ask.type === "longtext" ? "h-[64px] items-start pt-2.5" : "h-[44px] items-center"} px-3 flex`}><span className="truncate">{ask.hint || "Their answer"}</span></span>;
 }
 
 function Responses({ data, color, shareToken, onTask }) {
@@ -202,17 +227,35 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
           </div>
 
           <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4">
-            <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>2. What you need from each act</div>
+            <div className="flex items-start gap-3 flex-wrap">
+              <div className="flex-1 min-w-[220px]">
+                <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>2. Questions for each act</div>
+                <p className="text-[13.5px] text-white/50">Acts fill these in on their page. You only pick the questions; the boxes stay empty until an act answers.</p>
+              </div>
+              {link ? (
+                <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" className="min-h-[44px] px-3.5 rounded-[10px] border flex items-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}>
+                  <Eye className="w-4 h-4" /> Preview as an act
+                </a>
+              ) : (
+                <span className="min-h-[44px] px-3.5 rounded-[10px] border border-[#2a2a2a] flex items-center gap-2 text-[13px] text-white/40"><Eye className="w-4 h-4" /> Preview once the link is made</span>
+              )}
+            </div>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
               {asks.map((a, i) => {
                 const isOpen = openAsk === a.key;
                 const tag = <span className="text-[10px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.45)" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</span>;
                 if (!isOpen) {
+                  // Shown as the empty field the act will get (job 176): it
+                  // gets filled in on their page, not here. Tap to change it.
                   return (
-                    <button key={a.key} type="button" onClick={() => setOpenAsk(a.key)} className={`${box} p-3 text-left min-h-[44px] flex flex-col gap-0.5`} style={{ borderColor: `${color}55` }}>
-                      <span className="text-[14.5px] font-semibold">{a.label || "New question"}</span>
-                      <span className="text-[12.5px] text-white/45 truncate">{[ASK_TYPES[a.type]?.label, a.hint].filter(Boolean).join(" · ")}</span>
-                      <span className="mt-1.5">{tag}</span>
+                    <button key={a.key} type="button" onClick={() => setOpenAsk(a.key)} aria-label={`Change the question: ${a.label || "New question"}`} className={`${box} p-3 text-left flex flex-col gap-2`}>
+                      <span className="flex items-center gap-2">
+                        <span className="flex-1 min-w-0 text-[15px] font-semibold truncate">{a.label || "New question"}</span>
+                        {tag}
+                        <span className="w-8 h-8 shrink-0 rounded-lg border border-[#2a2a2a] flex items-center justify-center text-white/70"><Pencil className="w-3.5 h-3.5" /></span>
+                      </span>
+                      <span className="text-[10px] tracking-[0.12em] text-white/45" style={mono}>{ASK_VERB[a.type] || "ACTS FILL THIS IN"}</span>
+                      <BlankField ask={a} />
                     </button>
                   );
                 }
