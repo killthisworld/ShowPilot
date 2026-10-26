@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import TicketCard from "@/components/showpilot/TicketCard";
 import MonthDropdown, { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
-import { X, Search, Check } from "lucide-react";
+import { X, Search, Check, CalendarPlus, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -29,6 +30,11 @@ export default function QuickAddSheet({ preferences, accent }) {
   if (idRef.current === null) idRef.current = ++nextId;
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
+  const navigate = useNavigate();
+  // Task or Event (job 73): the "+" adds a task to an event, or starts a
+  // new event (the same New event page the calendar opens).
+  const [kind, setKind] = useState("task");
+  const [newDate, setNewDate] = useState("");
   const [step, setStep] = useState("event"); // event | task | done
   const [events, setEvents] = useState(null);
   const [query, setQuery] = useState("");
@@ -47,6 +53,7 @@ export default function QuickAddSheet({ preferences, accent }) {
   const words = vocab(preferences?.account_type);
 
   const reset = () => {
+    setKind("task"); setNewDate("");
     setStep("event"); setQuery(""); setMonth(""); setEv(null); setText(""); setDue(null); setDueDate("");
     setSection(homeSection); setError(""); setAdded(null);
   };
@@ -166,6 +173,11 @@ export default function QuickAddSheet({ preferences, accent }) {
 
   const again = () => { reset(); };
 
+  const startEvent = () => {
+    close();
+    navigate("/event/new", { state: { from: "quickadd", ...(newDate ? { prefillDate: newDate } : {}) } });
+  };
+
   if (!open) return null;
 
   const stepIdx = step === "event" ? 1 : step === "task" ? 2 : 3;
@@ -187,7 +199,7 @@ export default function QuickAddSheet({ preferences, accent }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Quick-add a task"
+        aria-label={kind === "event" ? `Add a new ${words.event.toLowerCase()}` : "Quick-add a task"}
         className={`absolute left-0 right-0 bottom-0 mx-auto max-w-lg bg-[#121212] border-t border-[#2a2a2a] rounded-t-[22px] px-5 pt-2.5 pb-7 flex flex-col gap-3.5 transition-transform duration-200 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
         style={{ height: "min(690px, 88vh)" }}
       >
@@ -195,11 +207,11 @@ export default function QuickAddSheet({ preferences, accent }) {
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            {[1, 2, 3].map((n) => (
+            {kind === "task" && [1, 2, 3].map((n) => (
               <span key={n} className="w-[34px] h-[5px] rounded-full" style={{ background: stepIdx >= n ? accent : "#333" }} />
             ))}
-            <span className="ml-1.5 text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>
-              {step === "event" ? `PICK ${words.event.toUpperCase()}` : step === "task" ? "WRITE IT" : "DONE"}
+            <span className={`${kind === "task" ? "ml-1.5 " : ""}text-[11px] text-white/55`} style={{ fontFamily: SCENE_MONO }}>
+              {kind === "event" ? `NEW ${words.event.toUpperCase()}` : step === "event" ? `PICK ${words.event.toUpperCase()}` : step === "task" ? "WRITE IT" : "DONE"}
             </span>
           </div>
           <button onClick={close} aria-label="Close" className="w-11 h-11 rounded-full bg-[#1f1f1f] text-white flex items-center justify-center">
@@ -208,6 +220,48 @@ export default function QuickAddSheet({ preferences, accent }) {
         </div>
 
         {step === "event" && (
+          <div role="radiogroup" aria-label="What to add" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a]">
+            {[["task", "Task"], ["event", words.event[0].toUpperCase() + words.event.slice(1)]].map(([k, name]) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={kind === k}
+                onClick={() => setKind(k)}
+                className="h-10 rounded-[9px] text-[15px] font-bold tracking-[0.02em] transition-colors"
+                style={kind === k ? { background: accent, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.7)" }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === "event" && kind === "event" && (
+          <div className="flex flex-col gap-3.5 min-h-0 flex-1">
+            <h2 className="m-0 text-[28px] font-bold tracking-[0.02em] text-white" style={{ fontFamily: SCENE_FONT }}>New {words.event.toLowerCase()}</h2>
+            <p className="m-0 -mt-1.5 text-[15px] text-white/60">Pick a date if you know it. You'll fill in the rest on the next page.</p>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] tracking-[0.12em] text-white/50" style={{ fontFamily: SCENE_MONO }}>DATE (OPTIONAL)</span>
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="h-[46px] px-3.5 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-white text-base outline-none focus:border-white/30 [color-scheme:dark]"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={startEvent}
+              className="mt-1 h-[52px] rounded-xl flex items-center justify-center gap-2 text-[16px] font-bold"
+              style={{ background: accent, color: "#0d0d0d" }}
+            >
+              <CalendarPlus className="w-5 h-5" /> Start {words.event.toLowerCase()} <ArrowRight className="w-[18px] h-[18px]" />
+            </button>
+          </div>
+        )}
+
+        {step === "event" && kind === "task" && (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
             <h2 className="m-0 text-[28px] font-bold tracking-[0.02em] text-white" style={{ fontFamily: SCENE_FONT }}>Add a task to…</h2>
             <div className="flex items-center gap-2">
