@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plane } from "lucide-react";
+import { Plane, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { fieldsLabel, firstName } from "@/lib/gigActivity";
 
@@ -28,7 +28,7 @@ function stamp(iso, now) {
 // departures board: a runway per role with the plane moving along it as
 // the section fills in, then a log of what happened (tasks filed and
 // cleared, and who updated which profile), newest first.
-export default function FlightLog({ nodes = [], tasks = [], activity = [], codes = {}, onSelectRole, selectedRole }) {
+export default function FlightLog({ nodes = [], tasks = [], activity = [], codes = {}, onSelectRole, selectedRole, onCollapse = null }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000); // keeps "5M AGO" honest
@@ -56,6 +56,12 @@ export default function FlightLog({ nodes = [], tasks = [], activity = [], codes
       <div className="flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[#1f1f1f] shrink-0">
         <span className="text-[15px] font-semibold tracking-[0.14em] text-white">FLIGHT LOG</span>
         <span className="ml-auto text-[11px] text-white/45 tabular-nums">{landed}/{live.length} LANDED · {avg}% READY</span>
+        {onCollapse && (
+          <button type="button" onClick={onCollapse} aria-label="Hide the flight log" title="Hide the flight log"
+            className="self-center -mr-1.5 w-8 h-8 rounded-md flex items-center justify-center text-white/45 hover:text-white hover:bg-white/[0.05]">
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Runways: one lane per role, the plane sits at that role's progress. */}
@@ -123,5 +129,44 @@ export default function FlightLog({ nodes = [], tasks = [], activity = [], codes
         )}
       </div>
     </div>
+  );
+}
+
+// The flight log folded to a slim rail on the right (job 178): a little
+// runway per profile (filling as it gets ready), the event's READY figure
+// and the time of the latest movement. Tap anywhere on it to bring the
+// flight log back.
+export function FlightRail({ nodes = [], tasks = [], activity = [], onOpen }) {
+  const [now] = useState(Date.now());
+  const live = nodes.filter((n) => !n.notNeeded);
+  const avg = live.length ? Math.round(live.reduce((s, n) => s + (n.percent || 0), 0) / live.length) : 0;
+  const latest = useMemo(() => {
+    const times = [
+      ...(activity || []).map((a) => a.at),
+      ...tasks.flatMap((t) => [t.created_at, t.status === "done" ? t.completed_at : null]),
+    ].filter(Boolean).sort((a, b) => new Date(b) - new Date(a));
+    return times[0] || null;
+  }, [tasks, activity]);
+  return (
+    <button type="button" onClick={onOpen} aria-label={`Show the flight log, ${avg}% ready`} title="Show the flight log"
+      className="group h-full w-full min-h-0 flex flex-col items-center gap-4 py-3 rounded-[6px] border border-[#2a2a2a] bg-[#0b0b0b] hover:border-[#3a3a3a] transition-colors"
+      style={{ fontFamily: SCENE_MONO, boxShadow: "0 10px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
+      <span className="w-8 h-8 rounded-md flex items-center justify-center text-white/55 group-hover:text-white group-hover:bg-white/[0.05]"><ChevronsLeft className="w-4 h-4" /></span>
+      <span className="text-[13px] font-semibold tabular-nums text-white">{avg}%</span>
+      {/* One vertical runway per profile, the plane climbing as it fills. */}
+      <span className="flex-1 min-h-[120px] max-h-[260px] flex items-stretch gap-[5px]">
+        {nodes.map((n) => {
+          const pct = n.notNeeded ? 0 : Math.max(0, Math.min(100, n.percent || 0));
+          return (
+            <span key={n.role} className="relative w-[4px] rounded-full bg-white/[0.08]" title={`${n.style.label}: ${n.notNeeded ? "not needed" : `${pct}%`}`}>
+              <span className="absolute left-0 right-0 bottom-0 rounded-full transition-[height] duration-700" style={{ height: `${pct}%`, background: n.notNeeded ? "transparent" : n.style.color, boxShadow: pct ? `0 0 6px ${n.style.color}88` : "none" }} />
+            </span>
+          );
+        })}
+      </span>
+      <Plane className="w-4 h-4 text-white/50 -rotate-45 group-hover:text-white" aria-hidden="true" />
+      <span className="text-[11px] font-semibold tracking-[0.22em] text-white/60 group-hover:text-white" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>FLIGHT LOG</span>
+      {latest && <span className="mt-auto text-[9.5px] text-white/40 tabular-nums text-center leading-tight px-1">{stamp(latest, now)}</span>}
+    </button>
   );
 }

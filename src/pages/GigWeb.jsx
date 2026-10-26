@@ -19,7 +19,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
-import FlightLog from "@/components/showpilot/FlightLog";
+import FlightLog, { FlightRail } from "@/components/showpilot/FlightLog";
 import { latestBySection, firstName, agoLabel } from "@/lib/gigActivity";
 import { sectionPhoto } from "@/lib/sectionPhotos";
 import { profilePercent } from "@/lib/profileProgress";
@@ -1820,6 +1820,10 @@ function DesktopGigWeb({
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
   const [headSlot, setHeadSlot] = useState(null);
+  // The flight log can fold away to a rail on the right (job 178), giving
+  // the board the width; remembered on this device.
+  const [logOpen, setLogOpen] = useState(() => { try { return localStorage.getItem("sp_flight_log_open") !== "0"; } catch { return true; } });
+  const toggleLog = (open) => { setLogOpen(open); try { localStorage.setItem("sp_flight_log_open", open ? "1" : "0"); } catch { /* fine */ } };
   // Owner marks a profile "Not needed" on this event, or needed again (job 172).
   const setNotNeeded = async (role, on) => {
     const cur = permissions?.not_needed_roles || [];
@@ -1887,7 +1891,7 @@ function DesktopGigWeb({
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
-        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" }}>
+        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: logOpen ? "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" : "minmax(340px, 0.85fr) minmax(440px, 2.15fr) 56px", transition: "grid-template-columns 320ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
           <div className="relative min-h-0 flex flex-col items-center justify-center gap-4">
             <div className="w-full flex-1 min-h-0 flex items-center">
               {roleWeb ? (
@@ -1948,6 +1952,7 @@ function DesktopGigWeb({
                     onDone={(id) => completeTask(id, true)}
                     onInvitesChanged={loadGig}
                     onSetNotNeeded={isOwner ? setNotNeeded : null}
+                    wide={!logOpen}
                   />
                 )}
                 <EventSections
@@ -1974,7 +1979,11 @@ function DesktopGigWeb({
           </div>
 
           <div className="min-h-0 flex flex-col">
-            <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} />
+            {logOpen ? (
+              <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} onCollapse={() => toggleLog(false)} />
+            ) : (
+              <FlightRail nodes={nodes} tasks={gig.tasks || []} activity={activity} onOpen={() => toggleLog(true)} />
+            )}
           </div>
         </div>
       </div>

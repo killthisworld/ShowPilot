@@ -30,7 +30,7 @@ const GROUPS = [
   { key: "engineer", label: "Audio / Lighting", roles: ["engineer", "lighting"] },
 ];
 
-export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone, onInvitesChanged = null, onSetNotNeeded = null }) {
+export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone, onInvitesChanged = null, onSetNotNeeded = null, wide = false }) {
   const [busy, setBusy] = useState(null);
   const [openGroup, setOpenGroup] = useState(null);
   const node = (role) => nodes.find((n) => n.role === role);
@@ -69,8 +69,10 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
   const rowCls = "w-full flex items-center gap-3 px-3 py-2.5 text-left bg-[#121212] hover:bg-[#181818] transition-colors";
   const go = <span className="shrink-0 flex items-center gap-0.5 text-[11px] tracking-[0.08em] text-white/40" style={{ fontFamily: SCENE_MONO }}>OPEN <ChevronRight className="w-3.5 h-3.5" /></span>;
 
+  // wide: the flight log is folded away (job 178), so the run of show and
+  // the To do sit side by side instead of stacking.
   return (
-    <div className="flex flex-col gap-5">
+    <div className={wide ? "grid grid-cols-2 gap-5 items-start" : "flex flex-col gap-5"}>
       <section>
         <div className={`${lbl} mb-2`} style={{ fontFamily: SCENE_MONO }}>RUN OF SHOW</div>
         {ros.length ? (
