@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink } from "lucide-react";
-import { normalizeLink } from "@/lib/links";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil } from "lucide-react";
+import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import FanPageButton from "@/components/showpilot/FanPageButton";
-import { feedRows } from "@/lib/eventFeed";
+import { feedRows, canWorkSection } from "@/lib/eventFeed";
 import { roleStatus } from "@/lib/inviteGroups";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { HOLDERS, WEB_ROLES, WEB_LABELS } from "@/lib/eventRoles";
@@ -72,12 +72,6 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
     ["Load-in", vi.load_in_location],
     ["Parking", vi.parking],
   ].filter(([, v]) => has(v));
-  // Ticket link and venue website (job 73), set under the event icon on the
-  // event web; the website lives with the venue info.
-  const links = [
-    ["Tickets", Ticket, normalizeLink(gig.promoter_info?.ticket_link)],
-    ["Venue site", Globe, normalizeLink(vi.website)],
-  ].filter(([, , href]) => href);
   const contacts = [
     has(mi.contact_name) || has(mi.contact_phone) || has(mi.contact_email)
       ? { who: mi.contact_name || "Manager / Artist", role: mi.contact_title || "Manager / Artist", phone: mi.contact_phone, email: mi.contact_email, color: ROLE_COLOR.manager }
@@ -123,18 +117,10 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
           <FanPageButton show={gig} />
         </div>
 
-        {links.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 -mt-2">
-            {links.map(([name, Icon, href]) => (
-              <a key={name} href={href} target="_blank" rel="noopener noreferrer"
-                className={`${box} ${links.length === 1 ? "col-span-2" : ""} h-12 px-3.5 flex items-center gap-2.5 text-white active:bg-[#1a1a1a]`}>
-                <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
-                <span className="flex-1 min-w-0 text-[15px] font-semibold truncate">{name}</span>
-                <ExternalLink className="w-4 h-4 shrink-0 text-white/40" />
-              </a>
-            ))}
-          </div>
-        )}
+        {/* Ticket link and venue website, under the photo (job 73). Tap to
+            open; the owner (and the venue side, for the website) can add or
+            change them right here. */}
+        <EventLinks gig={gig} perms={perms} box={box} color={color} onSaved={(patch) => setGig((g) => ({ ...g, ...patch }))} />
 
         {loading ? (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: color + "40", borderTopColor: color }} /></div>
@@ -263,5 +249,111 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
       </div>
     </div>,
     document.body
+  );
+}
+
+// One link row: tap the row to open it, the pencil to change it (when you can).
+function LinkRow({ icon: Icon, name, value, canEdit, color, example, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const href = normalizeLink(value);
+  const host = href ? new URL(href).hostname.replace(/^www\./, "") : "";
+
+  const save = async () => {
+    const t = draft.trim();
+    const next = t ? normalizeLink(t) : "";
+    if (next === null) {
+      setErr(isTruncatedLink(t) ? "That link is cut off (it has \"…\" in it). Copy the full address and paste it again." : `That doesn't look like a web address, e.g. ${example}.`);
+      return;
+    }
+    setBusy(true); setErr("");
+    const ok = await onSave(next);
+    setBusy(false);
+    if (ok) setEditing(false); else setErr("Couldn't save. Try again.");
+  };
+
+  if (editing) {
+    return (
+      <div className="px-3 py-3 flex flex-col gap-2">
+        <div className="flex items-center gap-2 text-[13px] font-semibold text-white/80"><Icon className="w-4 h-4" style={{ color }} />{name}</div>
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setErr(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+          placeholder={example}
+          inputMode="url"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label={name}
+          className="h-11 px-3 rounded-lg bg-[#0d0d0d] border border-[#2a2a2a] text-white text-[16px] outline-none focus:border-white/30"
+        />
+        {err && <p className="m-0 text-[12px] text-red-400">{err}</p>}
+        <div className="flex gap-2">
+          <button type="button" onClick={() => { setEditing(false); setDraft(value || ""); setErr(""); }} className="flex-1 h-11 rounded-lg bg-[#1f1f1f] text-white/80 text-[14px] font-semibold">Cancel</button>
+          <button type="button" onClick={save} disabled={busy} className="flex-1 h-11 rounded-lg text-[14px] font-bold" style={{ background: color, color: "#0d0d0d" }}>{busy ? "Saving…" : "Save"}</button>
+        </div>
+      </div>
+    );
+  }
+
+  const body = (
+    <>
+      <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] font-semibold text-white">{name}</span>
+        <span className={`block text-[12.5px] truncate ${href ? "text-white/55" : "text-white/35"}`}>{href ? host : canEdit ? "Not added yet" : "Not added"}</span>
+      </span>
+      {href && <ExternalLink className="w-4 h-4 shrink-0 text-white/40" />}
+    </>
+  );
+  return (
+    <div className="flex items-stretch">
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 min-h-[56px] px-3 flex items-center gap-2.5 active:bg-[#1a1a1a]">{body}</a>
+      ) : (
+        <div className="flex-1 min-w-0 min-h-[56px] px-3 flex items-center gap-2.5">{body}</div>
+      )}
+      {canEdit && (
+        <button type="button" onClick={() => { setDraft(value || ""); setEditing(true); }} aria-label={`${href ? "Change" : "Add"} ${name.toLowerCase()}`}
+          className="shrink-0 min-w-[56px] px-3 border-l border-[#1f1f1f] flex items-center justify-center gap-1.5 text-[13px] font-semibold" style={{ color: href ? "rgba(255,255,255,0.6)" : color }}>
+          {href ? <Pencil className="w-4 h-4" /> : "Add"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EventLinks({ gig, perms, box, color, onSaved }) {
+  const ticket = gig.promoter_info?.ticket_link || "";
+  const site = gig.venue_info?.website || "";
+  const isOwner = !!perms?.is_owner;
+  const canSite = isOwner || canWorkSection("venue", perms);
+  // Nothing to show and nothing you can add: leave the space out.
+  if (!normalizeLink(ticket) && !normalizeLink(site) && !isOwner && !canSite) return null;
+
+  const saveTicket = async (url) => {
+    const promoter_info = { ...(gig.promoter_info || {}), ticket_link: url };
+    const { error } = await supabase.rpc("update_gig_section", { p_token: gig.share_token, p_section: "promoter", p_updates: promoter_info });
+    if (error) { console.error(error); return false; }
+    onSaved({ promoter_info });
+    return true;
+  };
+  const saveSite = async (url) => {
+    const venue_info = { ...(gig.venue_info || {}), website: url };
+    const { error } = await supabase.rpc("update_gig_section", { p_token: gig.share_token, p_section: "venue", p_updates: { venue_info } });
+    if (error) { console.error(error); return false; }
+    onSaved({ venue_info });
+    return true;
+  };
+
+  return (
+    <div className={`${box} -mt-2 divide-y divide-[#1f1f1f] overflow-hidden`}>
+      <LinkRow icon={Ticket} name="Tickets" value={ticket} canEdit={isOwner} color={color} example="eventbrite.com/e/your-show" onSave={saveTicket} />
+      <LinkRow icon={Globe} name="Venue website" value={site} canEdit={canSite} color={color} example="thebasement.com" onSave={saveSite} />
+    </div>
   );
 }
