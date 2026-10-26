@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
@@ -20,6 +20,7 @@ import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
 import { isPageMarkedDone } from "@/lib/donePages";
 import EventLinksSheet from "@/components/showpilot/EventLinksSheet";
 import { isDesktopNow } from "@/lib/showRoute";
+import EventLinkBuilder from "@/components/showpilot/EventLinkBuilder";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -38,7 +39,7 @@ const PAGE_ICONS = {
   address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
   hospitality: Coffee, documents: FileText, requests: MessageSquare, paperwork: FileSignature,
   contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
-  merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb,
+  merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2,
 };
 
 const ROLE_TITLE = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio", lighting: "Lighting" };
@@ -330,6 +331,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           </>
         ),
       },
+      ...(!template && gig.id ? [{
+        key: "event_link", label: "Event link",
+        summary: "One link per event, acts fill it in",
+        state: "empty",
+        render: () => <EventLinkBuilder gig={gig} biz={biz} run={buildRunOfShow(gig)} color={color} shareToken={p.token || gig.share_token || null} editable={ed} />,
+      }] : []),
       docsTab(gig.venue_documents, (docs) => p.update("venue_documents", docs), "venue"),
       requestsTab("venue"),
     ];
@@ -833,7 +840,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   ) : null;
   // Requests and Paperwork are running lists, not fields to fill: left out of
   // the FILLED count, same as the event's progress (profileProgress.js).
-  const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork");
+  const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && t.key !== "event_link");
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
