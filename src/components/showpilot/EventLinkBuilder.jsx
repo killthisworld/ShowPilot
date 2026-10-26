@@ -119,6 +119,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState("");
   const [taskMsg, setTaskMsg] = useState("");
+  const [openAsk, setOpenAsk] = useState(null);
 
   // Start the editor from the saved link, or from the event's info.
   useEffect(() => {
@@ -141,7 +142,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch {} };
   const setBlock = (i, patch) => setBlocks(blocks.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
   const setAsk = (i, patch) => setAsks(asks.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
-  const addAsk = () => setAsks([...asks, { key: `q_${Date.now().toString(36)}`, label: "", type: "text", required: false, hint: "" }]);
+  const addAsk = () => { const key = `q_${Date.now().toString(36)}`; setAsks([...asks, { key, label: "", type: "text", required: false, hint: "" }]); setOpenAsk(key); };
 
   const save = async () => {
     setSaving(true); setErr("");
@@ -202,20 +203,34 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
 
           <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4">
             <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>2. What you need from each act</div>
-            <div className="mt-2 flex flex-col gap-2">
-              {asks.map((a, i) => (
-                <div key={a.key} className={`${box} p-3 flex flex-col gap-2`}>
-                  <div className="flex gap-2 items-center">
-                    <input value={a.label} onChange={(e) => setAsk(i, { label: e.target.value })} placeholder="What you need" className={inputCls} aria-label="Ask" />
-                    <button type="button" onClick={() => setAsks(asks.filter((_, idx) => idx !== i))} aria-label="Remove" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35 shrink-0"><Trash2 className="w-4 h-4" /></button>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {asks.map((a, i) => {
+                const isOpen = openAsk === a.key;
+                const tag = <span className="text-[10px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.45)" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</span>;
+                if (!isOpen) {
+                  return (
+                    <button key={a.key} type="button" onClick={() => setOpenAsk(a.key)} className={`${box} p-3 text-left min-h-[44px] flex flex-col gap-0.5`} style={{ borderColor: `${color}55` }}>
+                      <span className="text-[14.5px] font-semibold">{a.label || "New question"}</span>
+                      <span className="text-[12.5px] text-white/45 truncate">{[ASK_TYPES[a.type]?.label, a.hint].filter(Boolean).join(" · ")}</span>
+                      <span className="mt-1.5">{tag}</span>
+                    </button>
+                  );
+                }
+                return (
+                  <div key={a.key} className={`${box} p-3 flex flex-col gap-2 sm:col-span-2`} style={{ borderColor: color }}>
+                    <div className="flex gap-2 items-center">
+                      <input value={a.label} onChange={(e) => setAsk(i, { label: e.target.value })} placeholder="What you need" className={inputCls} aria-label="Ask" autoFocus />
+                      <button type="button" onClick={() => { setAsks(asks.filter((_, idx) => idx !== i)); setOpenAsk(null); }} aria-label="Remove" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35 shrink-0"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <div className="flex gap-2 flex-wrap items-center">
+                      <select value={a.type} onChange={(e) => setAsk(i, { type: e.target.value })} className={`${inputCls} !w-auto`} aria-label="Type">{Object.entries(ASK_TYPES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select>
+                      <button type="button" onClick={() => setAsk(i, { required: !a.required })} className="min-h-[44px] px-3 rounded-lg border text-[12px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.5)", borderColor: a.required ? `${AMBER}66` : "#2a2a2a" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</button>
+                      <button type="button" onClick={() => setOpenAsk(null)} className="min-h-[44px] px-3 rounded-lg text-[14px] font-semibold ml-auto" style={{ color }}>Done</button>
+                    </div>
+                    <input value={a.hint || ""} onChange={(e) => setAsk(i, { hint: e.target.value })} placeholder="Hint (size, format, what you want)" className={inputCls} aria-label="Hint" />
                   </div>
-                  <div className="flex gap-2 flex-wrap items-center">
-                    <select value={a.type} onChange={(e) => setAsk(i, { type: e.target.value })} className={`${inputCls} !w-auto`} aria-label="Type">{Object.entries(ASK_TYPES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select>
-                    <button type="button" onClick={() => setAsk(i, { required: !a.required })} className="min-h-[44px] px-3 rounded-lg border text-[12px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.5)", borderColor: a.required ? `${AMBER}66` : "#2a2a2a" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</button>
-                  </div>
-                  <input value={a.hint || ""} onChange={(e) => setAsk(i, { hint: e.target.value })} placeholder="Hint (size, format, what you want)" className={inputCls} aria-label="Hint" />
-                </div>
-              ))}
+                );
+              })}
             </div>
             <button type="button" onClick={addAsk} className="mt-3 min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color }}><Plus className="w-4 h-4" />Add your own question</button>
           </div>
