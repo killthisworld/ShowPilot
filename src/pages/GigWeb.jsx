@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList, Globe } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import EventBanner from "@/components/showpilot/EventBanner";
@@ -32,6 +32,7 @@ import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeI
 import { eventTypeColor, buildEventTypeOptions } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import useIsDesktop from "@/hooks/useIsDesktop";
 // The show editor, embedded as the SHOW tab for a tech owner (job 72).
 // Lazy so the web doesn't load the editor's PDF/canvas code until needed.
@@ -964,6 +965,34 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, he
 // the web's center hub, the status line) at once.
 // `compact`: the desktop board's one-row version (icon, name, date, Save
 // only while something changed), always open so there's no dropdown.
+// One link field under the event icon: an icon, the address, and (once
+// there's something saved) a way to open it.
+function EventLinkInput({ icon: Icon, label, placeholder, value, onChange, onEnter }) {
+  const href = normalizeLink(value);
+  return (
+    <label className="flex items-center gap-2 h-10 px-2.5 rounded-lg border border-[#262626] bg-[#111] focus-within:border-white/30">
+      <Icon className="w-4 h-4 shrink-0 text-white/45" aria-hidden />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") onEnter?.(); }}
+        placeholder={placeholder}
+        aria-label={label}
+        inputMode="url"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className="min-w-0 flex-1 bg-transparent text-[14px] text-white placeholder:text-white/30 outline-none"
+      />
+      {href && (
+        <a href={href} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label.toLowerCase()}`} className="shrink-0 text-white/45 hover:text-white" onClick={(e) => e.stopPropagation()}>
+          <ExternalLink className="w-4 h-4" />
+        </a>
+      )}
+    </label>
+  );
+}
+
 function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = false }) {
   const { preferences } = usePreferences();
   const [eventName, setEventName] = useState(gig.event_name || "");
@@ -978,7 +1007,22 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
   useEffect(() => { setDate(gig.date || ""); }, [gig.date]);
   useEffect(() => { setEventType(gig.event_type || ""); }, [gig.event_type]);
 
-  const dirty = eventName !== (gig.event_name || "") || date !== (gig.date || "") || eventType !== (gig.event_type || "");
+  // Ticket link and venue website, under the event icon (job 73). The ticket
+  // link is the same one the fan page's Get Tickets opens (promoter_info);
+  // the venue website lives with the venue info (venue_info.website), where
+  // the venue side can edit it too.
+  const savedTicket = gig.promoter_info?.ticket_link || "";
+  const savedSite = gig.venue_info?.website || "";
+  const [ticketLink, setTicketLink] = useState(savedTicket);
+  const [venueSite, setVenueSite] = useState(savedSite);
+  const [linkError, setLinkError] = useState("");
+  useEffect(() => { setTicketLink(savedTicket); }, [savedTicket]);
+  useEffect(() => { setVenueSite(savedSite); }, [savedSite]);
+
+  const detailsDirty = eventName !== (gig.event_name || "") || date !== (gig.date || "") || eventType !== (gig.event_type || "");
+  const ticketDirty = ticketLink.trim() !== savedTicket;
+  const siteDirty = venueSite.trim() !== savedSite;
+  const dirty = detailsDirty || ticketDirty || siteDirty;
 
   // The icon saves on its own (upload or remove), straight to the show row -
   // same owner-gated door archive/delete use - rather than waiting on Save.
@@ -1029,10 +1073,41 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
 
   const save = async () => {
     if (saving || !dirty) return;
+    // Links: "eventbrite.com/e/123" is fine (https:// is added); anything
+    // that isn't a web address is caught before saving.
+    const check = (raw, what) => {
+      const t = raw.trim();
+      if (!t) return "";
+      const ok = normalizeLink(t);
+      if (!ok) {
+        setLinkError(isTruncatedLink(t)
+          ? `That ${what} is cut off (it has "…" in it). Copy the full address and paste it again.`
+          : `The ${what} doesn't look like a web address, e.g. ${what === "ticket link" ? "eventbrite.com/e/your-show" : "thebasement.com"}.`);
+        return null;
+      }
+      return ok;
+    };
+    const nextTicket = ticketDirty ? check(ticketLink, "ticket link") : savedTicket;
+    if (nextTicket === null) return;
+    const nextSite = siteDirty ? check(venueSite, "venue website") : savedSite;
+    if (nextSite === null) return;
+    setLinkError("");
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null, ...(eventType ? { event_type: eventType } : {}) } });
-      if (error) throw error;
+      if (detailsDirty) {
+        const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null, ...(eventType ? { event_type: eventType } : {}) } });
+        if (error) throw error;
+      }
+      if (ticketDirty) {
+        const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: "promoter", p_updates: { ...(gig.promoter_info || {}), ticket_link: nextTicket } });
+        if (error) throw error;
+        setTicketLink(nextTicket);
+      }
+      if (siteDirty) {
+        const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: "venue", p_updates: { venue_info: { ...(gig.venue_info || {}), website: nextSite } } });
+        if (error) throw error;
+        setVenueSite(nextSite);
+      }
       setSaved(true);
       onChanged?.();
       setTimeout(() => setSaved(false), 2000);
@@ -1041,6 +1116,14 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
     }
     setSaving(false);
   };
+
+  const linkFields = (
+    <div className={compact ? "mt-1.5 grid grid-cols-2 gap-1.5" : "mt-3 space-y-2"}>
+      <EventLinkInput icon={Ticket} label="Ticket link" placeholder="Where fans buy tickets" value={ticketLink} onChange={(v) => { setTicketLink(v); setLinkError(""); }} onEnter={save} />
+      <EventLinkInput icon={Globe} label="Venue website" placeholder="The venue's website" value={venueSite} onChange={(v) => { setVenueSite(v); setLinkError(""); }} onEnter={save} />
+      {linkError && <p className={`text-red-400 text-[11px] m-0 ${compact ? "col-span-2 px-1" : ""}`}>{linkError}</p>}
+    </div>
+  );
 
   if (compact) {
     const inCls = "min-w-0 bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-white/30 rounded-md px-2 py-1 text-white outline-none";
@@ -1089,6 +1172,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
             </button>
           )}
         </div>
+        {linkFields}
         {(iconError || (gig.icon_url && !iconBusy)) && (
           <div className="mt-1 px-1 flex items-center gap-3 text-[11px]">
             {iconError && <span className="text-red-400">{iconError}</span>}
@@ -1132,6 +1216,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
           {cropper}
           {iconError && <p className="text-red-400 text-[11px] mt-1">{iconError}</p>}
           <p className="text-white/25 text-[10px] mt-1">Shows on your lists and for everyone linked to this gig.</p>
+          {linkFields}
         </div>
       </div>
       <button

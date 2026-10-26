@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink } from "lucide-react";
+import { normalizeLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
@@ -71,6 +72,12 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
     ["Load-in", vi.load_in_location],
     ["Parking", vi.parking],
   ].filter(([, v]) => has(v));
+  // Ticket link and venue website (job 73), set under the event icon on the
+  // event web; the website lives with the venue info.
+  const links = [
+    ["Tickets", Ticket, normalizeLink(gig.promoter_info?.ticket_link)],
+    ["Venue site", Globe, normalizeLink(vi.website)],
+  ].filter(([, , href]) => href);
   const contacts = [
     has(mi.contact_name) || has(mi.contact_phone) || has(mi.contact_email)
       ? { who: mi.contact_name || "Manager / Artist", role: mi.contact_title || "Manager / Artist", phone: mi.contact_phone, email: mi.contact_email, color: ROLE_COLOR.manager }
@@ -115,6 +122,19 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
         <div className="flex items-center gap-3 empty:hidden">
           <FanPageButton show={gig} />
         </div>
+
+        {links.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 -mt-2">
+            {links.map(([name, Icon, href]) => (
+              <a key={name} href={href} target="_blank" rel="noopener noreferrer"
+                className={`${box} ${links.length === 1 ? "col-span-2" : ""} h-12 px-3.5 flex items-center gap-2.5 text-white active:bg-[#1a1a1a]`}>
+                <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
+                <span className="flex-1 min-w-0 text-[15px] font-semibold truncate">{name}</span>
+                <ExternalLink className="w-4 h-4 shrink-0 text-white/40" />
+              </a>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: color + "40", borderTopColor: color }} /></div>

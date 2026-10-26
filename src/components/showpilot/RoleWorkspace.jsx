@@ -246,6 +246,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             <In label="Venue" value={gig.venue} onChange={(v) => p.update("venue", v)} disabled={off} placeholder="Venue name" />
             <In label="Street address" value={vi.address} onChange={(v) => setVi("address", v)} disabled={off} placeholder="1604 8th Ave S" />
             <Grid><In label="City" value={gig.city} onChange={(v) => p.update("city", v)} disabled={off} /><In label="State" value={gig.state} onChange={(v) => p.update("state", v)} disabled={off} /></Grid>
+            <In label="Website" value={vi.website} onChange={(v) => setVi("website", v.trim())} disabled={off} placeholder="thebasement.com" />
             <Grid><In label="Capacity" value={vi.capacity} onChange={(v) => setVi("capacity", v)} disabled={off} placeholder="250" /><In label="Age policy" value={vi.age_policy} onChange={(v) => setVi("age_policy", v)} disabled={off} placeholder="18+ · 21+ to drink" /></Grid>
           </>
         ),
