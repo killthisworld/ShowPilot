@@ -25,7 +25,7 @@ import { sectionPhoto } from "@/lib/sectionPhotos";
 import BoardOverview from "@/components/showpilot/BoardOverview";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
-import { eventTypeColor } from "@/lib/eventTypes";
+import { eventTypeColor, buildEventTypeOptions } from "@/lib/eventTypes";
 import { fetchMyIcons, uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useIsDesktop from "@/hooks/useIsDesktop";
@@ -676,7 +676,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={36} />
           <div className="min-w-0">
             <h1 className="text-white font-semibold text-xl leading-tight truncate tracking-wide">{title}</h1>
-            <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
+            <p className="text-white/40 text-[10px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[gig.event_type, dateLabel, gig.venue].filter(Boolean).join(" · ") || "Tap a role to see status"}</p>
           </div>
           {actionButtons}
         </div>
@@ -965,15 +965,20 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, le
 // `compact`: the desktop board's one-row version (icon, name, date, Save
 // only while something changed), always open so there's no dropdown.
 function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = false }) {
+  const { preferences } = usePreferences();
   const [eventName, setEventName] = useState(gig.event_name || "");
   const [date, setDate] = useState(gig.date || "");
+  // Event type, editable here too (the phone's shared event page has it).
+  const [eventType, setEventType] = useState(gig.event_type || "");
+  const typeOptions = [...new Set([...buildEventTypeOptions([], preferences?.custom_event_types, preferences?.hidden_event_types, gig.event_type), "Other"])];
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => { setEventName(gig.event_name || ""); }, [gig.event_name]);
   useEffect(() => { setDate(gig.date || ""); }, [gig.date]);
+  useEffect(() => { setEventType(gig.event_type || ""); }, [gig.event_type]);
 
-  const dirty = eventName !== (gig.event_name || "") || date !== (gig.date || "");
+  const dirty = eventName !== (gig.event_name || "") || date !== (gig.date || "") || eventType !== (gig.event_type || "");
 
   // The icon saves on its own (upload or remove), straight to the show row -
   // same owner-gated door archive/delete use - rather than waiting on Save.
@@ -1026,7 +1031,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
     if (saving || !dirty) return;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null } });
+      const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null, ...(eventType ? { event_type: eventType } : {}) } });
       if (error) throw error;
       setSaved(true);
       onChanged?.();
@@ -1063,6 +1068,15 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
             className={`${inCls} shrink-0 w-[150px] text-[14px] text-white/80 [color-scheme:dark]`}
             style={{ fontFamily: SCENE_MONO }}
           />
+          <select
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value)}
+            aria-label="Event type"
+            className={`${inCls} shrink-0 w-[130px] text-[14px] text-white/80 bg-[#111]`}
+          >
+            {!eventType && <option value="">Event type</option>}
+            {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
           {(dirty || saved) && (
             <button
               type="button"
@@ -1093,6 +1107,13 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
       <div className="space-y-2.5">
         <Field label="Event Name" value={eventName} onChange={setEventName} editable placeholder="e.g. Friday Night Showcase" />
         <Field label="Date" value={date} onChange={setDate} editable type="date" />
+        <label className="block">
+          <span className="text-white/50 text-xs">Event Type</span>
+          <select value={eventType} onChange={(e) => setEventType(e.target.value)} className="mt-1 block w-48 h-10 rounded-md bg-[#111] border border-[#222] text-white text-sm px-2">
+            {!eventType && <option value="">Select type</option>}
+            {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
         <div>
           <p className="text-white/50 text-xs mb-1">Event Icon</p>
           <div className="flex items-center gap-3">
@@ -1763,7 +1784,7 @@ function DesktopGigWeb({
         <EventTypeIcon type={gig.event_type} imageUrl={myIcon || gig.icon_url} size={42} />
         <div className="min-w-0">
           <h1 className="text-white font-bold text-3xl leading-tight truncate tracking-wide">{title}</h1>
-          <p className="text-white/50 text-[11px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[dateLabel, gig.venue].filter(Boolean).join(" · ") || "Select a role to see its status"}</p>
+          <p className="text-white/50 text-[11px] mt-0.5 truncate uppercase tracking-[0.1em]" style={{ fontFamily: SCENE_MONO }}>{[gig.event_type, dateLabel, gig.venue].filter(Boolean).join(" · ") || "Select a role to see its status"}</p>
         </div>
         <div className="flex-1 max-w-[560px] ml-6 min-w-[300px]"><StatusStrip cells={stripCells} /></div>
         <div className="ml-auto flex items-center gap-1 [&_svg]:!w-5 [&_svg]:!h-5 [&_span]:!text-[10px]">

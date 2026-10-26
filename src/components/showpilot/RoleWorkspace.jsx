@@ -18,6 +18,8 @@ import VenuePhoto from "@/components/showpilot/VenuePhoto";
 import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
 import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
 import { isPageMarkedDone } from "@/lib/donePages";
+import EventLinksSheet from "@/components/showpilot/EventLinksSheet";
+import { isDesktopNow } from "@/lib/showRoute";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -384,6 +386,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               <In label="Phone" value={info.contact_phone} onChange={(v) => setE("contact_phone", v)} disabled={off} placeholder="Phone" />
               <In label="Email" value={info.contact_email} onChange={(v) => setE("contact_email", v)} disabled={off} placeholder="Email" />
             </Grid>
+            {/* Digital card, same as the phone's event page: connect your
+                ShowPilot card to this crew spot, and anyone can open it. */}
+            {!off && p.user && (
+              <button
+                type="button"
+                onClick={() => setE("card_user_id", info.card_user_id === p.user.id ? null : p.user.id)}
+                className="self-start h-10 px-3.5 rounded-[9px] border text-[14px] font-semibold flex items-center gap-2"
+                style={info.card_user_id === p.user.id ? { borderColor: color + "88", background: color + "1a", color } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.65)" }}
+              >
+                {info.card_user_id === p.user.id ? <><Check className="w-4 h-4" /> Digital card connected</> : "Connect my digital card"}
+              </button>
+            )}
+            {info.card_user_id && <PilotCardLink userId={info.card_user_id} color={color} />}
           </>
         ),
       };
@@ -489,6 +504,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                     if (old && has(setTimes[old])) { const t = { ...setTimes, [e.target.value]: setTimes[old] }; delete t[old]; setMi("set_times", t); }
                   }} disabled={!p.canEdit} placeholder="Act name" className={`${inputCls} font-semibold`} aria-label="Act name" />
                   {p.canEdit ? <button type="button" onClick={() => p.removeBand(i)} aria-label="Remove act" className="p-2 text-white/30 hover:text-red-400 justify-self-center"><Trash2 className="w-4 h-4" /></button> : <span />}
+                  {/* Genre and the spot the act asked for (from their intake), as on the phone. */}
+                  {((b.genre_tags || []).length > 0 || b.requested_order) && (
+                    <div className="col-start-2 col-span-2 -mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/50">
+                      {(b.genre_tags || []).length > 0 && <span className="truncate">{b.genre_tags.join(", ")}</span>}
+                      {b.requested_order && <span style={{ fontFamily: SCENE_MONO }} title="Lineup position the act asked for">ASKED FOR #{b.requested_order}</span>}
+                    </div>
+                  )}
                   <div className="col-start-2 col-span-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2">
                     <label className="grid gap-1 min-w-0">
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>BILLING</span>
@@ -691,7 +713,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Manager and Artist each get their half of the manager pages; Audio and
   // Lighting each get their own crew page. A template (one section saved
   // whole) still uses every page of its section.
-  const MANAGER_PAGES = ["contact", "advance", "guests", "requests"];
+  const MANAGER_PAGES = ["contact", "advance", "guests", "documents", "requests"];
   const ARTIST_PAGES = ["lineup", "travel", "merch", "requests"];
   const builders = {
     venue: venueTabs,
@@ -814,10 +836,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Features (DCAs) sit in the web's four corners; empty corners are open
   // slots. Tasks are not a feature here: they open from the TASKS icon in the
   // event header (next to the fan page ticket), which carries your count.
+  const [linksOpen, setLinksOpen] = useState(false);
+  const linksOn = !template && isDesktopNow() && !!p.user && !!gig.id && (role === "engineer" || role === "lighting");
+  const linksSheet = linksOpen && <EventLinksSheet gig={gig} user={p.user} isOwner={!!p.permissions?.is_owner} color={color} onClose={() => setLinksOpen(false)} />;
   const featureDcas = [
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
     canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
+    // Links (desktop, Audio / Lighting web): this event's intake links, which
+    // on desktop live here instead of in Settings (Oct 26).
+    linksOn ? { key: "links", label: "Links", color: "#60A5FA", onClick: () => setLinksOpen(true) } : null,
   ].filter(Boolean);
 
   // Mark as done (job 148): on every page you can edit. Done pages light up
@@ -891,7 +919,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}
+          {taskSheet}{tplPicker}{linksSheet}
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
@@ -941,7 +969,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}
+        {taskSheet}{tplPicker}{linksSheet}
         <div ref={blockRef} className="rounded-2xl bg-[#111] text-white" style={{ fontFamily: SCENE_FONT, border: `1px solid ${selected ? color + "99" : "#1f1f1f"}`, boxShadow: selected ? `0 0 0 1px ${color}33, 0 0 18px ${color}22` : undefined, scrollMarginTop: 12 }}>
           <div className="flex items-center gap-1 pr-2">
             <button type="button" onClick={() => setBlockOpen((o) => !o)} aria-expanded={blockOpen} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
@@ -1040,7 +1068,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}
+          {taskSheet}{tplPicker}{linksSheet}
           <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
             {!p.user && (
               <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
@@ -1090,7 +1118,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}
+        {taskSheet}{tplPicker}{linksSheet}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
           {tabChips}
           <div className="flex items-center gap-3">
@@ -1246,7 +1274,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   return (
     <Shell modal={modal} onClose={onClose}>
       {header}
-      {taskSheet}{tplPicker}
+      {taskSheet}{tplPicker}{linksSheet}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
@@ -1493,5 +1521,22 @@ function TemplateTools({ role, color, gig, update, userId }) {
       )}
       {loaded && !naming && <span className="text-[13px]" style={{ color }}>Loaded “{loaded}”. Press Save to keep it on this event.</span>}
     </div>
+  );
+}
+
+// "View <name>'s ShowPilot card" for the person connected to a crew spot.
+function PilotCardLink({ userId, color }) {
+  const [card, setCard] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    supabase.from("user_preferences").select("display_name, card_share_token").eq("user_id", userId).maybeSingle()
+      .then(({ data }) => { if (alive) setCard(data || null); });
+    return () => { alive = false; };
+  }, [userId]);
+  if (!card?.card_share_token) return null;
+  return (
+    <a href={`/pilot/${card.card_share_token}`} target="_blank" rel="noopener noreferrer" className="self-start text-[14px] font-semibold hover:underline" style={{ color }}>
+      View {card.display_name || "their"} ShowPilot card ↗
+    </a>
   );
 }
