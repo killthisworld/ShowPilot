@@ -3,7 +3,9 @@ import { supabase } from "@/api/supabaseClient";
 import { Check, Copy, Plus, Trash2, ChevronDown, Pencil, Upload, Eye } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventLinkEmail from "@/components/showpilot/EventLinkEmail";
-import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink } from "@/lib/eventLink";
+import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
+import { eventTitle } from "@/lib/eventTitle";
+import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig } from "@/lib/eventLink";
 
 // The venue's event link (job 176): choose what acts see, set the checklist,
 // copy the link, then watch answers arrive. Lives in the venue's event tabs.
@@ -173,7 +175,8 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const save = async () => {
     setSaving(true); setErr("");
     try {
-      await saveEventLink(gig.id, { blocks, asks: asks.filter((a) => a.label.trim()), message });
+      // Acts see the live event overview now, not picked text (job 176).
+      await saveEventLink(gig.id, { blocks: [], asks: asks.filter((a) => a.label.trim()), message });
       await reload();
       setEditing(false);
     } catch (e) { console.error(e); setErr(e.message || "Couldn't save the link."); }
@@ -214,14 +217,8 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
         <div className="flex flex-col gap-4">
           <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4">
             <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>1. What acts see</div>
-            <p className="text-[13.5px] text-white/50 mb-2">Built from this event. Edit any wording; acts see exactly this text.</p>
-            {blocks.map((b, i) => (
-              <div key={b.key} className="border-b border-[#1f1f1f] last:border-0">
-                <Check1 on={b.on !== false} onChange={(v) => setBlock(i, { on: v })} label={b.title} sub={b.on !== false ? null : b.body.split("\n")[0]} color={color} />
-                {b.on !== false && <textarea value={b.body} onChange={(e) => setBlock(i, { body: e.target.value })} rows={Math.min(6, b.body.split("\n").length + 1)} className={`${inputCls} py-2 mb-2`} />}
-              </div>
-            ))}
-            {blocks.length === 0 && <p className="text-[14px] text-white/45">Nothing filled in on this event yet. Add times, load-in and the deal on its pages and they show up here.</p>}
+            <p className="text-[13.5px] text-white/50 mb-3">The event overview, straight from this event. It stays up to date as you fill in the event's pages. The deal, Wi-Fi and contacts stay private.</p>
+            <div className="max-w-[520px]"><EventOverviewCard ov={overviewFromGig(gig)} title={eventTitle(gig)} date={gig.date} venue={gig.venue} place={[gig.city, gig.state].filter(Boolean).join(", ")} color={color} /></div>
             <label className="block mt-3"><span className={labelCls} style={mono}>NOTE AT THE TOP (OPTIONAL)</span>
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="Hi, here's everything for the show. Fill in the form at the bottom." className={`${inputCls} py-2 mt-1.5`} /></label>
           </div>

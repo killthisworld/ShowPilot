@@ -90,6 +90,49 @@ export function fillEmail(tpl, vals) {
   return { subject: fill(t.subject).trim(), body };
 }
 
+// ---------- the event overview acts see (job 176) ----------
+// The act page shows the event's own overview card, live from the event
+// (get_event_link_public's `overview`): picture, name, date, venue and
+// address, run of show, lineup, ticket link and venue website. The venue's
+// builder previews the same card from the event it has open.
+export function overviewFromGig(gig) {
+  const vi = gig?.venue_info || {};
+  return {
+    image: gig?.icon_url || vi.photo_url || "",
+    event_type: gig?.event_type || "",
+    address: vi.address || "",
+    load_in: vi.load_in_location || "",
+    parking: vi.parking || "",
+    schedule: vi.schedule || [],
+    set_times: gig?.manager_info?.set_times || {},
+    bands: (gig?.bands || []).filter((b) => has(b.band_name)).map((b) => ({ band_name: b.band_name, role: b.role, set_length_minutes: b.set_length_minutes })),
+    ticket_link: gig?.promoter_info?.ticket_link || "",
+    website: vi.website || "",
+  };
+}
+function parseClock(t) {
+  const m = String(t || "").trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(a|p)?\.?m?\.?$/);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2] || "0", 10);
+  if (m[3] === "p" && h < 12) h += 12;
+  if (m[3] === "a" && h === 12) h = 0;
+  if (h > 23 || min > 59) return null;
+  if (!m[3] && h >= 1 && h <= 6) h += 12;
+  return h * 60 + min;
+}
+const clockKey = (t) => { const v = parseClock(t); return v === null ? 9999 : v < 360 ? v + 1440 : v; };
+// Run of show from an overview: the venue's times plus each act's set.
+export function overviewRun(ov) {
+  const rows = (ov?.schedule || []).filter((r) => has(r.time) || has(r.label)).map((r) => ({ time: r.time, label: r.label, kind: /curfew/i.test(r.label || "") ? "curfew" : "venue" }));
+  (ov?.bands || []).forEach((b) => {
+    const t = (ov?.set_times || {})[b.band_name];
+    if (has(t)) rows.push({ time: t, label: `${b.band_name}${b.set_length_minutes ? ` · ${b.set_length_minutes} min` : ""}`, kind: "set" });
+  });
+  return rows.sort((a, b) => clockKey(a.time) - clockKey(b.time));
+}
+export const linkHref = (v) => { const t = String(v || "").trim(); return !t ? "" : /^https?:\/\//i.test(t) ? t : `https://${t}`; };
+
 export const eventLinkUrl = (code) => `${window.location.origin}/v/${code}`;
 
 // ---------- venue side ----------

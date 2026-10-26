@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom";
 import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile } from "@/lib/eventLink";
 
 // Public page an act opens from the venue's event link (/v/<code>). No account:
@@ -188,20 +189,29 @@ export default function EventLink() {
           Preview: this is what acts see. Nothing you type here is saved or sent.
         </div>
       )}
-      <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4" style={{ borderTop: `3px solid ${BLUE}` }}>
-        {info.venue && <div className="text-[11px] tracking-[0.1em]" style={{ ...mono, color: BLUE }}>{String(info.venue).toUpperCase()}</div>}
-        <h1 className="mt-1.5 text-[30px] leading-[1.05] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
-        <p className="mt-1 text-[14px] text-white/60">{[fmtDay(info.date), info.place].filter(Boolean).join(" · ")}</p>
-      </div>
-
-      {info.message && <div className={card}><p className="text-[15px] text-white/80 whitespace-pre-wrap">{info.message}</p></div>}
-
-      {(info.blocks || []).map((b) => (
-        <div key={b.key} className={card}>
-          <div className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>{String(b.title || "").toUpperCase()}</div>
-          <p className="mt-2 text-[15px] text-white/85 whitespace-pre-wrap leading-relaxed">{b.body}</p>
-        </div>
-      ))}
+      {/* The event's overview card, live from the event (job 176). Links
+          made before the overview existed still show their saved text. */}
+      {info.overview ? (
+        <>
+          {info.message && <div className={card}><p className="text-[15px] text-white/80 whitespace-pre-wrap">{info.message}</p></div>}
+          <EventOverviewCard ov={info.overview} title={info.title} date={info.date} venue={info.venue} place={info.place} color={BLUE} />
+        </>
+      ) : (
+        <>
+          <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4" style={{ borderTop: `3px solid ${BLUE}` }}>
+            {info.venue && <div className="text-[11px] tracking-[0.1em]" style={{ ...mono, color: BLUE }}>{String(info.venue).toUpperCase()}</div>}
+            <h1 className="mt-1.5 text-[30px] leading-[1.05] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
+            <p className="mt-1 text-[14px] text-white/60">{[fmtDay(info.date), info.place].filter(Boolean).join(" · ")}</p>
+          </div>
+          {info.message && <div className={card}><p className="text-[15px] text-white/80 whitespace-pre-wrap">{info.message}</p></div>}
+          {(info.blocks || []).map((bl) => (
+            <div key={bl.key} className={card}>
+              <div className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>{String(bl.title || "").toUpperCase()}</div>
+              <p className="mt-2 text-[15px] text-white/85 whitespace-pre-wrap leading-relaxed">{bl.body}</p>
+            </div>
+          ))}
+        </>
+      )}
 
       {asks.length > 0 && (
         <>
