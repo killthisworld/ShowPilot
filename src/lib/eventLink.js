@@ -67,6 +67,29 @@ export function buildBlocks(gig, deal, run = []) {
   return blocks;
 }
 
+// The venue's email for sending the link (job 176). Saved once on the
+// account (user_preferences.event_link_email), filled in per event.
+export const EMAIL_FIELDS = [
+  { key: "event", label: "Event name" },
+  { key: "date", label: "Date" },
+  { key: "venue", label: "Venue" },
+  { key: "link", label: "Event link" },
+  { key: "name", label: "Your name" },
+];
+export const DEFAULT_EMAIL = {
+  subject: "{event} at {venue}, {date}",
+  body: "Hi,\n\nHere's everything for {event} at {venue} on {date}: times, the deal and what we need from you.\n\nOpen this link, read through, and fill in the short form at the bottom:\n{link}\n\nIf anything's unclear, ask right on that page.\n\nThanks,\n{name}",
+};
+// Fill a template's {placeholders}; the link is always in the body even if
+// the template left it out.
+export function fillEmail(tpl, vals) {
+  const t = { ...DEFAULT_EMAIL, ...(tpl || {}) };
+  const fill = (str) => String(str || "").replace(/\{(event|date|venue|link|name)\}/g, (_, k) => vals[k] || "");
+  let body = fill(t.body);
+  if (vals.link && !body.includes(vals.link)) body = `${body.trimEnd()}\n\n${vals.link}`;
+  return { subject: fill(t.subject).trim(), body };
+}
+
 export const eventLinkUrl = (code) => `${window.location.origin}/v/${code}`;
 
 // ---------- venue side ----------

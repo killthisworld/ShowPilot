@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Check, Copy, Plus, Trash2, ChevronDown, Pencil, Upload, Eye } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import EventLinkEmail from "@/components/showpilot/EventLinkEmail";
 import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink } from "@/lib/eventLink";
 
 // The venue's event link (job 176): choose what acts see, set the checklist,
@@ -192,10 +193,9 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
         <div className="rounded-[14px] border p-4 flex flex-col gap-3" style={{ borderColor: `${color}55`, background: "#141414" }}>
           <span className={labelCls} style={mono}>YOUR LINK</span>
           <div className="px-3 py-3 rounded-[10px] bg-[#0d0d0d] border border-[#2a2a2a] text-[14px] break-all" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
-          <div className="flex gap-2 flex-wrap">
-            <button type="button" onClick={copy} className="flex-1 min-w-[140px] min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
-            <a href={`mailto:?subject=${encodeURIComponent(`${gig.event_name || gig.band_name || "Show"} at ${gig.venue || "the venue"}`)}&body=${encodeURIComponent(`Everything for the show, and a short form to fill in:\n${url}`)}`} className="flex-1 min-w-[140px] min-h-[48px] rounded-[10px] font-semibold text-[15px] flex items-center justify-center border" style={{ color, borderColor: `${color}66` }}>Email it</a>
-          </div>
+          <button type="button" onClick={copy} className="w-full min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
+          {/* Email it fills in the venue's own email template (job 176). */}
+          <EventLinkEmail gig={gig} url={url} color={color} />
         </div>
       )}
 
