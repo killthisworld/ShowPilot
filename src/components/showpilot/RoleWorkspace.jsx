@@ -166,7 +166,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null, wide = false }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -978,7 +978,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   </>
                 )}
                 {/* Two cards a row, each with an icon for what's on the page (job 168). */}
-                <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+                <div className="grid gap-2" style={{ gridTemplateColumns: wide ? "repeat(3, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))" }}>
                   {tabs.map((t) => {
                     const Icon = PAGE_ICONS[t.key] || FileText;
                     return (

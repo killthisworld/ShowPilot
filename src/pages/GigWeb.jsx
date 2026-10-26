@@ -62,6 +62,11 @@ const ROLE_ORDER = WEB_ROLES;
 
 const SECTION_LABELS = WEB_LABELS;
 
+// Folding the desktop flight log (job 178/179).
+const FOLD_MS = 420;
+const FOLD_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const LOG_W = "clamp(300px, 24vw, 380px)";
+
 // What the invite sheet calls each section.
 const inviteKeyOf = (role) => (sectionOf(role) === "engineer" ? "engineer_lighting" : sectionOf(role));
 
@@ -878,7 +883,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // `solo` (desktop): the web is the navigation, so the main box shows only
 // what's picked on it: nothing but the board items on the event web, one
 // profile when its circle is picked, one page when a page is picked.
-function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, headSlot = null, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true, solo = false }) {
+function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, headSlot = null, wide = false, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true, solo = false }) {
   const pv = useRoleProfile({ role: "venue", token, onChanged });
   const pm = useRoleProfile({ role: "manager", token, onChanged });
   const pe = useRoleProfile({ role: "engineer", token, onChanged });
@@ -928,6 +933,7 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, he
           p={byRole[role]}
           webSlot={selectedRole === role ? webSlot : null}
           headSlot={selectedRole === role ? headSlot : null}
+          wide={wide}
           selected={selectedRole === role}
           defaultOpen={solo || mine.includes(role)}
           focus={focus && focus.role === role ? focus : null}
@@ -1823,7 +1829,18 @@ function DesktopGigWeb({
   // The flight log can fold away to a rail on the right (job 178), giving
   // the board the width; remembered on this device.
   const [logOpen, setLogOpen] = useState(() => { try { return localStorage.getItem("sp_flight_log_open") !== "0"; } catch { return true; } });
-  const toggleLog = (open) => { setLogOpen(open); try { localStorage.setItem("sp_flight_log_open", open ? "1" : "0"); } catch { /* fine */ } };
+  // The board switches to its wide layout once the fold has finished (and
+  // back to narrow straight away when opening), so nothing reflows mid-glide.
+  const [wideLayout, setWideLayout] = useState(!logOpen);
+  const foldTimer = useRef(null);
+  useEffect(() => () => clearTimeout(foldTimer.current), []);
+  const toggleLog = (open) => {
+    setLogOpen(open);
+    clearTimeout(foldTimer.current);
+    if (open) setWideLayout(false);
+    else foldTimer.current = setTimeout(() => setWideLayout(true), FOLD_MS);
+    try { localStorage.setItem("sp_flight_log_open", open ? "1" : "0"); } catch { /* fine */ }
+  };
   // Owner marks a profile "Not needed" on this event, or needed again (job 172).
   const setNotNeeded = async (role, on) => {
     const cur = permissions?.not_needed_roles || [];
@@ -1891,8 +1908,11 @@ function DesktopGigWeb({
       </div>
 
       <div className="flex-1 min-h-0 m-4 rounded-2xl border border-[#1d1d1d] overflow-hidden" style={{ ...dots, boxShadow: "inset 0 0 60px rgba(0,0,0,0.6)" }}>
-        <div className="h-full grid gap-6 p-6" style={{ gridTemplateColumns: logOpen ? "minmax(360px, 1fr) minmax(440px, 1.3fr) minmax(300px, 0.8fr)" : "minmax(340px, 0.85fr) minmax(440px, 2.15fr) 56px", transition: "grid-template-columns 320ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
-          <div className="relative min-h-0 flex flex-col items-center justify-center gap-4">
+        {/* Three columns: the web and the flight log have set widths that
+            glide when the flight log folds (job 178/179); the board takes
+            the rest. */}
+        <div className="h-full flex gap-6 p-6">
+          <div className="relative min-h-0 shrink-0 flex flex-col items-center justify-center gap-4" style={{ width: logOpen ? "clamp(340px, 29vw, 480px)" : "clamp(320px, 25vw, 440px)", transition: `width ${FOLD_MS}ms ${FOLD_EASE}` }}>
             <div className="w-full flex-1 min-h-0 flex items-center">
               {roleWeb ? (
                 <div ref={setWebSlot} className="relative w-full max-w-[520px] aspect-square max-h-full mx-auto" />
@@ -1913,7 +1933,7 @@ function DesktopGigWeb({
             )}
           </div>
 
-          <div className="min-h-0 flex flex-col rounded-md bg-[#151515] border border-[#262626]" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col rounded-md bg-[#151515] border border-[#262626]" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
             <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 shrink-0">
               {selectedNode ? (
                 <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -1952,7 +1972,7 @@ function DesktopGigWeb({
                     onDone={(id) => completeTask(id, true)}
                     onInvitesChanged={loadGig}
                     onSetNotNeeded={isOwner ? setNotNeeded : null}
-                    wide={!logOpen}
+                    wide={wideLayout}
                   />
                 )}
                 <EventSections
@@ -1962,6 +1982,7 @@ function DesktopGigWeb({
                   selectRole={selectRole}
                   webSlot={webSlot}
                   headSlot={headSlot}
+                  wide={wideLayout}
                   leaving={leaving}
                   onBack={() => selectRole(null)}
                   homeIcon={myIcon}
@@ -1978,12 +1999,15 @@ function DesktopGigWeb({
             </div>
           </div>
 
-          <div className="min-h-0 flex flex-col">
-            {logOpen ? (
+          {/* Both stay mounted and cross-fade while the column glides; the
+              log keeps its own width (clipped) so it never squashes. */}
+          <div className="relative min-h-0 shrink-0 overflow-hidden" style={{ width: logOpen ? LOG_W : 56, transition: `width ${FOLD_MS}ms ${FOLD_EASE}` }}>
+            <div className="absolute inset-y-0 right-0 flex flex-col" aria-hidden={!logOpen} style={{ width: LOG_W, opacity: logOpen ? 1 : 0, transform: logOpen ? "translateX(0)" : "translateX(24px)", transition: `opacity ${logOpen ? 260 : 160}ms ease ${logOpen ? 140 : 0}ms, transform ${FOLD_MS}ms ${FOLD_EASE}`, pointerEvents: logOpen ? "auto" : "none" }}>
               <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} onCollapse={() => toggleLog(false)} />
-            ) : (
+            </div>
+            <div className="absolute inset-y-0 right-0 w-[56px] flex flex-col" aria-hidden={logOpen} style={{ opacity: logOpen ? 0 : 1, transition: `opacity ${logOpen ? 120 : 240}ms ease ${logOpen ? 0 : 160}ms`, pointerEvents: logOpen ? "none" : "auto" }}>
               <FlightRail nodes={nodes} tasks={gig.tasks || []} activity={activity} onOpen={() => toggleLog(true)} />
-            )}
+            </div>
           </div>
         </div>
       </div>
