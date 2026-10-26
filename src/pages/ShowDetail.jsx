@@ -171,6 +171,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [tmCopied, setTmCopied] = useState(false);
   const [savedToast, setSavedToast] = useState("");
   const [selectedArtistFx, setSelectedArtistFx] = useState("__general__");
+  // FX / Artist Notes (job 167): "__show__" = General (whole show), or an act's index.
+  const [fxTarget, setFxTarget] = useState("__show__");
   const [showGenreSettings, setShowGenreSettings] = useState(false);
   const [showBusSettings, setShowBusSettings] = useState(false);
   const [genreDraft, setGenreDraft] = useState([]);
@@ -225,7 +227,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           // load fresh data below instead of the stale local draft.
           const [parsedCity, parsedState] = (showRes.data.location || "").split(",").map((s) => s.trim());
           // venue_photo_url: the venue's photo (kept in venue_info.photo_url, shared with the venue's section).
-          setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "", venue_photo_url: showRes.data.venue_info?.photo_url || "" });
+          setShow({ ...showRes.data, city: parsedCity || "", state: parsedState || "", venue_photo_url: showRes.data.venue_info?.photo_url || "", show_notes: showRes.data.engineer_info?.show_notes || "" });
           if (bandsRes.data && bandsRes.data.length > 0) {
             setBands(bandsRes.data);
           } else {
@@ -438,6 +440,17 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           const { photo_url, ...rest } = vi;
           sharedPayload.venue_info = photo ? { ...rest, photo_url: photo } : rest;
         }
+      }
+
+      // General (whole-show) notes from FX / Artist Notes (job 167): kept in
+      // engineer_info.show_notes, merged into the latest engineer_info.
+      const showNotes = show.show_notes || "";
+      if (isNew) {
+        if (showNotes) sharedPayload.engineer_info = { show_notes: showNotes };
+      } else {
+        const { data: curEi } = await supabase.from("shows").select("engineer_info").eq("id", id).maybeSingle();
+        const ei = curEi?.engineer_info && typeof curEi.engineer_info === "object" ? curEi.engineer_info : {};
+        if ((ei.show_notes || "") !== showNotes) sharedPayload.engineer_info = { ...ei, show_notes: showNotes };
       }
 
       let showId = id;
@@ -1210,62 +1223,55 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </CollapsibleSection>
         </div>
 
-      {showFxModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowFxModal(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      {showFxModal && (() => {
+        // One box, one row of chips under it (job 169): General (whole show),
+        // then each act; the box shows whichever is picked.
+        const isShow = fxTarget === "__show__" || !bands[fxTarget];
+        const act = isShow ? null : bands[fxTarget];
+        const actLabel = (b) => b.band_name || b.role || "Act";
+        // One box (Jay): an act's notes, with any per-member notes it sent on
+        // the intake form shown as "Name: note" lines; editing saves it all as
+        // the act's notes.
+        const memberLines = (b) => (b.artist_fx_notes || []).filter((n) => n.artist_name && String(n.notes || "").trim()).map((n) => `${n.artist_name}: ${n.notes}`);
+        const actText = (b) => [b.general_notes || "", ...memberLines(b)].filter((t) => String(t).trim()).join("\n\n");
+        const setActText = (v) => setBands((prev) => { const next = [...prev]; next[fxTarget] = { ...next[fxTarget], general_notes: v, artist_fx_notes: [] }; return next; });
+        const actHasNotes = (b) => !!(b.general_notes || (b.artist_fx_notes || []).some((n) => n.notes));
+        const chip = (on) => `px-3 py-1.5 rounded-full text-[13px] border transition-all flex items-center gap-1.5 ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] text-white/55 hover:text-white/80"}`;
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3" style={{ height: "100dvh" }} onClick={() => setShowFxModal(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-bold text-base flex items-center gap-2">
-                <StickyNote className="w-4 h-4 text-[#8CFF3D]" /> FX / Artist Notes
+              <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                <StickyNote className="w-5 h-5 text-[#8CFF3D]" /> FX / Artist Notes
               </h3>
-              <button onClick={() => setShowFxModal(false)} className="text-white/40 hover:text-white">
+              <button onClick={() => setShowFxModal(false)} className="w-10 h-10 -mr-2 flex items-center justify-center text-white/40 hover:text-white" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-3">
-              {bands.length > 1 && (
-                <div className="flex flex-wrap gap-1.5 pb-1 border-b border-[#222]">
-                  {bands.map((b, i) => {
-                    const bandLabel = b.band_name || b.role || "Act";
-                    const colors = ROLE_COLORS[b.role] || ROLE_COLORS["N/A"];
-                    return (
-                      <button
-                        key={b.id || `fxband-${i}`}
-                        onClick={() => { setActiveBandIndex(i); setSelectedArtistFx("__general__"); }}
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${activeBandIndex === i ? `${colors.activeBorder} ${colors.text} ${colors.bg}` : "border-[#222] text-white/40 hover:text-white/60"}`}
-                      >
-                        {bandLabel}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
               <Textarea
-                key={`${activeBandIndex}-${selectedArtistFx}`}
-                value={getArtistFxNote(selectedArtistFx)}
-                onChange={(e) => setArtistFxNote(selectedArtistFx, e.target.value)}
-                className="bg-[#111] border-[#222] text-white min-h-[120px]"
-                placeholder={selectedArtistFx === "__general__" ? "General notes for the show..." : `FX / notes for ${selectedArtistFx}...`}
+                key={String(fxTarget)}
+                value={isShow ? (show.show_notes || "") : actText(act)}
+                onChange={(e) => (isShow ? update("show_notes", e.target.value) : setActText(e.target.value))}
+                className="bg-[#111] border-[#222] text-white text-[15px] leading-relaxed min-h-[48dvh]"
+                placeholder={isShow ? "General notes for the whole show..." : `Notes for ${actLabel(act)}...`}
               />
 
-              <div className="flex flex-wrap gap-1.5">
-                <button onClick={() => setSelectedArtistFx("__general__")} className={`px-2.5 py-1 rounded-full text-xs border transition-all ${selectedArtistFx === "__general__" ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
-                  General {activeBand.general_notes ? "●" : ""}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <button type="button" onClick={() => setFxTarget("__show__")} className={chip(isShow)}>
+                  General {show.show_notes ? <span aria-label="has notes">●</span> : null}
                 </button>
-                {(activeBand.band_members || []).filter(m => m.name).map((m) => {
-                  const hasNote = (activeBand.artist_fx_notes || []).find(n => n.artist_name === m.name)?.notes;
-                  return (
-                    <button key={m.name} onClick={() => setSelectedArtistFx(m.name)}
-                      className={`px-2.5 py-1 rounded-full text-xs border transition-all flex items-center gap-1 ${selectedArtistFx === m.name ? "border-[#8CFF3D]/40 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#222] text-white/40 hover:text-white/60"}`}>
-                      {m.name} {hasNote ? "●" : ""}
-                      {m.phantom_power && <span className="text-amber-400 font-bold">+48V</span>}
-                    </button>
-                  );
-                })}
+                {bands.map((b, i) => (
+                  <button type="button" key={b.id || `fx-${i}`} onClick={() => setFxTarget(i)} className={chip(!isShow && fxTarget === i)}>
+                    {actLabel(b)} {actHasNotes(b) ? <span aria-label="has notes">●</span> : null}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {showEventTypeManager && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowEventTypeManager(false)}>

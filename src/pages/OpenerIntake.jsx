@@ -507,12 +507,12 @@ export default function OpenerIntake({ link } = {}) {
           </div>
 
           <Label className="text-white/50 text-xs mb-2 block">Additional Notes</Label>
-          <Textarea value={getActiveNotes()} onChange={(e) => setActiveNotes(e.target.value)} className="bg-[#0d0d0d] border-[#222] text-white min-h-[80px]" placeholder="Anything else the engineer should know..." />
+          <Textarea value={getActiveNotes()} onChange={(e) => setActiveNotes(e.target.value)} className="bg-[#0d0d0d] border-[#222] text-white text-[15px] leading-relaxed min-h-[220px]" placeholder="Anything else the engineer should know..." />
           <div className="flex gap-1.5 flex-wrap mt-2">
             <button
               type="button"
               onClick={() => setNotesTarget("__general__")}
-              className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all ${notesTarget === "__general__" ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
+              className={`text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${notesTarget === "__general__" ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
             >
               General
             </button>
@@ -521,7 +521,7 @@ export default function OpenerIntake({ link } = {}) {
                 key={i}
                 type="button"
                 onClick={() => setNotesTarget(i)}
-                className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border transition-all ${notesTarget === i ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
+                className={`text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${notesTarget === i ? "text-[#8CFF3D] bg-[#8CFF3D]/10 border-[#8CFF3D]/40" : "text-white/30 border-transparent hover:text-white/50"}`}
               >
                 {m.name || `Member ${i + 1}`}
               </button>
