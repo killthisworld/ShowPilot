@@ -878,7 +878,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 // `solo` (desktop): the web is the navigation, so the main box shows only
 // what's picked on it: nothing but the board items on the event web, one
 // profile when its circle is picked, one page when a page is picked.
-function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true, solo = false }) {
+function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, headSlot = null, leaving, onBack, homeIcon, onOpenFanPage, onOpenDj, focus, ownerType, isOwner, onAddTask, showInvite = true, solo = false }) {
   const pv = useRoleProfile({ role: "venue", token, onChanged });
   const pm = useRoleProfile({ role: "manager", token, onChanged });
   const pe = useRoleProfile({ role: "engineer", token, onChanged });
@@ -927,6 +927,7 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, le
           role={role}
           p={byRole[role]}
           webSlot={selectedRole === role ? webSlot : null}
+          headSlot={selectedRole === role ? headSlot : null}
           selected={selectedRole === role}
           defaultOpen={solo || mine.includes(role)}
           focus={focus && focus.role === role ? focus : null}
@@ -1734,6 +1735,7 @@ function DesktopGigWeb({
 }) {
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
+  const [headSlot, setHeadSlot] = useState(null);
   // Who changed what (job 143): the flight log's UPDATED rows and the
   // "Updated by" line on the open profile. Refreshes whenever the gig does.
   const [activity, setActivity] = useState([]);
@@ -1818,18 +1820,20 @@ function DesktopGigWeb({
           <div className="min-h-0 flex flex-col rounded-md bg-[#151515] border border-[#262626]" style={{ boxShadow: "0 16px 36px rgba(0,0,0,0.6)" }}>
             <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 shrink-0">
               {selectedNode ? (
-                <>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
-                  <span className="min-w-0 flex flex-col">
-                    <span className="text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
-                    <span className="text-white/40 text-[10px] uppercase tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>
-                      {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
-                      {lastBySection[sectionOf(selectedRole)] && (
-                        <> · Updated by {firstName(lastBySection[sectionOf(selectedRole)].user_name)} {agoLabel(lastBySection[sectionOf(selectedRole)].at)}</>
-                      )}
-                    </span>
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
+                    <span className="flex-1 min-w-0 text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
+                    {/* The open profile's page status, Mark as done and SAVE land here (job 169). */}
+                    <div ref={setHeadSlot} className="shrink-0 flex items-center gap-2.5" />
+                  </div>
+                  <span className="pl-5 text-white/40 text-[10px] uppercase tracking-[0.08em] truncate" style={{ fontFamily: SCENE_MONO }}>
+                    {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
+                    {lastBySection[sectionOf(selectedRole)] && (
+                      <> · Updated by {firstName(lastBySection[sectionOf(selectedRole)].user_name)} {agoLabel(lastBySection[sectionOf(selectedRole)].at)}</>
+                    )}
                   </span>
-                </>
+                </div>
               ) : (
                 <>
                   <span className="text-white font-bold text-2xl">Board</span>
@@ -1859,6 +1863,7 @@ function DesktopGigWeb({
                   selectedRole={selectedRole}
                   selectRole={selectRole}
                   webSlot={webSlot}
+                  headSlot={headSlot}
                   leaving={leaving}
                   onBack={() => selectRole(null)}
                   homeIcon={myIcon}

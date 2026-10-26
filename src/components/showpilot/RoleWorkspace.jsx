@@ -165,7 +165,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -758,6 +758,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const rowRefs = useRef({});
   const reveal = (key) => {
     setBlockOpen(true);
+    // Desktop: tapping the open page's circle again goes back to the page
+    // list (there's no "All pages" button any more, job 169).
+    if (solo && key && key === active) { setActive(null); return; }
     if (key) setActive(key);
     setTimeout(() => {
       const el = (key && rowRefs.current[key]) || blockRef.current;
@@ -924,6 +927,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           {p.saved ? "SAVED ✓" : p.saving ? "SAVING..." : "SAVE"}
         </button>
       ) : null;
+      // Status, Mark as done and SAVE sit in the profile's header box on the
+      // event web (headSlot, job 169); without one they're a bar on top.
+      // No "All pages" button: the web around the profile picks the page.
+      const headBar = (controls) => (headSlot
+        ? createPortal(<div className="flex items-center gap-2.5" style={{ fontFamily: SCENE_FONT }}>{controls}</div>, headSlot)
+        : <div className="sticky top-0 z-20 -mx-5 px-5 py-2 -mt-2 flex items-center justify-end gap-3 bg-[#151515]">{controls}</div>);
       return (
         <>
           {web}
@@ -931,17 +940,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
-                <div className="sticky top-0 z-20 -mx-5 px-5 py-2 -mt-2 flex items-center gap-3 bg-[#151515]">
-                  <button type="button" onClick={() => setActive(null)} className="flex items-center gap-1 text-[14px] font-semibold text-white/55 hover:text-white shrink-0">
-                    <ChevronLeft className="w-4 h-4" /> All {ROLE_TITLE[role]} pages
-                  </button>
-                  <span className="ml-auto flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
-                    <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
-                    {page.marked ? "MARKED DONE" : page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
-                  </span>
-                  {markDoneBtn(page)}
-                  {topSave}
-                </div>
+                {headBar(
+                  <>
+                    <span className="flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/45 whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>
+                      <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
+                      {page.marked ? "MARKED DONE" : page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
+                    </span>
+                    {markDoneBtn(page)}
+                    {topSave}
+                  </>
+                )}
                 <h2 className="text-[26px] font-bold leading-none">{page.label}</h2>
                 <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">
                   {page.key === "tasks" ? page.render() : <fieldset disabled={!ed} className="contents">{page.render()}</fieldset>}
@@ -949,13 +957,14 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               </>
             ) : (
               <>
-                <div className="sticky top-0 z-20 -mx-5 px-5 py-2 -mt-2 flex items-center gap-3 bg-[#151515]">
-                  <span className="text-[11px] tracking-[0.08em] text-white/45" style={{ fontFamily: SCENE_MONO }}>
-                    {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
-                  </span>
-                  <span className="ml-auto" />
-                  {topSave}
-                </div>
+                {headBar(
+                  <>
+                    <span className="text-[11px] tracking-[0.08em] text-white/45 whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>
+                      {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
+                    </span>
+                    {topSave}
+                  </>
+                )}
                 {/* Two cards a row, each with an icon for what's on the page (job 168). */}
                 <div className="grid grid-cols-2 gap-2">
                   {tabs.map((t) => {
