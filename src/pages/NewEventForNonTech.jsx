@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Ticket, Globe } from "lucide-react";
+import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,10 @@ export default function NewEventForNonTech() {
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState("");
   const [date, setDate] = useState(location.state?.prefillDate || "");
+  // Optional links under the event icon (job 73): the ticket link (the fan
+  // page's Get Tickets, promoter_info) and the venue website (venue_info).
+  const [ticketLink, setTicketLink] = useState("");
+  const [venueSite, setVenueSite] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -71,6 +76,17 @@ export default function NewEventForNonTech() {
       setError("Date is required.");
       return;
     }
+    const link = (raw, what, example) => {
+      const t = raw.trim();
+      if (!t) return "";
+      const ok = normalizeLink(t);
+      if (!ok) setError(isTruncatedLink(t) ? `That ${what} is cut off (it has "…" in it). Copy the full address and paste it again.` : `The ${what} doesn't look like a web address, e.g. ${example}.`);
+      return ok;
+    };
+    const ticket = link(ticketLink, "ticket link", "eventbrite.com/e/your-show");
+    if (ticket === null) return;
+    const site = link(venueSite, "venue website", "thebasement.com");
+    if (site === null) return;
     setError("");
     setCreating(true);
     try {
@@ -92,6 +108,8 @@ export default function NewEventForNonTech() {
           band_name: "",
           event_type: eventType || null,
           ...(iconUrl ? { icon_url: iconUrl } : {}),
+          ...(ticket ? { promoter_info: { ticket_link: ticket } } : {}),
+          ...(site ? { venue_info: { website: site } } : {}),
           date,
           included_sections: includedSections,
           status: "not_started",
@@ -145,6 +163,21 @@ export default function NewEventForNonTech() {
               {iconPreview && <button type="button" onClick={clearIcon} className="text-xs text-white/40 hover:text-red-400">Remove</button>}
             </div>
             <p className="text-white/25 text-[10px] mt-1">Without one, the event type's icon is used.</p>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Ticket link (optional)</Label>
+            <label className="mt-1 flex items-center gap-2 h-10 px-3 rounded-md bg-[#0d0d0d] border border-[#222] focus-within:border-white/30">
+              <Ticket className="w-4 h-4 shrink-0 text-white/40" aria-hidden />
+              <input value={ticketLink} onChange={(e) => { setTicketLink(e.target.value); setError(""); }} placeholder="Where fans buy tickets" aria-label="Ticket link" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="min-w-0 flex-1 bg-transparent text-white text-base md:text-sm placeholder:text-white/30 outline-none" />
+            </label>
+          </div>
+          <div>
+            <Label className="text-white/50 text-xs">Venue website (optional)</Label>
+            <label className="mt-1 flex items-center gap-2 h-10 px-3 rounded-md bg-[#0d0d0d] border border-[#222] focus-within:border-white/30">
+              <Globe className="w-4 h-4 shrink-0 text-white/40" aria-hidden />
+              <input value={venueSite} onChange={(e) => { setVenueSite(e.target.value); setError(""); }} placeholder="The venue's website" aria-label="Venue website" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="min-w-0 flex-1 bg-transparent text-white text-base md:text-sm placeholder:text-white/30 outline-none" />
+            </label>
+            <p className="text-white/25 text-[10px] mt-1">Saved with the venue info. You can add or change both later.</p>
           </div>
           <div>
             <Label className="text-white/50 text-xs">Date *</Label>
