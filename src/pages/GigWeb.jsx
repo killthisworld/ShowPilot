@@ -22,6 +22,10 @@ import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog from "@/components/showpilot/FlightLog";
 import { latestBySection, firstName, agoLabel } from "@/lib/gigActivity";
 import { sectionPhoto } from "@/lib/sectionPhotos";
+import { profilePercent } from "@/lib/profileProgress";
+
+// Owner's account type -> the circle that is theirs on their own event.
+const OWNER_ROLE = { venue: "venue", manager: "manager", band: "band", engineer: "engineer", lighting: "lighting" };
 import BoardOverview from "@/components/showpilot/BoardOverview";
 import ImageCropModal from "@/components/showpilot/ImageCropModal";
 import EventTypeIcon, { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
@@ -53,34 +57,7 @@ const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 // visual language to learn.
 const ROLE_ORDER = WEB_ROLES;
 
-// get_gigs_progress keys the combined Manager/Artist section "manager_band";
-// everywhere else in this file (permissions, invited_role, routing) it's
-// just "manager" - this is the one place that mismatch has to be bridged.
-const PROGRESS_KEY = { venue: "venue", manager: "manager_band", engineer: "engineer" };
-
-// Manager and Artist (and Audio and Lighting) share one section, so each
-// circle shows its own fill from the fields that belong to it.
-function roleFill(role, gig, percentOf) {
-  const has = (v) => !!String(v ?? "").trim();
-  const frac = (vals) => (vals.length ? vals.filter(has).length / vals.length : 0);
-  const mi = gig.manager_info || {};
-  const ei = gig.engineer_info || {};
-  if (role === "manager") {
-    const list = (mi.checklist || []).filter((c) => c.label);
-    const parts = [frac([mi.contact_name, mi.contact_phone, mi.contact_email])];
-    if (list.length) parts.push(list.filter((c) => c.done).length / list.length);
-    return parts.reduce((a, b) => a + b, 0) / parts.length;
-  }
-  if (role === "band") {
-    const acts = (gig.bands || []).filter((b) => b.band_name);
-    if (!acts.length) return 0;
-    const times = mi.set_times || {};
-    return (1 + acts.filter((b) => has(times[b.band_name])).length / acts.length) / 2;
-  }
-  if (role === "engineer") return frac([(ei.audio || {}).contact_name, (ei.audio || {}).contact_phone, (ei.audio || {}).contact_email]);
-  if (role === "lighting") return frac([(ei.lighting || {}).contact_name, (ei.lighting || {}).contact_phone, (ei.lighting || {}).contact_email]);
-  return percentOf;
-}
+// Each circle's fill comes from its pages (profileProgress.js, job 172).
 
 const SECTION_LABELS = WEB_LABELS;
 
@@ -178,7 +155,6 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [gig, setGig] = useState(null);
   const [permissions, setPermissions] = useState(null);
   const [myIcon, setMyIcon] = useState(null); // this person's own icon for the gig, if any
-  const [progress, setProgress] = useState({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   // A pilot-card visit opened from the Rooms tab passes back a role= and
@@ -240,11 +216,6 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       setGig(gigRes.data);
       fetchMyIcons().then((m) => setMyIcon(m[gigRes.data.id] || null));
       setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [], invited_roles: [], granted_sections: [] });
-
-      // Best-effort - the ring for a role just reads 0% until this call
-      // succeeds, so a stale/missing RPC never blocks the rest of the hub.
-      const progRes = await supabase.rpc("get_gigs_progress", { p_show_ids: [gigRes.data.id] });
-      if (!progRes.error && progRes.data?.[0]) setProgress(progRes.data[0].progress || {});
     } catch (e) {
       console.error(e);
       setNotFound(true);
@@ -252,6 +223,28 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     setLoading(false);
   };
   useEffect(() => { loadGig(); }, [token]);
+  // Live progress (job 172): while the event is open, pick up what everyone
+  // else changes - fields, who's joined, tasks - every 15 seconds and when
+  // you come back to the tab. A failed refresh just keeps what's on screen.
+  useEffect(() => {
+    if (!token) return undefined;
+    let alive = true;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const [gigRes, permsRes] = await Promise.all([
+        supabase.rpc("get_shared_gig", { p_token: token }),
+        supabase.rpc("get_gig_section_permissions", { p_token: token }),
+      ]);
+      if (!alive) return;
+      if (!gigRes.error && gigRes.data) setGig((g) => (JSON.stringify(g) === JSON.stringify(gigRes.data) ? g : gigRes.data));
+      if (!permsRes.error && permsRes.data) setPermissions((p) => (JSON.stringify(p) === JSON.stringify(permsRes.data) ? p : permsRes.data));
+    };
+    const t = setInterval(refresh, 15000);
+    const onVis = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => { alive = false; clearInterval(t); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", onVis); };
+  }, [token]);
   // Tech phones (audio / lighting) have no web. An event you were invited to
   // is the shared event page's dropdowns; your own event is the show page.
   const techPhone = !tokenProp && isTechProductionAccount && !isDesktop;
@@ -452,13 +445,16 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const nodes = roles.map((role, i) => {
     const angle = (-90 + i * (360 / roles.length)) * (Math.PI / 180);
     const baseStyle = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
-    const percent = Math.round(roleFill(role, gig, progress[PROGRESS_KEY[sectionOf(role)]]?.percent || 0) * 100);
-    const claimed = roleClaimed(role, permissions);
+    // Same pages and rules as the profile's own pages, Mark as done included (job 172).
+    const percent = profilePercent(role, gig);
+    // The owner's own profile counts as on it (job 172).
+    const claimed = roleClaimed(role, permissions) || OWNER_ROLE[permissions?.owner_account_type] === role;
+    const notNeeded = !claimed && (permissions?.not_needed_roles || []).includes(role);
     const invited = roleInvited(role, permissions);
     const hasTasks = (gig.tasks || []).some((t) => t.section === sectionOf(role));
     // Lit = someone is on it, or something is filled in. Opening a profile
     // always shows its color so you know where you are.
-    const lit = claimed || invited || percent > 0 || hasTasks;
+    const lit = !notNeeded && (claimed || invited || percent > 0 || hasTasks);
     const style = lit || role === selectedRole ? baseStyle : { ...baseStyle, color: UNLIT };
     return {
       role,
@@ -469,6 +465,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
       lit,
       claimed,
       invited,
+      notNeeded,
     };
   });
 
@@ -478,7 +475,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
   const openTasksFor = (role) => openTasks.filter((t) => t.section === sectionOf(role)).length;
-  const avgPercent = nodes.length ? Math.round(nodes.reduce((a, n) => a + n.percent, 0) / nodes.length) : 0;
+  // Profiles marked "Not needed" drop out of the event's totals (job 172).
+  const counted = nodes.filter((n) => !n.notNeeded);
+  const avgPercent = counted.length ? Math.round(counted.reduce((a, n) => a + n.percent, 0) / counted.length) : 0;
   const stripCells = selectedNode
     ? [
         { label: "FIELDS FILLED", value: `${selectedNode.percent}%`, color: selectedNode.style.color },
@@ -486,7 +485,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         { label: "STATUS", value: selectedNode.claimed ? "CLAIMED" : selectedNode.invited ? "INVITED" : "OPEN", color: selectedNode.claimed ? "#8CFF3D" : selectedNode.invited ? "#EAB308" : "#9A9A9A" },
       ]
     : [
-        { label: "ROLES CONFIRMED", value: `${nodes.filter((n) => n.claimed).length}/${nodes.length}`, color: "#8CFF3D" },
+        { label: "ROLES CONFIRMED", value: `${counted.filter((n) => n.claimed).length}/${counted.length}`, color: "#8CFF3D" },
         { label: "OPEN TASKS", value: String(openTasks.length), color: openTasks.length ? "#FF6A00" : "#8CFF3D" },
         { label: "GIG READY", value: `${avgPercent}%`, color: avgPercent >= 100 ? "#8CFF3D" : "#fff" },
       ];
@@ -746,7 +745,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 <span className="relative w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
-                <span className={`relative text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{n.percent}%</span>
+                <span className={`relative text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{n.notNeeded ? "N/A" : `${n.percent}%`}</span>
               </button>
             );
           })}
@@ -1700,7 +1699,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             <span className="relative h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />
             </span>
-            <span className={`relative text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{nd.percent}%</span>
+            <span className={`relative text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{nd.notNeeded ? "N/A" : `${nd.percent}%`}</span>
           </button>
         );
       })}
@@ -1736,6 +1735,14 @@ function DesktopGigWeb({
   const isOwner = !!permissions?.is_owner;
   const [completingId, setCompletingId] = useState(null);
   const [headSlot, setHeadSlot] = useState(null);
+  // Owner marks a profile "Not needed" on this event, or needed again (job 172).
+  const setNotNeeded = async (role, on) => {
+    const cur = permissions?.not_needed_roles || [];
+    const next = on ? [...new Set([...cur, role])] : cur.filter((r) => r !== role);
+    const { error } = await supabase.from("shows").update({ not_needed_roles: next }).eq("id", gig.id);
+    if (error) throw error;
+    await loadGig();
+  };
   // Who changed what (job 143): the flight log's UPDATED rows and the
   // "Updated by" line on the open profile. Refreshes whenever the gig does.
   const [activity, setActivity] = useState([]);
@@ -1855,6 +1862,7 @@ function DesktopGigWeb({
                     onClaim={(id) => claimTask(id, true)}
                     onDone={(id) => completeTask(id, true)}
                     onInvitesChanged={loadGig}
+                    onSetNotNeeded={isOwner ? setNotNeeded : null}
                   />
                 )}
                 <EventSections

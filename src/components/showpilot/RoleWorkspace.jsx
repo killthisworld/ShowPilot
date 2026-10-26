@@ -830,7 +830,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const templateTools = ed && !template && p.user && role !== "engineer" && role !== "lighting" && role !== "band" ? (
     <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
   ) : null;
-  const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks");
+  // Requests and Paperwork are running lists, not fields to fill: left out of
+  // the FILLED count, same as the event's progress (profileProgress.js).
+  const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork");
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";

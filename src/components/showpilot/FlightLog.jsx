@@ -7,6 +7,7 @@ const AMBER = "#F5B83D";
 
 // Where each role stands, in flight terms.
 function statusOf(n) {
+  if (n.notNeeded) return { word: "NOT NEEDED", color: "#6b6b6b" };
   if (n.percent >= 100) return { word: "LANDED", color: "#8CFF3D" };
   if (n.percent > 0) return { word: "EN ROUTE", color: "#60A5FA" };
   if (n.claimed || n.invited) return { word: "BOARDING", color: AMBER };
@@ -45,14 +46,16 @@ export default function FlightLog({ nodes = [], tasks = [], activity = [], codes
     return out.sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 60);
   }, [tasks, activity]);
 
-  const avg = nodes.length ? Math.round(nodes.reduce((s, n) => s + (n.percent || 0), 0) / nodes.length) : 0;
-  const landed = nodes.filter((n) => n.percent >= 100).length;
+  // Profiles marked "Not needed" are left out of the totals (job 172).
+  const live = nodes.filter((n) => !n.notNeeded);
+  const avg = live.length ? Math.round(live.reduce((s, n) => s + (n.percent || 0), 0) / live.length) : 0;
+  const landed = live.filter((n) => n.percent >= 100).length;
 
   return (
     <div className="h-full min-h-0 flex flex-col rounded-[6px] border border-[#2a2a2a] bg-[#0b0b0b] overflow-hidden" style={{ fontFamily: SCENE_MONO, boxShadow: "0 10px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
       <div className="flex items-baseline gap-2 px-4 pt-3 pb-2 border-b border-[#1f1f1f] shrink-0">
         <span className="text-[15px] font-semibold tracking-[0.14em] text-white">FLIGHT LOG</span>
-        <span className="ml-auto text-[11px] text-white/45 tabular-nums">{landed}/{nodes.length} LANDED · {avg}% READY</span>
+        <span className="ml-auto text-[11px] text-white/45 tabular-nums">{landed}/{live.length} LANDED · {avg}% READY</span>
       </div>
 
       {/* Runways: one lane per role, the plane sits at that role's progress. */}

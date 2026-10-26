@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, ChevronRight, UserPlus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, UserPlus } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import { claimText } from "@/components/showpilot/TaskSheet";
@@ -21,8 +21,18 @@ const Pill = ({ children, style }) => (
   <span className="shrink-0 w-[84px] text-center text-[10px] font-bold tracking-[0.1em] py-[3px] rounded" style={{ fontFamily: SCENE_MONO, ...style }}>{children}</span>
 );
 
-export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone, onInvitesChanged = null }) {
+// Profiles that share a section are one To do row (job 172): Manager and
+// Artist, Audio and Lighting. Open the row to invite each one, or mark the
+// ones this event won't have "Not needed".
+const GROUPS = [
+  { key: "venue", label: "Venue", roles: ["venue"] },
+  { key: "manager", label: "Manager / Artist", roles: ["manager", "band"] },
+  { key: "engineer", label: "Audio / Lighting", roles: ["engineer", "lighting"] },
+];
+
+export default function BoardOverview({ gig, nodes = [], isOwner = false, userId = null, canWork = () => false, onGo, onOpenTask, onClaim, onDone, onInvitesChanged = null, onSetNotNeeded = null }) {
   const [busy, setBusy] = useState(null);
+  const [openGroup, setOpenGroup] = useState(null);
   const node = (role) => nodes.find((n) => n.role === role);
   const roleFor = (section) => nodes.find((n) => sectionOf(n.role) === section)?.role || section;
   // The profile's own color even when nobody's on it yet (the web draws those gray).
@@ -40,8 +50,14 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
     .sort((a, b) => Number(b.claimed_by === userId) - Number(a.claimed_by === userId));
   // Profiles nobody's on: INVITE until an invite goes out, then orange
   // PENDING until someone accepts (then the row leaves).
-  const empty = isOwner ? nodes.filter((n) => !n.claimed) : [];
-  const total = reqs.length + tasks.length + empty.length;
+  const groups = isOwner ? GROUPS.map((g) => {
+    const members = g.roles.map(node).filter(Boolean);
+    const open = members.filter((n) => !n.claimed && !n.notNeeded);
+    return { ...g, members, open, pending: open.length > 0 && open.every((n) => n.invited) };
+  }) : [];
+  const shown = groups.filter((g) => g.open.length > 0);
+  const skipped = groups.flatMap((g) => g.members.filter((n) => n.notNeeded));
+  const total = reqs.length + tasks.length + shown.length;
 
   const act = async (e, id, fn) => {
     e.stopPropagation();
@@ -123,21 +139,63 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
                 </div>
               );
             })}
-            {empty.length > 0 && gig?.id && empty.map((n) => {
-              const pending = !!n.invited;
+            {gig?.id && shown.map((g) => {
+              const expanded = openGroup === g.key;
+              const c = colorOf(g.roles[0]);
+              const names = g.open.map((n) => labelOf(n.role)).join(" · ");
               return (
-                <InviteSheet key={`i-${n.role}`} showId={gig.id} elevated preselect={pending ? null : n.role} onChanged={onInvitesChanged} trigger={
-                  <button type="button" className={rowCls} aria-label={pending ? `${labelOf(n.role)} invite pending` : `Invite someone as ${labelOf(n.role)}`}>
-                    <Pill style={pending ? { background: AMBER, color: "#0d0d0d" } : { background: "#2a2a2a", color: "#ddd" }}>{pending ? "PENDING" : "INVITE"}</Pill>
+                <div key={`g-${g.key}`}>
+                  <button type="button" onClick={() => setOpenGroup(expanded ? null : g.key)} aria-expanded={expanded} className={rowCls}>
+                    <Pill style={g.pending ? { background: AMBER, color: "#0d0d0d" } : { background: "#2a2a2a", color: "#ddd" }}>{g.pending ? "PENDING" : "INVITE"}</Pill>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[15px] truncate">{pending ? `${labelOf(n.role)} invite sent` : `${labelOf(n.role)} has nobody yet`}</span>
-                      <span className="block text-[10.5px] tracking-[0.08em] mt-0.5" style={{ fontFamily: SCENE_MONO, color: pending ? AMBER : colorOf(n.role) }}>{labelOf(n.role).toUpperCase()}{pending ? " · WAITING TO ACCEPT" : ""}</span>
+                      <span className="block text-[15px] truncate">{g.pending ? `${g.label} invite sent` : `${g.label} has nobody yet`}</span>
+                      <span className="block text-[10.5px] tracking-[0.08em] mt-0.5 truncate" style={{ fontFamily: SCENE_MONO, color: g.pending ? AMBER : c }}>
+                        {names.toUpperCase()}{g.pending ? " · WAITING TO ACCEPT" : g.members.length > 1 ? " · STILL NEEDED" : ""}
+                      </span>
                     </span>
-                    {!pending && <span className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[#2a2a2a] text-white/80"><UserPlus className="w-4 h-4" /></span>}
+                    <ChevronDown className={`w-4 h-4 shrink-0 text-white/50 transition-transform ${expanded ? "rotate-180" : ""}`} />
                   </button>
-                } />
+                  {expanded && (
+                    <div className="px-3 pb-2.5 pt-1 bg-[#101010] flex flex-col gap-1.5">
+                      {g.members.filter((n) => !n.claimed).map((n) => (
+                        <div key={n.role} className="flex items-center gap-2 pl-[96px]">
+                          <span className="flex-1 min-w-0 text-[14px] truncate" style={{ color: n.notNeeded ? "rgba(255,255,255,0.4)" : "#fff" }}>
+                            {labelOf(n.role)}
+                            <span className="ml-2 text-[10px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: n.notNeeded ? "rgba(255,255,255,0.35)" : n.invited ? AMBER : colorOf(n.role) }}>
+                              {n.notNeeded ? "NOT NEEDED" : n.invited ? "PENDING" : "NOBODY YET"}
+                            </span>
+                          </span>
+                          {!n.notNeeded && (
+                            <InviteSheet showId={gig.id} elevated preselect={n.invited ? null : n.role} onChanged={onInvitesChanged} trigger={
+                              <button type="button" className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/85 hover:text-white">
+                                <UserPlus className="w-3.5 h-3.5" /> {n.invited ? "INVITES" : "INVITE"}
+                              </button>
+                            } />
+                          )}
+                          {onSetNotNeeded && (
+                            <button type="button" disabled={busy === `nn-${n.role}`} onClick={(e) => act(e, `nn-${n.role}`, () => onSetNotNeeded(n.role, !n.notNeeded))}
+                              className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.06em] border border-[#2a2a2a] text-white/60 hover:text-white disabled:opacity-50">
+                              {n.notNeeded ? "NEEDED AFTER ALL" : "NOT NEEDED"}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })}
+          </div>
+        )}
+        {isOwner && onSetNotNeeded && skipped.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/40" style={{ fontFamily: SCENE_MONO }}>
+            NOT NEEDED:
+            {skipped.map((n) => (
+              <button key={n.role} type="button" disabled={busy === `nn-${n.role}`} onClick={(e) => act(e, `nn-${n.role}`, () => onSetNotNeeded(n.role, false))}
+                title={`Mark ${labelOf(n.role)} needed`} className="px-2 py-0.5 rounded-full border border-[#2a2a2a] text-white/60 hover:text-white disabled:opacity-50">
+                {labelOf(n.role).toUpperCase()} · UNDO
+              </button>
+            ))}
           </div>
         )}
       </section>
