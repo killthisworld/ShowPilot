@@ -243,7 +243,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([gig.venue, gig.city, vi.address]), 3),
         render: () => (
           <>
-            <VenuePhoto value={vi.photo_url || ""} onChange={(url) => setVi("photo_url", url)} editable={!off} accent={color} />
+            {/* On an event the venue's picture is its circle on the web (set
+                from the camera on the web's center, job 181); a venue
+                template still sets it here. */}
+            {template && <VenuePhoto value={vi.photo_url || ""} onChange={(url) => setVi("photo_url", url)} editable={!off} accent={color} />}
             <In label="Venue" value={gig.venue} onChange={(v) => p.update("venue", v)} disabled={off} placeholder="Venue name" />
             <In label="Street address" value={vi.address} onChange={(v) => setVi("address", v)} disabled={off} placeholder="1604 8th Ave S" />
             <Grid><In label="City" value={gig.city} onChange={(v) => p.update("city", v)} disabled={off} /><In label="State" value={gig.state} onChange={(v) => p.update("state", v)} disabled={off} /></Grid>
@@ -900,7 +903,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onSave={(url) => p.savePhoto(role, url)}
       color={color}
       label={ROLE_TITLE[role].toLowerCase()}
-      wide={role === "venue" || role === "manager"}
+      wide={role === "manager"}
     />
   ) : null;
 
