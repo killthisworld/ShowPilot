@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { Send, User } from "lucide-react";
+import { Send, User, MessageSquareText } from "lucide-react";
+import { fetchMySavedReplies, fillReply, replyValues } from "@/lib/savedReplies";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { markConversationRead } from "@/lib/needsMe";
 
@@ -19,12 +20,44 @@ function formatTime(ts) {
 // siblings (grow + pinned composer) for a full-height page like
 // /gig/rooms; the default renders as a capped, self-contained box meant
 // to sit inside a card, like Gig Web's Rooms tab.
-export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages yet - say hello.", placeholder = "Message...", pilotCardBackTo, maxHeight = 420, fill = false }) {
+// `shareToken` (the event's) lets saved replies fill in that event's details.
+export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages yet - say hello.", placeholder = "Message...", pilotCardBackTo, maxHeight = 420, fill = false, shareToken = null }) {
   const [messages, setMessages] = useState([]);
   const [senderProfiles, setSenderProfiles] = useState({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  // Saved replies from the person's venue templates (job 185).
+  const [replies, setReplies] = useState([]);
+  const [repliesOpen, setRepliesOpen] = useState(false);
+  const [vals, setVals] = useState(null);
+  useEffect(() => {
+    let live = true;
+    fetchMySavedReplies(user?.id).then((r) => { if (live) setReplies(r); });
+    return () => { live = false; };
+  }, [user?.id]);
+  useEffect(() => { setVals(null); }, [shareToken]);
+  const openReplies = async () => {
+    const next = !repliesOpen;
+    setRepliesOpen(next);
+    if (next && !vals && shareToken) {
+      const { data } = await supabase.rpc("get_shared_gig", { p_token: shareToken });
+      setVals(replyValues(data || null));
+    }
+  };
+  const pickReply = (r) => {
+    setDraft(fillReply(r.body, vals || {}));
+    setRepliesOpen(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+  // The message box grows with what's typed (a saved reply can be a few lines).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [draft]);
 
   useEffect(() => {
     if (!roomId) { setMessages([]); return; }
@@ -165,14 +198,34 @@ export default function RoomChatPanel({ roomId, user, emptyLabel = "No messages 
   );
 
   const composer = (
-    <div style={fill ? { paddingBottom: "max(12px, env(safe-area-inset-bottom))" } : undefined} className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 pt-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full bg-[#0d0d0d]/85 backdrop-blur-lg" : "flex items-center gap-2 pt-3 mt-3 border-t border-[#1a1a1a]"}>
-      <div className="flex items-center gap-2">
-        <input
+    <div style={fill ? { paddingBottom: "max(12px, env(safe-area-inset-bottom))" } : undefined} className={fill ? "shrink-0 border-t border-[#1a1a1a] px-4 pt-3 max-w-lg lg:max-w-3xl lg:px-6 mx-auto w-full bg-[#0d0d0d]/85 backdrop-blur-lg" : "pt-3 mt-3 border-t border-[#1a1a1a]"}>
+      {repliesOpen && replies.length > 0 && (
+        <div className="mb-2 rounded-xl border border-[#2a2a2a] bg-[#111] overflow-hidden max-h-[260px] overflow-y-auto">
+          <div className="px-3 py-2 text-[10.5px] tracking-[0.12em] text-white/50 border-b border-[#1f1f1f]">SAVED REPLIES{shareToken ? " · FILLED IN FOR THIS EVENT" : ""}</div>
+          {replies.map((r) => (
+            <button key={r.id} type="button" onClick={() => pickReply(r)} className="w-full text-left px-3 py-2.5 min-h-[48px] border-t border-[#1a1a1a] first:border-t-0 hover:bg-white/[0.04]">
+              <span className="block text-[14px] font-semibold text-white">{r.title}</span>
+              <span className="block text-[12.5px] text-white/55 truncate">{fillReply(r.body, vals || {})}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-end gap-2">
+        {replies.length > 0 && (
+          <button type="button" onClick={openReplies} aria-expanded={repliesOpen} aria-label="Saved replies" title="Saved replies"
+            className="w-11 h-11 shrink-0 rounded-full flex items-center justify-center border transition-colors"
+            style={repliesOpen ? { borderColor: "#60A5FA", color: "#60A5FA", background: "rgba(96,165,250,0.12)" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.7)" }}>
+            <MessageSquareText className="w-4 h-4" />
+          </button>
+        )}
+        <textarea
+          ref={inputRef}
+          rows={1}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
           placeholder={placeholder}
-          className="flex-1 h-11 bg-[#161616] border border-[#222] rounded-full px-4 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
+          className="flex-1 min-h-[44px] max-h-[140px] resize-none bg-[#161616] border border-[#222] rounded-[22px] px-4 py-[11px] leading-[20px] text-white text-sm placeholder:text-white/25 outline-none focus:border-[#333]"
         />
         <button
           onClick={sendMessage}

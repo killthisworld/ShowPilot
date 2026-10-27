@@ -15,7 +15,7 @@ export const COMPANY_TEMPLATE_ROLES = ["venue", "manager"];
 
 // Which workspace tabs a template shows / carries.
 export const TEMPLATE_TABS = {
-  venue: ["address", "load_in", "schedule", "wifi_power", "house_gear", "hospitality", "deal", "event_link", "link_email", "documents"],
+  venue: ["address", "load_in", "schedule", "wifi_power", "house_gear", "hospitality", "deal", "event_link", "link_email", "replies", "task_presets", "documents"],
   manager: ["contact", "advance", "travel", "guests", "merch", "documents"],
 };
 
@@ -54,6 +54,8 @@ export const VENUE_PARTS = [
   { key: "deal", label: "Deal terms" },
   { key: "event_link", label: "Event link setup" },
   { key: "link_email", label: "Event link email" },
+  { key: "replies", label: "Saved replies" },
+  { key: "task_presets", label: "Task presets" },
   { key: "documents", label: "Documents" },
 ];
 const VENUE_PART_FIELDS = {
@@ -69,6 +71,10 @@ const VENUE_PART_FIELDS = {
   deal: { section: ["tpl_deal"] },
   event_link: { section: ["event_link_setup"] },
   link_email: { section: ["event_link_email"] },
+  // Saved replies stay in the template (the event chat reads them from your
+  // templates); task presets become the event's tasks when loaded.
+  replies: { section: ["saved_replies"] },
+  task_presets: { section: ["task_presets"] },
   documents: { gig: ["venue_documents"], section: ["documents"] },
 };
 export function venuePartOf(where, key) {
@@ -83,7 +89,7 @@ export function venuePartsWithContent(data = {}) {
   const g = { ...(data.gig || {}) };
   for (const k of VENUE_TECH_KEYS) if (isEmpty(g[k]) && !isEmpty(data[k])) g[k] = data[k];
   return VENUE_PARTS.filter((pt) => {
-    if (ex.has(pt.key)) return false;
+    if (ex.has(pt.key) || pt.key === "replies") return false;
     const f = VENUE_PART_FIELDS[pt.key];
     return (f.gig || []).some((k) => !isEmpty(g[k])) || (f.section || []).some((k) => !isEmpty(s[k]));
   });
@@ -182,7 +188,8 @@ export function applyTemplate(role, data = {}, gig, update, parts = null) {
   const ex = new Set(templateExclude(data));
   const wanted = (where, k) => {
     if (role !== "venue") return true;
-    if (where === "section" && k === "tpl_deal") return false; // saved as the event's deal instead
+    // Saved as the event's deal / tasks instead, or only used from the template.
+    if (where === "section" && (k === "tpl_deal" || k === "task_presets" || k === "saved_replies")) return false;
     const part = venuePartOf(where, k);
     if (!part) return true;
     return parts ? parts.has(part) : !ex.has(part);

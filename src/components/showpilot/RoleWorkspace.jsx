@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
-import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary } from "@/components/showpilot/VenueTemplateParts";
+import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary, SavedRepliesFields, repliesSummary, TaskPresetsFields, presetsSummary, presetDue } from "@/components/showpilot/VenueTemplateParts";
 import { artistFromTemplate } from "@/lib/showTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
@@ -39,7 +39,7 @@ const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engi
 // An icon for each page of a profile (job 168), by page key.
 const PAGE_ICONS = {
   address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
-  hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, requests: MessageSquare, paperwork: FileSignature,
+  hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, replies: MessagesSquare, task_presets: ListChecks, requests: MessageSquare, paperwork: FileSignature,
   contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
   merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2,
 };
@@ -355,6 +355,18 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           summary: linkEmailSummary(vi.event_link_email),
           state: vi.event_link_email?.subject || vi.event_link_email?.body ? "done" : "empty",
           render: () => <LinkEmailTemplateFields value={vi.event_link_email} onChange={(v) => setVi("event_link_email", v)} color={color} />,
+        },
+        {
+          key: "replies", label: "Saved replies",
+          summary: repliesSummary(vi.saved_replies),
+          state: vi.saved_replies?.length ? "done" : "empty",
+          render: () => <SavedRepliesFields value={vi.saved_replies} onChange={(v) => setVi("saved_replies", v)} color={color} />,
+        },
+        {
+          key: "task_presets", label: "Task presets",
+          summary: presetsSummary(vi.task_presets),
+          state: (vi.task_presets || []).some((t) => String(t.title || "").trim()) ? "done" : "empty",
+          render: () => <TaskPresetsFields value={vi.task_presets} onChange={(v) => setVi("task_presets", v)} color={color} />,
         },
       ] : []),
       ...(!template && gig.id ? [{
@@ -873,6 +885,29 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           await reloadBiz();
           notes.push("The deal is saved as a draft on Paperwork.");
         }
+      }
+      // Task presets become this event's tasks (only the event owner can add tasks).
+      const presets = (sec.task_presets || []).filter((t) => String(t.title || "").trim());
+      const tok = p.token || gig.share_token;
+      if (parts.has("task_presets") && presets.length && tok) {
+        const have = new Set((gig.tasks || []).map((t) => `${t.section}|${String(t.title || "").trim().toLowerCase()}`));
+        const added = [];
+        let refused = false;
+        for (const t of presets) {
+          const sectionKey = t.section === "engineer" ? "engineer" : "manager";
+          const title = String(t.title).trim();
+          if (have.has(`${sectionKey}|${title.toLowerCase()}`)) continue;
+          const { data: row, error } = await supabase.rpc("add_gig_task", { p_token: tok, p_section: sectionKey, p_title: title, p_due_date: presetDue(gig.date, t.days_before) });
+          if (error) { console.error(error); refused = true; break; }
+          let task = row;
+          if (t.kind === "upload" && row?.id) {
+            const { data: setUp, error: kErr } = await supabase.rpc("set_gig_task_setup", { p_token: tok, p_task_id: row.id, p_kind: "upload", p_spec: {} });
+            if (kErr) console.error(kErr); else if (setUp?.id) task = setUp;
+          }
+          added.push(task);
+        }
+        if (added.length) { p.update("tasks", [...(gig.tasks || []), ...added]); notes.push(`${added.length} task${added.length === 1 ? "" : "s"} added.`); }
+        if (refused) notes.push("Only the event owner can add tasks.");
       }
       if (parts.has("event_link") && linkExists && sec.event_link_setup?.asks?.length) {
         await saveEventLink(gig.id, { blocks: [], asks: sec.event_link_setup.asks, message: sec.event_link_setup.message || "" });

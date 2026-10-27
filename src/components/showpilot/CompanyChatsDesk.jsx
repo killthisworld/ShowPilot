@@ -178,6 +178,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
               color={chatColor(selChat)}
               photo={byToken[selChat.share_token]?.icon_url}
               eventHref={selChat.share_token ? `/gig/web?token=${selChat.share_token}` : null}
+              shareToken={selChat.share_token || null}
             />
           ) : selEvent ? (
             <EventRooms key={selEvent.share_token} gig={selEvent} user={user} color={eventTypeColor(selEvent.event_type) || accent} />
@@ -193,7 +194,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
   );
 }
 
-function Conversation({ roomId, user, title, sub, color, photo, eventHref, tabs = null }) {
+function Conversation({ roomId, user, title, sub, color, photo, eventHref, tabs = null, shareToken = null }) {
   return (
     <>
       <PhotoBar photo={photo} color={color} className="shrink-0 px-5 py-3.5 flex items-center gap-3 border-b border-[#1f1f1f]">
@@ -212,7 +213,7 @@ function Conversation({ roomId, user, title, sub, color, photo, eventHref, tabs 
           phones show the event photo behind the whole chat). */}
       <div className="relative isolate flex-1 min-h-0 flex flex-col">
         <NightSky />
-        <RoomChatPanel roomId={roomId} user={user} fill placeholder={`Message ${title}...`} />
+        <RoomChatPanel roomId={roomId} user={user} fill shareToken={shareToken} placeholder={`Message ${title}...`} />
       </div>
     </>
   );
@@ -261,6 +262,7 @@ function EventRooms({ gig, user, color }) {
       color={meta.color || color}
       photo={gig.icon_url}
       eventHref={`/gig/web?token=${gig.share_token}`}
+      shareToken={gig.share_token || null}
       tabs={tabs}
     />
   );

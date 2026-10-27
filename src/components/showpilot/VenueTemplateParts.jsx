@@ -7,6 +7,7 @@ import { DEAL_TYPES, FORCE_MAJEURE_TEXT, CANCELLATION_TEXT } from "@/lib/eventBu
 import { DEFAULT_ASKS, DEFAULT_EMAIL, EMAIL_FIELDS } from "@/lib/eventLink";
 import { AskGrid } from "@/components/showpilot/EventLinkBuilder";
 import { venuePartsWithContent, venuePartOnEvent } from "@/lib/roleTemplates";
+import { REPLY_FIELDS } from "@/lib/savedReplies";
 
 // The venue template's extra parts (job 185): the usual deal, the event
 // link's questions and note, and the event link email. Plus the sheet that
@@ -153,6 +154,7 @@ export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color =
   const note = (key) => {
     if (key === "deal") return dealLocked ? "The deal was already sent. Change it on Paperwork." : deal ? "Fills in the draft deal" : "Saved as a draft deal for you to send";
     if (key === "event_link") return linkExists ? "Replaces the questions on this event's link" : "Used when you create the link";
+    if (key === "task_presets") return gig?.date ? "Added to the event's tasks with due dates" : "Added to the event's tasks (no date yet, so no due dates)";
     return venuePartOnEvent(gig, key) ? "Replaces what's on the event" : "";
   };
   const toggle = (key) => setOn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -193,9 +195,109 @@ export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color =
           <button type="button" disabled={busy || on.size === 0 || parts.length === 0} onClick={go} className="flex-1 min-h-[50px] rounded-[10px] font-bold text-[15.5px] disabled:opacity-50" style={{ background: color, color: "#0d0d0d" }}>{busy ? "Loading…" : `Load ${on.size} part${on.size === 1 ? "" : "s"}`}</button>
           <button type="button" onClick={onClose} className="min-h-[50px] px-5 rounded-[10px] border border-[#2a2a2a] text-white/75">Cancel</button>
         </div>
-        <span className="text-[12.5px] text-white/50 -mt-2">The event's pages change on screen; press SAVE to keep them. The deal and the link's questions save right away.</span>
+        <span className="text-[12.5px] text-white/50 -mt-2">The event's pages change on screen; press SAVE to keep them. The deal, tasks and the link's questions save right away.</span>
       </div>
     </div>,
     document.body
   );
+}
+
+// ---------- Saved replies ----------
+const rid = () => Math.random().toString(36).slice(2, 9);
+export function SavedRepliesFields({ value, onChange, color = "#60A5FA" }) {
+  const list = Array.isArray(value) ? value : [];
+  const [open, setOpen] = useState(null);
+  const bodyRefs = useRef({});
+  const set = (i, patch) => onChange(list.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const add = () => { const id = rid(); onChange([...list, { id, title: "", body: "" }]); setOpen(id); };
+  const insert = (i, key) => {
+    const el = bodyRefs.current[list[i].id];
+    const cur = list[i].body || "";
+    const at = el && typeof el.selectionStart === "number" ? el.selectionStart : cur.length;
+    const end = el && typeof el.selectionEnd === "number" ? el.selectionEnd : at;
+    set(i, { body: `${cur.slice(0, at)}{${key}}${cur.slice(end)}` });
+    setTimeout(() => { if (el) { el.focus(); const p = at + key.length + 2; el.setSelectionRange(p, p); } }, 0);
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] text-white/55 -mt-2">Answers you give every act. In an event's chat, tap Saved replies to drop one in, filled in for that event. You can still change it before you send.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {list.map((r, i) => (open === r.id ? (
+          <div key={r.id} className="rounded-[12px] border bg-[#101010] p-3 flex flex-col gap-2 sm:col-span-2" style={{ borderColor: color }}>
+            <div className="flex gap-2 items-center">
+              <input value={r.title} onChange={(e) => set(i, { title: e.target.value })} placeholder="Name it (e.g. Load-in)" aria-label="Reply name" className={inputCls} autoFocus />
+              <button type="button" onClick={() => { onChange(list.filter((_, idx) => idx !== i)); setOpen(null); }} aria-label="Remove reply" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/40 shrink-0"><X className="w-4 h-4" /></button>
+            </div>
+            <textarea ref={(el) => { bodyRefs.current[r.id] = el; }} value={r.body} onChange={(e) => set(i, { body: e.target.value })} rows={4} placeholder="Hey {act}! Load-in is {load_in} through the back door..." aria-label="Reply" className={`${inputCls} py-2 leading-relaxed`} />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[12px] text-white/50 mr-1">Insert:</span>
+              {REPLY_FIELDS.map((f) => (
+                <button key={f.key} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(i, f.key)} className="min-h-[36px] px-2.5 rounded-full border text-[12.5px] font-semibold" style={{ color, borderColor: `${color}66` }}>{f.label}</button>
+              ))}
+              <button type="button" onClick={() => setOpen(null)} className="min-h-[36px] px-3 ml-auto text-[14px] font-semibold" style={{ color }}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <button key={r.id} type="button" onClick={() => setOpen(r.id)} className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] p-3 text-left flex flex-col gap-1 min-h-[88px]" aria-label={`Change the reply: ${r.title || "New reply"}`}>
+            <span className="text-[15px] font-semibold">{r.title || "New reply"}</span>
+            <span className="text-[13.5px] text-white/60 line-clamp-3 whitespace-pre-wrap">{r.body || "Empty"}</span>
+          </button>
+        )))}
+      </div>
+      <button type="button" onClick={add} className="self-start min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold" style={{ color }}>+ New saved reply</button>
+    </div>
+  );
+}
+export const repliesSummary = (v) => (Array.isArray(v) && v.length ? `${v.length} repl${v.length === 1 ? "y" : "ies"}` : "Answers you give every act");
+
+// ---------- Task presets ----------
+export const PRESET_KINDS = [
+  { key: "plain", label: "To do" },
+  { key: "upload", label: "Upload" },
+];
+export const PRESET_FOR = [
+  { key: "manager", label: "Mgmt / Artist" },
+  { key: "engineer", label: "Audio" },
+];
+export function TaskPresetsFields({ value, onChange, color = "#60A5FA" }) {
+  const list = Array.isArray(value) ? value : [];
+  const set = (i, patch) => onChange(list.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] text-white/55 -mt-2">Tasks every act gets. Loading the template adds them to the event, due the number of days before the show you set here.</p>
+      {list.length > 0 && (
+        <div className="rounded-[12px] border border-[#242424] divide-y divide-[#1f1f1f]">
+          {list.map((t, i) => (
+            <div key={t.id} className="p-3 flex flex-col gap-2">
+              <div className="flex gap-2 items-center">
+                <input value={t.title} onChange={(e) => set(i, { title: e.target.value })} placeholder="Send stage plot and input list" aria-label="Task" className={inputCls} />
+                <button type="button" onClick={() => onChange(list.filter((_, idx) => idx !== i))} aria-label="Remove task" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/40 shrink-0"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="flex gap-2 flex-wrap items-center">
+                <select value={t.kind || "plain"} onChange={(e) => set(i, { kind: e.target.value })} aria-label="Kind" className={`${inputCls} !w-auto`}>{PRESET_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}</select>
+                <select value={t.section || "manager"} onChange={(e) => set(i, { section: e.target.value })} aria-label="For" className={`${inputCls} !w-auto`}>{PRESET_FOR.map((k) => <option key={k.key} value={k.key}>For {k.label}</option>)}</select>
+                <label className="flex items-center gap-2 text-[14px] text-white/70">Due
+                  <input type="number" min="0" max="120" value={t.days_before ?? ""} onChange={(e) => set(i, { days_before: e.target.value === "" ? null : Math.max(0, Math.min(120, parseInt(e.target.value, 10) || 0)) })} aria-label="Days before the show" className={`${inputCls} !w-[76px]`} placeholder="14" />
+                  days before</label>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <button type="button" onClick={() => onChange([...list, { id: rid(), title: "", kind: "plain", section: "manager", days_before: 14 }])} className="self-start min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold" style={{ color }}>+ Add a task</button>
+    </div>
+  );
+}
+export const presetsSummary = (v) => {
+  const n = (Array.isArray(v) ? v : []).filter((t) => String(t.title || "").trim()).length;
+  return n ? `${n} task${n === 1 ? "" : "s"} for the act` : "Tasks every act gets";
+};
+// Due date for a preset on an event: the show date minus its days.
+export function presetDue(date, days) {
+  if (!date || days === null || days === undefined || days === "") return null;
+  const d = new Date(String(date).slice(0, 10) + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() - Number(days));
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 }

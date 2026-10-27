@@ -1694,6 +1694,7 @@ function RoomsTabPanel({ selectedRole, roleLabel, token, user, checkingAuth, roo
       <RoomChatPanel
         roomId={room.id}
         user={user}
+        shareToken={token}
         emptyLabel="No messages yet - say hello."
         placeholder={`Message ${selectedRole ? roleLabel : "General"}...`}
         pilotCardBackTo={`/gig/web?token=${token}&role=${selectedRole || "general"}&tab=rooms`}

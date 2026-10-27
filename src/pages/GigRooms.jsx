@@ -122,6 +122,7 @@ export default function GigRooms() {
       fill
       roomId={activeRoomId}
       user={user}
+      shareToken={token}
       emptyLabel={`No messages yet in ${activeMeta.label} - say hello.`}
       placeholder={`Message ${activeMeta.label}...`}
       pilotCardBackTo={`/gig/rooms?token=${token}&room=${activeRoomId}`}
@@ -242,6 +243,7 @@ export default function GigRooms() {
           fill
           roomId={activeRoomId}
           user={user}
+          shareToken={token}
           emptyLabel={`No messages yet in ${activeMeta.label} - say hello.`}
           placeholder={`Message ${activeMeta.label}...`}
           pilotCardBackTo={`/gig/rooms?token=${token}&room=${activeRoomId}`}
