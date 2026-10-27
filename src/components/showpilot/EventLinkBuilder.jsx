@@ -257,7 +257,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
                   );
                 }
                 return (
-                  <div key={a.key} className={`${box} p-3 flex flex-col gap-2 sm:col-span-2`} style={{ borderColor: color }}>
+                  <div key={a.key} className={`${box} p-3 flex flex-col gap-2`} style={{ borderColor: color }}>
                     <div className="flex gap-2 items-center">
                       <input value={a.label} onChange={(e) => setAsk(i, { label: e.target.value })} placeholder="What you need" className={inputCls} aria-label="Ask" autoFocus />
                       <button type="button" onClick={() => { setAsks(asks.filter((_, idx) => idx !== i)); setOpenAsk(null); }} aria-label="Remove" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35 shrink-0"><Trash2 className="w-4 h-4" /></button>
