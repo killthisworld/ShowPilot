@@ -107,11 +107,6 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
                 className="min-h-[36px] px-2.5 rounded-full border text-[12.5px] font-semibold" style={{ color, borderColor: `${color}66` }}>{f.label}</button>
             ))}
           </div>
-          <div className="rounded-[10px] border border-[#242424] bg-[#0b0b0b] p-3">
-            <div className="text-[10.5px] tracking-[0.12em] text-white/45 mb-1.5" style={mono}>HOW IT READS FOR THIS EVENT</div>
-            <div className="text-[14px] font-semibold">{filled.subject}</div>
-            <p className="mt-1.5 text-[13.5px] text-white/75 whitespace-pre-wrap break-words">{filled.body}</p>
-          </div>
           <div className="flex gap-2">
             <button type="button" disabled={saving} onClick={save} className="flex-1 min-h-[48px] rounded-[10px] font-bold text-[15px] disabled:opacity-60" style={{ background: color, color: "#0d0d0d" }}>{saving ? "Saving…" : "Save email"}</button>
             <button type="button" onClick={() => setDraft({ ...DEFAULT_EMAIL })} className="min-h-[48px] px-3.5 rounded-[10px] border border-[#2a2a2a] text-[14px] text-white/70">Start over</button>
