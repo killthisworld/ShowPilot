@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
-import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary, SavedRepliesFields, repliesSummary, TaskPresetsFields, presetsSummary, presetDue } from "@/components/showpilot/VenueTemplateParts";
+import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary, SavedRepliesFields, repliesSummary, TaskPresetsFields, presetsSummary, presetDue, AdvanceStepsFields, advanceSummary, EventAdvancePage, eventAdvanceSummary } from "@/components/showpilot/VenueTemplateParts";
+import { scheduleAdvance, fetchEventAdvance } from "@/lib/eventAdvance";
 import { artistFromTemplate } from "@/lib/showTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
@@ -39,7 +40,7 @@ const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engi
 // An icon for each page of a profile (job 168), by page key.
 const PAGE_ICONS = {
   address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
-  hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, replies: MessagesSquare, task_presets: ListChecks, requests: MessageSquare, paperwork: FileSignature,
+  hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, replies: MessagesSquare, task_presets: ListChecks, advance: CalendarClock, advance_sched: CalendarClock, requests: MessageSquare, paperwork: FileSignature,
   contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
   merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2,
 };
@@ -235,6 +236,14 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   });
 
   // ======== VENUE ========
+  const [advRows, setAdvRows] = useState(null);
+  const [advKey, setAdvKey] = useState(0);
+  const advOn = !template && !!gig.id && !!biz?.venue;
+  useEffect(() => {
+    let live = true;
+    if (advOn) fetchEventAdvance(gig.id).then((r) => { if (live) setAdvRows(r); });
+    return () => { live = false; };
+  }, [advOn, gig.id, advKey]);
   const venueTabs = () => {
     const schedule = vi.schedule || [];
     const setRow = (i, k, v) => setVi("schedule", schedule.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)));
@@ -368,12 +377,25 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           state: (vi.task_presets || []).some((t) => String(t.title || "").trim()) ? "done" : "empty",
           render: () => <TaskPresetsFields value={vi.task_presets} onChange={(v) => setVi("task_presets", v)} color={color} />,
         },
+        {
+          key: "advance", label: "Advance schedule",
+          summary: advanceSummary(vi.advance_steps),
+          state: (vi.advance_steps || []).some((st) => st.on !== false) ? "done" : "empty",
+          render: () => <AdvanceStepsFields value={vi.advance_steps} onChange={(v) => setVi("advance_steps", v)} color={color} />,
+        },
       ] : []),
       ...(!template && gig.id ? [{
         key: "event_link", label: "Event link",
         summary: "One link per event, acts fill it in",
         state: "empty",
         render: () => <EventLinkBuilder gig={gig} biz={biz} run={buildRunOfShow(gig)} color={color} shareToken={p.token || gig.share_token || null} editable={ed} onEventEmail={(v) => setVi("event_link_email", v)} />,
+      }] : []),
+      // The event's advance schedule (job 185): venue side only.
+      ...(!template && gig.id && biz?.venue ? [{
+        key: "advance_sched", label: "Advance schedule",
+        summary: eventAdvanceSummary(advRows),
+        state: advRows?.length ? "partial" : "empty",
+        render: () => <EventAdvancePage key={advKey} gig={gig} color={color} editable={ed} onCount={setAdvRows} />,
       }] : []),
       docsTab(gig.venue_documents, (docs) => p.update("venue_documents", docs), "venue"),
       requestsTab("venue"),
@@ -824,7 +846,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // The pages' render() reads p (e.g. which acts are expanded), so the
     // list is rebuilt when those change too (job 148: the Members dropdown).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors]
+    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors, advRows, advKey]
   );
   const [active, setActive] = useState(initialTab || null);
   // "pages" layout (the event's main space): this profile is one dropdown, its
@@ -909,6 +931,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         if (added.length) { p.update("tasks", [...(gig.tasks || []), ...added]); notes.push(`${added.length} task${added.length === 1 ? "" : "s"} added.`); }
         if (refused) notes.push("Only the event owner can add tasks.");
       }
+      if (parts.has("advance") && gig.date && (sec.advance_steps || []).length) {
+        const r = await scheduleAdvance(gig.id, gig.date, sec.advance_steps);
+        if (r.added) notes.push(`${r.added} advance step${r.added === 1 ? "" : "s"} scheduled.`);
+        if (r.past) notes.push(`${r.past} already past, left out.`);
+        setAdvKey((k) => k + 1);
+      }
       if (parts.has("event_link") && linkExists && sec.event_link_setup?.asks?.length) {
         await saveEventLink(gig.id, { blocks: [], asks: sec.event_link_setup.asks, message: sec.event_link_setup.message || "" });
         notes.push("The link's questions are updated.");
@@ -963,7 +991,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   ) : null;
   // Requests and Paperwork are running lists, not fields to fill: left out of
   // the FILLED count, same as the event's progress (profileProgress.js).
-  const counted = (list) => list.filter((t) => !t.excluded && t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && (template || t.key !== "event_link"));
+  const counted = (list) => list.filter((t) => !t.excluded && t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && (template || t.key !== "event_link") && t.key !== "advance_sched");
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";

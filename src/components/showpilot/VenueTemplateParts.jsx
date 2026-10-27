@@ -8,6 +8,7 @@ import { DEFAULT_ASKS, DEFAULT_EMAIL, EMAIL_FIELDS } from "@/lib/eventLink";
 import { AskGrid } from "@/components/showpilot/EventLinkBuilder";
 import { venuePartsWithContent, venuePartOnEvent } from "@/lib/roleTemplates";
 import { REPLY_FIELDS } from "@/lib/savedReplies";
+import { ADVANCE_HOW, DEFAULT_ADVANCE_STEPS, newAdvanceStep, whenLabel, fmtWhen, fetchEventAdvance, updateAdvanceStep, stepSendAt } from "@/lib/eventAdvance";
 
 // The venue template's extra parts (job 185): the usual deal, the event
 // link's questions and note, and the event link email. Plus the sheet that
@@ -151,9 +152,16 @@ export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color =
     return () => { live = false; };
   }, [gig?.id]);
   useEffect(() => { if (dealLocked) setOn((s) => { const n = new Set(s); n.delete("deal"); return n; }); }, [dealLocked]);
+  useEffect(() => { if (!gig?.date) setOn((s) => { const n = new Set(s); n.delete("advance"); return n; }); }, [gig?.date]);
   const note = (key) => {
     if (key === "deal") return dealLocked ? "The deal was already sent. Change it on Paperwork." : deal ? "Fills in the draft deal" : "Saved as a draft deal for you to send";
     if (key === "event_link") return linkExists ? "Replaces the questions on this event's link" : "Used when you create the link";
+    if (key === "advance") {
+      const steps = (data?.section?.advance_steps || []).filter((st) => st.on !== false);
+      if (!gig?.date) return "Set the event's date first";
+      const ats = steps.map((st) => stepSendAt(gig.date, st)).filter((d) => d && d.getTime() > Date.now()).sort((a, b) => a - b);
+      return ats.length ? `${ats.length} step${ats.length === 1 ? "" : "s"}, ${fmtWhen(ats[0])} to ${fmtWhen(ats[ats.length - 1])}` : "Every step's time has already passed";
+    }
     if (key === "task_presets") return gig?.date ? "Added to the event's tasks with due dates" : "Added to the event's tasks (no date yet, so no due dates)";
     return venuePartOnEvent(gig, key) ? "Replaces what's on the event" : "";
   };
@@ -177,7 +185,7 @@ export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color =
             <div className="rounded-[12px] border border-[#242424] divide-y divide-[#1f1f1f]">
               {parts.map((pt) => {
                 const n = note(pt.key);
-                const locked = pt.key === "deal" && dealLocked;
+                const locked = (pt.key === "deal" && dealLocked) || (pt.key === "advance" && !gig?.date);
                 return (
                   <label key={pt.key} className={`flex items-center gap-3 min-h-[52px] px-3.5 py-2 ${locked ? "opacity-60" : "cursor-pointer"}`}>
                     <input type="checkbox" checked={on.has(pt.key)} disabled={locked} onChange={() => toggle(pt.key)} className="w-[18px] h-[18px] shrink-0" style={{ accentColor: color }} />
@@ -195,7 +203,7 @@ export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color =
           <button type="button" disabled={busy || on.size === 0 || parts.length === 0} onClick={go} className="flex-1 min-h-[50px] rounded-[10px] font-bold text-[15.5px] disabled:opacity-50" style={{ background: color, color: "#0d0d0d" }}>{busy ? "Loading…" : `Load ${on.size} part${on.size === 1 ? "" : "s"}`}</button>
           <button type="button" onClick={onClose} className="min-h-[50px] px-5 rounded-[10px] border border-[#2a2a2a] text-white/75">Cancel</button>
         </div>
-        <span className="text-[12.5px] text-white/50 -mt-2">The event's pages change on screen; press SAVE to keep them. The deal, tasks and the link's questions save right away.</span>
+        <span className="text-[12.5px] text-white/50 -mt-2">The event's pages change on screen; press SAVE to keep them. The deal, tasks, the advance schedule and the link's questions save right away.</span>
       </div>
     </div>,
     document.body
@@ -301,3 +309,188 @@ export function presetDue(date, days) {
   const z = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
 }
+
+// ---------- Advance schedule ----------
+const STEP_FIELDS = [...REPLY_FIELDS, { key: "link", label: "Event link" }, { key: "missing", label: "What's missing" }];
+function StepEditor({ step, onChange, onRemove, color, dated = false }) {
+  const s = step;
+  const after = Number(s.days) < 0;
+  const n = Math.abs(Number(s.days) || 0);
+  const bodyRef = useRef(null);
+  const insert = (key) => {
+    const el = bodyRef.current;
+    const cur = s.body || "";
+    const at = el && typeof el.selectionStart === "number" ? el.selectionStart : cur.length;
+    onChange({ ...s, body: `${cur.slice(0, at)}{${key}}${cur.slice(at)}` });
+    setTimeout(() => { if (el) { el.focus(); const p = at + key.length + 2; el.setSelectionRange(p, p); } }, 0);
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-2 flex-wrap items-center">
+        {dated ? (
+          <label className="flex items-center gap-2 text-[14px] text-white/70">Sends
+            <input type="datetime-local" value={s.at || ""} onChange={(e) => onChange({ ...s, at: e.target.value })} aria-label="When it sends" className={`${inputCls} !w-auto`} /></label>
+        ) : (
+          <>
+            <input type="number" min="0" max="120" value={n} onChange={(e) => { const v = Math.max(0, Math.min(120, parseInt(e.target.value, 10) || 0)); onChange({ ...s, days: after ? -v : v }); }} aria-label="Days" className={`${inputCls} !w-[72px]`} />
+            <select value={after ? "after" : "before"} onChange={(e) => onChange({ ...s, days: e.target.value === "after" ? -Math.max(1, n) : n })} aria-label="Before or after the show" className={`${inputCls} !w-auto`}>
+              <option value="before">days before the show</option><option value="after">days after the show</option>
+            </select>
+            <input type="time" value={s.time || "10:00"} onChange={(e) => onChange({ ...s, time: e.target.value })} aria-label="Time" className={`${inputCls} !w-auto`} />
+          </>
+        )}
+        <select value={s.how} onChange={(e) => onChange({ ...s, how: e.target.value })} aria-label="What it does" className={`${inputCls} !w-auto`}>
+          {Object.entries(ADVANCE_HOW).map(([k, h]) => <option key={k} value={k}>{h.long}</option>)}
+        </select>
+        {onRemove && <button type="button" onClick={onRemove} aria-label="Remove step" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/40 ml-auto"><X className="w-4 h-4" /></button>}
+      </div>
+      <input value={s.title || ""} onChange={(e) => onChange({ ...s, title: e.target.value })} placeholder={s.how === "task" ? "The task (e.g. Confirm set times)" : "Name it (only you see this)"} aria-label="Step name" className={inputCls} />
+      {s.how === "email" ? (
+        <p className="text-[13.5px] text-white/50">Sends your event link email to the act's contacts on the event (the manager contact and acts' own emails). Skipped if the link hasn't been made yet.</p>
+      ) : (
+        <>
+          <textarea ref={bodyRef} value={s.body || ""} onChange={(e) => onChange({ ...s, body: e.target.value })} rows={3} placeholder={s.how === "task" ? "Details (optional)" : "The message. Hey {act}, ..."} aria-label="Message" className={`${inputCls} py-2 leading-relaxed`} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[12px] text-white/50 mr-1">Insert:</span>
+            {STEP_FIELDS.map((f) => (
+              <button key={f.key} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(f.key)} className="min-h-[34px] px-2.5 rounded-full border text-[12px] font-semibold" style={{ color, borderColor: `${color}66` }}>{f.label}</button>
+            ))}
+          </div>
+        </>
+      )}
+      <label className="flex items-center gap-2.5 min-h-[40px] text-[14px] text-white/75">
+        <input type="checkbox" checked={!!s.only_if_incomplete} onChange={(e) => onChange({ ...s, only_if_incomplete: e.target.checked })} className="w-[18px] h-[18px]" style={{ accentColor: color }} />
+        Only if they haven't finished the event link
+      </label>
+    </div>
+  );
+}
+
+export function AdvanceStepsFields({ value, onChange, color = "#60A5FA" }) {
+  const list = Array.isArray(value) ? value : [];
+  const sorted = [...list].sort((a, b) => (Number(b.days) || 0) - (Number(a.days) || 0));
+  const set = (id, next) => onChange(list.map((s) => (s.id === id ? next : s)));
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] text-white/55 -mt-2">Steps that go out on their own, counted from each show's date. Loading the template schedules them on the event, where you can change or skip any of them before it goes out. Messages and tasks come from you.</p>
+      {list.length === 0 && (
+        <button type="button" onClick={() => onChange(DEFAULT_ADVANCE_STEPS())} className="self-start min-h-[44px] px-4 rounded-[10px] border text-[14px] font-semibold" style={{ color, borderColor: `${color}80` }}>Start with the usual 5 steps</button>
+      )}
+      {sorted.map((s) => (
+        <div key={s.id} className="rounded-[12px] border border-[#242424] bg-[#101010] p-3 flex gap-3" style={{ opacity: s.on === false ? 0.55 : 1 }}>
+          <label className="pt-2.5 shrink-0" title={s.on === false ? "Off" : "On"}>
+            <input type="checkbox" checked={s.on !== false} onChange={(e) => set(s.id, { ...s, on: e.target.checked })} aria-label={`${s.title || "Step"} on`} className="w-[18px] h-[18px]" style={{ accentColor: color }} />
+          </label>
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <span className="text-[11px] tracking-[0.12em]" style={{ ...mono, color }}>{whenLabel(s).toUpperCase()} · {ADVANCE_HOW[s.how]?.label.toUpperCase()}</span>
+            <StepEditor step={s} onChange={(next) => set(s.id, next)} onRemove={() => onChange(list.filter((x) => x.id !== s.id))} color={color} />
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...list, newAdvanceStep()])} className="self-start min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold" style={{ color }}>+ Add a step</button>
+    </div>
+  );
+}
+export const advanceSummary = (v) => {
+  const on = (Array.isArray(v) ? v : []).filter((s) => s.on !== false);
+  return on.length ? `${on.length} step${on.length === 1 ? "" : "s"}` : "Messages that go out on their own";
+};
+
+// The event's own schedule (venue side): what's coming, what went out.
+const STATUS_LOOK = {
+  scheduled: { label: "SCHEDULED", color: "#60A5FA" },
+  sending: { label: "SENDING", color: "#60A5FA" },
+  sent: { label: "SENT", color: "#8CFF3D" },
+  skipped: { label: "SKIPPED", color: "rgba(255,255,255,0.5)" },
+  failed: { label: "DIDN'T SEND", color: AMBER },
+};
+const toLocalInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const z = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
+};
+export function EventAdvancePage({ gig, color = "#60A5FA", editable = true, onCount }) {
+  const [rows, setRows] = useState(null);
+  const [editing, setEditing] = useState(null); // { id | "new", ...step, at }
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const reload = async () => { const r = await fetchEventAdvance(gig.id); setRows(r); onCount?.(r); };
+  useEffect(() => { if (gig?.id) reload(); }, [gig?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const run = async (fn) => { setBusy(true); setErr(""); try { await fn(); await reload(); } catch (e) { console.error(e); setErr(e?.message || "Something went wrong. Try again."); } setBusy(false); };
+
+  const saveEdit = () => run(async () => {
+    const at = editing.at ? new Date(editing.at) : null;
+    if (!at || Number.isNaN(at.getTime())) throw new Error("Pick when it sends.");
+    if (at.getTime() < Date.now()) throw new Error("Pick a time that hasn't passed.");
+    if (editing.id === "new") {
+      const { data, error } = await supabase.rpc("schedule_event_advance", { p_show: gig.id, p_steps: [{ step_id: `own_${Date.now().toString(36)}`, how: editing.how, title: editing.title || "", body: editing.body || "", send_at: at.toISOString(), only_if_incomplete: !!editing.only_if_incomplete }] });
+      if (error) throw error;
+      if (!data?.added) throw new Error("Couldn't add the step.");
+    } else {
+      await updateAdvanceStep(editing.id, { title: editing.title || "", body: editing.body || "", sendAt: at.toISOString() });
+    }
+    setEditing(null);
+  });
+
+  if (!rows) return <p className="text-white/45 text-[15px]">Loading…</p>;
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[15px] text-white/55 -mt-2">Messages, tasks and emails that go out on their own for this event. Load a venue template with an advance schedule, or add a step here.</p>
+      {rows.length === 0 && !editing && <p className="text-[15px] text-white/40">Nothing scheduled yet.</p>}
+      {rows.map((r) => {
+        const look = STATUS_LOOK[r.status] || STATUS_LOOK.scheduled;
+        const open = editing?.id === r.id;
+        const canChange = editable && ["scheduled", "skipped", "failed"].includes(r.status);
+        return (
+          <div key={r.id} className="rounded-[12px] border bg-[#101010] p-3 flex flex-col gap-2" style={{ borderColor: open ? color : "#242424", opacity: r.status === "skipped" ? 0.6 : 1 }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[13px]" style={{ ...mono, color: "rgba(255,255,255,0.85)" }}>{fmtWhen(r.sent_at || r.send_at)}</span>
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-[#2f2f2f] text-white/75">{ADVANCE_HOW[r.how]?.label}</span>
+              <span className="text-[10.5px] tracking-[0.1em] ml-auto" style={{ ...mono, color: look.color }}>{look.label}</span>
+            </div>
+            {open ? (
+              <>
+                <StepEditor step={editing} onChange={(next) => setEditing({ ...next, how: r.how })} color={color} dated />
+                <div className="flex gap-2">
+                  <button type="button" disabled={busy} onClick={saveEdit} className="flex-1 min-h-[44px] rounded-[10px] font-bold text-[14.5px] disabled:opacity-60" style={{ background: color, color: "#0d0d0d" }}>{busy ? "Saving…" : "Save"}</button>
+                  <button type="button" onClick={() => setEditing(null)} className="min-h-[44px] px-4 rounded-[10px] border border-[#2a2a2a] text-white/70">Cancel</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[15px] font-semibold">{r.title || ADVANCE_HOW[r.how]?.long}</div>
+                {r.how !== "email" && r.body && <p className="text-[14px] text-white/65 whitespace-pre-wrap">{r.body}</p>}
+                {r.result && <p className="text-[12.5px]" style={{ color: r.status === "failed" ? AMBER : "rgba(255,255,255,0.5)" }}>{r.result}</p>}
+                {canChange && (
+                  <div className="flex gap-2 flex-wrap">
+                    {r.status !== "skipped" && <button type="button" onClick={() => setEditing({ id: r.id, how: r.how, title: r.title, body: r.body, only_if_incomplete: r.only_if_incomplete, at: toLocalInput(r.send_at) })} className="min-h-[40px] px-3 rounded-[8px] border border-[#2a2a2a] text-[13px] text-white/80">Edit</button>}
+                    <button type="button" disabled={busy} onClick={() => run(() => updateAdvanceStep(r.id, { status: r.status === "skipped" ? "scheduled" : "skipped", ...(r.status !== "scheduled" && new Date(r.send_at).getTime() < Date.now() ? { sendAt: new Date(Date.now() + 15 * 60000).toISOString() } : {}) }))} className="min-h-[40px] px-3 rounded-[8px] border border-[#2a2a2a] text-[13px] text-white/80">{r.status === "skipped" ? "Put it back" : r.status === "failed" ? "Try again" : "Skip"}</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })}
+      {editing?.id === "new" && (
+        <div className="rounded-[12px] border bg-[#101010] p-3 flex flex-col gap-2" style={{ borderColor: color }}>
+          <StepEditor step={editing} onChange={(next) => setEditing({ ...next, id: "new" })} color={color} dated />
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={saveEdit} className="flex-1 min-h-[44px] rounded-[10px] font-bold text-[14.5px] disabled:opacity-60" style={{ background: color, color: "#0d0d0d" }}>{busy ? "Adding…" : "Schedule it"}</button>
+            <button type="button" onClick={() => setEditing(null)} className="min-h-[44px] px-4 rounded-[10px] border border-[#2a2a2a] text-white/70">Cancel</button>
+          </div>
+        </div>
+      )}
+      {err && <p className="text-[14px]" style={{ color: AMBER }}>{err}</p>}
+      {editable && !editing && (
+        <button type="button" onClick={() => setEditing({ ...newAdvanceStep(), id: "new", at: "" })} className="self-start min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold" style={{ color }}>+ Add a step</button>
+      )}
+    </div>
+  );
+}
+export const eventAdvanceSummary = (rows) => {
+  const next = (rows || []).filter((r) => r.status === "scheduled").sort((a, b) => new Date(a.send_at) - new Date(b.send_at))[0];
+  if (!rows || !rows.length) return "Messages that go out on their own";
+  return next ? `Next: ${fmtWhen(next.send_at)}` : `${rows.filter((r) => r.status === "sent").length} sent`;
+};

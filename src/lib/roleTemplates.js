@@ -15,7 +15,7 @@ export const COMPANY_TEMPLATE_ROLES = ["venue", "manager"];
 
 // Which workspace tabs a template shows / carries.
 export const TEMPLATE_TABS = {
-  venue: ["address", "load_in", "schedule", "wifi_power", "house_gear", "hospitality", "deal", "event_link", "link_email", "replies", "task_presets", "documents"],
+  venue: ["address", "load_in", "schedule", "wifi_power", "house_gear", "hospitality", "deal", "event_link", "link_email", "replies", "task_presets", "advance", "documents"],
   manager: ["contact", "advance", "travel", "guests", "merch", "documents"],
 };
 
@@ -56,6 +56,7 @@ export const VENUE_PARTS = [
   { key: "link_email", label: "Event link email" },
   { key: "replies", label: "Saved replies" },
   { key: "task_presets", label: "Task presets" },
+  { key: "advance", label: "Advance schedule" },
   { key: "documents", label: "Documents" },
 ];
 const VENUE_PART_FIELDS = {
@@ -75,6 +76,7 @@ const VENUE_PART_FIELDS = {
   // templates); task presets become the event's tasks when loaded.
   replies: { section: ["saved_replies"] },
   task_presets: { section: ["task_presets"] },
+  advance: { section: ["advance_steps"] },
   documents: { gig: ["venue_documents"], section: ["documents"] },
 };
 export function venuePartOf(where, key) {
@@ -189,7 +191,7 @@ export function applyTemplate(role, data = {}, gig, update, parts = null) {
   const wanted = (where, k) => {
     if (role !== "venue") return true;
     // Saved as the event's deal / tasks instead, or only used from the template.
-    if (where === "section" && (k === "tpl_deal" || k === "task_presets" || k === "saved_replies")) return false;
+    if (where === "section" && (k === "tpl_deal" || k === "task_presets" || k === "saved_replies" || k === "advance_steps")) return false;
     const part = venuePartOf(where, k);
     if (!part) return true;
     return parts ? parts.has(part) : !ex.has(part);
