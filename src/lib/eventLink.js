@@ -133,6 +133,24 @@ export function overviewRun(ov) {
 }
 export const linkHref = (v) => { const t = String(v || "").trim(); return !t ? "" : /^https?:\/\//i.test(t) ? t : `https://${t}`; };
 
+// Sending the link from Show Pilot (job 183): the edge function emails each
+// address from "<Venue> via Show Pilot", replies going to the venue.
+export async function sendEventLinkEmail(showId, to, subject, body) {
+  const { data, error } = await supabase.functions.invoke("send-event-link-email", { body: { show_id: showId, to, subject, body } });
+  if (error) {
+    let msg = "Couldn't send the email. Try again in a minute.";
+    try { const j = await error.context?.json?.(); if (j?.error) msg = j.error; } catch { /* keep the default */ }
+    throw new Error(msg);
+  }
+  return data; // { sent: [], skipped: [{ email, why }], failed: [] }
+}
+export async function fetchEventLinkSends(showId) {
+  const { data, error } = await supabase.rpc("get_event_link_sends", { p_show: showId });
+  if (error) { console.error(error); return []; }
+  return Array.isArray(data) ? data : [];
+}
+export const looksLikeEmail = (v) => /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(String(v || "").trim());
+
 export const eventLinkUrl = (code) => `${window.location.origin}/v/${code}`;
 
 // ---------- venue side ----------

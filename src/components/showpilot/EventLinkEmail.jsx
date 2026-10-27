@@ -1,10 +1,10 @@
-import React, { useRef, useState } from "react";
-import { Copy, Mail, Pencil } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Copy, Mail, Pencil, Send, X, RotateCw } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTitle } from "@/lib/eventTitle";
-import { DEFAULT_EMAIL, EMAIL_FIELDS, fillEmail } from "@/lib/eventLink";
+import { DEFAULT_EMAIL, EMAIL_FIELDS, fillEmail, sendEventLinkEmail, fetchEventLinkSends, looksLikeEmail } from "@/lib/eventLink";
 
 // Sending the event link by email (job 176). The venue writes its email
 // once (saved on the account, user_preferences.event_link_email); Email it
@@ -25,6 +25,11 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
   const bodyRef = useRef(null);
   const subjectRef = useRef(null);
   const lastField = useRef("body");
+  // Sending from Show Pilot (job 183).
+  const [sending, setSending] = useState(false);
+  const [sends, setSends] = useState([]);
+  const reloadSends = useCallback(async () => { if (gig?.id) setSends(await fetchEventLinkSends(gig.id)); }, [gig?.id]);
+  useEffect(() => { reloadSends(); }, [reloadSends]);
 
   const vals = {
     event: eventTitle(gig),
@@ -67,7 +72,8 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2 flex-wrap">
-        <a href={mailto} className="flex-1 min-w-[140px] min-h-[48px] rounded-[10px] font-semibold text-[15px] flex items-center justify-center gap-2 border" style={{ color, borderColor: `${color}66` }}><Mail className="w-4 h-4" />Email it</a>
+        <button type="button" onClick={() => setSending((v) => !v)} aria-expanded={sending} className="flex-1 min-w-[140px] min-h-[48px] rounded-[10px] font-semibold text-[15px] flex items-center justify-center gap-2 border" style={sending ? { background: color, color: "#0d0d0d", borderColor: color } : { color, borderColor: `${color}66` }}><Send className="w-4 h-4" />Send email</button>
+        <a href={mailto} title="Open it in your own email app" className="min-h-[48px] px-3.5 rounded-[10px] border border-[#2a2a2a] text-[14px] font-semibold text-white/80 flex items-center gap-2"><Mail className="w-4 h-4" />My email app</a>
         <button type="button" onClick={copyEmail} className="min-h-[48px] px-3.5 rounded-[10px] border border-[#2a2a2a] text-[14px] font-semibold text-white/80 flex items-center gap-2"><Copy className="w-4 h-4" />Copy email</button>
         {!editing && (
           <button type="button" onClick={open} className="min-h-[48px] px-3.5 rounded-[10px] border border-[#2a2a2a] text-[14px] font-semibold text-white/80 flex items-center gap-2"><Pencil className="w-4 h-4" />{saved ? "Edit your email" : "Write your email"}</button>
@@ -75,11 +81,16 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
       </div>
       {msg && <p className="text-[13px] text-[#8CFF3D]">{msg}</p>}
 
+      {sending && (
+        <SendPanel gig={gig} filled={filled} color={color} onSent={reloadSends} />
+      )}
+      {sends.length > 0 && <SentList sends={sends} gig={gig} filled={filled} color={color} onSent={reloadSends} />}
+
       {editing && (
         <div className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] p-3.5 flex flex-col gap-3">
           <div>
             <div className="text-[16px] font-semibold">Your email for the event link</div>
-            <p className="text-[13px] text-white/50">Write it once. Every event fills in its own name, date and link when you tap Email it.</p>
+            <p className="text-[13px] text-white/50">Write it once. Every event fills in its own name, date and link when you send it.</p>
           </div>
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>SUBJECT</span>
@@ -108,6 +119,139 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Addresses already on the event that the venue might want to send to.
+function eventContacts(gig) {
+  const out = [];
+  const add = (email, who) => { const e = String(email || "").trim().toLowerCase(); if (looksLikeEmail(e) && !out.some((x) => x.email === e)) out.push({ email: e, who }); };
+  add(gig?.manager_info?.contact_email, gig?.manager_info?.contact_name || "Manager");
+  add(gig?.engineer_info?.audio?.contact_email, gig?.engineer_info?.audio?.contact_name || "Audio");
+  add(gig?.engineer_info?.lighting?.contact_email, gig?.engineer_info?.lighting?.contact_name || "Lighting");
+  return out;
+}
+
+// Type or paste addresses (comma, space or Enter between them), pick from
+// the event's contacts, check the email, Send. Each act gets its own email
+// from "<Venue> via Show Pilot"; replies go to the venue.
+function SendPanel({ gig, filled, color, onSent, preset = [] }) {
+  const [to, setTo] = useState(preset);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(null);
+  const addMany = (text) => {
+    const parts = String(text).split(/[\s,;]+/).map((p) => p.trim().toLowerCase()).filter(Boolean);
+    const good = parts.filter(looksLikeEmail);
+    const badOnes = parts.filter((p) => !looksLikeEmail(p));
+    if (good.length) setTo((cur) => [...new Set([...cur, ...good])]);
+    setTyped(badOnes.join(" "));
+    setErr(badOnes.length ? `Check ${badOnes.join(", ")}` : "");
+  };
+  const onKey = (e) => {
+    if (["Enter", ",", " ", "Tab"].includes(e.key) && typed.trim()) { e.preventDefault(); addMany(typed); }
+    if (e.key === "Backspace" && !typed && to.length) setTo(to.slice(0, -1));
+  };
+  const suggestions = eventContacts(gig).filter((c) => !to.includes(c.email));
+  const send = async () => {
+    const list = [...to];
+    if (typed.trim()) { const extra = typed.split(/[\s,;]+/).filter(looksLikeEmail).map((x) => x.toLowerCase()); list.push(...extra); }
+    const all = [...new Set(list)];
+    if (!all.length) { setErr("Add at least one email address."); return; }
+    setBusy(true); setErr(""); setDone(null);
+    try {
+      const r = await sendEventLinkEmail(gig.id, all, filled.subject, filled.body);
+      setDone(r); setTo([]); setTyped("");
+      onSent?.();
+    } catch (e) { setErr(e.message); }
+    setBusy(false);
+  };
+  const count = to.length + (typed.split(/[\s,;]+/).filter(looksLikeEmail).length);
+  return (
+    <div className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] p-3.5 flex flex-col gap-3">
+      <div>
+        <div className="text-[16px] font-semibold">Send the link from Show Pilot</div>
+        <p className="text-[13px] text-white/50">Each act gets their own email from your venue's name via Show Pilot. When they reply, it comes to your email.</p>
+      </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>SEND TO</span>
+        <span className="min-h-[48px] w-full px-2 py-1.5 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] flex flex-wrap items-center gap-1.5 focus-within:border-white/40">
+          {to.map((e) => (
+            <span key={e} className="flex items-center gap-1 pl-2.5 pr-1 h-8 rounded-full text-[13.5px]" style={{ background: `${color}1f`, color }}>
+              {e}
+              <button type="button" onClick={() => setTo(to.filter((x) => x !== e))} aria-label={`Remove ${e}`} className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>
+            </span>
+          ))}
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={onKey} onBlur={() => typed.trim() && addMany(typed)}
+            onPaste={(e) => { const t = e.clipboardData.getData("text"); if (/[\s,;]/.test(t.trim())) { e.preventDefault(); addMany(`${typed} ${t}`); } }}
+            placeholder={to.length ? "Add another" : "act@email.com, another@email.com"} className="flex-1 min-w-[180px] h-9 bg-transparent outline-none text-white text-base placeholder:text-white/25" />
+        </span>
+      </label>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] text-white/50 mr-1">On this event:</span>
+          {suggestions.map((c) => (
+            <button key={c.email} type="button" onClick={() => setTo([...to, c.email])} className="min-h-[34px] px-2.5 rounded-full border border-[#2a2a2a] text-[12.5px] text-white/80 hover:text-white">+ {c.who} · {c.email}</button>
+          ))}
+        </div>
+      )}
+      <div className="rounded-[10px] border border-[#242424] bg-[#0b0b0b] p-3">
+        <div className="text-[10.5px] tracking-[0.12em] text-white/45 mb-1.5" style={mono}>WHAT THEY GET</div>
+        <div className="text-[14px] font-semibold">{filled.subject}</div>
+        <p className="mt-1.5 text-[13.5px] text-white/75 whitespace-pre-wrap break-words max-h-[220px] overflow-y-auto">{filled.body}</p>
+      </div>
+      {err && <p className="text-[13px] text-[#FF8A3D]">{err}</p>}
+      {done && (
+        <p className="text-[13px] text-[#8CFF3D]">
+          {done.sent?.length ? `Sent to ${done.sent.length} ${done.sent.length === 1 ? "address" : "addresses"}.` : "Nothing was sent."}
+          {done.skipped?.length ? <span className="text-white/60"> Skipped {done.skipped.map((x) => `${x.email} (${x.why})`).join(", ")}.</span> : null}
+          {done.failed?.length ? <span className="text-[#FF8A3D]"> Couldn't send to {done.failed.join(", ")}.</span> : null}
+        </p>
+      )}
+      <button type="button" disabled={busy || !count} onClick={send} className="min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: color, color: "#0d0d0d" }}>
+        <Send className="w-4 h-4" />{busy ? "Sending…" : count ? `Send to ${count} ${count === 1 ? "address" : "addresses"}` : "Add an address to send"}
+      </button>
+    </div>
+  );
+}
+
+const STATUS = { sent: ["SENT", "#8CFF3D"], failed: ["DIDN'T SEND", "#FF8A3D"], skipped: ["SKIPPED", "rgba(255,255,255,0.5)"], queued: ["SENDING", "rgba(255,255,255,0.5)"] };
+const when = (iso) => (iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
+
+// Who the link was emailed to and when; send it again in one tap.
+function SentList({ sends, gig, filled, color, onSent }) {
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState("");
+  // Latest attempt per address.
+  const latest = [];
+  for (const s of sends) if (!latest.some((x) => x.to_email === s.to_email)) latest.push(s);
+  const again = async (email) => {
+    setBusy(email); setErr("");
+    try { await sendEventLinkEmail(gig.id, [email], filled.subject, filled.body); await onSent?.(); } catch (e) { setErr(e.message); }
+    setBusy(null);
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>EMAILED</span>
+      <div className="rounded-[10px] border border-[#242424] divide-y divide-[#1f1f1f]">
+        {latest.map((s) => {
+          const [word, c] = STATUS[s.status] || STATUS.queued;
+          return (
+            <div key={s.id} className="flex items-center gap-3 px-3 py-2">
+              <span className="flex-1 min-w-0">
+                <span className="block text-[14px] truncate">{s.to_email}</span>
+                <span className="block text-[11px] tracking-[0.06em]" style={{ ...mono, color: c }} title={s.error || undefined}>{word} · {when(s.sent_at || s.created_at)}</span>
+              </span>
+              <button type="button" disabled={busy === s.to_email} onClick={() => again(s.to_email)} className="shrink-0 min-h-[36px] px-2.5 rounded-lg border border-[#2a2a2a] text-[12.5px] font-semibold text-white/75 flex items-center gap-1.5 disabled:opacity-50" style={{ borderColor: `${color}44` }}>
+                <RotateCw className="w-3.5 h-3.5" />{busy === s.to_email ? "Sending…" : "Send again"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {err && <p className="text-[13px] text-[#FF8A3D]">{err}</p>}
     </div>
   );
 }
