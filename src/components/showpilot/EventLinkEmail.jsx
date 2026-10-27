@@ -15,9 +15,13 @@ const inputCls = "w-full min-h-[44px] px-3 rounded-lg bg-[#0b0b0b] border border
 
 const fmtDate = (d) => (d ? new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "");
 
-export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
+export default function EventLinkEmail({ gig, url, color = "#60A5FA", onEventEmail = null }) {
   const { preferences, setPreferences } = usePreferences();
-  const saved = preferences?.event_link_email || null;
+  // A venue template loaded onto the event can bring its own email (job 185);
+  // that one wins for this event, else the account's.
+  const own = gig?.venue_info?.event_link_email;
+  const eventOwn = own && (String(own.subject || "").trim() || String(own.body || "").trim()) ? own : null;
+  const saved = eventOwn || preferences?.event_link_email || null;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -58,6 +62,12 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
     setTimeout(() => { if (el) { el.focus(); const p = at + key.length + 2; el.setSelectionRange(p, p); } }, 0);
   };
   const save = async () => {
+    if (eventOwn && onEventEmail) {
+      onEventEmail({ subject: draft.subject || "", body: draft.body || "" });
+      setEditing(false); setDraft(null);
+      flash("Changed for this event. Press SAVE to keep it.");
+      return;
+    }
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     const value = { subject: draft.subject || "", body: draft.body || "" };
@@ -90,7 +100,7 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA" }) {
         <div className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] p-3.5 flex flex-col gap-3">
           <div>
             <div className="text-[16px] font-semibold">Your email for the event link</div>
-            <p className="text-[13px] text-white/50">Write it once. Every event fills in its own name, date and link when you send it.</p>
+            <p className="text-[13px] text-white/50">{eventOwn && onEventEmail ? "This event uses the email from your venue template. Changes here are for this event only." : "Write it once. Every event fills in its own name, date and link when you send it."}</p>
           </div>
           <label className="flex flex-col gap-1.5">
             <span className="text-[11px] tracking-[0.12em] text-white/50" style={mono}>SUBJECT</span>

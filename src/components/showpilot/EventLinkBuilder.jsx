@@ -135,7 +135,55 @@ function AnswerView({ ask, ans, color }) {
   return <p className="text-[14px] text-white/80 whitespace-pre-wrap">{String(ans)}</p>;
 }
 
-export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", shareToken, editable = true }) {
+// The questions for each act, shown as the empty fields acts get; tap one to
+// change it (job 176). Also used by venue templates (job 185).
+export function AskGrid({ asks, setAsks, color = "#60A5FA" }) {
+  const [openAsk, setOpenAsk] = useState(null);
+  const setAsk = (i, patch) => setAsks(asks.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
+  const addAsk = () => { const key = `q_${Date.now().toString(36)}`; setAsks([...asks, { key, label: "", type: "text", required: false, hint: "" }]); setOpenAsk(key); };
+  return (
+    <>
+      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {asks.map((a, i) => {
+          const isOpen = openAsk === a.key;
+          const tag = <span className="text-[10px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.45)" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</span>;
+          if (!isOpen) {
+            // Shown as the empty field the act will get (job 176): it
+            // gets filled in on their page, not here. Tap to change it.
+            return (
+              <button key={a.key} type="button" onClick={() => setOpenAsk(a.key)} aria-label={`Change the question: ${a.label || "New question"}`} className={`${box} p-3 text-left flex flex-col gap-2`}>
+                <span className="flex items-center gap-2">
+                  <span className="flex-1 min-w-0 text-[15px] font-semibold truncate">{a.label || "New question"}</span>
+                  {tag}
+                  <span className="w-8 h-8 shrink-0 rounded-lg border border-[#2a2a2a] flex items-center justify-center text-white/70"><Pencil className="w-3.5 h-3.5" /></span>
+                </span>
+                <span className="text-[10px] tracking-[0.12em] text-white/45" style={mono}>{ASK_VERB[a.type] || "ACTS FILL THIS IN"}</span>
+                <BlankField ask={a} />
+              </button>
+            );
+          }
+          return (
+            <div key={a.key} className={`${box} p-3 flex flex-col gap-2`} style={{ borderColor: color }}>
+              <div className="flex gap-2 items-center">
+                <input value={a.label} onChange={(e) => setAsk(i, { label: e.target.value })} placeholder="What you need" className={inputCls} aria-label="Ask" autoFocus />
+                <button type="button" onClick={() => { setAsks(asks.filter((_, idx) => idx !== i)); setOpenAsk(null); }} aria-label="Remove" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35 shrink-0"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <div className="flex gap-2 flex-wrap items-center">
+                <select value={a.type} onChange={(e) => setAsk(i, { type: e.target.value })} className={`${inputCls} !w-auto`} aria-label="Type">{Object.entries(ASK_TYPES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select>
+                <button type="button" onClick={() => setAsk(i, { required: !a.required })} className="min-h-[44px] px-3 rounded-lg border text-[12px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.5)", borderColor: a.required ? `${AMBER}66` : "#2a2a2a" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</button>
+                <button type="button" onClick={() => setOpenAsk(null)} className="min-h-[44px] px-3 rounded-lg text-[14px] font-semibold ml-auto" style={{ color }}>Done</button>
+              </div>
+              <input value={a.hint || ""} onChange={(e) => setAsk(i, { hint: e.target.value })} placeholder="Hint (size, format, what you want)" className={inputCls} aria-label="Hint" />
+            </div>
+          );
+        })}
+      </div>
+      <button type="button" onClick={addAsk} className="mt-3 min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color }}><Plus className="w-4 h-4" />Add your own question</button>
+    </>
+  );
+}
+
+export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", shareToken, editable = true, onEventEmail = null }) {
   const { data, reload } = useEventLink(gig.id, !!gig.id);
   const link = data?.link || null;
   const fresh = useMemo(() => buildBlocks(gig, biz?.deal, run), [gig, biz, run]);
@@ -147,7 +195,6 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState("");
   const [taskMsg, setTaskMsg] = useState("");
-  const [openAsk, setOpenAsk] = useState(null);
 
   // Start the editor from the saved link, or from the event's info.
   useEffect(() => {
@@ -157,7 +204,9 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
       const merged = [...(link.blocks || []).map((b) => ({ ...b, on: true })), ...fresh.filter((b) => !saved.has(b.key)).map((b) => ({ ...b, on: false }))];
       setBlocks(merged); setAsks(link.asks || []); setMessage(link.message || "");
     } else {
-      setBlocks(fresh); setAsks(DEFAULT_ASKS); setMessage("");
+      // A venue template loaded onto this event can bring its own questions and note (job 185).
+      const setup = gig.venue_info?.event_link_setup || null;
+      setBlocks(fresh); setAsks(Array.isArray(setup?.asks) && setup.asks.length ? setup.asks : DEFAULT_ASKS); setMessage(setup?.message || "");
       setEditing(true);
     }
   }, [data, link, fresh, blocks]);
@@ -169,8 +218,6 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const url = link ? eventLinkUrl(link.code) : "";
   const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600); } catch {} };
   const setBlock = (i, patch) => setBlocks(blocks.map((b, idx) => (idx === i ? { ...b, ...patch } : b)));
-  const setAsk = (i, patch) => setAsks(asks.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
-  const addAsk = () => { const key = `q_${Date.now().toString(36)}`; setAsks([...asks, { key, label: "", type: "text", required: false, hint: "" }]); setOpenAsk(key); };
 
   const save = async () => {
     setSaving(true); setErr("");
@@ -198,7 +245,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
           <div className="px-3 py-3 rounded-[10px] bg-[#0d0d0d] border border-[#2a2a2a] text-[14px] break-all" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
           <button type="button" onClick={copy} className="w-full min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
           {/* Email it fills in the venue's own email template (job 176). */}
-          <EventLinkEmail gig={gig} url={url} color={color} />
+          <EventLinkEmail gig={gig} url={url} color={color} onEventEmail={onEventEmail} />
         </div>
       )}
 
@@ -237,42 +284,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
                 <span className="min-h-[44px] px-3.5 rounded-[10px] border border-[#2a2a2a] flex items-center gap-2 text-[13px] text-white/40"><Eye className="w-4 h-4" /> Preview once the link is made</span>
               )}
             </div>
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {asks.map((a, i) => {
-                const isOpen = openAsk === a.key;
-                const tag = <span className="text-[10px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.45)" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</span>;
-                if (!isOpen) {
-                  // Shown as the empty field the act will get (job 176): it
-                  // gets filled in on their page, not here. Tap to change it.
-                  return (
-                    <button key={a.key} type="button" onClick={() => setOpenAsk(a.key)} aria-label={`Change the question: ${a.label || "New question"}`} className={`${box} p-3 text-left flex flex-col gap-2`}>
-                      <span className="flex items-center gap-2">
-                        <span className="flex-1 min-w-0 text-[15px] font-semibold truncate">{a.label || "New question"}</span>
-                        {tag}
-                        <span className="w-8 h-8 shrink-0 rounded-lg border border-[#2a2a2a] flex items-center justify-center text-white/70"><Pencil className="w-3.5 h-3.5" /></span>
-                      </span>
-                      <span className="text-[10px] tracking-[0.12em] text-white/45" style={mono}>{ASK_VERB[a.type] || "ACTS FILL THIS IN"}</span>
-                      <BlankField ask={a} />
-                    </button>
-                  );
-                }
-                return (
-                  <div key={a.key} className={`${box} p-3 flex flex-col gap-2`} style={{ borderColor: color }}>
-                    <div className="flex gap-2 items-center">
-                      <input value={a.label} onChange={(e) => setAsk(i, { label: e.target.value })} placeholder="What you need" className={inputCls} aria-label="Ask" autoFocus />
-                      <button type="button" onClick={() => { setAsks(asks.filter((_, idx) => idx !== i)); setOpenAsk(null); }} aria-label="Remove" className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35 shrink-0"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <select value={a.type} onChange={(e) => setAsk(i, { type: e.target.value })} className={`${inputCls} !w-auto`} aria-label="Type">{Object.entries(ASK_TYPES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select>
-                      <button type="button" onClick={() => setAsk(i, { required: !a.required })} className="min-h-[44px] px-3 rounded-lg border text-[12px] tracking-[0.1em]" style={{ ...mono, color: a.required ? AMBER : "rgba(255,255,255,0.5)", borderColor: a.required ? `${AMBER}66` : "#2a2a2a" }}>{a.required ? "REQUIRED" : "OPTIONAL"}</button>
-                      <button type="button" onClick={() => setOpenAsk(null)} className="min-h-[44px] px-3 rounded-lg text-[14px] font-semibold ml-auto" style={{ color }}>Done</button>
-                    </div>
-                    <input value={a.hint || ""} onChange={(e) => setAsk(i, { hint: e.target.value })} placeholder="Hint (size, format, what you want)" className={inputCls} aria-label="Hint" />
-                  </div>
-                );
-              })}
-            </div>
-            <button type="button" onClick={addAsk} className="mt-3 min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color }}><Plus className="w-4 h-4" />Add your own question</button>
+            <AskGrid asks={asks} setAsks={setAsks} color={color} />
           </div>
 
           {err && <p className="text-[14px]" style={{ color: AMBER }}>{err}</p>}

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
-import { TEMPLATE_TABS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
+import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
+import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary } from "@/components/showpilot/VenueTemplateParts";
 import { artistFromTemplate } from "@/lib/showTemplates";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
@@ -13,7 +14,8 @@ import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
-import { useEventBusiness } from "@/lib/eventBusiness";
+import { useEventBusiness, saveDeal, dealSummary } from "@/lib/eventBusiness";
+import { saveEventLink } from "@/lib/eventLink";
 import VenuePhoto from "@/components/showpilot/VenuePhoto";
 import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
 import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
@@ -37,7 +39,7 @@ const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engi
 // An icon for each page of a profile (job 168), by page key.
 const PAGE_ICONS = {
   address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
-  hospitality: Coffee, documents: FileText, requests: MessageSquare, paperwork: FileSignature,
+  hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, requests: MessageSquare, paperwork: FileSignature,
   contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
   merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2,
 };
@@ -333,11 +335,33 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           </>
         ),
       },
+      // A venue template also keeps the usual deal, the event link's
+      // questions and its email (job 185).
+      ...(template ? [
+        {
+          key: "deal", label: "Deal terms",
+          summary: dealSummary(vi.tpl_deal || {}) || "Your usual deal",
+          state: vi.tpl_deal?.deal_type ? "done" : "empty",
+          render: () => <DealTemplateFields value={vi.tpl_deal || {}} onChange={(v) => setVi("tpl_deal", v)} color={color} />,
+        },
+        {
+          key: "event_link", label: "Event link setup",
+          summary: linkSetupSummary(vi.event_link_setup),
+          state: vi.event_link_setup?.asks?.length ? "done" : "empty",
+          render: () => <LinkSetupTemplateFields value={vi.event_link_setup || {}} onChange={(v) => setVi("event_link_setup", v)} color={color} />,
+        },
+        {
+          key: "link_email", label: "Event link email",
+          summary: linkEmailSummary(vi.event_link_email),
+          state: vi.event_link_email?.subject || vi.event_link_email?.body ? "done" : "empty",
+          render: () => <LinkEmailTemplateFields value={vi.event_link_email} onChange={(v) => setVi("event_link_email", v)} color={color} />,
+        },
+      ] : []),
       ...(!template && gig.id ? [{
         key: "event_link", label: "Event link",
         summary: "One link per event, acts fill it in",
         state: "empty",
-        render: () => <EventLinkBuilder gig={gig} biz={biz} run={buildRunOfShow(gig)} color={color} shareToken={p.token || gig.share_token || null} editable={ed} />,
+        render: () => <EventLinkBuilder gig={gig} biz={biz} run={buildRunOfShow(gig)} color={color} shareToken={p.token || gig.share_token || null} editable={ed} onEventEmail={(v) => setVi("event_link_email", v)} />,
       }] : []),
       docsTab(gig.venue_documents, (docs) => p.update("venue_documents", docs), "venue"),
       requestsTab("venue"),
@@ -741,10 +765,36 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     engineer: () => (template ? engineerTabs() : engineerTabsFor("audio")),
     lighting: () => engineerTabsFor("lighting"),
   };
+  const tplParts = template && role === "venue";
+  const toggleInclude = (key) => {
+    const ex = new Set(gig.template_exclude || []);
+    if (ex.has(key)) ex.delete(key); else ex.add(key);
+    p.update("template_exclude", [...ex]);
+  };
+  const includeToggle = (page) => {
+    if (!tplParts || !page) return null;
+    const on = !page.excluded;
+    return (
+      <button type="button" onClick={() => toggleInclude(page.key)} aria-pressed={on}
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-[11.5px] font-bold tracking-[0.08em]"
+        style={on ? { color, border: `1px solid ${color}80`, background: `${color}14`, fontFamily: SCENE_MONO } : { color: "rgba(255,255,255,0.6)", border: "1px solid #333", fontFamily: SCENE_MONO }}>
+        {on && <Check className="w-3.5 h-3.5" strokeWidth={3} />}{on ? "IN THIS TEMPLATE" : "LEFT OUT"}
+      </button>
+    );
+  };
   const tabs = useMemo(
     () => {
       let list = builders[role]();
-      if (template) return list.filter((t) => (TEMPLATE_TABS[role] || []).includes(t.key));
+      if (template) {
+        list = list.filter((t) => (TEMPLATE_TABS[role] || []).includes(t.key));
+        if (role !== "venue") return list;
+        // The venue picks which parts the template carries (job 185).
+        const ex = new Set(gig.template_exclude || []);
+        return list.map((t) => (ex.has(t.key) ? {
+          ...t, excluded: true, state: "empty", summary: "Not in this template",
+          render: () => <ExcludedPart label={t.label} onInclude={() => toggleInclude(t.key)} color={color} />,
+        } : t));
+      }
       // No Documents page on an event (job 171): files go in Paperwork's
       // Other section. Templates keep theirs (they have no Paperwork).
       list = list.filter((t) => t.key !== "documents");
@@ -806,13 +856,48 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     else bands[i] = { ...bands[i], ...act };
     p.update("bands", bands);
   };
+  // Venue (job 185): pick the parts, then load. Pages change on screen
+  // (SAVE keeps them); the deal and an existing link's questions save now.
+  const [venueLoad, setVenueLoad] = useState(null);
+  const [loadNote, setLoadNote] = useState("");
+  const loadVenueParts = async (parts, { linkExists }) => {
+    const { name, data } = venueLoad;
+    const sec = data?.section || {};
+    applyTemplate("venue", data, gig, p.update, parts);
+    const notes = [];
+    try {
+      if (parts.has("deal") && sec.tpl_deal && gig.id && !String(gig.id).startsWith("tpl_")) {
+        const cur = biz?.deal;
+        if (!cur || cur.status === "draft") {
+          await saveDeal(gig.id, { ...(cur?.terms || {}), ...dealTermsFromTemplate(sec.tpl_deal) }, "draft");
+          await reloadBiz();
+          notes.push("The deal is saved as a draft on Paperwork.");
+        }
+      }
+      if (parts.has("event_link") && linkExists && sec.event_link_setup?.asks?.length) {
+        await saveEventLink(gig.id, { blocks: [], asks: sec.event_link_setup.asks, message: sec.event_link_setup.message || "" });
+        notes.push("The link's questions are updated.");
+      }
+    } catch (e) {
+      console.error(e);
+      notes.push("Couldn't save the deal or link part. Try loading it again.");
+    }
+    setVenueLoad(null);
+    setLoadNote(notes.join(" "));
+    setTplLoaded(name);
+  };
+  const venueLoadSheet = venueLoad ? (
+    <VenueLoadSheet name={venueLoad.name} data={venueLoad.data} gig={gig} deal={biz?.deal || null} color={color}
+      onClose={() => setVenueLoad(null)} onLoad={loadVenueParts} />
+  ) : null;
   const tplPicker = canLoadTpl ? (
     <>
+      {venueLoadSheet}
       <LoadTemplateButton category={role === "band" ? "artist" : role} hideTrigger open={tplOpen} onOpenChange={setTplOpen}
-        onLoad={(n, data) => { if (role === "band") loadArtistAct(n, data); else applyTemplate(role, data, gig, p.update); setTplLoaded(n); }} />
+        onLoad={(n, data) => { if (role === "band") { loadArtistAct(n, data); setTplLoaded(n); } else if (role === "venue") setVenueLoad({ name: n, data }); else { applyTemplate(role, data, gig, p.update); setTplLoaded(n); } }} />
       {tplLoaded && createPortal(
         <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[95] px-4 py-2.5 rounded-xl bg-[#111] border border-[#2a2a2a] text-[14px] text-white shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
-          Loaded <b>{tplLoaded}</b>. Press Save to keep it.
+          Loaded <b>{tplLoaded}</b>. Press Save to keep it.{loadNote ? ` ${loadNote}` : ""}
         </div>, document.body)}
     </>
   ) : null;
@@ -839,11 +924,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const side = template ? templateSide(role, color) : role === "venue" ? venueSide() : (role === "engineer" || role === "lighting") ? engineerSide() : managerSide();
   // Load a saved template into this event / save this section as one.
   const templateTools = ed && !template && p.user && role !== "engineer" && role !== "lighting" && role !== "band" ? (
-    <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} />
+    <TemplateTools role={role} color={color} gig={gig} update={p.update} userId={p.user.id} onLoadVenue={role === "venue" ? (n, data) => setVenueLoad({ name: n, data }) : null} />
   ) : null;
   // Requests and Paperwork are running lists, not fields to fill: left out of
   // the FILLED count, same as the event's progress (profileProgress.js).
-  const counted = (list) => list.filter((t) => t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && t.key !== "event_link");
+  const counted = (list) => list.filter((t) => !t.excluded && t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && (template || t.key !== "event_link"));
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
@@ -1164,6 +1249,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{current?.marked ? "MARKED DONE" : sw[0]}</span>
             <span className="ml-auto" />
             {current && markDoneBtn(current)}
+            {includeToggle(current)}
           </div>
           <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">{current?.render()}</div>
           {templateTools}
@@ -1316,19 +1402,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">
-          <SideLabel className="mb-1.5">{template ? "WHAT THE TEMPLATE FILLS IN" : "YOUR SECTION"}</SideLabel>
+          <SideLabel className="mb-1.5">{tplParts ? "WHAT THIS TEMPLATE INCLUDES" : template ? "WHAT THE TEMPLATE FILLS IN" : "YOUR SECTION"}</SideLabel>
           <div className="bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden divide-y divide-[#1c1c1c]">
             {tabs.map((t) => {
               const on = current?.key === t.key;
-              return (
+              const row = (
                 <button
                   key={t.key}
                   type="button"
                   role="tab"
                   aria-selected={on}
                   onClick={() => setActive(t.key)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left"
-                  style={{ background: on ? `${color}14` : "transparent", boxShadow: on ? `inset 3px 0 0 ${color}` : "none" }}
+                  className={`w-full flex items-center gap-2.5 ${tplParts ? "pl-1 pr-3.5" : "px-3.5"} py-2.5 text-left`}
+                  style={tplParts ? undefined : { background: on ? `${color}14` : "transparent", boxShadow: on ? `inset 3px 0 0 ${color}` : "none" }}
                 >
                   <span
                     className="w-[18px] h-[18px] rounded-[5px] shrink-0 flex items-center justify-center"
@@ -1344,13 +1430,23 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   <ChevronRight className="w-4 h-4 shrink-0" style={{ color: on ? color : "rgba(255,255,255,0.2)" }} />
                 </button>
               );
+              if (!tplParts) return row;
+              // Venue template: a tick per part, in or out of the template (job 185).
+              return (
+                <div key={t.key} className="flex items-center" style={{ background: on ? `${color}14` : "transparent", boxShadow: on ? `inset 3px 0 0 ${color}` : "none" }}>
+                  <label className="w-11 h-11 shrink-0 flex items-center justify-center cursor-pointer" title={t.excluded ? "Left out of this template" : "In this template"}>
+                    <input type="checkbox" checked={!t.excluded} onChange={() => toggleInclude(t.key)} aria-label={`Include ${t.label} in this template`} className="w-[18px] h-[18px]" style={{ accentColor: color }} />
+                  </label>
+                  <div className="min-w-0 flex-1" style={{ opacity: t.excluded ? 0.55 : 1 }}>{row}</div>
+                </div>
+              );
             })}
           </div>
           {otherSections}
         </div>
 
         <div role="tabpanel" className="min-h-0 overflow-y-auto px-7 py-5 flex flex-col gap-4">
-          <h2 className="text-[28px] font-bold leading-none">{current?.label}</h2>
+          <div className="flex items-center gap-3"><h2 className="text-[28px] font-bold leading-none">{current?.label}</h2><span className="ml-auto" />{includeToggle(current)}</div>
           {current?.render()}
         </div>
 
@@ -1473,7 +1569,7 @@ function TaskList({ tasks, editable, onToggle, color, showSection = false }) {
 
 // Right column while editing a template: what it does and what stays out.
 const TEMPLATE_LEFT_OUT = {
-  venue: "Nothing is left out: every part of the venue section carries over.",
+  venue: "Tick the parts this template carries. On an event you pick again which of them to load. The deal goes on as a draft for you to send.",
   manager: "Left out: the lineup, set times, arrival time and hotel. Advance items start unticked on each show.",
 };
 function templateSide(role, color) {
@@ -1494,7 +1590,7 @@ function templateSide(role, color) {
 
 // LOAD TEMPLATE / SAVE AS TEMPLATE for a section on a real event. Loading
 // only changes the screen; the section's own Save keeps it.
-function TemplateTools({ role, color, gig, update, userId }) {
+function TemplateTools({ role, color, gig, update, userId, onLoadVenue = null }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [state, setState] = useState(""); // "", "saving", "saved", "error"
@@ -1527,7 +1623,7 @@ function TemplateTools({ role, color, gig, update, userId }) {
         <div className="flex gap-2">
           <LoadTemplateButton
             category={role}
-            onLoad={(n, data) => { applyTemplate(role, data, gig, update); setLoaded(n); }}
+            onLoad={(n, data) => { if (onLoadVenue) { onLoadVenue(n, data); return; } applyTemplate(role, data, gig, update); setLoaded(n); }}
             className={pill}
             buttonStyle={{ border: "1px solid #2a2a2a", background: "#111", color: "rgba(255,255,255,0.85)" }}
           >
