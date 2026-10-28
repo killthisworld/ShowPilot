@@ -60,6 +60,10 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // The email already has an account. Supabase answers sign-up as if it
+  // worked (so it doesn't reveal who has an account) but sends no email;
+  // the only sign is a user with no identities.
+  const [existing, setExisting] = useState(false);
   const { signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   // Already signed in when this page opens (e.g. reached through browser
@@ -85,7 +89,9 @@ export default function Register() {
       const params = new URLSearchParams(window.location.search);
       const redirectTo = params.get("redirect");
       const fullRedirect = redirectTo ? `${window.location.origin}${redirectTo}` : undefined;
-      await signUp(email, password, fullRedirect, accountType);
+      const data = await signUp(email, password, fullRedirect, accountType);
+      const ids = data?.user?.identities;
+      setExisting(Array.isArray(ids) && ids.length === 0);
       setSubmitted(true);
     } catch (err) {
       toast({ title: "Couldn't create your account", description: err.message, variant: "destructive" });
@@ -104,7 +110,7 @@ export default function Register() {
     }
   };
 
-  if (submitted) return <BoardingPass email={email} role={role} color={color} />;
+  if (submitted) return <BoardingPass email={email} role={role} color={color} existing={existing} />;
 
   if (step === 1) {
     return (
@@ -205,7 +211,7 @@ export default function Register() {
 
 // After sign-up: the "check your email" step, as a boarding pass with a
 // tear-off stub. The role's color runs along the top.
-function BoardingPass({ email, role, color }) {
+function BoardingPass({ email, role, color, existing }) {
   const Icon = role?.icon;
   const cell = (k, v, c) => (
     <div className="min-w-0">
@@ -231,7 +237,7 @@ function BoardingPass({ email, role, color }) {
           <div className="grid grid-cols-2 gap-x-5 gap-y-4 mt-5">
             <div className="col-span-2">{cell("PASSENGER", email)}</div>
             {cell("ROLE", role?.label || "Pilot", color)}
-            {cell("STATUS", "Confirm email", "#FF6A00")}
+            {cell("STATUS", existing ? "Already on board" : "Confirm email", "#FF6A00")}
           </div>
         </div>
 
@@ -242,9 +248,15 @@ function BoardingPass({ email, role, color }) {
         </div>
 
         <div className="px-6 pt-3 pb-6">
-          <p className="text-white/75 text-base leading-snug">
-            We sent a link to <span className="text-white font-semibold break-all">{email}</span>. Open it to confirm your account, then sign in.
-          </p>
+          {existing ? (
+            <p className="text-white/75 text-base leading-snug">
+              <span className="text-white font-semibold break-all">{email}</span> already has a Show Pilot account, so no new email was sent. Sign in instead, or reset your password if you've forgotten it. If you made it with Google, use Continue with Google.
+            </p>
+          ) : (
+            <p className="text-white/75 text-base leading-snug">
+              We sent a link to <span className="text-white font-semibold break-all">{email}</span>. Open it to confirm your account, then sign in. Not there in a few minutes? Check spam.
+            </p>
+          )}
           <div
             aria-hidden="true"
             className="h-10 mt-4 rounded-sm opacity-70"
@@ -257,6 +269,11 @@ function BoardingPass({ email, role, color }) {
           >
             Go to sign in
           </Link>
+          {existing && (
+            <Link to="/forgot-password" className="mt-3 w-full h-11 rounded-lg border border-[#383838] text-white/85 text-base font-semibold flex items-center justify-center hover:border-white/40">
+              Reset password
+            </Link>
+          )}
         </div>
       </div>
     </AuthShell>
