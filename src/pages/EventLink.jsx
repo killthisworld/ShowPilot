@@ -161,7 +161,7 @@ export default function EventLink() {
   const [token, setToken] = useState(() => getStoredToken(code));
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState(""); // "", saving, saved, error
-  // Locked until the act says who they are (returning acts open straight in).
+  // Locked until the act opens the key, every visit (returning acts keep their answers).
   const [unlocked, setUnlocked] = useState(false);
   const [pane, setPane] = useState("start"); // start | show | question | ask:<key>
   const [keyPhase, setKeyPhase] = useState("idle"); // idle | unlocking (the key opening, job 191)
@@ -198,7 +198,7 @@ export default function EventLink() {
         setActName(d.response.act_name || "");
         setAnswers(d.response.answers || {});
         setSubmitted(!!d.response.submitted_at);
-        if (String(d.response.act_name || "").trim()) setUnlocked(true);
+        // The key opens every time the link is opened (Oct 29); their answers are already loaded.
       }
     }).catch((e) => { console.error(e); if (live) setInfo(null); });
     return () => { live = false; };
