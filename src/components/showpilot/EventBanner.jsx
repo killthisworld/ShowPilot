@@ -17,7 +17,7 @@ export default function EventBanner({ gig, imageUrl, title }) {
   // No event picture: the venue's photo (job 163), else the headliner's /
   // an act's / the artist's photo (job 157).
   const headliner = (gig.bands || []).find((b) => b.photo_url && b.band_name && b.band_name === gig.band_name);
-  const src = imageUrl || gig.icon_url || gig.venue_info?.photo_url || headliner?.photo_url || sectionPhoto("band", gig) || "";
+  const src = imageUrl || gig.icon_url || gig.venue_info?.photo_url || headliner?.photo_url || sectionPhoto("band", gig, { profile: false }) || "";
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [src]);
   const img = broken ? null : src;
