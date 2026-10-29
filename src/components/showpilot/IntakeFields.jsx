@@ -81,7 +81,17 @@ function MembersBody({ h }) {
             <input value={m.name || ""} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} />
             <button type="button" onClick={() => removeMember(i)} aria-label="Remove member" className="min-h-[44px] w-[40px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
           </div>
-          <VocalsQuestion value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
+          {/* Vocals on the left, what they hear on the right, same size (job 201). */}
+          <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
+            <VocalsQuestion compact value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
+            <div className="flex items-center gap-1.5" role="group" aria-label="Hears">
+              <span className="text-white/60 text-[13px] mr-0.5">Hears</span>
+              {["IEM", "Monitor"].map((type) => {
+                const on = m.bus_type === type;
+                return <button key={type} type="button" onClick={() => updateMember(i, "bus_type", on ? "" : type)} aria-pressed={on} className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}>{type}</button>;
+              })}
+            </div>
+          </div>
           {getInstruments(m).map((inst, ii) => (isVocalInput(inst) ? null : (
             <div key={ii} className="flex items-center gap-1.5">
               <input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="e.g. Guitar" aria-label="Instrument" className={`${inputCls} !min-h-[40px]`} />
@@ -95,12 +105,6 @@ function MembersBody({ h }) {
           )))}
           <div className="flex items-center gap-2 flex-wrap">
             <button type="button" onClick={() => addInstrument(i)} className="min-h-[38px] px-3 rounded-full border border-dashed border-[#444] text-[13px] font-semibold flex items-center gap-1" style={{ color: GREEN }}><Plus className="w-3.5 h-3.5" />Instrument</button>
-            <span className="flex-1" />
-            <span className="text-[12px] text-white/55">Hears:</span>
-            {["IEM", "Monitor"].map((type) => {
-              const on = m.bus_type === type;
-              return <button key={type} type="button" onClick={() => updateMember(i, "bus_type", on ? "" : type)} aria-pressed={on} className={chip(on)} style={on ? { background: GREEN, borderColor: GREEN } : undefined}>{type === "Monitor" ? "Wedge" : type}</button>;
-            })}
           </div>
         </div>
       ))}

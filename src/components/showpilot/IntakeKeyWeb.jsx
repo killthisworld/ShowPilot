@@ -313,7 +313,7 @@ export default function IntakeKeyWeb({
     <div className="fixed inset-0 flex items-center justify-center p-4 text-white" style={{ zIndex: 60 }}>
       <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
       <div role="dialog" aria-modal="true" aria-label="The show" className="ikw-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-5">
-        <button type="button" onClick={close} aria-label="Close" className="absolute right-2 top-2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
+        <button type="button" onClick={close} aria-label="Close" className="absolute right-2 top-2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
         {show()}
       </div>
     </div>, document.body) : null;

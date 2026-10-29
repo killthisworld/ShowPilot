@@ -22,13 +22,14 @@ export function setMemberVocals(member, instruments, yes) {
   return { ...member, vocals: yes, instruments: next };
 }
 
-export default function VocalsQuestion({ value, onChange }) {
+// `compact` tightens the spacing so it shares a line with Hears on the intake forms (job 201).
+export default function VocalsQuestion({ value, onChange, compact = false }) {
   const btn = (on, color) =>
-    `h-8 px-3.5 rounded-lg text-xs font-semibold border transition-all ${on ? color : "border-[#333] text-white/40 hover:text-white/60"}`;
+    `h-8 ${compact ? "px-2.5" : "px-3.5"} rounded-lg text-xs font-semibold border transition-all ${on ? color : "border-[#333] text-white/40 hover:text-white/60"}`;
   return (
     // "Vocals" sits right beside its Yes / No (job 155).
-    <div className="flex items-center gap-2" role="group" aria-label="Vocals">
-      <span className="text-white/60 text-sm mr-1">Vocals</span>
+    <div className={`flex items-center ${compact ? "gap-1.5" : "gap-2"}`} role="group" aria-label="Vocals">
+      <span className={`text-white/60 ${compact ? "text-[13px] mr-0.5" : "text-sm mr-1"}`}>Vocals</span>
       <button type="button" aria-pressed={value === true} onClick={() => onChange(true)} className={btn(value === true, "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10")}>Yes</button>
       <button type="button" aria-pressed={value === false} onClick={() => onChange(false)} className={btn(value === false, "border-white/40 text-white bg-white/10")}>No</button>
     </div>
