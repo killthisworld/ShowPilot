@@ -6,7 +6,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
-import { SenderCircle } from "@/components/showpilot/IntakeKeyWeb";
+import { SenderCircle, PlaneProgress } from "@/components/showpilot/IntakeKeyWeb";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
 
@@ -17,6 +17,15 @@ import { supabase } from "@/api/supabaseClient";
 const BLUE = "#60A5FA";
 const GREEN = "#8CFF3D";
 const AMBER = "#FF6A00";
+// Anything typed or picked in an answer (job 198).
+const hasAnything = (v) => {
+  if (v === undefined || v === null) return false;
+  if (typeof v === "string") return v.trim() !== "";
+  if (typeof v === "number" || typeof v === "boolean") return true;
+  if (Array.isArray(v)) return v.some(hasAnything);
+  if (typeof v === "object") return Object.entries(v).some(([k, x]) => k !== "kind" && hasAnything(x));
+  return false;
+};
 const RED = "#F87171"; // the act's own colour (Mgmt / Artist)
 // A circle's label: the question, shortened to fit.
 const shortLabel = (label) => {
@@ -282,8 +291,13 @@ export default function EventLink() {
 
   const setAnswer = (key, val) => { dirty.current = true; setSubmitted(false); setAnswers((a) => ({ ...a, [key]: val })); };
   const asks = info?.asks || [];
-  const done = useMemo(() => asks.filter((a) => isAnswered(a, answers[a.key])).length, [asks, answers]);
-  const missing = asks.filter((a) => a.required && !isAnswered(a, answers[a.key]));
+  // A circle is green once it's fully answered, or saved with anything in it (job 198).
+  const savedKey = `event_link_saved_${String(code || "").toUpperCase()}`;
+  const [saved, setSaved] = useState(() => { try { return JSON.parse(localStorage.getItem(savedKey) || "{}") || {}; } catch { return {}; } });
+  const markSaved = (key) => setSaved((v) => { const n = { ...v, [key]: true }; try { localStorage.setItem(savedKey, JSON.stringify(n)); } catch {} return n; });
+  const isDone = (a) => isAnswered(a, answers[a.key]) || (!!saved[a.key] && hasAnything(answers[a.key]));
+  const done = asks.filter(isDone).length;
+  const missing = asks.filter((a) => a.required && !isDone(a));
 
   if (info === undefined) {
     return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>;
@@ -413,6 +427,7 @@ export default function EventLink() {
   const curType = cur ? askType(cur, answers[cur.key]) : null;
   // Save keeps the answer and goes back to the web, where the circle turns green.
   const saveCircle = async () => {
+    if (cur) markSaved(cur.key);
     if (actName.trim()) await persist(actName, answers);
     setPane("start");
   };
@@ -449,7 +464,7 @@ export default function EventLink() {
         <circle cx="50" cy="50" r="37" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.3" />
         {asks.map((a, i) => {
           const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
-          const ok = isAnswered(a, answers[a.key]);
+          const ok = isDone(a);
           return <line key={a.key} x1="50" y1="50" x2={50 + 37 * Math.cos(ang)} y2={50 + 37 * Math.sin(ang)} stroke={pane === `ask:${a.key}` ? "rgba(255,255,255,0.7)" : ok ? `${GREEN}80` : "rgba(255,255,255,0.16)"} strokeWidth="0.3" />;
         })}
       </svg>
@@ -461,7 +476,7 @@ export default function EventLink() {
       </button>
       {asks.map((a, i) => {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
-        const ok = isAnswered(a, answers[a.key]);
+        const ok = isDone(a);
         const on = pane === `ask:${a.key}`;
         return (
           <button key={a.key} type="button" onClick={() => setPane(on ? "start" : `ask:${a.key}`)} aria-pressed={on} aria-label={`${a.label}, ${ok ? "done" : "not filled in yet"}`}
@@ -483,7 +498,7 @@ export default function EventLink() {
   const askBody = cur && (
     <div className="flex flex-col gap-3 text-center">
       <div className="flex flex-col items-center gap-1">
-        {(() => { const ok = isAnswered(cur, answers[cur.key]); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? "NEEDED" : "OPTIONAL"} · {curIdx + 1} / {N}</div>; })()}
+        {(() => { const ok = isDone(cur); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? "NEEDED" : "OPTIONAL"} · {curIdx + 1} / {N}</div>; })()}
         <div className={`${desktop ? "text-[30px]" : "text-[22px]"} font-bold leading-tight`} style={desktop ? { fontFamily: "'Barlow Condensed', sans-serif" } : undefined}>{cur.label}</div>
         {cur.hint && cur.type !== "yesno" && <p className="text-[13.5px] text-white/60">{cur.hint}</p>}
       </div>
@@ -556,7 +571,7 @@ export default function EventLink() {
       </div>
       <div className="pt-1 flex flex-col items-end gap-1 shrink-0">
         <span className="text-[11px] tracking-[0.08em] text-white/75" style={mono}>{done} OF {N} DONE</span>
-        <div className={`${big ? "w-[180px] h-2" : "w-[110px] h-1.5"} rounded bg-[#1f1f1f] overflow-hidden`}><div className="h-full" style={{ width: `${N ? (done / N) * 100 : 100}%`, background: GREEN }} /></div>
+        <PlaneProgress done={done} total={N} big={big} color={GREEN} />
         {statusText && <span className="text-[10.5px] tracking-[0.08em]" style={{ ...mono, color: status === "error" ? AMBER : "rgba(255,255,255,0.5)" }}>{statusText}</span>}
       </div>
     </div>

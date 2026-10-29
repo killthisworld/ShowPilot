@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Lock, CheckCircle, CalendarDays, X } from "lucide-react";
+import { Lock, CheckCircle, CalendarDays, X, Plane } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -42,6 +42,23 @@ const shortLabel = (label) => {
   const t = String(label || "").trim();
   return t.length <= 16 ? t : t.split(/\s+/).slice(0, 2).join(" ");
 };
+
+// Progress in the top right (job 198): a little plane flies along the bar
+// as circles go green.
+export function PlaneProgress({ done = 0, total = 0, big = false, color = "#8CFF3D" }) {
+  const pct = total ? Math.min(100, (done / total) * 100) : 0;
+  const size = big ? 18 : 15;
+  return (
+    <div className={`relative ${big ? "w-[180px]" : "w-[120px]"}`} style={{ height: size + 4 }} role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-label={`${done} of ${total} done`}>
+      <div className={`absolute left-0 right-0 top-1/2 -translate-y-1/2 ${big ? "h-2" : "h-1.5"} rounded bg-[#1f1f1f] overflow-hidden`}>
+        <div className="h-full transition-[width] duration-700 ease-out" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span aria-hidden="true" className="absolute top-1/2 transition-[left] duration-700 ease-out" style={{ left: `calc(${pct}% - ${(pct / 100) * size}px)`, transform: "translateY(-50%)" }}>
+        <Plane style={{ width: size, height: size, color: pct ? color : "rgba(255,255,255,0.6)", transform: "rotate(45deg)", filter: pct ? `drop-shadow(0 0 4px ${color}aa)` : "none" }} fill="currentColor" strokeWidth={1.5} />
+      </span>
+    </div>
+  );
+}
 
 // The sender in the middle of the web (job 196): their picture and name,
 // tapping opens their digital card.
@@ -247,7 +264,7 @@ export default function IntakeKeyWeb({
       </div>
       <div className="pt-1 flex flex-col items-end gap-1 shrink-0">
         <span className="text-[11px] tracking-[0.08em] text-white/75" style={mono}>{done} OF {N} DONE</span>
-        <div className={`${big ? "w-[180px] h-2" : "w-[110px] h-1.5"} rounded bg-[#1f1f1f] overflow-hidden`}><div className="h-full" style={{ width: `${N ? (done / N) * 100 : 0}%`, background: GREEN }} /></div>
+        <PlaneProgress done={done} total={N} big={big} color={GREEN} />
       </div>
     </div>
   );

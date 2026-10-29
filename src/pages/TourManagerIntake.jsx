@@ -474,7 +474,7 @@ export default function TourManagerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <EventOverviewCard title={showTitle} date={tmRequest?.date} venue={tmRequest?.venue} color="#8CFF3D" />
+          <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={tmRequest?.venue} color="#8CFF3D" />
           <div className="text-[13.5px] text-white/60">Sending this puts the event on {shownName}'s ShowPilot.</div>
         </div>
       )}

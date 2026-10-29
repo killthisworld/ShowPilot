@@ -289,7 +289,7 @@ export default function OpenerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <EventOverviewCard title={showTitle} date={parent?.date} venue={parent?.venue} color="#8CFF3D" />
+          <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={parent?.venue} color="#8CFF3D" />
           {parent?.band_name && <div className="text-[14px] text-white/75">You're joining {parent.band_name}</div>}
         </div>
       )}

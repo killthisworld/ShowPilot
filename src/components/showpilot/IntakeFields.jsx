@@ -163,16 +163,29 @@ function ContactBody({ h, onCard, cardOn, showCard }) {
 
 const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 
-// The circles for the act's web. `seen` is which circles the act has saved
-// (for Role, which always has an answer).
+// The circles for the act's web. `seen` is which circles the act has saved.
+// A circle turns green when it's saved with something in it (job 198), or
+// once it's fully filled in.
 export function intakeCircles(h, { seen = {}, card = null } = {}) {
   const { form, getInstruments } = h;
+  const members = form.band_members || [];
+  const c = (key, label, short, hint, required, some, full, body) => ({
+    key, label, short, hint, required, done: !!full || (!!seen[key] && !!some), body,
+  });
   return [
-    { key: "role", label: "Your role", short: "Role", hint: "Where you are on the bill", required: true, done: !!seen.role && has(form.role), body: () => <RoleBody h={h} /> },
-    { key: "artist", label: "Artist and set", short: "Artist & set", hint: "Name, set length, genre", required: true, done: has(form.band_name), body: () => <ArtistBody h={h} /> },
-    { key: "members", label: "Members and inputs", short: "Members & inputs", hint: "Who plays what, and what the engineer plugs in", required: true, done: form.band_members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), body: () => <MembersBody h={h} /> },
-    { key: "plot", label: "Stage plot", short: "Stage plot", hint: "A photo or PDF is fine", required: false, done: (form.stage_plot_files || []).length > 0, body: () => <StagePlotBody h={h} /> },
-    { key: "notes", label: "Notes for the engineer", short: "Notes", hint: "For the whole band or one member", required: false, done: has(form.general_notes) || form.band_members.some((m) => has(m.notes)), body: () => <NotesBody h={h} /> },
-    { key: "contact", label: "Your contact", short: "Contact", hint: "Who the engineer calls on the day", required: false, done: has(form.submitter_name) && (has(form.submitter_phone) || has(form.submitter_email)), body: () => <ContactBody h={h} {...(card || {})} /> },
+    c("role", "Your role", "Role", "Where you are on the bill", true,
+      has(form.role), false, () => <RoleBody h={h} />),
+    c("artist", "Artist and set", "Artist & set", "Name, set length, genre", true,
+      has(form.band_name), has(form.band_name), () => <ArtistBody h={h} />),
+    c("members", "Members and inputs", "Members & inputs", "Who plays what, and what the engineer plugs in", true,
+      members.some((m) => has(m.name) || getInstruments(m).some((x) => has(x.name))),
+      members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <MembersBody h={h} />),
+    c("plot", "Stage plot", "Stage plot", "A photo or PDF is fine", false,
+      (form.stage_plot_files || []).length > 0, (form.stage_plot_files || []).length > 0, () => <StagePlotBody h={h} />),
+    c("notes", "Notes for the engineer", "Notes", "For the whole band or one member", false,
+      has(form.general_notes) || members.some((m) => has(m.notes)), has(form.general_notes) || members.some((m) => has(m.notes)), () => <NotesBody h={h} />),
+    c("contact", "Your contact", "Contact", "Who the engineer calls on the day", false,
+      has(form.submitter_name) || has(form.submitter_phone) || has(form.submitter_email),
+      has(form.submitter_name) && (has(form.submitter_phone) || has(form.submitter_email)), () => <ContactBody h={h} {...(card || {})} />),
   ];
 }
