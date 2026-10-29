@@ -385,7 +385,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         },
       ] : []),
       ...(!template && gig.id ? [{
-        key: "event_link", label: "Event link",
+        // A feature button on the web, not a page circle (Oct 29): "Event Form"
+        // in the web's top-right corner opens it.
+        key: "event_link", label: "Event Form", feature: true,
         summary: "One link per event, acts fill it in",
         state: "empty",
         render: () => <EventLinkBuilder gig={gig} biz={biz} run={buildRunOfShow(gig)} color={color} shareToken={p.token || gig.share_token || null} editable={ed} onEventEmail={(v) => setVi("event_link_email", v)} />,
@@ -1014,7 +1016,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const [linksOpen, setLinksOpen] = useState(false);
   const linksOn = !template && isDesktopNow() && !!p.user && !!gig.id && (role === "engineer" || role === "lighting");
   const linksSheet = linksOpen && <EventLinksSheet gig={gig} user={p.user} isOwner={!!p.permissions?.is_owner} color={color} onClose={() => setLinksOpen(false)} />;
+  // Pages opened from a feature button stay off the web and the page cards.
+  const webTabs = tabs.filter((t) => !t.feature);
+  const eventFormOn = tabs.some((t) => t.key === "event_link" && t.feature);
   const featureDcas = [
+    eventFormOn ? { key: "event_form", label: "Event Form", color, onClick: () => (layout === "pages" ? reveal("event_link") : setActive("event_link")) } : null,
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
     canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
@@ -1066,7 +1072,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             color={color}
             title={ROLE_TITLE[role]}
             sub={ed ? "CAN EDIT" : "VIEW ONLY"}
-            tabs={tabs}
+            tabs={webTabs}
             activeKey={active}
             onPick={(k) => reveal(k)}
             dcas={featureDcas}
@@ -1130,7 +1136,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 )}
                 {/* Two cards a row, each with an icon for what's on the page (job 168). */}
                 <div className="grid gap-2" style={{ gridTemplateColumns: wide ? "repeat(3, minmax(0, 1fr))" : "repeat(auto-fill, minmax(220px, 1fr))" }}>
-                  {tabs.map((t) => {
+                  {webTabs.map((t) => {
                     const Icon = PAGE_ICONS[t.key] || FileText;
                     return (
                       <button key={t.key} type="button" onClick={() => setActive(t.key)} className="relative min-w-0 flex items-center gap-2.5 pl-2.5 pr-3 py-2.5 rounded-xl border border-[#232323] bg-[#151515] hover:border-white/25 text-left">
@@ -1219,7 +1225,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             color={color}
             title={ROLE_TITLE[role]}
             sub={ed ? "CAN EDIT" : "VIEW ONLY"}
-            tabs={tabs}
+            tabs={webTabs}
             activeKey={current?.key}
             onPick={setActive}
             dcas={dcas}
