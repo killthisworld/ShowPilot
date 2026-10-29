@@ -2,17 +2,15 @@ import React from "react";
 import { Ticket, Globe } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
-import { overviewRun, linkHref } from "@/lib/eventLink";
+import { linkHref } from "@/lib/eventLink";
 
 // The event overview card an act sees at the top of the event link (job 176),
-// and the venue's preview of it: picture, name, date and venue, the run of
-// show, tickets and the venue website. Nothing private.
+// and the venue's preview of it: picture, name, date and venue, tickets and
+// the venue website. Nothing private. (No run of show since Oct 29.)
 const mono = { fontFamily: SCENE_MONO };
-const lbl = "text-[10.5px] tracking-[0.14em] text-white/45";
 const fmtDay = (d) => (d ? new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "");
 
 export default function EventOverviewCard({ ov = {}, title, date, venue, place, color = "#60A5FA" }) {
-  const run = overviewRun(ov);
   const ticket = linkHref(ov.ticket_link);
   const site = linkHref(ov.website);
   return (
@@ -31,22 +29,8 @@ export default function EventOverviewCard({ ov = {}, title, date, venue, place, 
         </div>
       </div>
 
-      {(run.length > 0 || ticket || site) && (
+      {(ticket || site) && (
       <div className="p-4 flex flex-col gap-4">
-        {run.length > 0 && (
-          <section>
-            <div className={`${lbl} mb-1.5`} style={mono}>RUN OF SHOW</div>
-            <div className="rounded-[10px] border border-[#242424] divide-y divide-[#1f1f1f]">
-              {run.map((r, i) => (
-                <div key={i} className="grid grid-cols-[80px_minmax(0,1fr)] gap-2 px-3 py-2 text-[14.5px]">
-                  <span className="text-[13px]" style={{ ...mono, color: r.kind === "curfew" ? "#FCA5A5" : color }}>{r.time || "—"}</span>
-                  <span className="truncate" style={r.kind === "curfew" ? { color: "#FCA5A5" } : undefined}>{r.label}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         {(ticket || site) && (
           <div className="flex gap-2 flex-wrap">
             {ticket && <a href={ticket} target="_blank" rel="noreferrer" className="flex-1 min-w-[140px] min-h-[44px] rounded-[10px] border flex items-center justify-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}><Ticket className="w-4 h-4" />Tickets</a>}
