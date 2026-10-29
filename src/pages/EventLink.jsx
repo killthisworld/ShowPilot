@@ -6,6 +6,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
+import { SenderCircle } from "@/components/showpilot/IntakeKeyWeb";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
 
@@ -235,21 +236,6 @@ export default function EventLink() {
   const [justSent, setJustSent] = useState(false);
   const [keyPhase, setKeyPhase] = useState("idle"); // idle | unlocking (the key opening, job 191)
   const desktop = useIsDesktop();
-  // Someone with a Show Pilot account opening their key: their own profile
-  // picture goes in the middle of their web (job 192).
-  const [myPhoto, setMyPhoto] = useState("");
-  useEffect(() => {
-    let live = true;
-    (async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !live) return;
-        const { data } = await supabase.from("user_preferences").select("profile_photo_url").eq("user_id", user.id).maybeSingle();
-        if (live && data?.profile_photo_url) setMyPhoto(data.profile_photo_url);
-      } catch { /* not signed in */ }
-    })();
-    return () => { live = false; };
-  }, []);
   // Several questions at once for the venue (job 192).
   const [drafts, setDrafts] = useState([""]);
   const dirty = useRef(false);
@@ -453,13 +439,11 @@ export default function EventLink() {
   ) : null;
   const statusText = preview ? "PREVIEW · NOTHING IS SAVED" : status === "saving" ? "SAVING…" : status === "error" ? "COULDN'T SAVE, TRY AGAIN" : status === "saved" ? "SAVED" : "";
 
-  // The act's picture in the middle: their lineup photo, else the photo they
-  // uploaded on this form.
-  const nameKey = actName.trim().toLowerCase();
-  const lineupPhoto = (info.overview?.bands || []).find((b) => String(b.band_name || "").trim().toLowerCase() === nameKey)?.photo_url || "";
-  const photoAsk = asks.find((a) => a.type === "file" && /photo|picture|headshot|press/i.test(`${a.key} ${a.label}`));
-  const upPhoto = photoAsk && answers[photoAsk.key]?.url && /^image\//.test(answers[photoAsk.key]?.type || "image/") ? answers[photoAsk.key].url : "";
-  const actPhoto = myPhoto || lineupPhoto || upPhoto;
+  // The sender in the middle (job 196): the venue (or whoever made the key),
+  // their picture, linking to their digital card.
+  const snd = info.sender || {};
+  const sendColor = { audio: "#8CFF3D", artist: RED, management: RED, mgmt: RED }[String(snd.type || "").toLowerCase()] || BLUE;
+  const center = { name: snd.name || info.venue || "", photo: snd.photo || "", label: snd.photo ? "" : "Sent by", href: snd.card ? `/pilot/${snd.card}` : "" };
 
   const corner = "absolute w-[15%] aspect-square min-w-[54px] rounded-[12px] border-[1.5px] flex flex-col items-center justify-center gap-1 text-[10.5px] sm:text-[12px] font-bold backdrop-blur-sm";
   const web = (
@@ -498,21 +482,7 @@ export default function EventLink() {
           </button>
         );
       })}
-      {/* The act in the middle: their picture when there is one. */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center" style={{ borderColor: RED, background: "#1c1212", boxShadow: `0 0 30px ${RED}66` }}>
-        {actPhoto ? (
-          <>
-            <img src={actPhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(10,6,6,0.85))" }} />
-            <span className={`relative mt-auto mb-[12%] ${desktop ? "text-[20px]" : "text-[14px]"} font-bold leading-none px-2 truncate max-w-full`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{actName.toUpperCase()}</span>
-          </>
-        ) : (
-          <>
-            <span className={`${desktop ? "text-[26px]" : "text-[17px]"} font-bold leading-none break-words max-w-full px-2`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color: RED }}>{actName.toUpperCase()}</span>
-            <span className="text-[9px] sm:text-[10.5px] tracking-[0.1em] text-white/65 mt-0.5" style={mono}>YOUR WEB</span>
-          </>
-        )}
-      </div>
+      <SenderCircle center={center} color={sendColor} desktop={desktop} />
     </div>
   );
 
@@ -570,7 +540,6 @@ export default function EventLink() {
       <button type="button" onClick={sendQuestion} disabled={preview || !drafts.some((d) => d.trim())} className="w-full min-h-[50px] rounded-[12px] font-bold text-[15px] disabled:opacity-40" style={{ background: BLUE, color: "#0d0d0d" }}>{drafts.filter((d) => d.trim()).length > 1 ? `Send ${drafts.filter((d) => d.trim()).length} questions` : "Send question"}</button>
     </div>
   );
-  const firstNeeded = missing[0] || asks[0];
   const showModal = pane === "show" ? (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 30 }}>
       <button type="button" aria-label="Close" onClick={() => setPane("start")} className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
@@ -580,14 +549,6 @@ export default function EventLink() {
       </div>
     </div>
   ) : null;
-  const startBody = (
-    <div className="flex flex-col items-center gap-2 text-center">
-      {info.message && <p className="w-full text-[15px] text-white/80 whitespace-pre-wrap pb-2 border-b border-[#242424] mb-1">{info.message}</p>}
-      <span className="text-[17px] font-bold">{N ? (reqLeft ? "Tap a circle to fill it in" : submitted ? "All sent" : "Everything needed is in") : "Nothing to fill in"}</span>
-      {(!N || !reqLeft) && <span className="text-[14px] text-white/60 leading-relaxed">{N ? (submitted ? "You can still change anything; it saves as you go." : `Tap Send to let ${info.venue || "the venue"} know.`) : "Tap The show for the details."}</span>}
-      {N > 0 && reqLeft > 0 && <button type="button" onClick={() => setPane(`ask:${firstNeeded.key}`)} className="mt-2 min-h-[48px] px-5 rounded-[12px] font-bold text-[15px]" style={{ background: RED, color: "#0d0d0d" }}>Start with {shortLabel(firstNeeded.label)}</button>}
-    </div>
-  );
   const sendRow = submitted ? (
     <p className="text-[13.5px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. You can still change anything; it saves as you go.</p>
   ) : reqLeft ? null : (
@@ -617,16 +578,24 @@ export default function EventLink() {
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {previewBar}
           {header(true)}
-          <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
-            <div className="flex flex-col gap-3">{web}</div>
-            <div className="sticky top-6 flex flex-col gap-3">
-              <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                {cur ? askBody : pane === "question" ? questionBody : startBody}
+          {/* The web on its own in the middle; a circle opens beside it. */}
+          {cur || pane === "question" ? (
+            <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
+              <div className="flex flex-col gap-3">{web}</div>
+              <div className="sticky top-6 flex flex-col gap-3">
+                <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
+                  {cur ? askBody : questionBody}
+                </div>
               </div>
-              {sendRow}
-              <div>{changeName}</div>
             </div>
-          </div>
+          ) : (
+            <div className="w-full max-w-[640px] mx-auto flex flex-col items-center gap-4">
+              <div className="w-full">{web}</div>
+              {!N && <p className="text-[14px] text-white/60">Nothing to fill in. Tap The show for the details.</p>}
+              <div className="w-full">{sendRow}</div>
+              {changeName}
+            </div>
+          )}
         </div>
         {showModal}
         {sentModal}
@@ -642,10 +611,12 @@ export default function EventLink() {
       <div className="el-web-in relative px-4 pt-4 pb-8 flex flex-col gap-3" style={{ zIndex: 1 }}>
         {previewBar}
         {header(false)}
-        <div className="mt-1">{web}</div>
-        <div className="rounded-[16px] border border-[#262626] bg-[#151515]/90 backdrop-blur p-4">{startBody}</div>
-        {sendRow}
-        <div className="flex justify-center">{changeName}</div>
+        <div className="flex-1 flex flex-col justify-center gap-4 min-h-[calc(100dvh-140px)]">
+          {web}
+          {!N && <p className="text-center text-[14px] text-white/60">Nothing to fill in. Tap The show for the details.</p>}
+          {sendRow}
+          <div className="flex justify-center">{changeName}</div>
+        </div>
       </div>
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, Trash2, X, Paperclip, User } from "lucide-react";
+import { Plus, Trash2, X, Paperclip, User, Music } from "lucide-react";
 import VocalsQuestion, { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
@@ -37,8 +37,14 @@ function ArtistBody({ h }) {
     if (t && !form.genre_tags.includes(t)) update("genre_tags", [...form.genre_tags, t]);
     setGenreInput("");
   };
+  const fill = h.fillFromProfile;
   return (
     <div className="flex flex-col gap-3">
+      {fill && (
+        <button type="button" onClick={fill.onClick} disabled={fill.loading} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#8CFF3D]/40 text-[13.5px] font-semibold text-[#8CFF3D] flex items-center gap-1.5">
+          <Music className="w-4 h-4" />{fill.loading ? "Loading…" : "Fill it from my artist profile"}
+        </button>
+      )}
       <label><span className={label}>ARTIST / GROUP NAME *</span>
         <input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} placeholder="Artist" className={inputCls} /></label>
       <label><span className={label}>SET LENGTH (MINUTES)</span>

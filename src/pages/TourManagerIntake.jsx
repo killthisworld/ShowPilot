@@ -6,12 +6,13 @@ import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Music, Users, Wifi, Save, User, ExternalLink } from "lucide-react";
+import { Plus, Trash2, Music, Users, Wifi, Save } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import { useToast } from "@/components/ui/use-toast";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3 } from "lucide-react";
 
@@ -58,7 +59,6 @@ export default function TourManagerIntake({ link } = {}) {
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   // Which circles the act has saved on their web (job 195).
   const [seen, setSeen] = usePersistedState(`tm_intake_seen_${token}`, {});
-  const [myPhoto, setMyPhoto] = useState("");
   const { toast } = useToast();
 
   const handleLoadTemplate = async () => {
@@ -109,8 +109,6 @@ export default function TourManagerIntake({ link } = {}) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
-        // Signed in: their profile picture in the middle of their web.
-        if (user) supabase.from("user_preferences").select("profile_photo_url").eq("user_id", user.id).maybeSingle().then(({ data: p }) => setMyPhoto(p?.profile_photo_url || ""));
         if (token) {
           // Token lookup: the engineer who made the link gets the full
           // request, anyone else just the event name / date / status.
@@ -442,6 +440,7 @@ export default function TourManagerIntake({ link } = {}) {
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
+    fillFromProfile: !isEngineer ? { onClick: handleLoadTemplate, loading: loadingTemplate } : null,
     formatPhone: formatPhoneNumber,
   };
   const onCard = () => {
@@ -463,7 +462,10 @@ export default function TourManagerIntake({ link } = {}) {
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
-      actPhoto={myPhoto}
+      center={{
+        name: shownName, photo: engineerCard?.profile_photo_url || "", label: "Audio",
+        href: engineerCard?.card_share_token ? `/pilot/${engineerCard.card_share_token}` : "",
+      }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
       corner={tmRequest?.include_services ? {
@@ -472,26 +474,10 @@ export default function TourManagerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <div className="text-[11px] tracking-[0.14em] text-white/55">{(tmRequest?.venue || "").toUpperCase()}</div>
-          <div className="text-[30px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{showTitle}</div>
-          {dayLine && <div className="text-[14px] text-white/65">{dayLine}</div>}
+          <EventOverviewCard title={showTitle} date={tmRequest?.date} venue={tmRequest?.venue} color="#8CFF3D" />
           <div className="text-[13.5px] text-white/60">Sending this puts the event on {shownName}'s ShowPilot.</div>
-          {engineerCard && (
-            <a href={engineerCard.card_share_token ? `/pilot/${engineerCard.card_share_token}` : undefined} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-3 rounded-[14px] border border-[#2a2a2a] bg-[#101010] p-3 text-left">
-              <span className="w-11 h-11 rounded-full overflow-hidden shrink-0 border-2 flex items-center justify-center" style={{ borderColor: engineerCard.card_text_color || "#8CFF3D", background: engineerCard.card_bg_color || "#161616" }}>
-                {engineerCard.profile_photo_url ? <img src={engineerCard.profile_photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5" style={{ color: engineerCard.card_text_color || "#8CFF3D" }} />}
-              </span>
-              <span className="flex-1 min-w-0"><span className="block text-[15px] font-semibold truncate">{shownName}</span><span className="block text-[12.5px] text-white/50 truncate">{engineerCard.job_title || "Audio engineer"}</span></span>
-              <span className="flex items-center gap-1 text-[12.5px] font-semibold text-[#8CFF3D]">Card <ExternalLink className="w-3 h-3" /></span>
-            </a>
-          )}
         </div>
       )}
-      startExtra={!isEngineer ? (
-        <button type="button" onClick={handleLoadTemplate} disabled={loadingTemplate} className="mt-2 min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#8CFF3D]/40 text-[13.5px] font-semibold text-[#8CFF3D] flex items-center gap-1.5">
-          <Music className="w-4 h-4" />{loadingTemplate ? "Loading…" : "Fill it from my artist profile"}
-        </button>
-      ) : null}
       needLine={!form.band_name ? "Your artist name is needed to send." : ""}
       canSend={!!form.band_name}
       onSend={handleSubmit}

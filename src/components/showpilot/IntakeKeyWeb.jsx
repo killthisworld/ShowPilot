@@ -8,8 +8,9 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 // The access key + web for the engineers' intake forms (Performer Intake and
 // Opener Set Info, job 195), the same way acts get the venue's Event Form:
 // the link opens a key, Unlock my web opens it (only the stars and the key
-// while it opens), then the act's web: their name and picture in the middle,
-// a circle per part of the form. A circle is green once it's filled in.
+// while it opens), then the act's web: the sender (the engineer) in the
+// middle, linking to their digital card (job 196), and a circle per part of
+// the form. A circle is green once it's filled in.
 // Phones open a circle in a sheet from the bottom; laptops beside the web.
 const GREEN = "#8CFF3D";
 const RED = "#F87171"; // the act (Mgmt / Artist)
@@ -42,12 +43,37 @@ const shortLabel = (label) => {
   return t.length <= 16 ? t : t.split(/\s+/).slice(0, 2).join(" ");
 };
 
+// The sender in the middle of the web (job 196): their picture and name,
+// tapping opens their digital card.
+export function SenderCircle({ center, color, desktop }) {
+  const c = center || {};
+  const inner = c.photo ? (
+    <>
+      <img src={c.photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(6,8,6,0.85))" }} />
+      <span className={`relative mt-auto mb-[12%] ${desktop ? "text-[18px]" : "text-[13px]"} font-bold leading-none px-2 truncate max-w-full`} style={{ fontFamily: "'Barlow Condensed', sans-serif", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{(c.name || "").toUpperCase()}</span>
+    </>
+  ) : (
+    <>
+      <span className={`${desktop ? "text-[24px]" : "text-[16px]"} font-bold leading-none break-words max-w-full px-2`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color }}>{(c.name || "SHOWPILOT").toUpperCase()}</span>
+      {c.label && <span className="text-[9px] sm:text-[10.5px] tracking-[0.1em] text-white/65 mt-0.5" style={mono}>{c.label.toUpperCase()}</span>}
+    </>
+  );
+  const cls = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center";
+  const style = { borderColor: color, background: "#0f140c", boxShadow: `0 0 30px ${color}66` };
+  return c.href ? (
+    <a href={c.href} target="_blank" rel="noopener noreferrer" aria-label={`${c.name || "Sender"}'s digital card`} title="Open their digital card" className={cls} style={style}>{inner}</a>
+  ) : (
+    <div className={cls} style={style}>{inner}</div>
+  );
+}
+
 // circles: [{ key, label, short?, hint?, required?, done, body: () => node }]
 // corner: { label, icon: Component, done?, body: () => node } for the top right (Additional services).
 export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
-  actName, actPhoto = "", circles = [], corner = null, show = null,
-  startExtra = null, onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
+  actName, center = null, circles = [], corner = null, show = null,
+  onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
 }) {
   const desktop = useIsDesktop();
   const [phase, setPhase] = useState("idle"); // idle | unlocking | open
@@ -168,20 +194,7 @@ export default function IntakeKeyWeb({
           </button>
         );
       })}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center" style={{ borderColor: RED, background: "#1c1212", boxShadow: `0 0 30px ${RED}66` }}>
-        {actPhoto ? (
-          <>
-            <img src={actPhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(10,6,6,0.85))" }} />
-            <span className={`relative mt-auto mb-[12%] ${desktop ? "text-[20px]" : "text-[14px]"} font-bold leading-none px-2 truncate max-w-full`} style={{ fontFamily: "'Barlow Condensed', sans-serif", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{(actName || "YOUR ACT").toUpperCase()}</span>
-          </>
-        ) : (
-          <>
-            <span className={`${desktop ? "text-[26px]" : "text-[17px]"} font-bold leading-none break-words max-w-full px-2`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color: RED }}>{(actName || "YOUR ACT").toUpperCase()}</span>
-            <span className="text-[9px] sm:text-[10.5px] tracking-[0.1em] text-white/65 mt-0.5" style={mono}>YOUR WEB</span>
-          </>
-        )}
-      </div>
+      <SenderCircle center={center} color={color} desktop={desktop} />
     </div>
   );
 
@@ -207,16 +220,6 @@ export default function IntakeKeyWeb({
       <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>
     </div>
   );
-  const firstOpen = circles.find((c) => c.required && !c.done) || circles.find((c) => !c.done);
-  const startBody = (
-    <div className="flex flex-col items-center gap-2 text-center">
-      <span className="text-[17px] font-bold">{firstOpen ? "Tap a circle to fill it in" : "Everything's in"}</span>
-      {!firstOpen && <span className="text-[14px] text-white/60">Tap Send when you're ready.</span>}
-      {needLine && firstOpen && <span className="text-[13px] text-white/55">{needLine}</span>}
-      {firstOpen && <button type="button" onClick={() => setPane(firstOpen.key)} className="mt-2 min-h-[48px] px-5 rounded-[12px] font-bold text-[15px]" style={{ background: RED, color: "#0d0d0d" }}>Start with {firstOpen.short || shortLabel(firstOpen.label)}</button>}
-      {startExtra}
-    </div>
-  );
   const sendRow = (
     <>
       {error && <p className="text-[14px] text-red-400 text-center">{error}</p>}
@@ -230,7 +233,7 @@ export default function IntakeKeyWeb({
   const header = (big) => (
     <div className="flex items-start gap-3">
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] tracking-[0.14em] truncate" style={{ ...mono, color }}>{(dateLine || "").toUpperCase()}</div>
+        <div className="text-[11px] tracking-[0.14em] truncate" style={{ ...mono, color }}>{[actName ? `${actName}'s web` : "", dateLine].filter(Boolean).join(" · ").toUpperCase()}</div>
         <h1 className={`${big ? "text-[44px]" : "text-[28px]"} leading-[1.02] font-bold truncate`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title || "Your show"}</h1>
       </div>
       <div className="pt-1 flex flex-col items-end gap-1 shrink-0">
@@ -255,15 +258,23 @@ export default function IntakeKeyWeb({
         <div className="ikw-in relative max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6" style={{ zIndex: 1 }}>
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {header(true)}
-          <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
-            <div>{web}</div>
-            <div className="sticky top-6 flex flex-col gap-3">
-              <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                {cur ? circleBody : pane === "corner" ? cornerBody : startBody}
+          {/* The web on its own in the middle; a circle opens beside it. */}
+          {cur || pane === "corner" ? (
+            <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
+              <div>{web}</div>
+              <div className="sticky top-6 flex flex-col gap-3">
+                <div className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
+                  {cur ? circleBody : cornerBody}
+                </div>
               </div>
+            </div>
+          ) : (
+            <div className="w-full max-w-[640px] mx-auto flex flex-col gap-4">
+              {web}
+              {needLine && <p className="text-center text-[13px] text-white/55">{needLine}</p>}
               {sendRow}
             </div>
-          </div>
+          )}
         </div>
         {showModal}
       </div>
@@ -275,9 +286,11 @@ export default function IntakeKeyWeb({
       <SkyBack seed={seed} dim={0.25} />
       <div className="ikw-in relative px-4 pt-4 pb-8 flex flex-col gap-3" style={{ zIndex: 1 }}>
         {header(false)}
-        <div className="mt-1">{web}</div>
-        <div className="rounded-[16px] border border-[#262626] bg-[#151515]/90 backdrop-blur p-4">{startBody}</div>
-        {sendRow}
+        <div className="flex-1 flex flex-col justify-center gap-4 min-h-[calc(100dvh-140px)]">
+          {web}
+          {needLine && <p className="text-center text-[13px] text-white/55">{needLine}</p>}
+          {sendRow}
+        </div>
       </div>
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>

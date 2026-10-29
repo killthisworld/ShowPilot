@@ -3,10 +3,11 @@ import { setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
-import { Music, User, ExternalLink } from "lucide-react";
+
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -43,7 +44,6 @@ export default function OpenerIntake({ link } = {}) {
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   // Which circles the act has saved on their web (job 195).
   const [seen, setSeen] = usePersistedState(`opener_intake_seen_${token}`, {});
-  const [myPhoto, setMyPhoto] = useState("");
   const { toast } = useToast();
 
   const handleLoadTemplate = async () => {
@@ -97,8 +97,6 @@ export default function OpenerIntake({ link } = {}) {
     supabase.auth.getUser().then(({ data }) => {
       const u = data?.user || null;
       setCurrentUser(u);
-      // Signed in: their profile picture in the middle of their web.
-      if (u) supabase.from("user_preferences").select("profile_photo_url").eq("user_id", u.id).maybeSingle().then(({ data: p }) => setMyPhoto(p?.profile_photo_url || ""));
     });
   }, [token]);
 
@@ -258,6 +256,7 @@ export default function OpenerIntake({ link } = {}) {
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
+    fillFromProfile: { onClick: handleLoadTemplate, loading: loadingTemplate },
   };
   const onCard = () => {
     if (!currentUser) {
@@ -278,7 +277,10 @@ export default function OpenerIntake({ link } = {}) {
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
-      actPhoto={myPhoto}
+      center={{
+        name: engineerName, photo: engineerCard?.profile_photo_url || "", label: "Audio",
+        href: engineerCard?.card_share_token ? `/pilot/${engineerCard.card_share_token}` : "",
+      }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
       corner={context.include_services ? {
@@ -287,26 +289,10 @@ export default function OpenerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <div className="text-[11px] tracking-[0.14em] text-white/55">{(parent?.venue || "").toUpperCase()}</div>
-          <div className="text-[30px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{showTitle}</div>
-          {dayLine && <div className="text-[14px] text-white/65">{dayLine}</div>}
+          <EventOverviewCard title={showTitle} date={parent?.date} venue={parent?.venue} color="#8CFF3D" />
           {parent?.band_name && <div className="text-[14px] text-white/75">You're joining {parent.band_name}</div>}
-          {engineerCard && (
-            <a href={engineerCard.card_share_token ? `/pilot/${engineerCard.card_share_token}` : undefined} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-3 rounded-[14px] border border-[#2a2a2a] bg-[#101010] p-3 text-left">
-              <span className="w-11 h-11 rounded-full overflow-hidden shrink-0 border-2 flex items-center justify-center" style={{ borderColor: engineerCard.card_text_color || "#8CFF3D", background: engineerCard.card_bg_color || "#161616" }}>
-                {engineerCard.profile_photo_url ? <img src={engineerCard.profile_photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5" style={{ color: engineerCard.card_text_color || "#8CFF3D" }} />}
-              </span>
-              <span className="flex-1 min-w-0"><span className="block text-[15px] font-semibold truncate">{engineerName}</span><span className="block text-[12.5px] text-white/50 truncate">{engineerCard.job_title || "Audio engineer"}</span></span>
-              <span className="flex items-center gap-1 text-[12.5px] font-semibold text-[#8CFF3D]">Card <ExternalLink className="w-3 h-3" /></span>
-            </a>
-          )}
         </div>
       )}
-      startExtra={
-        <button type="button" onClick={handleLoadTemplate} disabled={loadingTemplate} className="mt-2 min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#8CFF3D]/40 text-[13.5px] font-semibold text-[#8CFF3D] flex items-center gap-1.5">
-          <Music className="w-4 h-4" />{loadingTemplate ? "Loading…" : "Fill it from my artist profile"}
-        </button>
-      }
       needLine={!form.band_name ? "Your artist name is needed to send." : ""}
       canSend={!!form.band_name}
       onSend={handleSubmit}
