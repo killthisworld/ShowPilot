@@ -459,10 +459,6 @@ export default function EventLink() {
       <button type="button" onClick={() => setPane(pane === "question" ? "start" : "question")} aria-pressed={pane === "question"} className={`${corner} right-0 top-0`} style={{ borderColor: BLUE, background: pane === "question" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
         <MessageSquare className="w-[30%] h-[30%]" style={{ color: BLUE }} />Ask
       </button>
-      <button type="button" onClick={send} disabled={preview || submitted || status === "saving" || reqLeft > 0} aria-label={submitted ? "Sent to the venue" : reqLeft ? `${reqLeft} needed before you send` : "Send to the venue"} className={`${corner} right-0 bottom-0 disabled:cursor-default`}
-        style={submitted ? { borderColor: GREEN, background: `${GREEN}22`, color: GREEN } : reqLeft ? { borderColor: "#444", borderStyle: "dashed", background: "rgba(17,17,17,0.85)", color: "rgba(255,255,255,0.55)" } : { borderColor: GREEN, background: GREEN, color: "#0d0d0d", boxShadow: `0 0 14px ${GREEN}80` }}>
-        {submitted ? <CheckCircle className="w-[30%] h-[30%]" /> : <Send className="w-[30%] h-[30%]" />}{submitted ? "Sent" : "Send"}
-      </button>
       {asks.map((a, i) => {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
         const ok = isAnswered(a, answers[a.key]);
@@ -550,7 +546,7 @@ export default function EventLink() {
     <p className="text-[13.5px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. You can still change anything; it saves as you go.</p>
   ) : !N ? null : (
     // Always a green Submit (job 197); with something still needed it opens that circle.
-    <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Submit</button>
+    <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={reqLeft ? { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" } : { background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Submit</button>
   );
   const header = (big) => (
     <div className="flex items-start gap-3">

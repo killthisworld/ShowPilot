@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Lock, Send, CheckCircle, CalendarDays, X } from "lucide-react";
+import { Lock, CheckCircle, CalendarDays, X } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -182,10 +182,6 @@ export default function IntakeKeyWeb({
           {CornerIcon && <CornerIcon className="w-[28%] h-[28%]" style={{ color: corner.done ? "#0d0d0d" : color }} />}{corner.label}
         </button>
       )}
-      <button type="button" onClick={onSend} disabled={!canSend || sending} aria-label={sendLabel} className={`${cornerCls} right-0 bottom-0 disabled:cursor-default`}
-        style={canSend ? { borderColor: GREEN, background: GREEN, color: "#0d0d0d", boxShadow: `0 0 14px ${GREEN}80` } : { borderColor: "#444", borderStyle: "dashed", background: "rgba(17,17,17,0.85)", color: "rgba(255,255,255,0.55)" }}>
-        <Send className="w-[30%] h-[30%]" />{sending ? "Sending…" : "Send"}
-      </button>
       {circles.map((c, i) => {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
         const on = pane === c.key;
@@ -228,13 +224,16 @@ export default function IntakeKeyWeb({
       <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>
     </div>
   );
+  // Green only once every needed circle is filled (job 198).
+  const needLeft = circles.filter((c) => c.required && !c.done);
+  const ready = canSend && !needLeft.length;
   const sendRow = (
     <>
       {error && <p className="text-[14px] text-red-400 text-center">{error}</p>}
       {/* Always a green Submit (job 197); with something still needed it
           opens that circle instead of sending. */}
       {(
-        <button type="button" onClick={() => { if (canSend) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); } }} disabled={sending} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
+        <button type="button" onClick={() => { if (ready) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); } }} disabled={sending} aria-label={ready ? sendLabel : `${sendLabel}: fill in ${needLeft.map((c) => c.short || c.label).join(", ")} first`} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={ready ? { background: GREEN, color: "#0d0d0d" } : { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" }}>
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}

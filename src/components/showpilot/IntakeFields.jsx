@@ -168,9 +168,9 @@ const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 export function intakeCircles(h, { seen = {}, card = null } = {}) {
   const { form, getInstruments } = h;
   return [
-    { key: "role", label: "Your role", short: "Role", hint: "Where you are on the bill", required: false, done: !!seen.role && has(form.role), body: () => <RoleBody h={h} /> },
+    { key: "role", label: "Your role", short: "Role", hint: "Where you are on the bill", required: true, done: !!seen.role && has(form.role), body: () => <RoleBody h={h} /> },
     { key: "artist", label: "Artist and set", short: "Artist & set", hint: "Name, set length, genre", required: true, done: has(form.band_name), body: () => <ArtistBody h={h} /> },
-    { key: "members", label: "Members and inputs", short: "Members & inputs", hint: "Who plays what, and what the engineer plugs in", required: false, done: form.band_members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), body: () => <MembersBody h={h} /> },
+    { key: "members", label: "Members and inputs", short: "Members & inputs", hint: "Who plays what, and what the engineer plugs in", required: true, done: form.band_members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), body: () => <MembersBody h={h} /> },
     { key: "plot", label: "Stage plot", short: "Stage plot", hint: "A photo or PDF is fine", required: false, done: (form.stage_plot_files || []).length > 0, body: () => <StagePlotBody h={h} /> },
     { key: "notes", label: "Notes for the engineer", short: "Notes", hint: "For the whole band or one member", required: false, done: has(form.general_notes) || form.band_members.some((m) => has(m.notes)), body: () => <NotesBody h={h} /> },
     { key: "contact", label: "Your contact", short: "Contact", hint: "Who the engineer calls on the day", required: false, done: has(form.submitter_name) && (has(form.submitter_phone) || has(form.submitter_email)), body: () => <ContactBody h={h} {...(card || {})} /> },
