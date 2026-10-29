@@ -7,7 +7,8 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 // Same 5 stars + comment as Settings; saves to app_ratings (source
 // 'performer_intake') through submit_intake_rating, so senders who aren't
 // signed in can rate too. Read the ratings in the Supabase SQL editor.
-export default function IntakeRating({ token }) {
+// `onRate(rating, comment)` (job 195): another form's own way to save it.
+export default function IntakeRating({ token, onRate = null }) {
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
@@ -19,7 +20,7 @@ export default function IntakeRating({ token }) {
     if (!rating || sending) return;
     setSending(true);
     setErr("");
-    const { error } = await supabase.rpc("submit_intake_rating", { p_token: token, p_rating: rating, p_comment: comment });
+    const { error } = onRate ? await onRate(rating, comment) : await supabase.rpc("submit_intake_rating", { p_token: token, p_rating: rating, p_comment: comment });
     setSending(false);
     if (error) setErr("Couldn't send that. Try again.");
     else setSent(true);

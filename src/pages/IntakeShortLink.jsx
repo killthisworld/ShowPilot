@@ -37,6 +37,6 @@ export default function IntakeShortLink() {
       </div>
     );
   }
-  if (link.kind === "opener") return <OpenerIntake link={{ token: link.token }} />;
-  return <TourManagerIntake link={{ token: link.token, engineer: link.engineer, name: link.name }} />;
+  if (link.kind === "opener") return <OpenerIntake link={{ token: link.token, code }} />;
+  return <TourManagerIntake link={{ token: link.token, engineer: link.engineer, name: link.name, code }} />;
 }

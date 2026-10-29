@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
+import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
@@ -231,6 +232,7 @@ export default function EventLink() {
   // Locked until the act opens the key, every visit (returning acts keep their answers).
   const [unlocked, setUnlocked] = useState(false);
   const [pane, setPane] = useState("start"); // start | show | question | ask:<key>
+  const [justSent, setJustSent] = useState(false);
   const [keyPhase, setKeyPhase] = useState("idle"); // idle | unlocking (the key opening, job 191)
   const desktop = useIsDesktop();
   // Someone with a Show Pilot account opening their key: their own profile
@@ -431,7 +433,24 @@ export default function EventLink() {
     if (actName.trim()) await persist(actName, answers);
     setPane("start");
   };
-  const send = () => { if (!preview && actName.trim() && status !== "saving") persist(actName, answers, true); };
+  const send = async () => {
+    if (preview || !actName.trim() || status === "saving") return;
+    if (await persist(actName, answers, true)) setJustSent(true);
+  };
+  // After sending (job 195): "Sent" and how was this form?
+  const rate = (rating, comment) => supabase.rpc("submit_event_link_rating", { p_code: code, p_token: tokenRef.current || null, p_rating: rating, p_comment: comment });
+  const sentModal = justSent ? (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 40 }}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" />
+      <div role="dialog" aria-modal="true" aria-label="Sent" className="el-web-in relative w-full max-w-sm rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-6 text-center">
+        <CheckCircle className="w-14 h-14 mx-auto mb-3" style={{ color: GREEN }} />
+        <div className="text-[28px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Sent to {info.venue || "the venue"}</div>
+        <p className="mt-2 text-[14px] text-white/60">You can still change anything; it saves as you go.</p>
+        <IntakeRating token={null} onRate={rate} />
+        <button type="button" onClick={() => setJustSent(false)} className="mt-4 w-full min-h-[48px] rounded-[12px] border border-[#2a2a2a] text-[15px] font-semibold text-white/80">Back to my web</button>
+      </div>
+    </div>
+  ) : null;
   const statusText = preview ? "PREVIEW · NOTHING IS SAVED" : status === "saving" ? "SAVING…" : status === "error" ? "COULDN'T SAVE, TRY AGAIN" : status === "saved" ? "SAVED" : "";
 
   // The act's picture in the middle: their lineup photo, else the photo they
@@ -610,6 +629,7 @@ export default function EventLink() {
           </div>
         </div>
         {showModal}
+        {sentModal}
       </div>
     );
   }
@@ -640,6 +660,7 @@ export default function EventLink() {
         </div>
       )}
       {showModal}
+      {sentModal}
     </div>
   );
 }
