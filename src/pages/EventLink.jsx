@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, LockOpen, CalendarDays, ChevronLeft, X } from "lucide-react";
+import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, LockOpen, CalendarDays, X } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile } from "@/lib/eventLink";
+import { supabase } from "@/api/supabaseClient";
 
 // Public page an act opens from the venue's event link (/v/<code>). No account:
 // answers save to a private response token kept in this browser. Job 176.
@@ -160,12 +161,28 @@ export default function EventLink() {
   const [token, setToken] = useState(() => getStoredToken(code));
   const [submitted, setSubmitted] = useState(false);
   const [status, setStatus] = useState(""); // "", saving, saved, error
-  const [question, setQuestion] = useState("");
   // Locked until the act says who they are (returning acts open straight in).
   const [unlocked, setUnlocked] = useState(false);
   const [pane, setPane] = useState("start"); // start | show | question | ask:<key>
   const [keyPhase, setKeyPhase] = useState("idle"); // idle | unlocking (the key opening, job 191)
   const desktop = useIsDesktop();
+  // Someone with a Show Pilot account opening their key: their own profile
+  // picture goes in the middle of their web (job 192).
+  const [myPhoto, setMyPhoto] = useState("");
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !live) return;
+        const { data } = await supabase.from("user_preferences").select("profile_photo_url").eq("user_id", user.id).maybeSingle();
+        if (live && data?.profile_photo_url) setMyPhoto(data.profile_photo_url);
+      } catch { /* not signed in */ }
+    })();
+    return () => { live = false; };
+  }, []);
+  // Several questions at once for the venue (job 192).
+  const [drafts, setDrafts] = useState([""]);
   const dirty = useRef(false);
   const tokenRef = useRef(token);
   tokenRef.current = token;
@@ -227,11 +244,12 @@ export default function EventLink() {
   ) : null;
 
   const sendQuestion = async () => {
-    const q = question.trim();
-    if (!q || !actName.trim()) return;
-    const next = { ...answers, __questions: [...(answers.__questions || []), { text: q, at: new Date().toISOString() }] };
+    const qs = drafts.map((d) => d.trim()).filter(Boolean);
+    if (!qs.length || !actName.trim()) return;
+    const at = new Date().toISOString();
+    const next = { ...answers, __questions: [...(answers.__questions || []), ...qs.map((text) => ({ text, at }))] };
     setAnswers(next);
-    setQuestion("");
+    setDrafts([""]);
     await persist(actName, next);
   };
 
@@ -329,13 +347,10 @@ export default function EventLink() {
   const reqLeft = missing.length;
   const cur = pane.startsWith("ask:") ? asks.find((a) => `ask:${a.key}` === pane) || null : null;
   const curIdx = cur ? asks.indexOf(cur) : -1;
-  const goAsk = (d) => { if (!N) return; const i = ((curIdx < 0 ? 0 : curIdx + d) + N) % N; setPane(`ask:${asks[i].key}`); };
-  const saveNext = async () => {
+  // Save keeps the answer and goes back to the web, where the circle turns green.
+  const saveCircle = async () => {
     if (actName.trim()) await persist(actName, answers);
-    const after = asks.slice(curIdx + 1).concat(asks.slice(0, curIdx + 1)).find((a) => a.required && !isAnswered(a, answers[a.key]));
-    if (after && after !== cur) setPane(`ask:${after.key}`);
-    else if (!reqLeft || (reqLeft === 1 && cur?.required)) setPane(desktop ? "start" : "start");
-    else goAsk(1);
+    setPane("start");
   };
   const send = () => { if (!preview && actName.trim() && status !== "saving") persist(actName, answers, true); };
   const statusText = preview ? "PREVIEW · NOTHING IS SAVED" : status === "saving" ? "SAVING…" : status === "error" ? "COULDN'T SAVE, TRY AGAIN" : status === "saved" ? "SAVED" : "";
@@ -346,7 +361,7 @@ export default function EventLink() {
   const lineupPhoto = (info.overview?.bands || []).find((b) => String(b.band_name || "").trim().toLowerCase() === nameKey)?.photo_url || "";
   const photoAsk = asks.find((a) => a.type === "file" && /photo|picture|headshot|press/i.test(`${a.key} ${a.label}`));
   const upPhoto = photoAsk && answers[photoAsk.key]?.url && /^image\//.test(answers[photoAsk.key]?.type || "image/") ? answers[photoAsk.key].url : "";
-  const actPhoto = lineupPhoto || upPhoto;
+  const actPhoto = myPhoto || lineupPhoto || upPhoto;
 
   const corner = "absolute w-[15%] aspect-square min-w-[54px] rounded-[12px] border-[1.5px] flex flex-col items-center justify-center gap-1 text-[10.5px] sm:text-[12px] font-bold backdrop-blur-sm";
   const web = (
@@ -409,15 +424,12 @@ export default function EventLink() {
   );
 
   const askBody = cur && (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          {(() => { const ok = isAnswered(cur, answers[cur.key]); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : cur.required ? AMBER : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? `${(info.venue || "THE VENUE").toUpperCase()} NEEDS THIS` : "OPTIONAL"}</div>; })()}
-          <div className={`${desktop ? "text-[28px]" : "text-[21px]"} font-bold leading-tight`} style={desktop ? { fontFamily: "'Barlow Condensed', sans-serif" } : undefined}>{cur.label}</div>
-        </div>
-        <span className="text-[11px] text-white/55 pt-1" style={mono}>{curIdx + 1} / {N}</span>
+    <div className="flex flex-col gap-3 text-center">
+      <div className="flex flex-col items-center gap-1">
+        {(() => { const ok = isAnswered(cur, answers[cur.key]); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : cur.required ? AMBER : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? `${(info.venue || "THE VENUE").toUpperCase()} NEEDS THIS` : "OPTIONAL"} · {curIdx + 1} / {N}</div>; })()}
+        <div className={`${desktop ? "text-[30px]" : "text-[22px]"} font-bold leading-tight`} style={desktop ? { fontFamily: "'Barlow Condensed', sans-serif" } : undefined}>{cur.label}</div>
+        {cur.hint && cur.type !== "yesno" && <p className="text-[13.5px] text-white/60">{cur.hint}</p>}
       </div>
-      {cur.hint && cur.type !== "yesno" && <p className="text-[13.5px] text-white/60 -mt-1.5">{cur.hint}</p>}
       <div>
         {cur.type === "text" && <input value={answers[cur.key] || ""} onChange={(e) => setAnswer(cur.key, e.target.value)} className={inputCls} aria-label={cur.label} autoFocus={desktop} />}
         {cur.type === "longtext" && <textarea value={answers[cur.key] || ""} onChange={(e) => setAnswer(cur.key, e.target.value)} rows={desktop ? 6 : 4} className={`${inputCls} py-2`} aria-label={cur.label} autoFocus={desktop} />}
@@ -425,10 +437,7 @@ export default function EventLink() {
         {cur.type === "yesno" && <YesNoAsk hint={cur.hint} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
         {cur.type === "inputs" && <InputsAsk code={code} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
       </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={() => goAsk(-1)} aria-label="Previous circle" className="w-[52px] min-h-[52px] rounded-[12px] border border-[#2a2a2a] flex items-center justify-center text-white/80"><ChevronLeft className="w-5 h-5" /></button>
-        <button type="button" onClick={saveNext} className="flex-1 min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: RED, color: "#0d0d0d" }}>Save, next circle</button>
-      </div>
+      <button type="button" onClick={saveCircle} disabled={status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] disabled:opacity-60" style={{ background: GREEN, color: "#0d0d0d" }}>{status === "saving" ? "Saving…" : "Save"}</button>
     </div>
   );
   const showBody = (
@@ -447,23 +456,39 @@ export default function EventLink() {
     </div>
   );
   const questionBody = (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-white/50" /><span className="text-[16px] font-semibold">Something not here?</span></div>
-      <p className="text-[13px] text-white/55">Ask {info.venue || "the venue"}. It goes on the event, not in email.</p>
-      {(answers.__questions || []).map((q, i) => <p key={i} className="text-[14px] text-white/75 bg-[#101010] border border-[#242424] rounded-[10px] px-3 py-2">You: {q.text}</p>)}
-      <div className="flex gap-2">
-        <input value={question} onChange={(e) => setQuestion(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendQuestion(); }} placeholder="Write a question" className={inputCls} autoFocus={desktop} />
-        <button type="button" onClick={sendQuestion} disabled={preview || !question.trim()} className="min-h-[44px] px-4 rounded-[10px] font-bold text-[14px] disabled:opacity-40" style={{ background: BLUE, color: "#0d0d0d" }}>Ask</button>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col items-center gap-1 text-center">
+        <MessageSquare className="w-5 h-5" style={{ color: BLUE }} />
+        <span className={`${desktop ? "text-[26px]" : "text-[20px]"} font-bold`} style={desktop ? { fontFamily: "'Barlow Condensed', sans-serif" } : undefined}>Something not here?</span>
+        <p className="text-[13.5px] text-white/60">Ask {info.venue || "the venue"}. It goes on the event, not in email.</p>
       </div>
+      {(answers.__questions || []).map((q, i) => <p key={i} className="text-[14px] text-white/75 bg-[#101010] border border-[#242424] rounded-[10px] px-3 py-2">You asked: {q.text}</p>)}
+      {drafts.map((d, i) => (
+        <div key={i} className="flex gap-2">
+          <input value={d} onChange={(e) => setDrafts(drafts.map((x, j) => (j === i ? e.target.value : x)))} placeholder={i ? "Another question" : "Write a question"} aria-label={`Question ${i + 1}`} className={inputCls} autoFocus={desktop && i === drafts.length - 1} />
+          {drafts.length > 1 && <button type="button" onClick={() => setDrafts(drafts.filter((_, j) => j !== i))} aria-label="Remove this question" className="min-h-[44px] w-[44px] shrink-0 flex items-center justify-center text-white/40"><X className="w-4 h-4" /></button>}
+        </div>
+      ))}
+      {drafts.length < 8 && <button type="button" onClick={() => setDrafts([...drafts, ""])} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: BLUE }}><Plus className="w-4 h-4" />Add another question</button>}
+      <button type="button" onClick={sendQuestion} disabled={preview || !drafts.some((d) => d.trim())} className="w-full min-h-[50px] rounded-[12px] font-bold text-[15px] disabled:opacity-40" style={{ background: BLUE, color: "#0d0d0d" }}>{drafts.filter((d) => d.trim()).length > 1 ? `Send ${drafts.filter((d) => d.trim()).length} questions` : "Send question"}</button>
     </div>
   );
   const firstNeeded = missing[0] || asks[0];
+  const showModal = pane === "show" ? (
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 30 }}>
+      <button type="button" aria-label="Close" onClick={() => setPane("start")} className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+      <div role="dialog" aria-modal="true" aria-label="The show" className="el-web-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto rounded-[18px]">
+        <button type="button" onClick={() => setPane("start")} aria-label="Close" className="absolute right-2 top-2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
+        {showBody}
+      </div>
+    </div>
+  ) : null;
   const startBody = (
-    <div className="flex flex-col gap-2">
-      {info.message && <p className="text-[15px] text-white/80 whitespace-pre-wrap pb-2 border-b border-[#242424] mb-1">{info.message}</p>}
+    <div className="flex flex-col items-center gap-2 text-center">
+      {info.message && <p className="w-full text-[15px] text-white/80 whitespace-pre-wrap pb-2 border-b border-[#242424] mb-1">{info.message}</p>}
       <span className="text-[17px] font-bold">{N ? (reqLeft ? "Tap a circle to fill it in" : submitted ? "All sent" : "Everything needed is in") : "Nothing to fill in"}</span>
       <span className="text-[14px] text-white/60 leading-relaxed">{N ? (reqLeft ? `Orange ones are what ${info.venue || "the venue"} needs. When they're all green, tap Send.` : submitted ? "You can still change anything; it saves as you go." : `Tap Send to let ${info.venue || "the venue"} know.`) : "Tap The show for the details."}</span>
-      {N > 0 && reqLeft > 0 && <button type="button" onClick={() => setPane(`ask:${firstNeeded.key}`)} className="mt-2 self-start min-h-[48px] px-5 rounded-[12px] font-bold text-[15px]" style={{ background: RED, color: "#0d0d0d" }}>Start with {shortLabel(firstNeeded.label)}</button>}
+      {N > 0 && reqLeft > 0 && <button type="button" onClick={() => setPane(`ask:${firstNeeded.key}`)} className="mt-2 min-h-[48px] px-5 rounded-[12px] font-bold text-[15px]" style={{ background: RED, color: "#0d0d0d" }}>Start with {shortLabel(firstNeeded.label)}</button>}
     </div>
   );
   const sendRow = submitted ? (
@@ -499,19 +524,20 @@ export default function EventLink() {
             <div className="flex flex-col gap-3">{web}{legend}</div>
             <div className="sticky top-6 flex flex-col gap-3">
               <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                {cur ? askBody : pane === "show" ? showBody : pane === "question" ? questionBody : startBody}
+                {cur ? askBody : pane === "question" ? questionBody : startBody}
               </div>
               {sendRow}
               <div>{changeName}</div>
             </div>
           </div>
         </div>
+        {showModal}
       </div>
     );
   }
 
   // Phone: the web fills the screen; a circle opens in a sheet from the bottom.
-  const sheetOpen = pane !== "start";
+  const sheetOpen = pane !== "start" && pane !== "show";
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={code} dim={0.25} />
@@ -527,15 +553,16 @@ export default function EventLink() {
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>
           <button type="button" aria-label="Close" onClick={() => setPane("start")} className="absolute inset-0 bg-black/45" />
-          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : pane === "show" ? "The show" : "Ask the venue"} className="absolute left-0 right-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
+          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : "Ask the venue"} className="absolute left-0 right-0 bottom-0 max-h-[78dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-center relative h-8 mb-1">
               <span className="w-10 h-1 rounded-full bg-[#3a3a3a]" aria-hidden="true" />
               <button type="button" onClick={() => setPane("start")} aria-label="Close" className="absolute right-0 top-0 w-10 h-10 flex items-center justify-center text-white/60"><X className="w-5 h-5" /></button>
             </div>
-            {cur ? askBody : pane === "show" ? showBody : questionBody}
+            {cur ? askBody : questionBody}
           </div>
         </div>
       )}
+      {showModal}
     </div>
   );
 }
