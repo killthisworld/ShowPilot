@@ -190,11 +190,13 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const [blocks, setBlocks] = useState(null);
   const [asks, setAsks] = useState(null);
   const [message, setMessage] = useState("");
-  const [editing, setEditing] = useState(false);
+  // Switcher (Oct 29): send the link / see responses / build the form.
+  const [view, setView] = useState(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState("");
   const [taskMsg, setTaskMsg] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
 
   // Start the editor from the saved link, or from the event's info.
   useEffect(() => {
@@ -207,9 +209,9 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
       // A venue template loaded onto this event can bring its own questions and note (job 185).
       const setup = gig.venue_info?.event_link_setup || null;
       setBlocks(fresh); setAsks(Array.isArray(setup?.asks) && setup.asks.length ? setup.asks : DEFAULT_ASKS); setMessage(setup?.message || "");
-      setEditing(true);
     }
   }, [data, link, fresh, blocks]);
+  useEffect(() => { if (data && !view) setView(data.link ? "send" : "form"); }, [data, view]);
 
   if (!data) return <p className="text-white/45 text-[15px]">Loading…</p>;
   if (!data.can_view) return <p className="text-white/55 text-[15px]">Only the venue side of this event can send the link.</p>;
@@ -224,8 +226,10 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
     try {
       // Acts see the live event overview now, not picked text (job 176).
       await saveEventLink(gig.id, { blocks: [], asks: asks.filter((a) => a.label.trim()), message });
+      const wasNew = !link;
       await reload();
-      setEditing(false);
+      if (wasNew) setView("send");
+      else { setSavedMsg("Saved. Acts see the new questions."); setTimeout(() => setSavedMsg(""), 2500); }
     } catch (e) { console.error(e); setErr(e.message || "Couldn't save the link."); }
     setSaving(false);
   };
@@ -237,60 +241,98 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
     setTimeout(() => setTaskMsg(""), 3000);
   };
 
+  const rs = data.responses || [];
+  const reqAsks = (link?.asks || []).filter((a) => a.required);
+  const complete = rs.filter((r) => reqAsks.every((a) => isAnswered(a, r.answers?.[a.key]))).length;
+  const dirty = !!link && (message !== (link.message || "") || JSON.stringify(asks.filter((a) => a.label.trim())) !== JSON.stringify(link.asks || []));
+  const tabs = [
+    { key: "send", label: "Send", sub: link ? "Link and email" : "Make the form first" },
+    { key: "responses", label: "Responses", sub: link ? (rs.length ? `${complete} of ${rs.length} complete` : "Nobody yet") : "Make the form first" },
+    ...(editable ? [{ key: "form", label: "Build the form", sub: link ? `${(link.asks || []).length} question${(link.asks || []).length === 1 ? "" : "s"}` : "Start here" }] : []),
+  ];
+  const cur = view || (link ? "send" : "form");
+  const needLink = (
+    <div className="rounded-[14px] border border-dashed border-[#333] p-5 flex flex-col items-start gap-3">
+      <span className="text-[16px] font-semibold">No link yet</span>
+      <span className="text-[14.5px] text-white/60">Pick what acts are asked, then create the link. You'll send it from here.</span>
+      {editable && <button type="button" onClick={() => setView("form")} className="min-h-[44px] px-4 rounded-[10px] font-bold text-[14.5px]" style={{ background: color, color: "#0d0d0d" }}>Build the form</button>}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      {link && (
+      <div role="tablist" aria-label="Event Form" className="grid gap-1.5 p-1.5 rounded-[14px] border border-[#242424] bg-[#0f0f0f]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {tabs.map((t) => {
+          const on = cur === t.key;
+          return (
+            <button key={t.key} type="button" role="tab" aria-selected={on} onClick={() => setView(t.key)}
+              className="min-h-[52px] rounded-[10px] px-3 py-1.5 flex flex-col items-center justify-center text-center"
+              style={on ? { background: `${color}1f`, boxShadow: `inset 0 0 0 1.5px ${color}` } : undefined}>
+              <span className="text-[15px] font-bold" style={{ color: on ? color : "rgba(255,255,255,0.85)" }}>{t.label}{t.key === "form" && dirty ? " •" : ""}</span>
+              <span className="text-[11.5px] text-white/45 truncate max-w-full">{t.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {cur === "send" && (link ? (
         <div className="rounded-[14px] border p-4 flex flex-col gap-3" style={{ borderColor: `${color}55`, background: "#141414" }}>
           <span className={labelCls} style={mono}>YOUR LINK</span>
           <div className="px-3 py-3 rounded-[10px] bg-[#0d0d0d] border border-[#2a2a2a] text-[14px] break-all" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
-          <button type="button" onClick={copy} className="w-full min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
+          <div className="flex gap-2 flex-wrap">
+            <button type="button" onClick={copy} className="flex-1 min-w-[160px] min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
+            <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" className="min-h-[48px] px-4 rounded-[10px] border flex items-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}><Eye className="w-4 h-4" /> Preview as an act</a>
+          </div>
           {/* Email it fills in the venue's own email template (job 176). */}
           <EventLinkEmail gig={gig} url={url} color={color} onEventEmail={onEventEmail} />
         </div>
-      )}
+      ) : needLink)}
 
-      {link && (
+      {cur === "responses" && (link ? (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3"><span className={`${labelCls} flex-1`} style={mono}>RESPONSES</span>{taskMsg && <span className="text-[13px]" style={{ color: G }}>{taskMsg}</span>}</div>
+          {taskMsg && <span className="text-[13px]" style={{ color: G }}>{taskMsg}</span>}
           <Responses data={data} color={color} shareToken={shareToken} onTask={makeTask} />
         </div>
-      )}
+      ) : needLink)}
 
-      {link && !editing && editable && (
-        <button type="button" onClick={() => setEditing(true)} className="self-start min-h-[44px] px-4 rounded-[10px] border border-[#2a2a2a] text-[15px] font-semibold text-white/80">Change what acts see and are asked</button>
-      )}
-
-      {editing && editable && (
+      {cur === "form" && editable && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4">
-            <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>1. What acts see</div>
-            <p className="text-[13.5px] text-white/50 mb-3">The event overview, straight from this event. It stays up to date as you fill in the event's pages. The deal, Wi-Fi and contacts stay private.</p>
-            <div className="max-w-[520px]"><EventOverviewCard ov={overviewFromGig(gig)} title={eventTitle(gig)} date={gig.date} venue={gig.venue} place={[gig.city, gig.state].filter(Boolean).join(", ")} color={color} /></div>
-            <label className="block mt-3"><span className={labelCls} style={mono}>NOTE AT THE TOP (OPTIONAL)</span>
-              <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="Hi, here's everything for the show. Fill in the form at the bottom." className={`${inputCls} py-2 mt-1.5`} /></label>
-          </div>
-
           <div className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4">
             <div className="flex items-start gap-3 flex-wrap">
               <div className="flex-1 min-w-[220px]">
-                <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>2. Questions for each act</div>
+                <div className="text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Questions for each act</div>
                 <p className="text-[13.5px] text-white/50">Acts fill these in on their page. You only pick the questions; the boxes stay empty until an act answers.</p>
               </div>
-              {link ? (
+              {link && (
                 <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" className="min-h-[44px] px-3.5 rounded-[10px] border flex items-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}>
                   <Eye className="w-4 h-4" /> Preview as an act
                 </a>
-              ) : (
-                <span className="min-h-[44px] px-3.5 rounded-[10px] border border-[#2a2a2a] flex items-center gap-2 text-[13px] text-white/40"><Eye className="w-4 h-4" /> Preview once the link is made</span>
               )}
             </div>
             <AskGrid asks={asks} setAsks={setAsks} color={color} />
           </div>
 
+          <details className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4 group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 min-h-[32px]">
+              <span className="flex-1">
+                <span className="block text-[18px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>What acts see at the top</span>
+                <span className="block text-[13.5px] text-white/50">The event overview, live from this event, and an optional note.</span>
+              </span>
+              <ChevronDown className="w-4 h-4 text-white/40 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <p className="text-[13.5px] text-white/50">It stays up to date as you fill in the event's pages. The deal, Wi-Fi and contacts stay private.</p>
+              <div className="max-w-[520px]"><EventOverviewCard ov={overviewFromGig(gig)} title={eventTitle(gig)} date={gig.date} venue={gig.venue} place={[gig.city, gig.state].filter(Boolean).join(", ")} color={color} /></div>
+              <label className="block"><span className={labelCls} style={mono}>NOTE AT THE TOP (OPTIONAL)</span>
+                <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="Hi, here's everything for the show. Fill in the form at the bottom." className={`${inputCls} py-2 mt-1.5`} /></label>
+            </div>
+          </details>
+
           {err && <p className="text-[14px]" style={{ color: AMBER }}>{err}</p>}
+          {savedMsg && <p className="text-[14px]" style={{ color: G }}>{savedMsg}</p>}
           <div className="flex gap-2">
-            <button type="button" disabled={saving} onClick={save} className="flex-1 min-h-[52px] rounded-[12px] font-bold text-[16px] disabled:opacity-60" style={{ background: link ? color : G, color: "#0d0d0d" }}>{saving ? "Saving…" : link ? "Save changes" : "Create the link"}</button>
-            {link && <button type="button" onClick={() => { setBlocks(null); setEditing(false); }} className="min-h-[52px] px-5 rounded-[12px] border border-[#2a2a2a] font-semibold text-white/70">Cancel</button>}
+            <button type="button" disabled={saving || (!!link && !dirty)} onClick={save} className="flex-1 min-h-[52px] rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: link ? color : G, color: "#0d0d0d" }}>{saving ? "Saving…" : link ? (dirty ? "Save changes" : "Saved") : "Create the link"}</button>
+            {link && dirty && <button type="button" onClick={() => setBlocks(null)} className="min-h-[52px] px-5 rounded-[12px] border border-[#2a2a2a] font-semibold text-white/70">Undo changes</button>}
           </div>
         </div>
       )}
