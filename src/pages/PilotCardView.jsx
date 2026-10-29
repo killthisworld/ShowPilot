@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft, ExternalLink } from "lucide-react";
+import { User, Mail, Phone, Briefcase, Check, RotateCw, Wallet, Plus, ArrowLeft, ExternalLink, X } from "lucide-react";
 import Soundwave from "@/components/showpilot/Soundwave";
 import ColorPicker from "@/components/showpilot/ColorPicker";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,12 @@ const SOUNDWAVE_TEMPLATES = {
   green: { bg: "#8CFF3D", wave: "#000000" },
 };
 
-export default function PilotCardView() {
-  const { token } = useParams();
+// Also shown as a pop-up over a form (job 197): pass token + onClose. Then the
+// card sits in the middle of the screen; tapping outside or X closes it.
+export default function PilotCardView({ token: tokenProp, onClose } = {}) {
+  const params = useParams();
+  const token = tokenProp || params.token;
+  const modal = !!onClose;
   const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   // Both this and the Rooms page's own back button navigate to a fixed,
@@ -118,6 +122,7 @@ export default function PilotCardView() {
   };
 
   if (loading) {
+    if (modal) return <CardPop onClose={onClose}><div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" /></CardPop>;
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
@@ -126,6 +131,7 @@ export default function PilotCardView() {
   }
 
   if (error || !card) {
+    if (modal) return <CardPop onClose={onClose}><p className="text-white/60 text-base">{error || "Card not found"}</p></CardPop>;
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-4">
         <div className="text-center">
@@ -138,22 +144,8 @@ export default function PilotCardView() {
   const textColor = card.card_text_color || "#FFFFFF";
   const template = SOUNDWAVE_TEMPLATES[card.soundwave_template] || SOUNDWAVE_TEMPLATES.black;
 
-  return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
-      style={{
-        backgroundColor: card.page_bg_color || "#0d0d0d",
-        backgroundImage: card.page_bg_image_url ? `url(${card.page_bg_image_url})` : "url(/pilot-card-bg.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <button
-        onClick={() => goBack(backTo)}
-        className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </button>
+  const body = (
+    <>
 
       {/* Wallet picker modal */}
       {showWalletPicker && (
@@ -221,7 +213,7 @@ export default function PilotCardView() {
 
       {showBack ? (
         <div
-          onClick={() => navigate(`/logbook/public?token=${token}`)}
+          onClick={() => (modal ? window.open(`/logbook/public?token=${token}`, "_blank", "noopener") : navigate(`/logbook/public?token=${token}`))}
           className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center cursor-pointer p-8"
           style={{ backgroundColor: template.bg }}
           title="View Logbook"
@@ -311,6 +303,41 @@ export default function PilotCardView() {
             <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`} className="text-[#8CFF3D] hover:underline">Log in</Link> to save this pilot to your Fellow Pilots
           </p>
         )}
+      </div>
+    </>
+  );
+
+  if (modal) return <CardPop onClose={onClose}>{body}</CardPop>;
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-10"
+      style={{
+        backgroundColor: card.page_bg_color || "#0d0d0d",
+        backgroundImage: card.page_bg_image_url ? `url(${card.page_bg_image_url})` : "url(/pilot-card-bg.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <button
+        onClick={() => goBack(backTo)}
+        className="fixed top-5 left-5 z-30 p-2 rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </button>
+      {body}
+    </div>
+  );
+}
+
+// The card in the middle of the screen over a dimmed page; outside closes it.
+function CardPop({ onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center px-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" aria-hidden="true" />
+      <div role="dialog" aria-modal="true" aria-label="Digital card" className="relative w-full max-w-sm flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onClose} aria-label="Close" className="self-end mb-2 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
+        {children}
       </div>
     </div>
   );

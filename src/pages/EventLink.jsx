@@ -551,8 +551,9 @@ export default function EventLink() {
   ) : null;
   const sendRow = submitted ? (
     <p className="text-[13.5px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. You can still change anything; it saves as you go.</p>
-  ) : reqLeft ? null : (
-    <button type="button" onClick={send} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Send to {info.venue || "the venue"}</button>
+  ) : !N ? null : (
+    // Always a green Submit (job 197); with something still needed it opens that circle.
+    <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Submit</button>
   );
   const header = (big) => (
     <div className="flex items-start gap-3">

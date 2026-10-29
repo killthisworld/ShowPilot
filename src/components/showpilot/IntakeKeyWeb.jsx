@@ -4,6 +4,7 @@ import { Lock, Send, CheckCircle, CalendarDays, X } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import PilotCardView from "@/pages/PilotCardView";
 
 // The access key + web for the engineers' intake forms (Performer Intake and
 // Opener Set Info, job 195), the same way acts get the venue's Event Form:
@@ -61,10 +62,24 @@ export function SenderCircle({ center, color, desktop }) {
   );
   const cls = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center";
   const style = { borderColor: color, background: "#0f140c", boxShadow: `0 0 30px ${color}66` };
-  return c.href ? (
-    <a href={c.href} target="_blank" rel="noopener noreferrer" aria-label={`${c.name || "Sender"}'s digital card`} title="Open their digital card" className={cls} style={style}>{inner}</a>
-  ) : (
-    <div className={cls} style={style}>{inner}</div>
+  // Their digital card opens over the form (job 197); back or tapping
+  // outside closes it and leaves you on the form.
+  const cardToken = (String(c.href || "").match(/\/pilot\/([^/?#]+)/) || [])[1] || "";
+  const [cardOpen, setCardOpen] = useState(false);
+  useEffect(() => {
+    if (!cardOpen) return;
+    const onPop = () => setCardOpen(false);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [cardOpen]);
+  const openCard = () => { try { window.history.pushState({ ...(window.history.state || {}), spCard: 1 }, ""); } catch {} setCardOpen(true); };
+  const closeCard = () => { if (window.history.state?.spCard) window.history.back(); else setCardOpen(false); };
+  if (!cardToken) return <div className={cls} style={style}>{inner}</div>;
+  return (
+    <>
+      <button type="button" onClick={openCard} aria-label={`${c.name || "Sender"}'s digital card`} title="Open their digital card" className={cls} style={style}>{inner}</button>
+      {cardOpen && createPortal(<PilotCardView token={cardToken} onClose={closeCard} />, document.body)}
+    </>
   );
 }
 
@@ -223,8 +238,10 @@ export default function IntakeKeyWeb({
   const sendRow = (
     <>
       {error && <p className="text-[14px] text-red-400 text-center">{error}</p>}
-      {canSend && (
-        <button type="button" onClick={onSend} disabled={sending} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
+      {/* Always a green Submit (job 197); with something still needed it
+          opens that circle instead of sending. */}
+      {(
+        <button type="button" onClick={() => { if (canSend) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); } }} disabled={sending} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}
@@ -271,7 +288,6 @@ export default function IntakeKeyWeb({
           ) : (
             <div className="w-full max-w-[640px] mx-auto flex flex-col gap-4">
               {web}
-              {needLine && <p className="text-center text-[13px] text-white/55">{needLine}</p>}
               {sendRow}
             </div>
           )}
@@ -288,7 +304,6 @@ export default function IntakeKeyWeb({
         {header(false)}
         <div className="flex-1 flex flex-col justify-center gap-4 min-h-[calc(100dvh-140px)]">
           {web}
-          {needLine && <p className="text-center text-[13px] text-white/55">{needLine}</p>}
           {sendRow}
         </div>
       </div>

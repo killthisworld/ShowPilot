@@ -482,7 +482,7 @@ export default function TourManagerIntake({ link } = {}) {
       canSend={!!form.band_name}
       onSend={handleSubmit}
       sending={submitting}
-      sendLabel={`Send to ${shownName}`}
+      sendLabel="Submit"
       error={error || ""}
     />
   );

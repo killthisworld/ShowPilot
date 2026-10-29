@@ -297,7 +297,7 @@ export default function OpenerIntake({ link } = {}) {
       canSend={!!form.band_name}
       onSend={handleSubmit}
       sending={submitting}
-      sendLabel="Send set info"
+      sendLabel="Submit"
       error={error || ""}
     />
   );
