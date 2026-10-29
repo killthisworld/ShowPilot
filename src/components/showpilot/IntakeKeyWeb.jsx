@@ -14,7 +14,6 @@ import PilotCardView from "@/pages/PilotCardView";
 // the form. A circle is green once it's filled in.
 // Phones open a circle in a sheet from the bottom; laptops beside the web.
 const GREEN = "#8CFF3D";
-const RED = "#F87171"; // the act (Mgmt / Artist)
 const mono = { fontFamily: SCENE_MONO };
 
 export function useIsDesktop() {
@@ -122,12 +121,6 @@ export default function IntakeKeyWeb({
     );
     const action = (
       <div className="flex flex-col gap-3">
-        {actName && (
-          <div className="rounded-[14px] border px-4 py-3 flex items-center gap-3" style={{ borderColor: `${RED}66`, background: "rgba(26,18,18,0.85)" }}>
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: RED }} />
-            <span className="flex-1 min-w-0"><span className="block text-[11px] tracking-[0.12em] text-white/55" style={mono}>THIS KEY IS FOR</span><span className="block text-[18px] font-bold truncate">{actName}</span></span>
-          </div>
-        )}
         <button type="button" disabled={opening} onClick={() => setPhase("unlocking")} className="min-h-[56px] rounded-[14px] font-bold text-[17px] flex items-center justify-center gap-2.5" style={{ background: color, color: "#0d0d0d", boxShadow: `0 0 24px ${color}55` }}>
           <Lock className="w-5 h-5" />Unlock my web
         </button>

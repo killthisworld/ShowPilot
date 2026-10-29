@@ -324,12 +324,9 @@ export default function EventLink() {
 
   // ---------- The key ----------
   if (!unlocked) {
-    const who = info.key ? (
-      <div className="rounded-[14px] border px-4 py-3 flex items-center gap-3 backdrop-blur-sm" style={{ borderColor: `${RED}66`, background: "rgba(26,18,18,0.8)" }}>
-        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: RED }} />
-        <span className="flex-1 min-w-0"><span className="block text-[11px] tracking-[0.12em] text-white/55" style={mono}>THIS KEY IS FOR</span><span className="block text-[18px] font-bold truncate">{info.key.act_name}</span></span>
-      </div>
-    ) : (
+    // A key made for a named act needs nothing here (job 197); otherwise the
+    // act types their name, since their answers are saved under it.
+    const who = info.key?.act_name ? null : (
       <label className="flex flex-col gap-1.5">
         <span className="text-[11px] tracking-[0.12em] text-white/60" style={mono}>WHO ARE YOU PLAYING AS?</span>
         <input value={actName} onChange={(e) => setActName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") unlock(); }} placeholder="Band or artist name" className={`${inputCls} min-h-[52px] text-[17px] bg-[#0b0b0b]/90`} autoFocus={desktop} />
@@ -337,7 +334,7 @@ export default function EventLink() {
     );
     const heading = (
       <div className="flex flex-col gap-1">
-        <span className="text-[14px] text-white/70">{info.key ? `${info.venue || "The venue"} sent ${info.key.act_name} a key to` : info.venue ? `${info.venue} sent you a key to` : "You've got a key to"}</span>
+        <span className="text-[14px] text-white/70">{info.key?.act_name ? `${info.venue || "The venue"} sent ${info.key.act_name} a key to` : info.venue ? `${info.venue} sent you a key to` : "You've got a key to"}</span>
         <h1 className={`${desktop ? "text-[56px]" : "text-[40px]"} leading-none font-bold`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
         <span className="text-[14.5px] text-white/70">{[fmtDay(info.date), info.place].filter(Boolean).join(" · ")}</span>
       </div>
