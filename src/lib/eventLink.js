@@ -15,19 +15,56 @@ export const ASK_TYPES = {
   file: { label: "Upload" },
   yesno: { label: "Yes / no" },
   inputs: { label: "Members and inputs" },
+  links: { label: "Links (website, socials)" },
+  contact: { label: "Contact (name, title, phone, email)" },
+  address: { label: "Address" },
 };
+
+// Which social / site a link is for (job 194).
+export const LINK_KINDS = [
+  { key: "website", label: "Website" },
+  { key: "instagram", label: "Instagram" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "facebook", label: "Facebook" },
+  { key: "x", label: "X / Twitter" },
+  { key: "youtube", label: "YouTube" },
+  { key: "spotify", label: "Spotify" },
+  { key: "apple_music", label: "Apple Music" },
+  { key: "soundcloud", label: "SoundCloud" },
+  { key: "bandcamp", label: "Bandcamp" },
+  { key: "other", label: "Other" },
+];
+// Guess the kind from what was pasted.
+export function guessLinkKind(url) {
+  const u = String(url || "").toLowerCase();
+  const map = [["instagram.", "instagram"], ["tiktok.", "tiktok"], ["facebook.", "facebook"], ["fb.com", "facebook"], ["twitter.", "x"], ["x.com", "x"], ["youtube.", "youtube"], ["youtu.be", "youtube"], ["spotify.", "spotify"], ["music.apple.", "apple_music"], ["soundcloud.", "soundcloud"], ["bandcamp.", "bandcamp"]];
+  const hit = map.find(([m]) => u.includes(m));
+  return hit ? hit[1] : u ? "website" : "";
+}
+
+// The field an ask really is (job 194). Forms made before links / contact /
+// address existed used a paragraph or short answer for them; those show
+// with the proper fields unless an act already answered in plain text.
+export function askType(ask, answer) {
+  const t = ask?.type;
+  if (typeof answer === "string" && answer.trim()) return t;
+  if ((t === "longtext" || t === "text") && ask?.key === "links") return "links";
+  if (t === "text" && ask?.key === "contact") return "contact";
+  if (t === "text" && ask?.key === "mailing") return "address";
+  return t;
+}
 
 // The checklist a venue starts from.
 export const DEFAULT_ASKS = [
   { key: "blurb", label: "Band blurb", type: "longtext", required: true, hint: "About 50 words, for the event page" },
-  { key: "links", label: "Website and socials", type: "longtext", required: false, hint: "Links" },
+  { key: "links", label: "Website and socials", type: "links", required: false, hint: "Add each one" },
   { key: "photo", label: "Hi-res band photo", type: "file", required: true, hint: "Upload" },
   { key: "fb_flyer", label: "Facebook flyer", type: "file", required: true, hint: "1200 × 628 px" },
   { key: "print_flyer", label: "Printed flyer", type: "file", required: false, hint: "11 × 17" },
   { key: "inputs", label: "Input list and stage plot", type: "inputs", required: true, hint: "Who plays what, and where they stand" },
   { key: "house_kit", label: "Using the house kit?", type: "yesno", required: true, hint: "And what you bring" },
-  { key: "mailing", label: "Mailing address", type: "text", required: false, hint: "For payment, if needed" },
-  { key: "contact", label: "Day-of contact", type: "text", required: true, hint: "Name and phone" },
+  { key: "mailing", label: "Mailing address", type: "address", required: false, hint: "For payment, if needed" },
+  { key: "contact", label: "Day-of contact", type: "contact", required: true, hint: "Who to call on the day" },
 ];
 
 const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
@@ -196,9 +233,17 @@ export async function saveEventLink(showId, { blocks, asks, message, remindDays 
 // Is this ask answered? Used by the venue's grid and the act's checklist.
 export function isAnswered(ask, answer) {
   if (answer === undefined || answer === null) return false;
-  if (ask.type === "file") return !!(answer && answer.url);
-  if (ask.type === "yesno") return answer.value === "yes" || answer.value === "no";
-  if (ask.type === "inputs") {
+  if (typeof answer === "string") return has(answer);
+  const type = askType(ask, answer);
+  if (type === "links") return Array.isArray(answer) && answer.some((l) => has(l?.url));
+  if (type === "contact") {
+    const list = Array.isArray(answer) ? answer : [answer];
+    return list.some((c) => has(c?.name) && (has(c?.phone) || has(c?.email)));
+  }
+  if (type === "address") return has(answer.street) && has(answer.city);
+  if (type === "file") return !!(answer && answer.url);
+  if (type === "yesno") return answer.value === "yes" || answer.value === "no";
+  if (type === "inputs") {
     return (Array.isArray(answer.members) && answer.members.some((m) => has(m.name))) || (answer.files || []).length > 0;
   }
   return has(answer);

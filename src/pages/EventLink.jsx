@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, LockOpen, CalendarDays, X } from "lucide-react";
+import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
-import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile } from "@/lib/eventLink";
+import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
 
 // Public page an act opens from the venue's event link (/v/<code>). No account:
@@ -131,6 +131,73 @@ function InputsAsk({ code, value, onChange }) {
         <input ref={ref} type="file" multiple className="hidden" onChange={addFiles} />
         <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="min-h-[44px] rounded-[10px] text-[14px] font-semibold border disabled:opacity-60" style={{ color: BLUE, borderColor: `${BLUE}66` }}>{busy ? "Uploading…" : "Add files"}</button>
       </div>
+    </div>
+  );
+}
+
+// Links (job 194): one row per link, what it's for from a list, + Add.
+function LinksAsk({ value, onChange }) {
+  const rows = Array.isArray(value) && value.length ? value : [{ kind: "", url: "" }];
+  const refs = useRef([]);
+  const set = (next) => onChange(next);
+  const setRow = (i, patch) => set(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const add = () => { set([...rows, { kind: "", url: "" }]); setTimeout(() => refs.current[rows.length]?.focus(), 0); };
+  return (
+    <div className="flex flex-col gap-2.5">
+      {rows.map((r, i) => {
+        const href = linkHref(r.url);
+        return (
+          <div key={i} className="flex flex-col gap-1.5 rounded-[12px] border border-[#242424] bg-[#101010] p-2.5">
+            <div className="flex gap-2">
+              <select value={r.kind || ""} onChange={(e) => setRow(i, { kind: e.target.value })} aria-label="What this link is for" className={`${inputCls} !w-[128px] shrink-0 !px-2`}>
+                <option value="">Type…</option>
+                {LINK_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+              </select>
+              <input ref={(el) => { refs.current[i] = el; }} value={r.url || ""} inputMode="url" autoCapitalize="none" autoCorrect="off"
+                onChange={(e) => setRow(i, { url: e.target.value, kind: r.kind || guessLinkKind(e.target.value) })}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (String(r.url || "").trim()) add(); } }}
+                placeholder="Paste the link" aria-label="Link" className={inputCls} />
+              {rows.length > 1 && <button type="button" onClick={() => set(rows.filter((_, j) => j !== i))} aria-label="Remove link" className="min-h-[44px] w-[40px] shrink-0 flex items-center justify-center text-white/40"><X className="w-4 h-4" /></button>}
+            </div>
+            {href && /\./.test(r.url) && <a href={href} target="_blank" rel="noreferrer" className="self-start flex items-center gap-1.5 text-[12.5px] underline break-all" style={{ color: BLUE }}><ExternalLink className="w-3.5 h-3.5 shrink-0" />{href.replace(/^https?:\/\//, "")}</a>}
+          </div>
+        );
+      })}
+      <button type="button" onClick={add} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: BLUE }}><Plus className="w-4 h-4" />Add another link</button>
+    </div>
+  );
+}
+
+// A contact (job 194): name, title, phone, email; + Add for more people.
+function ContactAsk({ value, onChange }) {
+  const list = Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
+  const rows = list.length ? list : [{ name: "", title: "", phone: "", email: "" }];
+  const setRow = (i, k, v) => onChange(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  return (
+    <div className="flex flex-col gap-2.5">
+      {rows.map((r, i) => (
+        <div key={i} className="rounded-[12px] border border-[#242424] bg-[#101010] p-2.5 grid grid-cols-2 gap-2">
+          <input value={r.name || ""} onChange={(e) => setRow(i, "name", e.target.value)} placeholder="Name" aria-label="Name" autoComplete="name" className={inputCls} />
+          <input value={r.title || ""} onChange={(e) => setRow(i, "title", e.target.value)} placeholder="Title (tour manager…)" aria-label="Title" className={inputCls} />
+          <input value={r.phone || ""} onChange={(e) => setRow(i, "phone", e.target.value)} placeholder="Phone" aria-label="Phone" type="tel" inputMode="tel" autoComplete="tel" className={inputCls} />
+          <input value={r.email || ""} onChange={(e) => setRow(i, "email", e.target.value)} placeholder="Email" aria-label="Email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" className={inputCls} />
+          {rows.length > 1 && <button type="button" onClick={() => onChange(rows.filter((_, j) => j !== i))} className="col-span-2 justify-self-end min-h-[36px] px-2 text-[12.5px] text-white/45 flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" />Remove</button>}
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...rows, { name: "", title: "", phone: "", email: "" }])} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: BLUE }}><Plus className="w-4 h-4" />Add another person</button>
+    </div>
+  );
+}
+
+function AddressAsk({ value, onChange }) {
+  const v = value && typeof value === "object" ? value : {};
+  const set = (k, x) => onChange({ ...v, [k]: x });
+  return (
+    <div className="grid grid-cols-6 gap-2">
+      <input value={v.street || ""} onChange={(e) => set("street", e.target.value)} placeholder="Street address" aria-label="Street address" autoComplete="street-address" className={`${inputCls} col-span-6`} />
+      <input value={v.city || ""} onChange={(e) => set("city", e.target.value)} placeholder="City" aria-label="City" autoComplete="address-level2" className={`${inputCls} col-span-3`} />
+      <input value={v.state || ""} onChange={(e) => set("state", e.target.value)} placeholder="State" aria-label="State" autoComplete="address-level1" className={`${inputCls} col-span-1 !px-2`} />
+      <input value={v.zip || ""} onChange={(e) => set("zip", e.target.value)} placeholder="ZIP" aria-label="ZIP" inputMode="numeric" autoComplete="postal-code" className={`${inputCls} col-span-2`} />
     </div>
   );
 }
@@ -301,11 +368,11 @@ export default function EventLink() {
       <div className="flex flex-col gap-3 transition-opacity duration-500" style={{ opacity: opening ? 0 : 1, pointerEvents: opening ? "none" : "auto" }}>
         {who}
         <button type="button" disabled={!actName.trim() || opening} onClick={unlock} className="min-h-[56px] rounded-[14px] font-bold text-[17px] flex items-center justify-center gap-2.5 disabled:opacity-50" style={{ background: BLUE, color: "#0d0d0d", boxShadow: `0 0 24px ${BLUE}55` }}>
-          <LockOpen className="w-5 h-5" />Unlock my web
+          <Lock className="w-5 h-5" />Unlock my web
         </button>
         <p className="text-center text-[12.5px] text-white/55 leading-relaxed">
           {asks.length ? `Opens the web of ${asks.length} thing${asks.length === 1 ? "" : "s"} ${info.venue || "the venue"} needs from you. ` : ""}
-          {info.key ? "No account needed, on any phone or laptop. Your answers save as you go." : "No account needed. Your answers save as you go, on this device and with the venue."}
+          {info.key ? "No account needed. Your answers save as you go." : "No account needed. Your answers save as you go, on this device and with the venue."}
         </p>
       </div>
     );
@@ -314,15 +381,22 @@ export default function EventLink() {
         <div className="min-h-screen text-white relative bg-[#05060d]">
           <SkyBack seed={code} dim={opening ? 0.1 : 0.35} />
           <div className="relative min-h-screen max-w-5xl mx-auto px-8 py-10 flex flex-col" style={{ zIndex: 1 }}>
-            <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
-            {previewBar}
-            <div className="flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-12 items-center">
-              <div className="flex justify-center">{keyArt(380)}</div>
-              <div className="flex flex-col gap-8">
-                <div className="transition-opacity duration-500" style={{ opacity: opening ? 0 : 1 }}>{heading}</div>
-                {action}
-              </div>
+            <div className="transition-opacity duration-500" style={{ opacity: opening ? 0 : 1 }}>
+              <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
+              {previewBar}
             </div>
+            {opening ? (
+              // Only the stars and the key opening.
+              <div className="flex-1 flex items-center justify-center">{keyArt(420)}</div>
+            ) : (
+              <div className="flex-1 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-12 items-center">
+                <div className="flex justify-center">{keyArt(380)}</div>
+                <div className="flex flex-col gap-8">
+                  {heading}
+                  {action}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -331,11 +405,15 @@ export default function EventLink() {
       <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
         <SkyBack seed={code} dim={opening ? 0.1 : 0.35} />
         <div className="relative min-h-[100dvh] px-5 pt-5 pb-6 flex flex-col gap-5" style={{ zIndex: 1 }}>
-          <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
-          {previewBar}
-          <div className="transition-opacity duration-500" style={{ opacity: opening ? 0 : 1 }}>{heading}</div>
-          <div className="flex-1 flex items-center justify-center py-2">{keyArt(Math.min(300, typeof window !== "undefined" ? window.innerWidth - 60 : 300))}</div>
-          {action}
+          {!opening && (
+            <>
+              <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
+              {previewBar}
+              {heading}
+            </>
+          )}
+          <div className="flex-1 flex items-center justify-center py-2">{keyArt(Math.min(opening ? 330 : 300, typeof window !== "undefined" ? window.innerWidth - 50 : 300))}</div>
+          {!opening && action}
         </div>
       </div>
     );
@@ -347,6 +425,7 @@ export default function EventLink() {
   const reqLeft = missing.length;
   const cur = pane.startsWith("ask:") ? asks.find((a) => `ask:${a.key}` === pane) || null : null;
   const curIdx = cur ? asks.indexOf(cur) : -1;
+  const curType = cur ? askType(cur, answers[cur.key]) : null;
   // Save keeps the answer and goes back to the web, where the circle turns green.
   const saveCircle = async () => {
     if (actName.trim()) await persist(actName, answers);
@@ -367,10 +446,11 @@ export default function EventLink() {
   const web = (
     <div className="relative w-full aspect-square">
       <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true">
-        <circle cx="50" cy="50" r="37" fill="none" stroke={`${RED}38`} strokeWidth="0.3" />
+        <circle cx="50" cy="50" r="37" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.3" />
         {asks.map((a, i) => {
           const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
-          return <line key={a.key} x1="50" y1="50" x2={50 + 37 * Math.cos(ang)} y2={50 + 37 * Math.sin(ang)} stroke={pane === `ask:${a.key}` ? RED : `${RED}40`} strokeWidth="0.3" />;
+          const ok = isAnswered(a, answers[a.key]);
+          return <line key={a.key} x1="50" y1="50" x2={50 + 37 * Math.cos(ang)} y2={50 + 37 * Math.sin(ang)} stroke={pane === `ask:${a.key}` ? "rgba(255,255,255,0.7)" : ok ? `${GREEN}80` : "rgba(255,255,255,0.16)"} strokeWidth="0.3" />;
         })}
       </svg>
       <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${corner} left-0 top-0`} style={{ borderColor: BLUE, background: pane === "show" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
@@ -387,12 +467,14 @@ export default function EventLink() {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
         const ok = isAnswered(a, answers[a.key]);
         const on = pane === `ask:${a.key}`;
-        const dot = ok ? GREEN : a.required ? AMBER : "#666";
         return (
-          <button key={a.key} type="button" onClick={() => setPane(on ? "start" : `ask:${a.key}`)} aria-pressed={on} aria-label={`${a.label}, ${ok ? "done" : a.required ? "needed" : "optional"}`}
+          <button key={a.key} type="button" onClick={() => setPane(on ? "start" : `ask:${a.key}`)} aria-pressed={on} aria-label={`${a.label}, ${ok ? "done" : "not filled in yet"}`}
             className="absolute rounded-full flex flex-col items-center justify-center gap-[3px] p-0 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${50 + 37 * Math.cos(ang)}%`, top: `${50 + 37 * Math.sin(ang)}%`, width: `${nodeSize}%`, height: `${nodeSize}%`, background: on ? RED : "rgba(21,21,21,0.92)", color: on ? "#0d0d0d" : "#f2f2f2", border: `1.5px solid ${on ? RED : ok ? `${GREEN}a0` : `${RED}80`}`, boxShadow: on ? `0 0 18px ${RED}99` : ok ? `0 0 10px ${GREEN}33` : "none" }}>
-            <span className="w-[7px] h-[7px] rounded-full" style={{ background: on ? "#0d0d0d" : dot }} />
+            style={{ left: `${50 + 37 * Math.cos(ang)}%`, top: `${50 + 37 * Math.sin(ang)}%`, width: `${nodeSize}%`, height: `${nodeSize}%`,
+              // Not filled in: no colour. Filled in: green. The open one is ringed in white.
+              background: ok ? GREEN : "rgba(21,21,21,0.92)", color: ok ? "#0d0d0d" : "#f2f2f2",
+              border: `${on ? 2.5 : 1.5}px solid ${on ? "#FFFFFF" : ok ? GREEN : "rgba(255,255,255,0.28)"}`,
+              boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : ok ? `0 0 14px ${GREEN}66` : "none" }}>
             <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{shortLabel(a.label)}</span>
           </button>
         );
@@ -415,27 +497,23 @@ export default function EventLink() {
     </div>
   );
 
-  const legend = (
-    <div className="flex justify-center gap-3.5 text-[11.5px] text-white/65">
-      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: GREEN }} />Done</span>
-      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: AMBER }} />Needed</span>
-      <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#666]" />Optional</span>
-    </div>
-  );
 
   const askBody = cur && (
     <div className="flex flex-col gap-3 text-center">
       <div className="flex flex-col items-center gap-1">
-        {(() => { const ok = isAnswered(cur, answers[cur.key]); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : cur.required ? AMBER : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? `${(info.venue || "THE VENUE").toUpperCase()} NEEDS THIS` : "OPTIONAL"} · {curIdx + 1} / {N}</div>; })()}
+        {(() => { const ok = isAnswered(cur, answers[cur.key]); return <div className="text-[10.5px] tracking-[0.12em]" style={{ ...mono, color: ok ? GREEN : "rgba(255,255,255,0.55)" }}>{ok ? "DONE" : cur.required ? "NEEDED" : "OPTIONAL"} · {curIdx + 1} / {N}</div>; })()}
         <div className={`${desktop ? "text-[30px]" : "text-[22px]"} font-bold leading-tight`} style={desktop ? { fontFamily: "'Barlow Condensed', sans-serif" } : undefined}>{cur.label}</div>
         {cur.hint && cur.type !== "yesno" && <p className="text-[13.5px] text-white/60">{cur.hint}</p>}
       </div>
-      <div>
-        {cur.type === "text" && <input value={answers[cur.key] || ""} onChange={(e) => setAnswer(cur.key, e.target.value)} className={inputCls} aria-label={cur.label} autoFocus={desktop} />}
-        {cur.type === "longtext" && <textarea value={answers[cur.key] || ""} onChange={(e) => setAnswer(cur.key, e.target.value)} rows={desktop ? 6 : 4} className={`${inputCls} py-2`} aria-label={cur.label} autoFocus={desktop} />}
-        {cur.type === "file" && <FileAsk code={code} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
-        {cur.type === "yesno" && <YesNoAsk hint={cur.hint} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
-        {cur.type === "inputs" && <InputsAsk code={code} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+      <div className="text-left">
+        {curType === "text" && <input value={typeof answers[cur.key] === "string" ? answers[cur.key] : ""} onChange={(e) => setAnswer(cur.key, e.target.value)} className={inputCls} aria-label={cur.label} autoFocus={desktop} />}
+        {curType === "longtext" && <textarea value={typeof answers[cur.key] === "string" ? answers[cur.key] : ""} onChange={(e) => setAnswer(cur.key, e.target.value)} rows={desktop ? 6 : 4} className={`${inputCls} py-2`} aria-label={cur.label} autoFocus={desktop} />}
+        {curType === "file" && <FileAsk code={code} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+        {curType === "yesno" && <YesNoAsk hint={cur.hint} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+        {curType === "inputs" && <InputsAsk code={code} value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+        {curType === "links" && <LinksAsk value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+        {curType === "contact" && <ContactAsk value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
+        {curType === "address" && <AddressAsk value={answers[cur.key]} onChange={(v) => setAnswer(cur.key, v)} />}
       </div>
       <button type="button" onClick={saveCircle} disabled={status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] disabled:opacity-60" style={{ background: GREEN, color: "#0d0d0d" }}>{status === "saving" ? "Saving…" : "Save"}</button>
     </div>
@@ -487,7 +565,7 @@ export default function EventLink() {
     <div className="flex flex-col items-center gap-2 text-center">
       {info.message && <p className="w-full text-[15px] text-white/80 whitespace-pre-wrap pb-2 border-b border-[#242424] mb-1">{info.message}</p>}
       <span className="text-[17px] font-bold">{N ? (reqLeft ? "Tap a circle to fill it in" : submitted ? "All sent" : "Everything needed is in") : "Nothing to fill in"}</span>
-      <span className="text-[14px] text-white/60 leading-relaxed">{N ? (reqLeft ? `Orange ones are what ${info.venue || "the venue"} needs. When they're all green, tap Send.` : submitted ? "You can still change anything; it saves as you go." : `Tap Send to let ${info.venue || "the venue"} know.`) : "Tap The show for the details."}</span>
+      {(!N || !reqLeft) && <span className="text-[14px] text-white/60 leading-relaxed">{N ? (submitted ? "You can still change anything; it saves as you go." : `Tap Send to let ${info.venue || "the venue"} know.`) : "Tap The show for the details."}</span>}
       {N > 0 && reqLeft > 0 && <button type="button" onClick={() => setPane(`ask:${firstNeeded.key}`)} className="mt-2 min-h-[48px] px-5 rounded-[12px] font-bold text-[15px]" style={{ background: RED, color: "#0d0d0d" }}>Start with {shortLabel(firstNeeded.label)}</button>}
     </div>
   );
@@ -521,7 +599,7 @@ export default function EventLink() {
           {previewBar}
           {header(true)}
           <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
-            <div className="flex flex-col gap-3">{web}{legend}</div>
+            <div className="flex flex-col gap-3">{web}</div>
             <div className="sticky top-6 flex flex-col gap-3">
               <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
                 {cur ? askBody : pane === "question" ? questionBody : startBody}
@@ -545,7 +623,6 @@ export default function EventLink() {
         {previewBar}
         {header(false)}
         <div className="mt-1">{web}</div>
-        {legend}
         <div className="rounded-[16px] border border-[#262626] bg-[#151515]/90 backdrop-blur p-4">{startBody}</div>
         {sendRow}
         <div className="flex justify-center">{changeName}</div>

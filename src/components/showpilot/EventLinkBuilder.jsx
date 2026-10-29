@@ -5,7 +5,7 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventLinkEmail from "@/components/showpilot/EventLinkEmail";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { eventTitle } from "@/lib/eventTitle";
-import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig, createEventLinkKey, deleteEventLinkKey } from "@/lib/eventLink";
+import { ASK_TYPES, LINK_KINDS, askType, linkHref, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig, createEventLinkKey, deleteEventLinkKey } from "@/lib/eventLink";
 
 // The venue's event link (job 176): choose what acts see, set the checklist,
 // copy the link, then watch answers arrive. Lives in the venue's event tabs.
@@ -42,7 +42,7 @@ function Check1({ on, onChange, label, sub, color }) {
 }
 
 // What each question looks like to the act, empty (job 176).
-const ASK_VERB = { file: "ACTS UPLOAD THIS", yesno: "ACTS PICK ONE", inputs: "ACTS FILL THIS IN", text: "ACTS FILL THIS IN", longtext: "ACTS FILL THIS IN" };
+const ASK_VERB = { file: "ACTS UPLOAD THIS", yesno: "ACTS PICK ONE", inputs: "ACTS FILL THIS IN", text: "ACTS FILL THIS IN", longtext: "ACTS FILL THIS IN", links: "ACTS ADD THEIR LINKS", contact: "ACTS ADD WHO TO CALL", address: "ACTS FILL THIS IN" };
 const dash = "border-[1.5px] border-dashed border-[#3a3a3a] rounded-[10px] text-[13px] text-white/45";
 function BlankField({ ask }) {
   if (ask.type === "file") {
@@ -55,6 +55,16 @@ function BlankField({ ask }) {
         <span className={`${dash} flex-1 h-[44px] flex items-center justify-center`}>No</span>
       </span>
     );
+  }
+  const t = askType(ask);
+  if (t === "links") {
+    return <span className={`${dash} h-[64px] px-3 grid grid-cols-[90px_1fr] content-center gap-x-3 gap-y-1`}><span>Instagram ▾</span><span>Link</span><span>+ Add another link</span><span /></span>;
+  }
+  if (t === "contact") {
+    return <span className={`${dash} h-[64px] px-3 grid grid-cols-2 content-center gap-x-3 gap-y-1`}><span>Name</span><span>Title</span><span>Phone</span><span>Email</span></span>;
+  }
+  if (t === "address") {
+    return <span className={`${dash} h-[64px] px-3 grid grid-cols-3 content-center gap-x-3 gap-y-1`}><span className="col-span-3">Street address</span><span>City</span><span>State</span><span>ZIP</span></span>;
   }
   if (ask.type === "inputs") {
     return (
@@ -122,6 +132,37 @@ function Responses({ data, color, shareToken, onTask }) {
 }
 
 function AnswerView({ ask, ans, color }) {
+  const t = askType(ask, ans);
+  if (t === "links" && Array.isArray(ans)) {
+    return (
+      <div className="flex flex-col gap-0.5 text-[14px]">
+        {ans.filter((l) => l?.url).map((l, i) => (
+          <a key={i} href={linkHref(l.url)} target="_blank" rel="noreferrer" className="underline break-all" style={{ color }}>
+            {(LINK_KINDS.find((k) => k.key === l.kind)?.label || "Link")}: {String(l.url).replace(/^https?:\/\//, "")}
+          </a>
+        ))}
+      </div>
+    );
+  }
+  if (t === "contact" && ans && typeof ans === "object") {
+    const list = Array.isArray(ans) ? ans : [ans];
+    return (
+      <div className="flex flex-col gap-1 text-[14px] text-white/80">
+        {list.filter((c) => c?.name || c?.phone || c?.email).map((c, i) => (
+          <div key={i}>
+            <span className="font-semibold">{c.name}</span>{c.title ? ` · ${c.title}` : ""}
+            <div className="flex gap-3 flex-wrap">
+              {c.phone && <a href={`tel:${c.phone}`} className="underline" style={{ color }}>{c.phone}</a>}
+              {c.email && <a href={`mailto:${c.email}`} className="underline break-all" style={{ color }}>{c.email}</a>}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (t === "address" && ans && typeof ans === "object") {
+    return <p className="text-[14px] text-white/80">{[ans.street, [ans.city, ans.state].filter(Boolean).join(", "), ans.zip].filter(Boolean).join(" · ")}</p>;
+  }
   if (ask.type === "file") return <a href={ans.url} target="_blank" rel="noreferrer" className="text-[14px] underline break-all" style={{ color }}>{ans.name || "File"}</a>;
   if (ask.type === "yesno") return <p className="text-[14px] text-white/80">{ans.value === "yes" ? "Yes" : "No"}{ans.note ? ` · ${ans.note}` : ""}</p>;
   if (ask.type === "inputs") {
