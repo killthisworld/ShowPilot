@@ -29,6 +29,52 @@ export function useIsDesktop() {
   return on;
 }
 
+// Laptop layout that fits the window (job 202): the web is sized to the
+// screen height so nothing scrolls, and it stays put when a circle opens.
+// With room either side it stays centred and the circle opens to its right;
+// on a narrower laptop it sits on the left the whole time.
+function useViewport() {
+  const get = () => ({ w: typeof window !== "undefined" ? window.innerWidth : 1366, h: typeof window !== "undefined" ? window.innerHeight : 860 });
+  const [v, setV] = useState(get);
+  useEffect(() => {
+    const f = () => setV(get());
+    window.addEventListener("resize", f);
+    return () => window.removeEventListener("resize", f);
+  }, []);
+  return v;
+}
+export function DesktopFit({ reserved = 250, web, below = null, panel = null, panelKey = "" }) {
+  const { w, h } = useViewport();
+  const GAP = 40, PANEL_MIN = 320, PANEL_MAX = 460, PAD = 64;
+  const tall = Math.max(340, Math.min(720, h - reserved));
+  // Centred if the web can stay at least 420px (or its full height) with a panel beside it.
+  const centredSize = Math.min(tall, w - 2 * (GAP + 24 + PANEL_MIN));
+  const centred = centredSize >= Math.min(420, tall);
+  const size = centred ? centredSize : Math.max(340, Math.min(tall, w - PAD - GAP - PANEL_MIN));
+  const side = (w - size) / 2 - GAP - 24;
+  const panelW = centred ? Math.min(PANEL_MAX, side) : undefined;
+  const card = panel && (
+    <div key={panelKey} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overscroll-contain" style={{ maxHeight: size }}>
+      {panel}
+    </div>
+  );
+  const column = <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>;
+  if (centred) {
+    return (
+      <div className="relative flex justify-center">
+        {column}
+        {card && <div className="absolute top-0" style={{ left: `calc(50% + ${size / 2 + GAP}px)`, width: panelW }}>{card}</div>}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start" style={{ gap: GAP }}>
+      {column}
+      <div className="flex-1 min-w-0">{card}</div>
+    </div>
+  );
+}
+
 // The send-off (job 200): on Submit the circles pull into the centre, the
 // centre circle gathers itself and shoots off into the sky toward whoever
 // sent the form, then the thanks / rating fades in.
@@ -322,25 +368,17 @@ export default function IntakeKeyWeb({
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
         <SkyBack seed={seed} dim={0.25} />
-        <div className="ikw-in relative max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6" style={{ zIndex: 1 }}>
+        <div className="ikw-in relative max-w-[1400px] mx-auto px-8 py-6 flex flex-col gap-4" style={{ zIndex: 1 }}>
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {header(true)}
-          {/* The web on its own in the middle; a circle opens beside it. */}
-          {(cur || pane === "corner") && !off ? (
-            <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
-              <div>{web}</div>
-              <div className="sticky top-6 flex flex-col gap-3">
-                <div className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                  {cur ? circleBody : cornerBody}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full max-w-[640px] mx-auto flex flex-col gap-4">
-              {web}
-              {sendRow}
-            </div>
-          )}
+          {/* Fits the window; the web stays put and a circle opens beside it (job 202). */}
+          <DesktopFit
+            reserved={250 + (error ? 28 : 0)}
+            web={web}
+            below={sendRow}
+            panel={off ? null : cur ? circleBody : pane === "corner" ? cornerBody : null}
+            panelKey={pane}
+          />
         </div>
         {showModal}
       </div>

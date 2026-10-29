@@ -241,7 +241,10 @@ export default function OpenerIntake({ link } = {}) {
   const parent = context.tour_manager_requests;
   const showTitle = parent?.event_name || parent?.band_name || "Your show";
   const dayLine = [parent?.date ? new Date(parent.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", parent?.venue].filter(Boolean).join(" · ");
-  const engineerName = engineerCard?.display_name || "Your audio engineer";
+  // The sender's card: read directly when allowed, else from the form's own
+  // lookup, so a signed-out recipient still sees their picture (job 202).
+  const ec = engineerCard || parent?.engineer || null;
+  const engineerName = ec?.display_name || "Your audio engineer";
 
   if ((submitted && sentOff) || context.status === "submitted") {
     return (
@@ -272,15 +275,15 @@ export default function OpenerIntake({ link } = {}) {
   return (
     <IntakeKeyWeb
       seed={token}
-      image={engineerCard?.profile_photo_url || ""}
+      image={ec?.profile_photo_url || ""}
       keyCode={link?.code ? String(link.code).toUpperCase() : ""}
       fromLine={`${engineerName} (Audio) sent you a key to`}
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
       center={{
-        name: engineerName, photo: engineerCard?.profile_photo_url || "", label: "Audio",
-        href: engineerCard?.card_share_token ? `/pilot/${engineerCard.card_share_token}` : "",
+        name: engineerName, photo: ec?.profile_photo_url || "", label: "Audio",
+        href: ec?.card_share_token ? `/pilot/${ec.card_share_token}` : "",
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}

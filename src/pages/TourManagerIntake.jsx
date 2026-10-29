@@ -435,7 +435,10 @@ export default function TourManagerIntake({ link } = {}) {
   // The Performer Intake form as an access key and web (job 195).
   const showTitle = tmRequest?.event_name || tmRequest?.band_name || "Your show";
   const dayLine = [tmRequest?.date ? new Date(tmRequest.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", tmRequest?.venue].filter(Boolean).join(" · ");
-  const shownName = engineerCard?.display_name || engineerName;
+  // The sender's card: read directly when allowed, else from the form's own
+  // lookup, so a signed-out recipient still sees their picture (job 202).
+  const ec = engineerCard || tmRequest?.engineer || null;
+  const shownName = ec?.display_name || engineerName;
   const h = {
     form, update, genreInput, setGenreInput, removeGenreTag,
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
@@ -457,15 +460,15 @@ export default function TourManagerIntake({ link } = {}) {
   return (
     <IntakeKeyWeb
       seed={token}
-      image={engineerCard?.profile_photo_url || ""}
+      image={ec?.profile_photo_url || ""}
       keyCode={link?.code ? String(link.code).toUpperCase() : ""}
       fromLine={`${shownName} (Audio) sent you a key to`}
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
       center={{
-        name: shownName, photo: engineerCard?.profile_photo_url || "", label: "Audio",
-        href: engineerCard?.card_share_token ? `/pilot/${engineerCard.card_share_token}` : "",
+        name: shownName, photo: ec?.profile_photo_url || "", label: "Audio",
+        href: ec?.card_share_token ? `/pilot/${ec.card_share_token}` : "",
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}

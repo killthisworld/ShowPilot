@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle, Plus, Trash2, Upload, Send, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
+import { CheckCircle, Plus, Trash2, Upload, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
-import { SenderCircle, PlaneProgress, SEND_OFF_CSS, useSendOff, collapseStyle, SendOffCenter } from "@/components/showpilot/IntakeKeyWeb";
+import { SenderCircle, PlaneProgress, SEND_OFF_CSS, useSendOff, collapseStyle, SendOffCenter, DesktopFit } from "@/components/showpilot/IntakeKeyWeb";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
 
@@ -363,7 +363,7 @@ export default function EventLink() {
       <div className="relative flex flex-col items-center gap-3">
         <div style={{ width: size, height: size }}>
           <div style={{ transform: `scale(${size / 280})`, transformOrigin: "top left" }}>
-            <SkyKey seed={code} color={BLUE} phase={opening ? "unlocking" : "idle"} onDone={onKeyOpen} image={logo || null} />
+            <SkyKey seed={code} color={BLUE} phase={opening ? "unlocking" : "idle"} onDone={onKeyOpen} image={logo || info.sender?.photo || null} />
           </div>
         </div>
         <span className="text-[20px] tracking-[0.3em] transition-opacity duration-500" style={{ ...mono, color: BLUE, opacity: opening ? 0 : 1 }}>{String(code || "").toUpperCase()}</span>
@@ -563,11 +563,19 @@ export default function EventLink() {
       </div>
     </div>
   ) : null;
-  const sendRow = off ? null : submitted ? (
-    <p className="text-[13.5px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. You can still change anything; it saves as you go.</p>
-  ) : !N ? null : (
-    // Always a green Submit (job 197); with something still needed it opens that circle.
-    <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={reqLeft ? { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" } : { background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Submit</button>
+  // Submit works like the audio intake's (job 202): always there, grey until
+  // everything needed is in (tapping it then opens the next one), green with a
+  // tick once it's ready. After sending it stays, to send any changes.
+  const sendRow = off || !N ? null : (
+    <div className="flex flex-col gap-2">
+      <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"}
+        aria-label={reqLeft ? `Submit: fill in ${missing.map((a) => shortLabel(a.label)).join(", ")} first` : "Submit"}
+        className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+        style={reqLeft ? { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" } : { background: GREEN, color: "#0d0d0d" }}>
+        <CheckCircle className="w-4 h-4" />Submit
+      </button>
+      {submitted && <p className="text-center text-[13px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. Change anything and Submit again to send the update.</p>}
+    </div>
   );
   const header = (big) => (
     <div className={`flex items-start gap-3 ${off ? "so-gone" : ""}`}>
@@ -589,28 +597,22 @@ export default function EventLink() {
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
         <SkyBack seed={code} dim={0.25} />
-        <div key={webKey} className={`el-web-in relative max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
+        <div key={webKey} className={`el-web-in relative max-w-[1400px] mx-auto px-8 py-6 flex flex-col gap-4 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {previewBar}
           {header(true)}
-          {/* The web on its own in the middle; a circle opens beside it. */}
-          {(cur || pane === "question") && !off ? (
-            <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
-              <div className="flex flex-col gap-3">{web}</div>
-              <div className="sticky top-6 flex flex-col gap-3">
-                <div className="rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-                  {cur ? askBody : questionBody}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full max-w-[640px] mx-auto flex flex-col items-center gap-4">
-              <div className="w-full">{web}</div>
-              {!N && <p className="text-[14px] text-white/60">Nothing to fill in. Tap The show for the details.</p>}
-              <div className="w-full">{sendRow}</div>
-              {changeName}
-            </div>
-          )}
+          {/* Fits the window; the web stays put and a circle opens beside it (job 202). */}
+          <DesktopFit
+            reserved={266 + (previewBar ? 64 : 0) + (changeName ? 56 : 0) + (submitted ? 34 : 0)}
+            web={web}
+            below={<>
+              {!N && <p className="text-center text-[14px] text-white/60">Nothing to fill in. Tap The show for the details.</p>}
+              {sendRow}
+              {changeName && <div className="flex justify-center">{changeName}</div>}
+            </>}
+            panel={off ? null : cur ? askBody : pane === "question" ? questionBody : null}
+            panelKey={pane}
+          />
         </div>
         {showModal}
         {sentModal}
