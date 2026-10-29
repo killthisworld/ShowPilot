@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useId, useMemo, useRef } from "react";
 import { hashString, seededRandom } from "@/lib/constellation";
 
 // The fan's "digital key": three concentric rings of arcs, like an App Clip
@@ -8,6 +8,10 @@ import { hashString, seededRandom } from "@/lib/constellation";
 //   unlocking  rings slow and settle, the event color sweeps around them,
 //              the lock opens, then the whole key opens outward; onDone()
 //   failed     rings slow to a stop and dim red
+//   idle       rings drift slowly, waiting to be opened (the venue's Event
+//              Form key, job 191)
+// `image` (job 191): a picture (the event's logo) inside the middle circle,
+// with the lock as a small badge on it.
 // With reduced motion there's no spinning; unlocking just calls onDone.
 
 const SIZE = 280;
@@ -57,7 +61,8 @@ function useArcs(seedText) {
 
 // `notches` (job 78): one mark per countdown notch along the top of the key,
 // lit once that notch has turned; the last is the show-day pass.
-export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches = null }) {
+export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches = null, image = null }) {
+  const clipId = `skykey-${useId().replace(/:/g, "")}`;
   const arcs = useArcs(seed);
   const ringRefs = useRef([]);
   const arcRefs = useRef([]);
@@ -88,6 +93,8 @@ export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches
 
       if (phase === "verifying") {
         st.angles = st.angles.map((a, i) => a + RINGS[i].speed * dt);
+      } else if (phase === "idle") {
+        st.angles = st.angles.map((a, i) => a + RINGS[i].speed * 0.3 * dt);
       } else if (phase === "unlocking") {
         if (st.unlockStart == null) {
           st.unlockStart = now;
@@ -142,7 +149,7 @@ export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches
 
   return (
     <div ref={wrapRef} style={{ width: SIZE, height: SIZE, transition: reduced ? "opacity 250ms" : undefined, opacity: reduced && phase === "unlocking" ? 0 : 1 }}>
-      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} role="img" aria-label={failed ? "Key did not open" : phase === "unlocking" ? "Key opening" : "Checking your key"}>
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} role="img" aria-label={failed ? "Key did not open" : phase === "unlocking" ? "Key opening" : phase === "idle" ? "Your key" : "Checking your key"}>
         <circle cx={C} cy={C} r={136} fill="none" stroke={failed ? "rgba(248,113,113,0.18)" : "rgba(255,255,255,0.08)"} strokeWidth="1" />
         {arcs.map((ringArcs, ri) => (
           <g key={ri} ref={(el) => { ringRefs.current[ri] = el; }}>
@@ -175,6 +182,14 @@ export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches
         {/* The lock */}
         <g ref={lockRef}>
         <circle cx={C} cy={C} r={46} fill="#0b0e24" stroke={failed ? "rgba(248,113,113,0.5)" : "rgba(255,255,255,0.14)"} />
+        {image && (
+          <>
+            <defs><clipPath id={clipId}><circle cx={C} cy={C} r={45} /></clipPath></defs>
+            <image href={image} x={C - 45} y={C - 45} width={90} height={90} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
+            <circle cx={C} cy={C + 36} r={13} fill="#0b0e24" stroke="rgba(255,255,255,0.3)" />
+          </>
+        )}
+        <g transform={image ? `translate(${C} ${C + 37}) scale(0.4) translate(${-C} ${-C - 4})` : undefined}>
         <path
           ref={shackleRef}
           d={`M ${C - 10} ${C - 2} V ${C - 12} a 10 10 0 0 1 20 0 V ${C - 2}`}
@@ -185,6 +200,7 @@ export default function SkyKey({ seed, color = "#8CFF3D", phase, onDone, notches
         />
         <rect x={C - 16} y={C - 3} width={32} height={24} rx={6} fill={failed ? "#F87171" : "#fff"} />
         <circle cx={C} cy={C + 8} r={3.2} fill="#0b0e24" />
+        </g>
         </g>
       </svg>
     </div>
