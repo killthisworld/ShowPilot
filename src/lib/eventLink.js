@@ -135,8 +135,8 @@ export const linkHref = (v) => { const t = String(v || "").trim(); return !t ? "
 
 // Sending the link from Show Pilot (job 183): the edge function emails each
 // address from "<Venue> via Show Pilot", replies going to the venue.
-export async function sendEventLinkEmail(showId, to, subject, body) {
-  const { data, error } = await supabase.functions.invoke("send-event-link-email", { body: { show_id: showId, to, subject, body } });
+export async function sendEventLinkEmail(showId, to, subject, body, keyCode = null) {
+  const { data, error } = await supabase.functions.invoke("send-event-link-email", { body: { show_id: showId, to, subject, body, ...(keyCode ? { key_code: keyCode } : {}) } });
   if (error) {
     let msg = "Couldn't send the email. Try again in a minute.";
     try { const j = await error.context?.json?.(); if (j?.error) msg = j.error; } catch { /* keep the default */ }
@@ -152,6 +152,17 @@ export async function fetchEventLinkSends(showId) {
 export const looksLikeEmail = (v) => /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(String(v || "").trim());
 
 export const eventLinkUrl = (code) => `${window.location.origin}/v/${code}`;
+
+// A key per act (job 190): each opens the same form, named for that act.
+export async function createEventLinkKey(showId, actName) {
+  const { data, error } = await supabase.rpc("create_event_link_key", { p_show: showId, p_act_name: actName });
+  if (error) throw error;
+  return data;
+}
+export async function deleteEventLinkKey(id) {
+  const { error } = await supabase.rpc("delete_event_link_key", { p_id: id });
+  if (error) throw error;
+}
 
 // ---------- venue side ----------
 export function useEventLink(showId, enabled = true) {

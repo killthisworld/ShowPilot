@@ -145,6 +145,8 @@ export default function EventLink() {
     fetchPublicLink(code, preview ? null : getStoredToken(code)).then((d) => {
       if (!live) return;
       setInfo(d || null);
+      // An act's own key (job 190): the venue already named them.
+      if (d?.key?.act_name) setActName(d.key.act_name);
       if (d?.response && !preview) {
         setActName(d.response.act_name || "");
         setAnswers(d.response.answers || {});
@@ -217,7 +219,7 @@ export default function EventLink() {
       <Shell>
         {previewBar}
         <div className="flex flex-col gap-1">
-          <span className="text-[14px] text-white/65">{info.venue ? `${info.venue} sent you a key to` : "You've got a key to"}</span>
+          <span className="text-[14px] text-white/65">{info.key ? `${info.venue || "The venue"} sent ${info.key.act_name} a key to` : info.venue ? `${info.venue} sent you a key to` : "You've got a key to"}</span>
           <h1 className="text-[40px] leading-none font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
           <span className="text-[14.5px] text-white/70">{[fmtDay(info.date), info.place].filter(Boolean).join(" · ")}</span>
         </div>
@@ -233,14 +235,21 @@ export default function EventLink() {
             </span>
           </div>
         </div>
+        {info.key ? (
+          <div className="rounded-[14px] border px-4 py-3 flex items-center gap-3" style={{ borderColor: `${RED}66`, background: "#1a1212" }}>
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: RED }} />
+            <span className="flex-1 min-w-0"><span className="block text-[11px] tracking-[0.12em] text-white/55" style={mono}>THIS KEY IS FOR</span><span className="block text-[18px] font-bold truncate">{info.key.act_name}</span></span>
+          </div>
+        ) : (
         <label className="flex flex-col gap-1.5">
           <span className="text-[11px] tracking-[0.12em] text-white/60" style={mono}>WHO ARE YOU PLAYING AS?</span>
           <input value={actName} onChange={(e) => setActName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") unlock(); }} placeholder="Band or artist name" className={`${inputCls} min-h-[52px] text-[17px]`} autoFocus />
         </label>
+        )}
         <button type="button" disabled={!actName.trim()} onClick={unlock} className="min-h-[56px] rounded-[14px] font-bold text-[17px] flex items-center justify-center gap-2.5 disabled:opacity-50" style={{ background: BLUE, color: "#0d0d0d" }}>
           <LockOpen className="w-5 h-5" />Unlock my web
         </button>
-        <p className="text-center text-[12.5px] text-white/50 leading-relaxed">No account needed. This key opens only your part of this show. Come back any time: your answers stay saved on this device and with the venue.</p>
+        <p className="text-center text-[12.5px] text-white/50 leading-relaxed">{info.key ? "No account needed. This key opens only your part of this show, on any phone or laptop. Your answers save as you go." : "No account needed. This key opens only your part of this show. Come back any time: your answers stay saved on this device and with the venue."}</p>
       </Shell>
     );
   }
@@ -393,7 +402,7 @@ export default function EventLink() {
           ) : (
             <button type="button" onClick={send} disabled={preview || status === "saving"} className="min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Send to {info.venue || "the venue"}</button>
           )}
-          <button type="button" onClick={() => setUnlocked(false)} className="self-center lg:self-start text-[12.5px] text-white/45 underline min-h-[40px]">Not {actName}? Change the name</button>
+          {!info.key && <button type="button" onClick={() => setUnlocked(false)} className="self-center lg:self-start text-[12.5px] text-white/45 underline min-h-[40px]">Not {actName}? Change the name</button>}
         </div>
       </div>
     </Shell>

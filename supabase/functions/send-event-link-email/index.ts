@@ -1,7 +1,8 @@
 // send-event-link-email (job 183): the venue sends its event link to acts
 // from inside Show Pilot.
 //
-// POST { show_id, to: string[], subject, body } with the venue's session.
+// POST { show_id, to: string[], subject, body, key_code? } with the venue's session.
+// key_code (job 190): send that act's own key instead of the event's link.
 // - Only someone who can open the event's link builder (the venue side or
 //   the event owner, checked with their own session through
 //   get_event_link_admin) can send, and only once the link exists.
@@ -113,9 +114,18 @@ Deno.serve(async (req) => {
     const venueName = cleanName(show?.venue) || cleanName(prefs?.display_name) || "The venue";
     const replyTo = [prefs?.contact_email, user.email].map((e) => String(e ?? "").trim()).find((e) => EMAIL_RE.test(e));
 
-    const url = `${siteUrl()}/v/${link.code}`;
+    // An act's own key, if one was picked (it must belong to this event's form).
+    let code = link.code;
+    let keyCode: string | null = null;
+    if (input?.key_code) {
+      const { data: key } = await admin.from("event_link_keys").select("code").eq("link_id", link.id).eq("code", String(input.key_code).trim().toUpperCase()).maybeSingle();
+      if (!key) return json({ error: "That act's key isn't on this event any more." }, 400);
+      code = key.code;
+      keyCode = key.code;
+    }
+    const url = `${siteUrl()}/v/${code}`;
     // The link is always in the email, whatever the template says.
-    if (!body.includes(`/v/${link.code}`)) body = `${body}\n\n${url}`;
+    if (!body.includes(`/v/${code}`)) body = `${body}\n\n${url}`;
     const html = buildHtml(body, url, venueName);
     const from = `${venueName} via Show Pilot <${fromAddr}>`;
 
@@ -130,7 +140,7 @@ Deno.serve(async (req) => {
     for (const email of wanted) {
       const skipWhy = suppressed.has(email) ? "This address asked not to get emails (or bounced)." : justSent.has(email) ? "Sent a few minutes ago." : "";
       const { data: row, error: insErr } = await admin.from("event_link_sends").insert({
-        link_id: link.id, show_id: showId, sent_by: user.id, to_email: email, subject,
+        link_id: link.id, show_id: showId, sent_by: user.id, to_email: email, subject, key_code: keyCode,
         status: skipWhy ? "skipped" : "queued", error: skipWhy || null,
       }).select("id").single();
       if (insErr) { console.error(insErr); result.failed.push(email); continue; }

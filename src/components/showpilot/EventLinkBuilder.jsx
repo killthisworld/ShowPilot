@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { Check, Copy, Plus, Trash2, ChevronDown, Pencil, Upload, Eye } from "lucide-react";
+import { Check, Copy, Plus, Trash2, ChevronDown, Pencil, Upload, Eye, KeyRound, Mail } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventLinkEmail from "@/components/showpilot/EventLinkEmail";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { eventTitle } from "@/lib/eventTitle";
-import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig } from "@/lib/eventLink";
+import { ASK_TYPES, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig, createEventLinkKey, deleteEventLinkKey } from "@/lib/eventLink";
 
 // The venue's event link (job 176): choose what acts see, set the checklist,
 // copy the link, then watch answers arrive. Lives in the venue's event tabs.
@@ -183,6 +183,91 @@ export function AskGrid({ asks, setAsks, color = "#60A5FA" }) {
   );
 }
 
+// Each act's own key (job 190): one form, a key per act on the bill. Like the
+// engineers' intake links, the venue adds another for each act.
+function ActKeys({ gig, data, color, onChanged, editable }) {
+  const keys = data.keys || [];
+  const asks = data.link?.asks || [];
+  const req = asks.filter((a) => a.required);
+  const byId = Object.fromEntries((data.responses || []).map((r) => [r.id, r]));
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState(null); // key id with its email row open
+  const [copied, setCopied] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const lineup = (gig.bands || []).map((b) => String(b.band_name || "").trim()).filter(Boolean)
+    .filter((n) => !keys.some((k) => k.act_name.trim().toLowerCase() === n.toLowerCase()));
+  const add = async (n) => {
+    const v = String(n || "").trim();
+    if (!v) return;
+    setBusy(true); setErr("");
+    try { await createEventLinkKey(gig.id, v); setName(""); await onChanged(); } catch (e) { console.error(e); setErr(e.message || "Couldn't make the key."); }
+    setBusy(false);
+  };
+  const copy = async (k) => { try { await navigator.clipboard.writeText(eventLinkUrl(k.code)); setCopied(k.id); setTimeout(() => setCopied(null), 1500); } catch {} };
+  const remove = async (k) => { setBusy(true); try { await deleteEventLinkKey(k.id); await onChanged(); } catch (e) { setErr(e.message || "Couldn't remove it."); } setBusy(false); setConfirm(null); };
+  const stateOf = (k) => {
+    const r = k.response_id ? byId[k.response_id] : null;
+    if (!r) return { text: "Not opened yet", color: "rgba(255,255,255,0.5)" };
+    const okN = asks.filter((a) => isAnswered(a, r.answers?.[a.key])).length;
+    const reqLeft = req.filter((a) => !isAnswered(a, r.answers?.[a.key])).length;
+    if (r.submitted_at && !reqLeft) return { text: `Sent · ${okN} of ${asks.length}`, color: G };
+    return { text: `${okN} of ${asks.length} done${reqLeft ? ` · ${reqLeft} needed` : ""}`, color: reqLeft ? AMBER : G };
+  };
+  return (
+    <div className="rounded-[14px] border p-4 flex flex-col gap-3" style={{ borderColor: `${color}55`, background: "#141414" }}>
+      <div>
+        <div className="flex items-center gap-2"><KeyRound className="w-4 h-4" style={{ color }} /><span className="text-[17px] font-bold">A key for each act</span></div>
+        <p className="text-[13.5px] text-white/55 mt-0.5">Same form for everyone. Each act gets their own key, already named, so their answers stay theirs on any phone or laptop.</p>
+      </div>
+      {keys.length > 0 && (
+        <div className="rounded-[12px] border border-[#242424] divide-y divide-[#1f1f1f]">
+          {keys.map((k) => {
+            const st = stateOf(k);
+            const url = eventLinkUrl(k.code);
+            return (
+              <div key={k.id} className="p-3 flex flex-col gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex-1 min-w-[160px]">
+                    <div className="text-[15.5px] font-semibold truncate">{k.act_name}</div>
+                    <div className="text-[12.5px] truncate" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
+                    <div className="text-[12.5px]" style={{ color: st.color }}>{st.text}</div>
+                  </div>
+                  <button type="button" onClick={() => copy(k)} className="min-h-[44px] px-3 rounded-[10px] text-[13.5px] font-bold flex items-center gap-1.5" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied === k.id ? "Copied" : "Copy"}</button>
+                  <button type="button" onClick={() => setOpen(open === k.id ? null : k.id)} aria-expanded={open === k.id} className="min-h-[44px] px-3 rounded-[10px] border text-[13.5px] font-semibold flex items-center gap-1.5" style={{ color, borderColor: `${color}66` }}><Mail className="w-4 h-4" />Email</button>
+                  <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" aria-label={`Preview ${k.act_name}'s key`} className="min-h-[44px] w-[44px] rounded-[10px] border border-[#2a2a2a] flex items-center justify-center text-white/70"><Eye className="w-4 h-4" /></a>
+                  {editable && (confirm === k.id ? (
+                    <button type="button" disabled={busy} onClick={() => remove(k)} className="min-h-[44px] px-3 rounded-[10px] text-[13px] font-bold" style={{ background: AMBER, color: "#0d0d0d" }}>Remove key</button>
+                  ) : (
+                    <button type="button" onClick={() => setConfirm(k.id)} aria-label={`Remove ${k.act_name}'s key`} className="min-h-[44px] w-[44px] flex items-center justify-center text-white/35"><Trash2 className="w-4 h-4" /></button>
+                  ))}
+                </div>
+                {open === k.id && <EventLinkEmail gig={gig} url={url} color={color} keyCode={k.code} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {editable && (
+        <div className="flex flex-col gap-2">
+          {lineup.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[12.5px] text-white/50 mr-1">On the bill:</span>
+              {lineup.map((n) => <button key={n} type="button" disabled={busy} onClick={() => add(n)} className="min-h-[40px] px-3 rounded-full border text-[13px] font-semibold disabled:opacity-50" style={{ color, borderColor: `${color}66` }}>+ {n}</button>)}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(name); }} placeholder={keys.length ? "Another act on the ticket" : "The act's name"} aria-label="Act name" className={inputCls} />
+            <button type="button" disabled={busy || !name.trim()} onClick={() => add(name)} className="min-h-[44px] px-4 rounded-[10px] font-bold text-[14px] flex items-center gap-1.5 shrink-0 disabled:opacity-50" style={{ background: color, color: "#0d0d0d" }}><Plus className="w-4 h-4" />{busy ? "Making…" : "Make a key"}</button>
+          </div>
+          {err && <p className="text-[13px]" style={{ color: AMBER }}>{err}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", shareToken, editable = true, onEventEmail = null }) {
   const { data, reload } = useEventLink(gig.id, !!gig.id);
   const link = data?.link || null;
@@ -246,7 +331,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
   const complete = rs.filter((r) => reqAsks.every((a) => isAnswered(a, r.answers?.[a.key]))).length;
   const dirty = !!link && (message !== (link.message || "") || JSON.stringify(asks.filter((a) => a.label.trim())) !== JSON.stringify(link.asks || []));
   const tabs = [
-    { key: "send", label: "Send", sub: link ? "Link and email" : "Make the form first" },
+    { key: "send", label: "Send", sub: link ? `${(data.keys || []).length} act key${(data.keys || []).length === 1 ? "" : "s"}` : "Make the form first" },
     { key: "responses", label: "Responses", sub: link ? (rs.length ? `${complete} of ${rs.length} complete` : "Nobody yet") : "Make the form first" },
     ...(editable ? [{ key: "form", label: "Build the form", sub: link ? `${(link.asks || []).length} question${(link.asks || []).length === 1 ? "" : "s"}` : "Start here" }] : []),
   ];
@@ -276,15 +361,27 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
       </div>
 
       {cur === "send" && (link ? (
-        <div className="rounded-[14px] border p-4 flex flex-col gap-3" style={{ borderColor: `${color}55`, background: "#141414" }}>
-          <span className={labelCls} style={mono}>YOUR LINK</span>
-          <div className="px-3 py-3 rounded-[10px] bg-[#0d0d0d] border border-[#2a2a2a] text-[14px] break-all" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
-          <div className="flex gap-2 flex-wrap">
-            <button type="button" onClick={copy} className="flex-1 min-w-[160px] min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
-            <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" className="min-h-[48px] px-4 rounded-[10px] border flex items-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}><Eye className="w-4 h-4" /> Preview as an act</a>
-          </div>
-          {/* Email it fills in the venue's own email template (job 176). */}
-          <EventLinkEmail gig={gig} url={url} color={color} onEventEmail={onEventEmail} />
+        <div className="flex flex-col gap-3">
+          <ActKeys gig={gig} data={data} color={color} onChanged={reload} editable={editable} />
+          {/* The event's one link still works for anyone who has it (acts type their name). */}
+          <details className="rounded-[14px] border border-[#2a2a2a] bg-[#141414] p-4 group">
+            <summary className="cursor-pointer list-none flex items-center gap-2 min-h-[32px]">
+              <span className="flex-1">
+                <span className="block text-[15.5px] font-semibold">One link for everyone</span>
+                <span className="block text-[13px] text-white/50">The event's open link. Acts type their own name.</span>
+              </span>
+              <ChevronDown className="w-4 h-4 text-white/40 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <div className="px-3 py-3 rounded-[10px] bg-[#0d0d0d] border border-[#2a2a2a] text-[14px] break-all" style={{ ...mono, color }}>{url.replace(/^https?:\/\//, "")}</div>
+              <div className="flex gap-2 flex-wrap">
+                <button type="button" onClick={copy} className="flex-1 min-w-[160px] min-h-[48px] rounded-[10px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: color, color: "#0d0d0d" }}><Copy className="w-4 h-4" />{copied ? "Copied" : "Copy link"}</button>
+                <a href={`${url}?preview=1`} target="_blank" rel="noreferrer" className="min-h-[48px] px-4 rounded-[10px] border flex items-center gap-2 text-[14px] font-semibold" style={{ color, borderColor: `${color}66` }}><Eye className="w-4 h-4" /> Preview as an act</a>
+              </div>
+              {/* Email it fills in the venue's own email template (job 176). */}
+              <EventLinkEmail gig={gig} url={url} color={color} onEventEmail={onEventEmail} />
+            </div>
+          </details>
         </div>
       ) : needLink)}
 

@@ -15,7 +15,9 @@ const inputCls = "w-full min-h-[44px] px-3 rounded-lg bg-[#0b0b0b] border border
 
 const fmtDate = (d) => (d ? new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : "");
 
-export default function EventLinkEmail({ gig, url, color = "#60A5FA", onEventEmail = null }) {
+// keyCode (job 190): this is one act's key; sends go with it and only its
+// own sends are listed. Without it, the event's link.
+export default function EventLinkEmail({ gig, url, color = "#60A5FA", onEventEmail = null, keyCode = null, contacts = null }) {
   const { preferences, setPreferences } = usePreferences();
   // A venue template loaded onto the event can bring its own email (job 185);
   // that one wins for this event, else the account's.
@@ -34,6 +36,7 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA", onEventEma
   const [sends, setSends] = useState([]);
   const reloadSends = useCallback(async () => { if (gig?.id) setSends(await fetchEventLinkSends(gig.id)); }, [gig?.id]);
   useEffect(() => { reloadSends(); }, [reloadSends]);
+  const mySends = sends.filter((x) => (x.key_code || null) === (keyCode || null));
 
   const vals = {
     event: eventTitle(gig),
@@ -92,9 +95,9 @@ export default function EventLinkEmail({ gig, url, color = "#60A5FA", onEventEma
       {msg && <p className="text-[13px] text-[#8CFF3D]">{msg}</p>}
 
       {sending && (
-        <SendPanel gig={gig} filled={filled} color={color} onSent={reloadSends} />
+        <SendPanel gig={gig} filled={filled} color={color} onSent={reloadSends} keyCode={keyCode} contacts={contacts} />
       )}
-      {sends.length > 0 && <SentList sends={sends} gig={gig} filled={filled} color={color} onSent={reloadSends} />}
+      {mySends.length > 0 && <SentList sends={mySends} gig={gig} filled={filled} color={color} onSent={reloadSends} keyCode={keyCode} />}
 
       {editing && (
         <div className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] p-3.5 flex flex-col gap-3">
@@ -141,7 +144,7 @@ function eventContacts(gig) {
 // Type or paste addresses (comma, space or Enter between them), pick from
 // the event's contacts, check the email, Send. Each act gets its own email
 // from "<Venue> via Show Pilot"; replies go to the venue.
-function SendPanel({ gig, filled, color, onSent, preset = [] }) {
+function SendPanel({ gig, filled, color, onSent, preset = [], keyCode = null, contacts = null }) {
   const [to, setTo] = useState(preset);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -167,7 +170,7 @@ function SendPanel({ gig, filled, color, onSent, preset = [] }) {
     if (!all.length) { setErr("Add at least one email address."); return; }
     setBusy(true); setErr(""); setDone(null);
     try {
-      const r = await sendEventLinkEmail(gig.id, all, filled.subject, filled.body);
+      const r = await sendEventLinkEmail(gig.id, all, filled.subject, filled.body, keyCode);
       setDone(r); setTo([]); setTyped("");
       onSent?.();
     } catch (e) { setErr(e.message); }
@@ -226,7 +229,7 @@ const STATUS = { sent: ["SENT", "#8CFF3D"], failed: ["DIDN'T SEND", "#FF8A3D"], 
 const when = (iso) => (iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 
 // Who the link was emailed to and when; send it again in one tap.
-function SentList({ sends, gig, filled, color, onSent }) {
+function SentList({ sends, gig, filled, color, onSent, keyCode = null }) {
   const [busy, setBusy] = useState(null);
   const [err, setErr] = useState("");
   // Latest attempt per address.
@@ -234,7 +237,7 @@ function SentList({ sends, gig, filled, color, onSent }) {
   for (const s of sends) if (!latest.some((x) => x.to_email === s.to_email)) latest.push(s);
   const again = async (email) => {
     setBusy(email); setErr("");
-    try { await sendEventLinkEmail(gig.id, [email], filled.subject, filled.body); await onSent?.(); } catch (e) { setErr(e.message); }
+    try { await sendEventLinkEmail(gig.id, [email], filled.subject, filled.body, keyCode); await onSent?.(); } catch (e) { setErr(e.message); }
     setBusy(null);
   };
   return (
