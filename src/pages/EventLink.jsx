@@ -6,7 +6,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
-import { SenderCircle, PlaneProgress } from "@/components/showpilot/IntakeKeyWeb";
+import { SenderCircle, PlaneProgress, SEND_OFF_CSS, useSendOff, collapseStyle, SendOffCenter } from "@/components/showpilot/IntakeKeyWeb";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
 
@@ -44,7 +44,7 @@ const inputCls = "w-full min-h-[44px] px-3 rounded-lg bg-[#0b0b0b] border border
 function SkyBack({ seed, dim = 0.3 }) {
   return (
     <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}>
-      <style>{`@keyframes el-web-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } } .el-web-in { animation: el-web-in 700ms cubic-bezier(.2,.8,.2,1) both; } @media (prefers-reduced-motion: reduce) { .el-web-in { animation: none; } }`}</style>
+      <style>{`@keyframes el-web-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } } .el-web-in { animation: el-web-in 700ms cubic-bezier(.2,.8,.2,1) both; } @media (prefers-reduced-motion: reduce) { .el-web-in { animation: none; } }${SEND_OFF_CSS}`}</style>
       <NightSky seed={seed} dim={dim} />
     </div>
   );
@@ -243,6 +243,12 @@ export default function EventLink() {
   const [unlocked, setUnlocked] = useState(false);
   const [pane, setPane] = useState("start"); // start | show | question | ask:<key>
   const [justSent, setJustSent] = useState(false);
+  // Submit plays the send-off (job 200): the web pulls into the middle and
+  // flies off to the venue, then the thanks fades in. null | flying | gone.
+  const [sendOff, setSendOff] = useState(null);
+  const [webKey, setWebKey] = useState(0);
+  useSendOff(sendOff === "flying", () => { setSendOff("gone"); setJustSent(true); });
+  const off = !!sendOff;
   const [keyPhase, setKeyPhase] = useState("idle"); // idle | unlocking (the key opening, job 191)
   const desktop = useIsDesktop();
   // Several questions at once for the venue (job 192).
@@ -433,19 +439,19 @@ export default function EventLink() {
   };
   const send = async () => {
     if (preview || !actName.trim() || status === "saving") return;
-    if (await persist(actName, answers, true)) setJustSent(true);
+    if (await persist(actName, answers, true)) { setPane("start"); setSendOff("flying"); }
   };
   // After sending (job 195): "Sent" and how was this form?
   const rate = (rating, comment) => supabase.rpc("submit_event_link_rating", { p_code: code, p_token: tokenRef.current || null, p_rating: rating, p_comment: comment });
   const sentModal = justSent ? (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 40 }}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" />
-      <div role="dialog" aria-modal="true" aria-label="Sent" className="el-web-in relative w-full max-w-sm rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-6 text-center">
+      <div className="absolute inset-0 bg-black/30" />
+      <div role="dialog" aria-modal="true" aria-label="Sent" className="so-fade relative w-full max-w-sm rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-6 text-center">
         <CheckCircle className="w-14 h-14 mx-auto mb-3" style={{ color: GREEN }} />
         <div className="text-[28px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Sent to {info.venue || "the venue"}</div>
         <p className="mt-2 text-[14px] text-white/60">You can still change anything; it saves as you go.</p>
         <IntakeRating token={null} onRate={rate} />
-        <button type="button" onClick={() => setJustSent(false)} className="mt-4 w-full min-h-[48px] rounded-[12px] border border-[#2a2a2a] text-[15px] font-semibold text-white/80">Back to my web</button>
+        <button type="button" onClick={() => { setJustSent(false); setSendOff(null); setWebKey((k) => k + 1); }} className="mt-4 w-full min-h-[48px] rounded-[12px] border border-[#2a2a2a] text-[15px] font-semibold text-white/80">Back to my web</button>
       </div>
     </div>
   ) : null;
@@ -460,7 +466,7 @@ export default function EventLink() {
   const corner = "absolute w-[15%] aspect-square min-w-[54px] rounded-[12px] border-[1.5px] flex flex-col items-center justify-center gap-1 text-[10.5px] sm:text-[12px] font-bold backdrop-blur-sm";
   const web = (
     <div className="relative w-full aspect-square">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true">
+      <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${off ? "so-gone" : ""}`} aria-hidden="true">
         <circle cx="50" cy="50" r="37" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.3" />
         {asks.map((a, i) => {
           const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
@@ -468,10 +474,10 @@ export default function EventLink() {
           return <line key={a.key} x1="50" y1="50" x2={50 + 37 * Math.cos(ang)} y2={50 + 37 * Math.sin(ang)} stroke={pane === `ask:${a.key}` ? "rgba(255,255,255,0.7)" : ok ? `${GREEN}80` : "rgba(255,255,255,0.16)"} strokeWidth="0.3" />;
         })}
       </svg>
-      <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${corner} left-0 top-0`} style={{ borderColor: BLUE, background: pane === "show" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
+      <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${corner} left-0 top-0 ${off ? "so-gone" : ""}`} style={{ borderColor: BLUE, background: pane === "show" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
         <CalendarDays className="w-[30%] h-[30%]" style={{ color: BLUE }} />The show
       </button>
-      <button type="button" onClick={() => setPane(pane === "question" ? "start" : "question")} aria-pressed={pane === "question"} className={`${corner} right-0 top-0`} style={{ borderColor: BLUE, background: pane === "question" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
+      <button type="button" onClick={() => setPane(pane === "question" ? "start" : "question")} aria-pressed={pane === "question"} className={`${corner} right-0 top-0 ${off ? "so-gone" : ""}`} style={{ borderColor: BLUE, background: pane === "question" ? `${BLUE}33` : "rgba(17,17,17,0.85)" }}>
         <MessageSquare className="w-[30%] h-[30%]" style={{ color: BLUE }} />Ask
       </button>
       {asks.map((a, i) => {
@@ -485,12 +491,12 @@ export default function EventLink() {
               // Not filled in: no colour. Filled in: green. The open one is ringed in white.
               background: ok ? GREEN : "rgba(21,21,21,0.92)", color: ok ? "#0d0d0d" : "#f2f2f2",
               border: `${on ? 2.5 : 1.5}px solid ${on ? "#FFFFFF" : ok ? GREEN : "rgba(255,255,255,0.28)"}`,
-              boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : ok ? `0 0 14px ${GREEN}66` : "none" }}>
+              boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : ok ? `0 0 14px ${GREEN}66` : "none", ...collapseStyle(off, i) }}>
             <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{shortLabel(a.label)}</span>
           </button>
         );
       })}
-      <SenderCircle center={center} color={sendColor} desktop={desktop} />
+      <SendOffCenter off={off} color={sendColor}><SenderCircle center={center} color={sendColor} desktop={desktop} /></SendOffCenter>
     </div>
   );
 
@@ -557,14 +563,14 @@ export default function EventLink() {
       </div>
     </div>
   ) : null;
-  const sendRow = submitted ? (
+  const sendRow = off ? null : submitted ? (
     <p className="text-[13.5px]" style={{ color: GREEN }}>Sent to {info.venue || "the venue"}. You can still change anything; it saves as you go.</p>
   ) : !N ? null : (
     // Always a green Submit (job 197); with something still needed it opens that circle.
     <button type="button" onClick={() => (reqLeft ? setPane(`ask:${missing[0].key}`) : send())} disabled={preview || status === "saving"} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={reqLeft ? { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" } : { background: GREEN, color: "#0d0d0d" }}><Send className="w-4 h-4" />Submit</button>
   );
   const header = (big) => (
-    <div className="flex items-start gap-3">
+    <div className={`flex items-start gap-3 ${off ? "so-gone" : ""}`}>
       <div className="flex-1 min-w-0">
         <div className="text-[11px] tracking-[0.14em] truncate" style={{ ...mono, color: BLUE }}>{[info.venue, fmtDay(info.date)].filter(Boolean).join(" · ").toUpperCase()}</div>
         <h1 className={`${big ? "text-[44px]" : "text-[28px]"} leading-[1.02] font-bold truncate`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{info.title || "Event"}</h1>
@@ -576,19 +582,19 @@ export default function EventLink() {
       </div>
     </div>
   );
-  const changeName = !info.key ? <button type="button" onClick={() => { setUnlocked(false); setKeyPhase("idle"); }} className="text-[12.5px] text-white/50 underline min-h-[40px]">Not {actName}? Change the name</button> : null;
+  const changeName = !info.key && !off ? <button type="button" onClick={() => { setUnlocked(false); setKeyPhase("idle"); }} className="text-[12.5px] text-white/50 underline min-h-[40px]">Not {actName}? Change the name</button> : null;
 
   if (desktop) {
     // Laptop: the web on the left, what you're filling in on the right.
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
         <SkyBack seed={code} dim={0.25} />
-        <div className="el-web-in relative max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6" style={{ zIndex: 1 }}>
+        <div key={webKey} className={`el-web-in relative max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {previewBar}
           {header(true)}
           {/* The web on its own in the middle; a circle opens beside it. */}
-          {cur || pane === "question" ? (
+          {(cur || pane === "question") && !off ? (
             <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
               <div className="flex flex-col gap-3">{web}</div>
               <div className="sticky top-6 flex flex-col gap-3">
@@ -613,11 +619,11 @@ export default function EventLink() {
   }
 
   // Phone: the web fills the screen; a circle opens in a sheet from the bottom.
-  const sheetOpen = pane !== "start" && pane !== "show";
+  const sheetOpen = pane !== "start" && pane !== "show" && !off;
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={code} dim={0.25} />
-      <div className="el-web-in relative px-4 pt-4 pb-8 flex flex-col gap-3" style={{ zIndex: 1 }}>
+      <div key={webKey} className={`el-web-in relative px-4 pt-4 pb-8 flex flex-col gap-3 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
         {previewBar}
         {header(false)}
         <div className="flex-1 flex flex-col justify-center gap-4 min-h-[calc(100dvh-140px)]">

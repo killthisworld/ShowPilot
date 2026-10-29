@@ -29,10 +29,46 @@ export function useIsDesktop() {
   return on;
 }
 
+// The send-off (job 200): on Submit the circles pull into the centre, the
+// centre circle gathers itself and shoots off into the sky toward whoever
+// sent the form, then the thanks / rating fades in.
+export const SEND_OFF_MS = 2050;
+export const SEND_OFF_CSS = `
+@keyframes so-fly { 0% { transform: none; opacity: 1; } 24% { transform: scale(.6); opacity: 1; } 34% { transform: scale(.68); opacity: 1; } 100% { transform: translate(34vw, -88vh) scale(.05); opacity: 0; } }
+.so-fly { animation: so-fly 1.3s cubic-bezier(.5,0,.8,.25) .62s both; }
+@keyframes so-trail { 0%, 30% { opacity: 0; transform: rotate(-65deg) scaleX(0); } 45% { opacity: .9; } 100% { opacity: 0; transform: rotate(-65deg) scaleX(1); } }
+.so-trail { position: absolute; left: 50%; top: 50%; width: 120%; height: 3px; transform-origin: 0 50%; border-radius: 3px; animation: so-trail 1.3s ease-in .62s both; }
+.so-gone { opacity: 0 !important; transition: opacity .45s ease; pointer-events: none; }
+@keyframes so-fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.so-fade { animation: so-fade 1s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .so-fly, .so-trail { animation: none; opacity: 0; } .so-fade { animation: none; } }`;
+const reducedMotion = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+export function useSendOff(active, onDone) {
+  useEffect(() => {
+    if (!active) return undefined;
+    const t = setTimeout(() => onDone?.(), reducedMotion() ? 60 : SEND_OFF_MS);
+    return () => clearTimeout(t);
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+// A circle's style while the web collapses: slide into the middle and fade.
+export const collapseStyle = (off, i = 0) => (off ? {
+  left: "50%", top: "50%", width: "9%", height: "9%", opacity: 0,
+  transition: `left .6s cubic-bezier(.6,0,.4,1) ${i * 25}ms, top .6s cubic-bezier(.6,0,.4,1) ${i * 25}ms, width .6s ease ${i * 25}ms, height .6s ease ${i * 25}ms, opacity .35s ease ${320 + i * 25}ms`,
+} : null);
+// The centre circle's wrapper: gathers, then flies off with a short trail.
+export function SendOffCenter({ off, color, children }) {
+  return (
+    <div className={`absolute inset-0 pointer-events-none ${off ? "so-fly" : ""}`}>
+      {off && <span aria-hidden="true" className="so-trail" style={{ background: `linear-gradient(90deg, transparent, ${color}cc)`, left: "auto", right: "50%", transformOrigin: "100% 50%" }} />}
+      <div className="pointer-events-auto">{children}</div>
+    </div>
+  );
+}
+
 function SkyBack({ seed, dim = 0.3 }) {
   return (
     <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}>
-      <style>{`@keyframes ikw-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } } .ikw-in { animation: ikw-in 700ms cubic-bezier(.2,.8,.2,1) both; } @media (prefers-reduced-motion: reduce) { .ikw-in { animation: none; } }`}</style>
+      <style>{`@keyframes ikw-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } } .ikw-in { animation: ikw-in 700ms cubic-bezier(.2,.8,.2,1) both; } @media (prefers-reduced-motion: reduce) { .ikw-in { animation: none; } }${SEND_OFF_CSS}`}</style>
       <NightSky seed={seed} dim={dim} />
     </div>
   );
@@ -105,8 +141,12 @@ export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
   actName, center = null, circles = [], corner = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
+  sent = false, onSentOff = null,
 }) {
   const desktop = useIsDesktop();
+  // Submitted: play the send-off, then the page shows the thanks (job 200).
+  useSendOff(sent, onSentOff);
+  const off = !!sent;
   const [phase, setPhase] = useState("idle"); // idle | unlocking | open
   const [pane, setPane] = useState("start"); // start | show | corner | <circle key>
   const opening = phase === "unlocking";
@@ -181,7 +221,7 @@ export default function IntakeKeyWeb({
   const CornerIcon = corner?.icon;
   const web = (
     <div className="relative w-full aspect-square">
-      <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true">
+      <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${off ? "so-gone" : ""}`} aria-hidden="true">
         <circle cx="50" cy="50" r="37" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.3" />
         {circles.map((c, i) => {
           const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
@@ -189,12 +229,12 @@ export default function IntakeKeyWeb({
         })}
       </svg>
       {show && (
-        <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${cornerCls} left-0 top-0`} style={{ borderColor: color, background: pane === "show" ? `${color}33` : "rgba(17,17,17,0.85)" }}>
+        <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${cornerCls} left-0 top-0 ${off ? "so-gone" : ""}`} style={{ borderColor: color, background: pane === "show" ? `${color}33` : "rgba(17,17,17,0.85)" }}>
           <CalendarDays className="w-[30%] h-[30%]" style={{ color }} />The show
         </button>
       )}
       {corner && (
-        <button type="button" onClick={() => setPane(pane === "corner" ? "start" : "corner")} aria-pressed={pane === "corner"} className={`${cornerCls} right-0 top-0`}
+        <button type="button" onClick={() => setPane(pane === "corner" ? "start" : "corner")} aria-pressed={pane === "corner"} className={`${cornerCls} right-0 top-0 ${off ? "so-gone" : ""}`}
           style={corner.done ? { borderColor: GREEN, background: GREEN, color: "#0d0d0d" } : { borderColor: color, background: pane === "corner" ? `${color}33` : "rgba(17,17,17,0.85)" }}>
           {CornerIcon && <CornerIcon className="w-[28%] h-[28%]" style={{ color: corner.done ? "#0d0d0d" : color }} />}{corner.label}
         </button>
@@ -210,12 +250,13 @@ export default function IntakeKeyWeb({
               background: c.done ? GREEN : "rgba(21,21,21,0.92)", color: c.done ? "#0d0d0d" : "#f2f2f2",
               border: `${on ? 2.5 : 1.5}px solid ${on ? "#FFFFFF" : c.done ? GREEN : "rgba(255,255,255,0.28)"}`,
               boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : c.done ? `0 0 14px ${GREEN}66` : "none",
+              ...collapseStyle(off, i),
             }}>
             <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{c.short || shortLabel(c.label)}</span>
           </button>
         );
       })}
-      <SenderCircle center={center} color={color} desktop={desktop} />
+      <SendOffCenter off={off} color={color}><SenderCircle center={center} color={color} desktop={desktop} /></SendOffCenter>
     </div>
   );
 
@@ -245,7 +286,7 @@ export default function IntakeKeyWeb({
   const needLeft = circles.filter((c) => c.required && !c.done);
   const ready = canSend && !needLeft.length;
   const sendRow = (
-    <>
+    <div className={`flex flex-col gap-3 ${off ? "so-gone" : ""}`}>
       {error && <p className="text-[14px] text-red-400 text-center">{error}</p>}
       {/* Always a green Submit (job 197); with something still needed it
           opens that circle instead of sending. */}
@@ -254,10 +295,10 @@ export default function IntakeKeyWeb({
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}
-    </>
+    </div>
   );
   const header = (big) => (
-    <div className="flex items-start gap-3">
+    <div className={`flex items-start gap-3 ${off ? "so-gone" : ""}`}>
       <div className="flex-1 min-w-0">
         <div className="text-[11px] tracking-[0.14em] truncate" style={{ ...mono, color }}>{[actName ? `${actName}'s web` : "", dateLine].filter(Boolean).join(" · ").toUpperCase()}</div>
         <h1 className={`${big ? "text-[44px]" : "text-[28px]"} leading-[1.02] font-bold truncate`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title || "Your show"}</h1>
@@ -285,7 +326,7 @@ export default function IntakeKeyWeb({
           <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
           {header(true)}
           {/* The web on its own in the middle; a circle opens beside it. */}
-          {cur || pane === "corner" ? (
+          {(cur || pane === "corner") && !off ? (
             <div className="grid grid-cols-[minmax(0,600px)_minmax(0,1fr)] gap-10 items-start">
               <div>{web}</div>
               <div className="sticky top-6 flex flex-col gap-3">
@@ -305,7 +346,7 @@ export default function IntakeKeyWeb({
       </div>
     );
   }
-  const sheetOpen = !!cur || pane === "corner";
+  const sheetOpen = (!!cur || pane === "corner") && !off;
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={seed} dim={0.25} />
@@ -339,7 +380,7 @@ export function IntakeSent({ seed, title = "Sent!", line, children }) {
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d] flex items-center justify-center px-4">
       <SkyBack seed={seed} dim={0.3} />
-      <div className="ikw-in relative text-center max-w-sm w-full py-10" style={{ zIndex: 1 }}>
+      <div className="so-fade relative text-center max-w-sm w-full py-10" style={{ zIndex: 1 }}>
         <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: GREEN }} />
         <h2 className="text-[30px] font-bold mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title}</h2>
         {line && <p className="text-white/60 text-[15px]">{line}</p>}

@@ -94,6 +94,7 @@ export default function TourManagerIntake({ link } = {}) {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [sentOff, setSentOff] = useState(false); // the send-off animation has played (job 200)
   const [error, setError] = useState(null);
 
   // Engineer view state
@@ -423,7 +424,7 @@ export default function TourManagerIntake({ link } = {}) {
     );
   }
 
-  if (submitted) {
+  if (submitted && sentOff) {
     return (
       <IntakeSent seed={token} title="Sent!" line={`Your event info went to ${engineerName}. The event is on their ShowPilot now.`}>
         <IntakeRating token={token} />
@@ -483,6 +484,8 @@ export default function TourManagerIntake({ link } = {}) {
       onSend={handleSubmit}
       sending={submitting}
       sendLabel="Submit"
+      sent={submitted}
+      onSentOff={() => setSentOff(true)}
       error={error || ""}
     />
   );

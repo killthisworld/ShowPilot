@@ -79,6 +79,7 @@ export default function OpenerIntake({ link } = {}) {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [sentOff, setSentOff] = useState(false); // the send-off animation has played (job 200)
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -242,7 +243,7 @@ export default function OpenerIntake({ link } = {}) {
   const dayLine = [parent?.date ? new Date(parent.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", parent?.venue].filter(Boolean).join(" · ");
   const engineerName = engineerCard?.display_name || "Your audio engineer";
 
-  if (submitted || context.status === "submitted") {
+  if ((submitted && sentOff) || context.status === "submitted") {
     return (
       <IntakeSent seed={token} title="Sent!" line={`Your set info is on the event${parent?.band_name ? ` with ${parent.band_name}` : ""}.`}>
         {submitted && <IntakeRating token={token} />}
@@ -298,6 +299,8 @@ export default function OpenerIntake({ link } = {}) {
       onSend={handleSubmit}
       sending={submitting}
       sendLabel="Submit"
+      sent={submitted}
+      onSentOff={() => setSentOff(true)}
       error={error || ""}
     />
   );
