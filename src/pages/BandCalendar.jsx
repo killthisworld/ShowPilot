@@ -424,7 +424,7 @@ export default function BandCalendar() {
         </div>
       )}
 
-      {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => setOverviewGig(null)} />}
+      {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => setOverviewGig(null)} onRemoved={(g) => setGigs((list) => list.filter((x) => x.share_token !== g.share_token))} />}
 
       <BandBottomTabs />
     </div>

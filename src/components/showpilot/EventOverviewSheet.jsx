@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2 } from "lucide-react";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -24,7 +24,7 @@ const has = (v) => v != null && String(v).trim() !== "";
 // photo, when and where, the run of show, the lineup, who's on each profile,
 // contacts, and what's still open - plus the fan page ticket. No event web
 // on a phone (that's the desktop's job); open items get done on Needs me.
-export default function EventOverviewSheet({ gig: base, onClose }) {
+export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   const { user } = useAuth();
   const [gig, setGig] = useState(base);
   const [perms, setPerms] = useState(null);
@@ -244,6 +244,10 @@ export default function EventOverviewSheet({ gig: base, onClose }) {
                 </>
               )}
             </section>
+
+            {user && perms && (
+              <RemoveEvent gig={gig} isOwner={!!perms.is_owner} title={title} onDone={() => { onRemoved?.(gig); onClose(); }} />
+            )}
           </>
         )}
       </div>
@@ -355,5 +359,50 @@ function EventLinks({ gig, perms, box, color, onSaved }) {
       <LinkRow icon={Ticket} name="Tickets" value={ticket} canEdit={isOwner} color={color} example="eventbrite.com/e/your-show" onSave={saveTicket} />
       <LinkRow icon={Globe} name="Venue website" value={site} canEdit={canSite} color={color} example="thebasement.com" onSave={saveSite} />
     </div>
+  );
+}
+
+// Get off an event (job 73): someone invited leaves it (leave_gig - it goes
+// from their lists, their profile opens back up for the owner, and they
+// leave its chat rooms); the owner deletes it. Both ask once to be sure.
+function RemoveEvent({ gig, isOwner, title, onDone }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const go = async () => {
+    setBusy(true); setErr("");
+    const { error } = isOwner
+      ? await supabase.from("shows").delete().eq("id", gig.id)
+      : await supabase.rpc("leave_gig", { p_token: gig.share_token });
+    setBusy(false);
+    if (error) { console.error(error); setErr(isOwner ? "Couldn't delete it. Try again." : "Couldn't take you off it. Try again."); return; }
+    onDone();
+  };
+  const Icon = isOwner ? Trash2 : LogOut;
+  const word = isOwner ? "Delete event" : "Leave event";
+  return (
+    <section className="pt-2">
+      {!asking ? (
+        <button type="button" onClick={() => setAsking(true)} className="w-full h-12 rounded-xl border border-red-500/30 bg-red-500/5 text-red-400 text-[15px] font-semibold flex items-center justify-center gap-2 active:bg-red-500/10">
+          <Icon className="w-[18px] h-[18px]" /> {word}
+        </button>
+      ) : (
+        <div className="rounded-xl border border-red-500/30 bg-[#161010] p-4 flex flex-col gap-3">
+          <p className="m-0 text-[16px] font-bold text-white">{isOwner ? `Delete ${title}?` : `Leave ${title}?`}</p>
+          <p className="m-0 text-[14px] text-white/60 leading-snug">
+            {isOwner
+              ? "This deletes the event for everyone on it: profiles, tasks, invites and chats. It can't be undone."
+              : "It comes off your calendar and Needs me, you leave its chats, and your spot on it opens up so the owner can invite someone else. To get back on, you'd need a new invite."}
+          </p>
+          {err && <p className="m-0 text-[13px] text-red-400">{err}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setAsking(false); setErr(""); }} disabled={busy} className="flex-1 h-11 rounded-lg bg-[#1f1f1f] text-white/80 text-[14px] font-semibold">Cancel</button>
+            <button type="button" onClick={go} disabled={busy} className="flex-1 h-11 rounded-lg bg-red-500 text-white text-[14px] font-bold disabled:opacity-60">
+              {busy ? (isOwner ? "Deleting…" : "Leaving…") : isOwner ? "Delete forever" : "Leave"}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

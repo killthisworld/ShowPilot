@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList, Globe } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList, Globe, LogOut } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import EventBanner from "@/components/showpilot/EventBanner";
@@ -192,6 +192,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  // Leave an event you were invited to (job 73): leave_gig takes you off it.
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [quitting, setQuitting] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
   const [showFanSheet, setShowFanSheet] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   // Webs within webs: a company profile opens as its own web (ProfileWeb via
@@ -401,6 +405,15 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     }
   };
 
+  const leaveShow = async () => {
+    if (quitting || !token) return;
+    setQuitting(true); setLeaveError("");
+    const { error } = await supabase.rpc("leave_gig", { p_token: token });
+    if (error) { console.error(error); setLeaveError("Couldn't take you off it. Try again."); setQuitting(false); return; }
+    onGigChanged?.();
+    goBack();
+  };
+
   const deleteShow = async () => {
     if (deleting || !gig?.id) return;
     setDeleting(true);
@@ -541,6 +554,12 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             </button>
           </>
         )}
+        {user && permissions && !permissions.is_owner && (
+          <button type="button" onClick={() => setShowLeaveConfirm(true)} aria-label="Leave event" className={`${act} text-red-400/60 hover:text-red-400`}>
+            <LogOut className="w-4 h-4" />
+            <span className={cap} style={{ fontFamily: SCENE_MONO }}>LEAVE</span>
+          </button>
+        )}
       </div>
     );
   })();
@@ -585,6 +604,24 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowArchiveConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-[#2a2a2a] text-white/60 text-sm font-semibold hover:bg-white/5">Cancel</button>
               <button type="button" onClick={archiveShow} disabled={archiving} className="flex-1 py-2.5 rounded-xl bg-[#8CFF3D] text-black text-sm font-bold disabled:opacity-50">{archiving ? "Archiving..." : "Archive"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center px-4" onClick={() => !quitting && setShowLeaveConfirm(false)}>
+          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-white font-bold text-base">Leave {title}?</h3>
+              <button onClick={() => setShowLeaveConfirm(false)} className="text-white/40 hover:text-white"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-white/50 text-xs mb-4">
+              It comes off your calendar and Needs me, you leave its chats, and your spot on it opens up so the owner can invite someone else. To get back on, you'd need a new invite.
+            </p>
+            {leaveError && <p className="text-red-400 text-xs mb-3">{leaveError}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={quitting} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white/60 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-40">Cancel</button>
+              <button type="button" onClick={leaveShow} disabled={quitting} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500/90 hover:bg-red-500 disabled:opacity-50 transition-colors">{quitting ? "Leaving..." : "Leave"}</button>
             </div>
           </div>
         </div>
