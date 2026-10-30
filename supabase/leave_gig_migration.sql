@@ -45,3 +45,32 @@ $function$;
 
 revoke all on function public.leave_gig(uuid) from public, anon;
 grant execute on function public.leave_gig(uuid) to authenticated;
+
+-- Your own event never shows twice (job 73, 2026-10-30). Opening your own
+-- event's share link (or accepting an invite on it) used to add a "linked"
+-- copy for the owner too, so the event showed twice on their calendar and
+-- lists. Owners are never linked to their own events: the trigger quietly
+-- skips such a row, and the ones already there are removed.
+
+create or replace function public.skip_owner_linked_gig()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+begin
+  if exists (select 1 from public.shows where id = new.show_id and owner_id = new.user_id) then
+    return null;
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists skip_owner_linked_gig on public.linked_gigs;
+create trigger skip_owner_linked_gig
+  before insert on public.linked_gigs
+  for each row execute function public.skip_owner_linked_gig();
+
+delete from public.linked_gigs l
+  using public.shows s
+  where s.id = l.show_id and s.owner_id = l.user_id;
