@@ -458,6 +458,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
 
   // ======== AUDIO / LIGHTING ========
   const engineerTabs = () => {
+    const lightsToo = !!ei.lighting?.same_as_audio;
     const crewTab = (key, label, hint) => {
       const info = ei[key] || {};
       const setE = (k, v) => p.updateEngineerRole(key, k, v);
@@ -493,6 +494,11 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               </button>
             )}
             {info.card_user_id && <PilotCardLink userId={info.card_user_id} color={color} />}
+            {/* Audio engineer running lights too (job 207): the same setting as
+                "Same as audio engineer" on the Lighting tech tab. */}
+            {key === "audio" && (!off || lightsToo) && (
+              <SameAsAudioCheck label="Also running lights" checked={lightsToo} disabled={off} color={color} onChange={(v) => p.updateEngineerRole("lighting", "same_as_audio", v)} />
+            )}
             </>)}
           </>
         ),
@@ -512,6 +518,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     const run = buildRunOfShow(gig);
     // Lighting covered by the audio engineer (job 205): one entry, "Audio + Lighting".
     const lightsToo = !!ei.lighting?.same_as_audio;
+    const lightingFilled = !lightsToo && !!(ei.lighting?.contact_name || ei.lighting?.contact_phone || ei.lighting?.contact_email);
     const crew = [[lightsToo ? "Audio + Lighting" : "Audio", ei.audio], ...(lightsToo ? [] : [["Lighting", ei.lighting]])].filter(([, i]) => i && (i.contact_name || i.contact_phone || i.contact_email));
     return {
       body: (
@@ -541,6 +548,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 <span className="text-[12px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{label.toUpperCase()}</span>
                 <div className="font-semibold">{i.contact_name || "-"}</div>
                 <div className="text-white/55 text-[14px]">{[i.contact_phone, i.contact_email].filter(Boolean).join(" · ")}</div>
+                {/* Only audio on this event: "Also running lights" right here (job 207). */}
+                {i === ei.audio && !lightingFilled && (lightsToo || !off) && (
+                  <div className="mt-2">
+                    <SameAsAudioCheck label="Also running lights" checked={lightsToo} disabled={off} color={color} onChange={(v) => p.updateEngineerRole("lighting", "same_as_audio", v)} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
