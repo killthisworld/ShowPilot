@@ -1202,7 +1202,9 @@ export default function SharedGig() {
             {techPhone ? (
               // No chat icon: chats live on the Chats tab (job 134).
               <TasksButton token={resolvedToken} />
-            ) : (
+            ) : (<>
+              {/* Tasks with your number on it, on every layout (job 210). */}
+              <TasksButton token={resolvedToken} />
               <button
                 onClick={() => navigate(`/gig/web?token=${resolvedToken}`)}
                 className="flex items-center gap-1.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white/70 font-semibold text-sm px-3 py-2 rounded-xl hover:bg-[#222] transition-colors"
@@ -1210,7 +1212,7 @@ export default function SharedGig() {
               >
                 Gig Web
               </button>
-            )}
+            </>)}
           {canEdit && (
             <>
               {!techPhone && (<>

@@ -4,9 +4,8 @@ import { Check, ClipboardList, Plus, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { usePreferences } from "@/hooks/usePreferences";
-import { SECTION_FOR_TYPE } from "@/lib/needsMe";
+import { myOpenTasks } from "@/lib/myTasks";
 
-const ROLE_TO_SECTION = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
 
 // The event's tasks in a box, opened from the clipboard icon in the page header
 // (tech phones). Anyone with the event can read them; the owner adds them; the
@@ -34,11 +33,7 @@ export function TasksButton({ token, className = "" }) {
       supabase.auth.getUser(),
     ]).then(([g, p, u]) => {
       if (!g.data) return;
-      const uid = u.data?.user?.id;
-      const mine = new Set();
-      if (p.data?.is_owner && SECTION_FOR_TYPE[preferences?.account_type]) mine.add(SECTION_FOR_TYPE[preferences.account_type]);
-      [...(p.data?.my_roles || []), ...(p.data?.granted_sections || [])].forEach((r) => ROLE_TO_SECTION[r] && mine.add(ROLE_TO_SECTION[r]));
-      setCount((g.data.tasks || []).filter((t) => t.status !== "done" && (mine.has(t.section) || (uid && t.claimed_by === uid))).length);
+      setCount(myOpenTasks(g.data.tasks, p.data, preferences?.account_type, u.data?.user?.id).length);
     });
   }, [token, open, preferences?.account_type]);
   return (

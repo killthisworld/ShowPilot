@@ -42,6 +42,7 @@ import { SPIN_MS, prefersReducedMotion, useEntrance, spinMotion, tintOnDark, use
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 import DjTools from "@/pages/DjTools";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
+import { myOpenTasks } from "@/lib/myTasks";
 import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 
 // Short console-style codes for the role channel buttons.
@@ -526,8 +527,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     // Archive hides the event (reversible); Delete removes it.
     const act = "flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-md transition-colors";
     const cap = "text-[8px] tracking-[0.08em] leading-none";
-    // Your open tasks on this event: in a section you work on, or claimed by you.
-    const myTaskCount = (gig.tasks || []).filter((t) => t.status !== "done" && ((user && t.claimed_by === user.id) || roleEditable(t.section, permissions))).length;
+    // Your open tasks on this event: in a section you work on, or claimed by
+    // you - the same number as every other tasks icon (job 210).
+    const myTaskCount = myOpenTasks(gig.tasks, permissions, preferences?.account_type, user?.id).length;
     return (
       <div className="flex items-center gap-1 shrink-0 ml-auto">
         {token && (

@@ -11,7 +11,8 @@ import { patchNeedsMe } from "@/hooks/useNeedsMe";
 // My tasks: every open task in your sections across all your events (the
 // same list that feeds the strips' task counts), grouped by when it's due.
 // Tick one off right here, or click it to open that event's task page.
-export default function MyTasksPanel({ tasks, onClose, top = 68 }) {
+// `phone` (job 210): full width, over the whole screen, for the phone homes.
+export default function MyTasksPanel({ tasks, onClose, top = 68, phone = false }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(null);
   const [err, setErr] = useState("");
@@ -44,8 +45,8 @@ export default function MyTasksPanel({ tasks, onClose, top = 68 }) {
 
   return (
     <>
-      <div className="fixed inset-0 left-[84px] z-[60] bg-black/55" style={{ top }} onClick={onClose} aria-hidden="true" />
-      <aside aria-label="My tasks" className="fixed right-0 bottom-0 z-[61] w-[440px] max-w-[90vw] flex flex-col bg-[#121212] border-l border-[#262626]" style={{ top, boxShadow: "-18px 0 40px rgba(0,0,0,0.55)" }}>
+      <div className={`fixed inset-0 z-[60] bg-black/55 ${phone ? "" : "left-[84px]"}`} style={{ top: phone ? 0 : top }} onClick={onClose} aria-hidden="true" />
+      <aside aria-label="My tasks" className={`fixed right-0 bottom-0 z-[61] flex flex-col bg-[#121212] ${phone ? "left-0 rounded-t-2xl border-t" : "w-[440px] max-w-[90vw] border-l"} border-[#262626]`} style={{ top, boxShadow: "-18px 0 40px rgba(0,0,0,0.55)", ...(phone ? { paddingBottom: "env(safe-area-inset-bottom)" } : {}) }}>
         <div className="flex items-center gap-2.5 px-[18px] pt-4 pb-2.5 shrink-0">
           <h2 className="text-[24px] font-bold" style={{ fontFamily: SCENE_FONT }}>My tasks</h2>
           <span className="text-[11px] text-white/55" style={{ fontFamily: SCENE_MONO }}>{tasks.length} OPEN</span>

@@ -4,7 +4,9 @@ import { fetchMyIcons } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
 import { Link } from "react-router-dom";
 import TicketCard from "@/components/showpilot/TicketCard";
-import { Search, Plus, SlidersHorizontal, X, CalendarDays, Archive, Trash2, Star } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, X, CalendarDays, Archive, Trash2, Star, ClipboardList } from "lucide-react";
+import useNeedsMe from "@/hooks/useNeedsMe";
+import MyTasksPanel from "@/components/showpilot/MyTasksPanel";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,11 @@ export default function Home() {
   // Desktop (1024px+), audio: the console strips layout (TechConsoleDesk).
   // Its bank row has ALL, so it starts there; the phone keeps its tabs.
   const isDesktop = useIsDesktop();
+  // My tasks on the phone header (job 210); the desktop desks have their own.
+  const { data: needs } = useNeedsMe(!isDesktop);
+  const myTasks = needs?.tasks || [];
+  const myTaskTotal = myTasks.length;
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [deskTab, setDeskTab] = useState("all");
 
   useEffect(() => {
@@ -569,6 +576,8 @@ export default function Home() {
         </div>
       )}
 
+      {tasksOpen && <MyTasksPanel phone tasks={myTasks} onClose={() => setTasksOpen(false)} top={56} />}
+
       {/* Header */}
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
@@ -576,11 +585,25 @@ export default function Home() {
           <h1 className="text-lg font-bold text-white tracking-tight">
             Show<span style={{ color: accountStyle.color }}>Pilot</span>
           </h1>
-          <Link to="/show/new" onClick={clearNewShowDraft}>
-            <Button size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 w-8 p-0 rounded-xl">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* My tasks across all your events, with how many are open (job 210). */}
+            <button
+              type="button"
+              onClick={() => setTasksOpen(true)}
+              aria-label={myTaskTotal ? `My tasks, ${myTaskTotal} open` : "My tasks"}
+              className="relative w-8 h-8 rounded-xl border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center text-white/75 hover:text-white"
+            >
+              <ClipboardList className="w-4 h-4" />
+              {myTaskTotal > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-[#0d0d0d]" style={{ background: "#FF6A00" }}>{myTaskTotal > 99 ? "99+" : myTaskTotal}</span>
+              )}
+            </button>
+            <Link to="/show/new" onClick={clearNewShowDraft}>
+              <Button size="sm" className="bg-[#8CFF3D] text-black hover:bg-[#7ae62e] h-8 w-8 p-0 rounded-xl">
+                <Plus className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Search row */}

@@ -97,7 +97,9 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
     view ||
     (pathname.startsWith("/band/calendar") ? "events" : pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats" : pathname.startsWith("/me") || pathname.startsWith("/experience") ? "me" : null);
 
-  const tab = (key, to, label, Icon, badge) => {
+  // Open tasks that are yours, across your events, on Needs me (job 210).
+  const myTaskTotal = (data?.tasks || []).length;
+  const tab = (key, to, label, Icon, badge, badgeColor = "#8CFF3D") => {
     const active = activeKey === key;
     return (
       <Link
@@ -109,7 +111,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
         <Icon className="w-[22px] h-[22px]" strokeWidth={2} />
         <span>{label}</span>
         {badge > 0 && (
-          <span className="absolute top-0.5 right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#8CFF3D] text-[#0d0d0d] text-[11px] font-bold flex items-center justify-center">
+          <span className="absolute top-0.5 right-3 min-w-[18px] h-[18px] px-[5px] rounded-full text-[#0d0d0d] text-[11px] font-bold flex items-center justify-center" style={{ background: badgeColor }}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}
@@ -125,7 +127,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
-          {tab("needs", "/", "Needs me", Zap)}
+          {tab("needs", "/", "Needs me", Zap, myTaskTotal, "#FF6A00")}
           {tab("events", "/band/calendar", "Calendar", CalendarDays)}
           <button
             onClick={openQuickAdd}
