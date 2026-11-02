@@ -1,5 +1,78 @@
 {
   "rewrites": [
-    { "source": "/((?!.*\\..*).*)", "destination": "/index.html" }
+    {
+      "source": "/v/:code",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        }
+      ],
+      "destination": "/api/preview?kind=v&key=:code"
+    },
+    {
+      "source": "/intake/:code",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        }
+      ],
+      "destination": "/api/preview?kind=intake&key=:code"
+    },
+    {
+      "source": "/gig/shared",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        },
+        {
+          "type": "query",
+          "key": "invite",
+          "value": "(?<key>.+)"
+        }
+      ],
+      "destination": "/api/preview?kind=invite&key=:key"
+    },
+    {
+      "source": "/gig/shared",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        },
+        {
+          "type": "query",
+          "key": "token",
+          "value": "(?<key>.+)"
+        }
+      ],
+      "destination": "/api/preview?kind=share&key=:key"
+    },
+    {
+      "source": "/gig/web",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        },
+        {
+          "type": "query",
+          "key": "token",
+          "value": "(?<key>.+)"
+        }
+      ],
+      "destination": "/api/preview?kind=share&key=:key"
+    },
+    {
+      "source": "/((?!.*\\..*).*)",
+      "destination": "/index.html"
+    }
   ]
 }
