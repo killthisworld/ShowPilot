@@ -95,7 +95,7 @@ export default function OnCallStrip({ gig, ownerType, canEdit = false, onSetLigh
         {people.map((s) => <Person key={s.key} s={s} />)}
         {showLightsBox && (
           <div className="flex-1 flex justify-center pb-6">
-            <SameAsAudioCheck label="Also running lights" checked={lightsToo} disabled={!canEdit} onChange={(v) => onSetLightsToo?.(v)} />
+            <SameAsAudioCheck subtle label="Also running lights" checked={lightsToo} disabled={!canEdit} onChange={(v) => onSetLightsToo?.(v)} />
           </div>
         )}
       </div>
