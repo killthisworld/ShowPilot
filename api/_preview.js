@@ -40,3 +40,15 @@ export async function lookup(kind, key) {
     return null;
   }
 }
+
+// What an invite gives access to: the invited profile plus any extra sections the
+// invite grants. Each is { icon, label, color } for the card to draw.
+const SECTION = { venue: { icon: "venue", label: "Venue" }, manager: { icon: "manager", label: "Manager / Artist" }, engineer: { icon: "engineer", label: "Audio / Lighting" } };
+const HOME = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
+export function extraAccess(kind, info) {
+  if (kind !== "invite") return [];
+  const home = HOME[info?.role];
+  return (info?.sections || []).filter((k) => SECTION[k] && k !== home).map((k) => ({ ...SECTION[k], color: colorFor(k) }));
+}
+// The icon beside the invitation type: the profile the link is for.
+export const typeIcon = (kind, info) => (kind === "v" ? "venue" : kind === "intake" ? "band" : kind === "invite" ? info?.role : null);

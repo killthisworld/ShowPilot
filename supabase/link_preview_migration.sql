@@ -16,6 +16,7 @@
 --   p_kind 'intake'  an intake short link     (/intake/<code>)        -> band
 --   p_kind 'invite'  a section invite         (/gig/shared?invite=)   -> the invited role
 --   p_kind 'share'   an event's share link    (/gig/shared?token=, /gig/web?token=) -> no role
+-- For an invite it also returns the extra sections the invite grants (granted_sections).
 -- Also returns the event picture so the preview can be the event's overview card.
 
 create or replace function public.get_link_preview(p_kind text, p_key text)
@@ -31,6 +32,7 @@ declare
   v_role text;
   v_label text;
   v_form text;
+  v_sections text[] := '{}';
   r record;
 begin
   if p_kind = 'v' then
@@ -57,13 +59,14 @@ begin
 
   elsif p_kind = 'invite' then
     begin
-      select gi.invited_role, gi.show_id into r from public.gig_invites gi where gi.invite_token = btrim(p_key)::uuid;
+      select gi.invited_role, gi.show_id, coalesce(gi.granted_sections, '{}'::text[]) as granted into r from public.gig_invites gi where gi.invite_token = btrim(p_key)::uuid;
     exception when invalid_text_representation then
       return null;
     end;
     if not found then return null; end if;
     select * into v_show from public.shows where id = r.show_id;
     v_role := r.invited_role;
+    v_sections := r.granted;
 
   elsif p_kind = 'share' then
     begin
@@ -83,6 +86,7 @@ begin
     'date', v_show.date,
     'role', v_role,
     'form', v_form,
+    'sections', to_jsonb(v_sections),
     'image', coalesce(nullif(btrim(v_show.icon_url), ''), nullif(btrim(v_show.venue_info->>'photo_url'), '')),
     'from', v_label
   );
