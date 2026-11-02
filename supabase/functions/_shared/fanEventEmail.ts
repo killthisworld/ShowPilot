@@ -46,7 +46,23 @@ export type EmailExtras = {
   hostMessage?: string;         // host-written note just for this email (e.g. RSVPs)
   keyLink?: string;             // RSVP sky key: link to /e/<token>/sky?k=<key>
   attachedNames?: string[];     // files attached to this email (filled in by sendFanEventEmail)
+  mapUrl?: string;              // the host's attached picture (filled in by sendFanEventEmail); MAP opens it
 };
+
+// "$10" -> 10; anything that isn't a plain amount (e.g. "$10-15", "Free") -> null.
+const plainAmount = (price: string): number | null => {
+  const m = /^\s*\$?\s*(\d{1,5}(?:\.\d{1,2})?)\s*$/.exec(price);
+  return m ? Number(m[1]) : null;
+};
+const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
+// Door price for the details table, always per person ("$10 each"), so a
+// party of 10 isn't misled into thinking $10 covers everyone.
+export function doorPriceLine(price: string): string {
+  const raw = price.trim();
+  if (/^free\b/i.test(raw)) return raw; // "Free" stays "Free"
+  const n = plainAmount(raw);
+  return `${n !== null ? money(n) : raw} each`;
+}
 
 export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string, extras: EmailExtras = {}) {
   const title = ev.event_name || ev.band_name || "Your event";
@@ -58,7 +74,9 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
   const place = [ev.city, ev.state].filter(Boolean).join(", ");
   const fullAddress = ev.address ? [ev.address, place].filter(Boolean).join(", ") : place;
   const mapQuery = ev.address ? fullAddress : [ev.venue, place].filter(Boolean).join(" ");
-  const mapsUrl = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
+  // MAP opens the picture the host attached (e.g. a parking map) when there
+  // is one; otherwise Google Maps for the address.
+  const mapsUrl = extras.mapUrl || (mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null);
   const ticketUrl = normalizeLink(ev.ticket_link);
 
   // All-day Google Calendar link (door/show times are free text, so we don't guess a clock time).
@@ -88,7 +106,7 @@ export function buildEmail(ev: FanEvent, pageUrl: string | null, footer: string,
   if (ev.venue) rows.push(["VENUE", ev.venue]);
   if (fullAddress) rows.push(["ADDRESS", fullAddress]);
   if (ev.ticket_price) rows.push(["TICKETS", ev.ticket_price]);
-  if (ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
+  if (ev.door_price) rows.push(["AT THE DOOR", doorPriceLine(ev.door_price)]);
   if (extras.attachedNames?.length) rows.push(["ATTACHED", extras.attachedNames.join(", ")]);
 
   const mono = "'SFMono-Regular',Menlo,Consolas,monospace";
@@ -204,6 +222,23 @@ export async function loadAttachments(admin: any, showId: string): Promise<{ fil
   return out;
 }
 
+// A private link to the first picture the host attached, for the MAP button.
+// It lasts until two weeks after the show (at least two weeks, at most a year).
+export async function attachedPictureLink(admin: any, showId: string): Promise<string | null> {
+  const { data: show, error } = await admin.from("shows").select("owner_id, date, fan_page").eq("id", showId).maybeSingle();
+  if (error || !show) return null;
+  const list = Array.isArray(show.fan_page?.files) ? show.fan_page.files.slice(0, MAX_FILES) : [];
+  const pic = list.find((f: any) => String(f?.type ?? "").startsWith("image/") && EXT[String(f?.type)]
+    && String(f?.path ?? "").startsWith(`${show.owner_id}/`) && !String(f?.path).includes(".."));
+  if (!pic) return null;
+  const day = 86_400;
+  const untilShow = show.date ? Math.ceil((new Date(`${show.date}T00:00:00Z`).getTime() - Date.now()) / 1000) : 0;
+  const seconds = Math.min(365 * day, Math.max(14 * day, untilShow + 14 * day));
+  const { data, error: signErr } = await admin.storage.from(FAN_FILES_BUCKET).createSignedUrl(String(pic.path), seconds);
+  if (signErr) { console.error("Map picture link failed:", signErr); return null; }
+  return data?.signedUrl ?? null;
+}
+
 // New signups one event may take per window before the public opt-in starts
 // refusing. Not applied to Eventbrite orders (those are proven sales).
 const RATE_WINDOW_MIN = 10;
@@ -296,9 +331,11 @@ export async function sendFanEventEmail(
   }
 
   const attachments = confirmation ? await loadAttachments(admin, opts.showId) : [];
+  const mapUrl = confirmation ? await attachedPictureLink(admin, opts.showId) : null;
   const { subject, html, text } = buildEmail(event, pageUrl, opts.footer, {
     ...(opts.extras ?? {}),
     attachedNames: attachments.map((a) => a.filename),
+    ...(mapUrl ? { mapUrl } : {}),
   });
 
   const res = await fetch("https://api.resend.com/emails", {

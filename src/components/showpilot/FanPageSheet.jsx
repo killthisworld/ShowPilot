@@ -139,6 +139,7 @@ function OwnerSheet({ showId, onClose }) {
         enabled: data.fan_countdown?.enabled === true,
         notches: Array.isArray(data.fan_countdown?.notches) ? data.fan_countdown.notches.slice(0, 5).map((n) => ({
           id: String(n.id || `n${Math.random().toString(36).slice(2, 8)}`), days_before: Math.max(0, Math.min(30, Number(n.days_before) || 0)),
+          time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(n.time || "")) ? n.time : "10:00",
           type: n.type === "unlock" ? "unlock" : "reminder", subject: n.subject || "", message: n.message || "", kind: n.kind || "",
           title: n.title || "", body: n.body || "", image_url: n.image_url || "", link_url: n.link_url || "",
         })) : [],
@@ -272,7 +273,7 @@ function OwnerSheet({ showId, onClose }) {
         fan_countdown: {
           enabled: draft.countdown.enabled,
           notches: draft.countdown.notches.slice(0, 5).map((n) => ({
-            id: n.id, days_before: n.days_before, type: n.type,
+            id: n.id, days_before: n.days_before, time: /^([01]\d|2[0-3]):[0-5]\d$/.test(n.time || "") ? n.time : "10:00", type: n.type,
             subject: n.subject.trim().slice(0, 150), message: n.message.trim().slice(0, 1500),
             kind: n.type === "unlock" ? n.kind || "note" : "", title: n.title.trim().slice(0, 80), body: n.body.trim().slice(0, 2000),
             image_url: n.image_url, link_url: n.link_url.trim(),
@@ -643,7 +644,7 @@ function OwnerSheet({ showId, onClose }) {
             </button>
           )}
         </div>
-        {note(`Parking instructions, a map, anything fans need. PDFs or images, ${MAX_FILE_MB} MB each. Only sent with the confirmation email ${rsvp ? "to people who RSVP" : "to Eventbrite ticket buyers"}, never shown on the public page.`)}
+        {note(`Parking instructions, a map, anything fans need. PDFs or images, ${MAX_FILE_MB} MB each. Attach a picture and the email's Map button opens it. Only sent with the confirmation email ${rsvp ? "to people who RSVP" : "to Eventbrite ticket buyers"}, never shown on the public page.`)}
       </>, <span className="text-[12px]" style={{ fontFamily: SCENE_MONO, color: DIM }}>{draft.files.length}/{MAX_FILES}</span>)}
       {!rsvp && !savedRsvp && row?.fan_page_enabled && section("Ticket buyer emails", <>
           <EventbriteLink showId={showId} onLinked={(link) => { if (!draft.ticketLink.trim() && link?.eb_event_url) set({ ticketLink: link.eb_event_url }); }} />
@@ -708,7 +709,7 @@ function OwnerSheet({ showId, onClose }) {
   const setCd = (patch) => set({ countdown: { ...cd, ...patch } });
   const setNotch = (id, patch) => setCd({ notches: cd.notches.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
   const newNotchId = () => `n${Math.random().toString(36).slice(2, 8)}`;
-  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", ...extra });
+  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, time: "10:00", type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", ...extra });
   const QUICK = {
     reminder: () => [blankNotch(1, "reminder", { subject: `Get ready for ${title}` })],
     full: () => [
@@ -719,7 +720,18 @@ function OwnerSheet({ showId, onClose }) {
       blankNotch(0, "reminder", { subject: `Tonight: ${title}` }),
     ],
   };
-  const sortedNotches = [...cd.notches].sort((a, b) => b.days_before - a.days_before);
+  const sortedNotches = [...cd.notches].sort((a, b) => b.days_before - a.days_before || String(a.time).localeCompare(String(b.time)));
+  // "18:30" -> "6:30 PM"
+  const timeLabel = (t) => {
+    const [h, m] = String(t || "10:00").split(":").map(Number);
+    return `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 ? "AM" : "PM"}`;
+  };
+  // Every 15 minutes of the day, for the send-time box.
+  const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => {
+    const v = `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`;
+    const [h, m] = [Math.floor(i / 4), (i % 4) * 15];
+    return [v, `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`];
+  });
   const dayCounts = cd.notches.reduce((m, n) => ({ ...m, [n.days_before]: (m[n.days_before] || 0) + 1 }), {});
   const notchDate = (d) => {
     if (!row?.date) return null;
@@ -751,7 +763,7 @@ function OwnerSheet({ showId, onClose }) {
       {section("Countdown", <>
         {segmented([[false, "Off"], [true, "On"]], !!cd.enabled, (k) => setCd({ enabled: k, notches: k && !cd.notches.length ? QUICK.reminder() : cd.notches }), "Countdown")}
         {note(cd.enabled
-          ? "Each notch is an email to everyone who RSVP'd, sent at 10 AM Eastern on its day. An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away."
+          ? "Each notch is an email to everyone who RSVP'd, sent on its day at the time you pick (Eastern; 10 AM unless you change it). An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away."
           : "Keep fans excited before the show with up to 5 emails, each one turning a notch on their key. Off by default.")}
         {cd.enabled && !rsvp && <p className="mt-2 text-[14px] leading-relaxed text-[#FF6A00]">Countdown emails go to people who RSVP. Switch how fans get in to RSVP under Setup, or the countdown won't send.</p>}
         {cd.enabled && !row?.date && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no date yet, so the countdown can't be scheduled.</p>}
@@ -767,7 +779,8 @@ function OwnerSheet({ showId, onClose }) {
 
       {cd.enabled && sortedNotches.map((n, idx) => {
         const when = notchDate(n.days_before);
-        const passed = when && new Date(when.getTime() + 10 * 3600 * 1000) < new Date();
+        const [nh, nm] = String(n.time || "10:00").split(":").map(Number);
+        const passed = when && new Date(when.getTime() + (nh * 60 + nm) * 60000) < new Date();
         const st = countdownStats?.[n.id];
         const unlock = n.type === "unlock";
         return (
@@ -777,7 +790,7 @@ function OwnerSheet({ showId, onClose }) {
               <span className="flex-1 min-w-0">
                 <span className="block text-[16px] font-bold text-white truncate">{unlock ? "Unlock" : "Reminder"} · {n.days_before === 0 ? "morning of" : `${n.days_before} ${n.days_before === 1 ? "day" : "days"} before`}</span>
                 <span className="block text-[12px]" style={{ color: passed ? "#FF6A00" : DIM, fontFamily: SCENE_MONO }}>
-                  {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · 10 AM ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}
+                  {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · ${timeLabel(n.time).toUpperCase()} ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}
                   {st ? ` · SENT ${st.sent} · OPENED ${st.opened}` : ""}
                 </span>
               </span>
@@ -794,6 +807,16 @@ function OwnerSheet({ showId, onClose }) {
                 <span className="text-[13px]" style={{ color: SOFT }}>days before</span>
               </label>
             </div>
+            {/* Send time (job 213): any time on that day, Eastern. */}
+            <label className="mt-2 flex items-center gap-2">
+              <span className="text-[13px]" style={{ color: SOFT }}>Sends at</span>
+              <select value={TIME_OPTIONS.some(([v]) => v === n.time) ? n.time : "10:00"} aria-label="Send time (Eastern)"
+                onChange={(e) => setNotch(n.id, { time: e.target.value })}
+                className="bg-[#0a0c1c] border border-[#262b52] rounded-lg px-2.5 py-1.5 text-white text-[14px] focus:outline-none focus:border-[#8CFF3D]/60 [color-scheme:dark]" style={{ fontFamily: SCENE_MONO }}>
+                {TIME_OPTIONS.map(([v, l]) => <option key={v} value={v} className="bg-[#111]">{l}</option>)}
+              </select>
+              <span className="text-[13px]" style={{ color: SOFT }}>Eastern</span>
+            </label>
             {dayCounts[n.days_before] > 1 && <p className="mt-1.5 text-[13px] text-[#FF6A00]">Two notches go out the same day. Fans get both emails.</p>}
             {passed && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>This day has passed, so it won't email. Fans see it as already turned in the sky.</p>}
 
