@@ -77,7 +77,7 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            labelAside={<Link to="/forgot-password" className="text-sm text-white/45 hover:text-[#8CFF3D]">Forgot password?</Link>}
+            labelAside={<Link to="/forgot-password" className="inline-block py-3 -my-3 text-sm text-white/45 hover:text-[#8CFF3D]">Forgot password?</Link>}
           />
           <div className="pt-1">
             <AuthButton type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</AuthButton>
@@ -92,7 +92,7 @@ export default function Login() {
           </div>
         )}
         <AuthFoot>
-          New to Show Pilot? <Link to="/register" className="text-[#8CFF3D] font-semibold hover:underline">Create an account</Link>
+          New to Show Pilot? <Link to="/register" className="inline-block py-3 -my-3 text-[#8CFF3D] font-semibold hover:underline">Create an account</Link>
         </AuthFoot>
       </AuthPanel>
     </AuthShell>

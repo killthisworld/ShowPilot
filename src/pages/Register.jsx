@@ -159,7 +159,7 @@ export default function Register() {
             </div>
           </div>
           <AuthFoot>
-            Already have an account? <Link to="/login" className="text-[#8CFF3D] font-semibold hover:underline">Sign in</Link>
+            Already have an account? <Link to="/login" className="inline-block py-3 -my-3 text-[#8CFF3D] font-semibold hover:underline">Sign in</Link>
           </AuthFoot>
         </AuthPanel>
       </AuthShell>
@@ -202,7 +202,7 @@ export default function Register() {
           <AuthGoogle onClick={handleGoogle} />
         </form>
         <AuthFoot>
-          Already have an account? <Link to="/login" className="text-[#8CFF3D] font-semibold hover:underline">Sign in</Link>
+          Already have an account? <Link to="/login" className="inline-block py-3 -my-3 text-[#8CFF3D] font-semibold hover:underline">Sign in</Link>
         </AuthFoot>
       </AuthPanel>
     </AuthShell>

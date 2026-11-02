@@ -25,7 +25,7 @@ export default function ForgotPassword() {
 
   const back = (
     <AuthFoot>
-      <Link to="/login" className="text-[#8CFF3D] font-semibold hover:underline">Back to sign in</Link>
+      <Link to="/login" className="inline-block py-3 -my-3 text-[#8CFF3D] font-semibold hover:underline">Back to sign in</Link>
     </AuthFoot>
   );
 

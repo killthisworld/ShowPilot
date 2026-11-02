@@ -38,7 +38,7 @@ export default function About() {
       <button
         type="button"
         onClick={back}
-        className="absolute top-5 left-5 flex items-center gap-1.5 text-white/50 hover:text-white text-sm font-semibold px-2 py-1 rounded-md hover:bg-white/5 transition-colors"
+        className="absolute top-5 left-5 flex items-center gap-1.5 text-white/50 hover:text-white text-sm font-semibold px-3 py-3 rounded-md hover:bg-white/5 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
