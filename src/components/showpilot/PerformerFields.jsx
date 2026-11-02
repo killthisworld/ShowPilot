@@ -29,6 +29,7 @@ export default function PerformerFields({
   onPatch,
   nameAction = null,     // e.g. Load Artist
   withPhoto = true,      // false hides the artist photo (tech phone event page, job 148)
+  setLengthAction = null, // beside Set Length, e.g. the act's FX / Artist Notes button (job 205)
   afterName = null,      // show-only bits (submitted by, requested order)
   genreTags = [],        // the person's genre list [{ name, color }]
   onAddGenre,            // "+" beside Genre / Tag
@@ -96,14 +97,17 @@ export default function PerformerFields({
       {afterName}
       <div>
         <Label className="text-white/50 text-xs">Set Length (minutes)</Label>
-        <Input
-          type="number"
-          min={0}
-          value={b.set_length_minutes ?? ""}
-          onChange={(e) => onPatch({ set_length_minutes: e.target.value ? parseInt(e.target.value, 10) : null })}
-          placeholder="e.g. 90"
-          className="mt-1 bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
+        <div className="mt-1 flex items-center gap-2">
+          <Input
+            type="number"
+            min={0}
+            value={b.set_length_minutes ?? ""}
+            onChange={(e) => onPatch({ set_length_minutes: e.target.value ? parseInt(e.target.value, 10) : null })}
+            placeholder="e.g. 90"
+            className="bg-[#111] border-[#222] text-white w-28 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          {setLengthAction}
+        </div>
       </div>
       <div>
         <div className="flex items-center justify-between mb-2">

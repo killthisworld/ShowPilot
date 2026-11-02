@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -63,7 +64,8 @@ const emptyBand = (role, sortOrder) => ({
 // (notes, star, invite, `beforeSave`, Save) render there instead of in a row.
 // banner (job 156): a node (the tech phone's EventBanner) shown on top; tapping
 // it opens / closes the event info block, which starts closed.
-export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, beforeSave = null, banner = null } = {}) {
+// underBanner (job 205): shown right under the banner (engineers on call).
+export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, beforeSave = null, banner = null, underBanner = null } = {}) {
   const [infoOpen, setInfoOpen] = useState(false);
   const routeParams = useParams();
   const id = embeddedId || routeParams.id;
@@ -894,9 +896,6 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
 
       {embedded && actionSlot ? createPortal(
         <>
-          <button onClick={() => setShowFxModal(true)} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-[#8CFF3D]/60 hover:text-[#8CFF3D]" title="FX / Artist Notes" aria-label="FX / Artist Notes">
-            <StickyNote className="w-5 h-5 lg:w-4 lg:h-4" />
-          </button>
           <button onClick={toggleStar} className={`w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`} aria-label={show.starred ? "Unstar" : "Star"}>
             <Star className="w-5 h-5 lg:w-4 lg:h-4" fill={show.starred ? "currentColor" : "none"} />
           </button>
@@ -920,9 +919,6 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <button onClick={toggleStar} className={`p-2 rounded-lg transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`} aria-label={show.starred ? "Unstar" : "Star"}>
             <Star className="w-4 h-4" fill={show.starred ? "currentColor" : "none"} />
           </button>
-          <button onClick={() => setShowFxModal(true)} className="p-2 rounded-lg transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes" aria-label="FX / Artist Notes">
-            <StickyNote className="w-4 h-4" />
-          </button>
           <InviteSheet
             showId={id}
             trigger={
@@ -945,9 +941,6 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             <h1 className="hidden lg:block text-white text-2xl font-bold truncate">{isNew && !show.event_name ? "New show" : eventTitle({ ...show, band_name: show.band_name || bands?.[0]?.band_name })}</h1>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={() => setShowFxModal(true)} className="w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors text-[#8CFF3D]/50 hover:text-[#8CFF3D]" title="FX / Artist Notes">
-              <StickyNote className="w-5 h-5 lg:w-4 lg:h-4" />
-            </button>
             <button onClick={toggleStar} className={`w-11 h-11 lg:w-9 lg:h-9 flex items-center justify-center rounded-xl transition-colors ${show.starred ? "text-amber-400" : "text-amber-400/70 hover:text-amber-400"}`}>
               <Star className="w-5 h-5 lg:w-4 lg:h-4" fill={show.starred ? "currentColor" : "none"} />
             </button>
@@ -992,6 +985,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             </span>
           </button>
         )}
+        {banner && underBanner}
         {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
@@ -1198,6 +1192,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <PerformerFields
             band={activeBand}
             withPhoto={sectionPhotos}
+            setLengthAction={<ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />}
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
             nameAction={isTechProductionAccount ? <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} /> : null}
             afterName={<>
@@ -1223,55 +1218,17 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </CollapsibleSection>
         </div>
 
-      {showFxModal && (() => {
-        // One box, one row of chips under it (job 169): General (whole show),
-        // then each act; the box shows whichever is picked.
-        const isShow = fxTarget === "__show__" || !bands[fxTarget];
-        const act = isShow ? null : bands[fxTarget];
-        const actLabel = (b) => b.band_name || b.role || "Act";
-        // One box (Jay): an act's notes, with any per-member notes it sent on
-        // the intake form shown as "Name: note" lines; editing saves it all as
-        // the act's notes.
-        const memberLines = (b) => (b.artist_fx_notes || []).filter((n) => n.artist_name && String(n.notes || "").trim()).map((n) => `${n.artist_name}: ${n.notes}`);
-        const actText = (b) => [b.general_notes || "", ...memberLines(b)].filter((t) => String(t).trim()).join("\n\n");
-        const setActText = (v) => setBands((prev) => { const next = [...prev]; next[fxTarget] = { ...next[fxTarget], general_notes: v, artist_fx_notes: [] }; return next; });
-        const actHasNotes = (b) => !!(b.general_notes || (b.artist_fx_notes || []).some((n) => n.notes));
-        const chip = (on) => `px-3 py-1.5 rounded-full text-[13px] border transition-all flex items-center gap-1.5 ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] text-white/55 hover:text-white/80"}`;
-        return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3" style={{ height: "100dvh" }} onClick={() => setShowFxModal(false)}>
-          <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                <StickyNote className="w-5 h-5 text-[#8CFF3D]" /> FX / Artist Notes
-              </h3>
-              <button onClick={() => setShowFxModal(false)} className="w-10 h-10 -mr-2 flex items-center justify-center text-white/40 hover:text-white" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <Textarea
-                key={String(fxTarget)}
-                value={isShow ? (show.show_notes || "") : actText(act)}
-                onChange={(e) => (isShow ? update("show_notes", e.target.value) : setActText(e.target.value))}
-                className="bg-[#111] border-[#222] text-white text-[15px] leading-relaxed min-h-[48dvh]"
-                placeholder={isShow ? "General notes for the whole show..." : `Notes for ${actLabel(act)}...`}
-              />
-
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <button type="button" onClick={() => setFxTarget("__show__")} className={chip(isShow)}>
-                  General {show.show_notes ? <span aria-label="has notes">●</span> : null}
-                </button>
-                {bands.map((b, i) => (
-                  <button type="button" key={b.id || `fx-${i}`} onClick={() => setFxTarget(i)} className={chip(!isShow && fxTarget === i)}>
-                    {actLabel(b)} {actHasNotes(b) ? <span aria-label="has notes">●</span> : null}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
+      {showFxModal && (
+        <FxNotesWindow
+          acts={bands}
+          target={fxTarget}
+          onTarget={setFxTarget}
+          showNotes={show.show_notes || ""}
+          onShowNotes={(v) => update("show_notes", v)}
+          onActNotes={(i, v) => setBands((prev) => { const next = [...prev]; next[i] = { ...next[i], general_notes: v, artist_fx_notes: [] }; return next; })}
+          onClose={() => setShowFxModal(false)}
+        />
+      )}
 
       {showEventTypeManager && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowEventTypeManager(false)}>

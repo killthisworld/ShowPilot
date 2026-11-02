@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
@@ -178,6 +180,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const ed = p.editable;
   // Task summary (TaskSheet) open over the workspace, by task id.
   const [openTaskId, setOpenTaskId] = useState(null);
+  // FX / Artist Notes window (job 205), opened from an act's row by its set time.
+  const [fxTarget, setFxTarget] = useState(null);
+  const [fxShowDraft, setFxShowDraft] = useState(null); // General notes being edited here
+  const [fxActsDirty, setFxActsDirty] = useState(false);
+  const [fxSaving, setFxSaving] = useState(false);
+  const [fxSaved, setFxSaved] = useState(false);
   // Load template from the profile web's corner (job 124).
   const [tplOpen, setTplOpen] = useState(false);
   const [tplLoaded, setTplLoaded] = useState("");
@@ -453,12 +461,20 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     const crewTab = (key, label, hint) => {
       const info = ei[key] || {};
       const setE = (k, v) => p.updateEngineerRole(key, k, v);
+      // Lighting can be covered by the audio engineer (job 205).
+      const same = key === "lighting" && !!info.same_as_audio;
       return {
         key, label,
-        summary: [info.contact_name, info.contact_phone].filter(Boolean).join(" · ") || hint,
-        state: stateOf(countFilled([info.contact_name, info.contact_phone, info.contact_email]), 3),
+        summary: same ? "Same as the audio engineer" : ([info.contact_name, info.contact_phone].filter(Boolean).join(" · ") || hint),
+        state: same ? "done" : stateOf(countFilled([info.contact_name, info.contact_phone, info.contact_email]), 3),
         render: () => (
           <>
+            {key === "lighting" && (!off || same) && (
+              <SameAsAudioCheck checked={same} disabled={off} color={color} onChange={(v) => setE("same_as_audio", v)} />
+            )}
+            {same ? (
+              <p className="text-white/55 text-[14px]">The audio engineer is running lights too.</p>
+            ) : (<>
             <In label="Name" value={info.contact_name} onChange={(v) => setE("contact_name", v)} disabled={off} placeholder="Name" />
             <Grid>
               <In label="Phone" value={info.contact_phone} onChange={(v) => setE("contact_phone", v)} disabled={off} placeholder="Phone" />
@@ -477,6 +493,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               </button>
             )}
             {info.card_user_id && <PilotCardLink userId={info.card_user_id} color={color} />}
+            </>)}
           </>
         ),
       };
@@ -493,7 +510,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   };
   const engineerSide = () => {
     const run = buildRunOfShow(gig);
-    const crew = [["Audio", ei.audio], ["Lighting", ei.lighting]].filter(([, i]) => i && (i.contact_name || i.contact_phone || i.contact_email));
+    // Lighting covered by the audio engineer (job 205): one entry, "Audio + Lighting".
+    const lightsToo = !!ei.lighting?.same_as_audio;
+    const crew = [[lightsToo ? "Audio + Lighting" : "Audio", ei.audio], ...(lightsToo ? [] : [["Lighting", ei.lighting]])].filter(([, i]) => i && (i.contact_name || i.contact_phone || i.contact_email));
     return {
       body: (
         <>
@@ -563,6 +582,43 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
+            {fxTarget !== null && (
+              <FxNotesWindow
+                acts={gig.bands || []}
+                target={fxTarget}
+                onTarget={setFxTarget}
+                showNotes={fxShowDraft ?? (ei.show_notes || "")}
+                onShowNotes={p.canEditSection?.("engineer") ? (v) => setFxShowDraft(v) : null}
+                onActNotes={p.canEdit ? (i, v) => { const list = [...(gig.bands || [])]; list[i] = { ...list[i], general_notes: v, artist_fx_notes: [] }; p.update("bands", list); setFxActsDirty(true); } : null}
+                onSave={async () => {
+                  // Desktop pages save one section at a time, so the notes
+                  // window saves its own: General -> Audio / Lighting (from the
+                  // latest engineer_info), act notes -> the lineup.
+                  setFxSaving(true);
+                  try {
+                    if (fxShowDraft !== null) {
+                      const { data: fresh } = await supabase.rpc("get_shared_gig", { p_token: p.token });
+                      const cur = (fresh?.engineer_info && typeof fresh.engineer_info === "object") ? fresh.engineer_info : ei;
+                      const next = { ...cur, show_notes: fxShowDraft };
+                      const { error } = await supabase.rpc("update_gig_section", { p_token: p.token, p_section: "engineer", p_updates: next });
+                      if (error) throw error;
+                      p.update("engineer_info", next);
+                      setFxShowDraft(null);
+                    }
+                    if (fxActsDirty) {
+                      const { error } = await supabase.rpc("update_shared_gig", { p_token: p.token, p_updates: { bands: gig.bands || [] } });
+                      if (error) throw error;
+                      setFxActsDirty(false);
+                    }
+                    setFxSaved(true); setTimeout(() => setFxSaved(false), 1800);
+                  } catch (e) { console.error(e); }
+                  setFxSaving(false);
+                }}
+                saving={fxSaving}
+                saved={fxSaved}
+                onClose={() => { setFxTarget(null); setFxShowDraft(null); }}
+              />
+            )}
             <TableBox>
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
@@ -590,7 +646,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       {b.requested_order && <span style={{ fontFamily: SCENE_MONO }} title="Lineup position the act asked for">ASKED FOR #{b.requested_order}</span>}
                     </div>
                   )}
-                  <div className="col-start-2 col-span-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)] gap-2">
+                  <div className="col-start-2 col-span-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] gap-2 items-end">
                     <label className="grid gap-1 min-w-0">
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>BILLING</span>
                       <select value={b.role || "N/A"} onChange={(e) => p.updateBand(i, "role", e.target.value)} disabled={!p.canEdit} className={inputCls} aria-label="Billing">
@@ -605,6 +661,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ON AT</span>
                       <input value={setTimes[b.band_name] || ""} onChange={(e) => setMi("set_times", { ...setTimes, [b.band_name]: e.target.value })} disabled={off || !b.band_name} placeholder="9:00 PM" className={inputCls} aria-label="Set time" />
                     </label>
+                    {/* This act's FX / Artist Notes, next to its set time (job 205). */}
+                    <ActNotesButton act={b} onClick={() => setFxTarget(i)} />
                   </div>
                   {/* Members, inputs & stage plot for this act (job 108): the
                       same editor as the shared event page. Editable by whoever

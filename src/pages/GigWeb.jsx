@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import { eventTitle } from "@/lib/eventTitle";
 import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
 import { createPortal } from "react-dom";
@@ -680,6 +681,18 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     );
   }
 
+  // "Also running lights" on the engineers-on-call strip (job 205): saved
+  // straight away into engineer_info.lighting.same_as_audio.
+  const setLightsToo = async (v) => {
+    // The section save replaces engineer_info, so start from the latest copy.
+    const { data: fresh } = await supabase.from("shows").select("engineer_info").eq("id", gig.id).maybeSingle();
+    const ei = (fresh?.engineer_info && typeof fresh.engineer_info === "object") ? fresh.engineer_info : (gig.engineer_info || {});
+    const next = { ...ei, lighting: { ...(ei.lighting || {}), same_as_audio: v } };
+    setGig((g) => ({ ...g, engineer_info: next }));
+    const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: "engineer", p_updates: next });
+    if (error) { console.error(error); loadGig(); }
+  };
+
   if (techPhone) {
     // Waiting to hear whether this is your own event or one you were invited to.
     if (!permissions || !permissions.is_owner) {
@@ -699,7 +712,10 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         </div>
         <div className="px-4 pt-3 max-w-lg mx-auto">
           <Suspense fallback={<div className="py-10 text-center text-white/40 text-sm">Loading show…</div>}>
-            <ShowDetail embeddedId={gig.id} banner={<EventBanner gig={gig} imageUrl={myIcon} title={title} />} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+            <ShowDetail
+              embeddedId={gig.id}
+              banner={<EventBanner gig={gig} imageUrl={myIcon} title={title} />}
+              underBanner={<OnCallStrip gig={gig} ownerType={permissions?.owner_account_type || preferences?.account_type} canEdit onSetLightsToo={setLightsToo} />} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
           </Suspense>
         </div>
         {user && <BottomTabs />}

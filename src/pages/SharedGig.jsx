@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+import OnCallStrip from "@/components/showpilot/OnCallStrip";
+import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
@@ -716,6 +719,12 @@ export default function SharedGig() {
     openInvite, closeInvite, generateInvite, chooseEngineerRole, copyInviteUrl, shareInviteUrl,
   } = useGigInvite({ gigId: gig?.id, user });
   const [engineerCards, setEngineerCards] = useState({});
+  // FX / Artist Notes window (job 205): opened from each act's row.
+  const [fxOpen, setFxOpen] = useState(false);
+  const [fxTarget, setFxTarget] = useState("__show__");
+  const [fxDirty, setFxDirty] = useState({ acts: false, show: false });
+  const [fxSaving, setFxSaving] = useState(false);
+  const [fxSaved, setFxSaved] = useState(false);
   const [isLinkedAlready, setIsLinkedAlready] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   // Invite link (job 143): what it's for, and what happened when we accepted it.
@@ -1270,6 +1279,20 @@ export default function SharedGig() {
         )}
 
         {techPhone && <EventBanner gig={gig} imageUrl={myIcon} title={title} />}
+        {/* Engineers on call, under the date (job 205). */}
+        {techPhone && (
+          <OnCallStrip
+            gig={gig}
+            ownerType={permissions?.owner_account_type}
+            canEdit={canEditEngineerSection()}
+            onSetLightsToo={async (v) => {
+              const ei = gig.engineer_info || {};
+              const next = { ...ei, lighting: { ...(ei.lighting || {}), same_as_audio: v } };
+              setGig((g) => ({ ...g, engineer_info: next }));
+              await saveSection(myEngineerRole(), next);
+            }}
+          />
+        )}
 
         {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
@@ -1483,6 +1506,7 @@ export default function SharedGig() {
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
+                        <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
                         </span>
@@ -1529,6 +1553,7 @@ export default function SharedGig() {
                       placeholder="Set (min)"
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
+                    <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                   </div>
                   {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>
@@ -1560,7 +1585,15 @@ export default function SharedGig() {
             const isMe = user && info.card_user_id === user.id;
             return (
               <div key={role} className={i > 0 ? "pt-3 mt-3 border-t border-white/10" : ""}>
-                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">{role === "audio" ? "Audio Engineer" : "Lighting Tech"}</p>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">{role === "audio" ? "Audio Engineer" : "Lighting Tech"}</p>
+                  {role === "lighting" && (canEditEngineerSection() || info.same_as_audio) && (
+                    <SameAsAudioCheck checked={info.same_as_audio} disabled={!canEditEngineerSection()} onChange={(v) => updateEngineerRole("lighting", "same_as_audio", v)} />
+                  )}
+                </div>
+                {role === "lighting" && info.same_as_audio ? (
+                  <p className="text-white/45 text-sm">The audio engineer is running lights too.</p>
+                ) : (<>
                 <Field label="Contact Name" value={info.contact_name} onChange={(v) => updateEngineerRole(role, "contact_name", v)} editable={canEditEngineerSection()} placeholder="Name" />
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <Field label="Phone" value={info.contact_phone} onChange={(v) => updateEngineerRole(role, "contact_phone", v)} editable={canEditEngineerSection()} placeholder="Phone" />
@@ -1581,6 +1614,7 @@ export default function SharedGig() {
                     <ExternalLink className="w-3 h-3" /> View {cardInfo.display_name || "their"} ShowPilot card
                   </a>
                 )}
+                </>)}
               </div>
             );
           })}
@@ -1590,6 +1624,27 @@ export default function SharedGig() {
 
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
       </div>
+
+      {fxOpen && (
+        <FxNotesWindow
+          acts={gig.bands || []}
+          target={fxTarget}
+          onTarget={setFxTarget}
+          showNotes={(gig.engineer_info || {}).show_notes || ""}
+          onShowNotes={canEditEngineerSection() ? (v) => { updateSection("engineer_info", "show_notes", v); setFxDirty((d) => ({ ...d, show: true })); } : null}
+          onActNotes={canEditLineup ? (i, v) => { const bands = [...(gig.bands || [])]; bands[i] = { ...bands[i], general_notes: v, artist_fx_notes: [] }; update("bands", bands); setFxDirty((d) => ({ ...d, acts: true })); } : null}
+          onSave={async () => {
+            setFxSaving(true);
+            if (fxDirty.acts && canEditLineup) await saveManagerSection();
+            if (fxDirty.show && canEditEngineerSection()) await saveEngineerSection();
+            setFxDirty({ acts: false, show: false });
+            setFxSaving(false); setFxSaved(true); setTimeout(() => setFxSaved(false), 1800);
+          }}
+          saving={fxSaving}
+          saved={fxSaved}
+          onClose={() => setFxOpen(false)}
+        />
+      )}
 
       <InviteModal
         inviteFor={inviteFor}

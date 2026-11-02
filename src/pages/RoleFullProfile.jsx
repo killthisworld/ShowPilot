@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -430,12 +431,21 @@ export function RoleProfileBody({
             const info = (gig.engineer_info || {})[r] || {};
             return (
               <div key={r} className={i > 0 ? "pt-3 mt-3 border-t border-white/10" : ""}>
-                <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">{r === "audio" ? "Audio Engineer" : "Lighting Tech"}</p>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">{r === "audio" ? "Audio Engineer" : "Lighting Tech"}</p>
+                  {r === "lighting" && (editable || info.same_as_audio) && (
+                    <SameAsAudioCheck checked={info.same_as_audio} disabled={!editable} onChange={(v) => updateEngineerRole("lighting", "same_as_audio", v)} />
+                  )}
+                </div>
+                {r === "lighting" && info.same_as_audio ? (
+                  <p className="text-white/45 text-sm">The audio engineer is running lights too.</p>
+                ) : (<>
                 <Field label="Contact Name" value={info.contact_name} onChange={(v) => updateEngineerRole(r, "contact_name", v)} editable={editable} placeholder="Name" />
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <Field label="Phone" value={info.contact_phone} onChange={(v) => updateEngineerRole(r, "contact_phone", v)} editable={editable} placeholder="Phone" />
                   <Field label="Email" value={info.contact_email} onChange={(v) => updateEngineerRole(r, "contact_email", v)} editable={editable} placeholder="Email" />
                 </div>
+                </>)}
               </div>
             );
           })}
