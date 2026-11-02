@@ -151,6 +151,36 @@ function AddButton({ color, onClick, children, disabled }) {
 function TableBox({ children }) {
   return <div className="bg-[#111] border border-[#1f1f1f] rounded-xl overflow-hidden shrink-0 divide-y divide-[#1a1a1a]">{children}</div>;
 }
+// The event's schedule for a profile that doesn't set it (job 212): the
+// venue's times plus each act's set time, read-only. Opened from the
+// Schedule feature box in the web's corner.
+function ScheduleView({ gig, color }) {
+  const run = buildRunOfShow(gig);
+  const vi = gig.venue_info || {};
+  const day = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "";
+  return (
+    <div className="flex flex-col gap-3">
+      {(day || gig.venue) && <div className="text-[15px] text-white/65">{[day, gig.venue].filter(Boolean).join(" · ")}</div>}
+      {run.length ? (
+        <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-y-2.5 text-[16px] bg-[#151515] border border-[#262626] rounded-[10px] p-4">
+          {run.map((r, i) => {
+            const c = r.kind === "curfew" ? "#f87171" : r.kind === "doors" ? ROLE_COLOR.venue : r.kind === "set" ? color : null;
+            return (
+              <React.Fragment key={i}>
+                <span className="text-[13.5px] pt-[2px]" style={{ fontFamily: SCENE_MONO, color: c || "rgba(255,255,255,0.6)" }}>{r.time || "--"}</span>
+                <span style={{ color: c || undefined, fontWeight: r.kind === "set" ? 700 : 400 }}>{r.label}{r.kind === "curfew" && vi.hard_curfew ? " (hard)" : ""}</span>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-[15px] text-white/45 bg-[#151515] border border-[#262626] rounded-[10px] p-4">No times yet. They show up here once the venue adds its schedule and the acts get set times.</p>
+      )}
+      <p className="text-[12.5px] text-white/40">The venue sets load-in, doors and curfew; set times come from the lineup.</p>
+    </div>
+  );
+}
+
 function SideLabel({ children, className = "" }) {
   return <div className={`text-[11px] tracking-[0.12em] text-white/45 ${className}`} style={{ fontFamily: SCENE_MONO }}>{children}</div>;
 }
@@ -913,6 +943,20 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       // Tasks aren't a page of the profile any more: they live in the Tasks
       // feature in the web's corner, which opens the event's task page
       // (/gig/tasks, Oct 21).
+      // Schedule is a feature box in the web's corner on every profile (job
+      // 212): the venue's own Schedule & curfew page moves there; everyone
+      // else gets the event's run of show, read-only.
+      if (list.some((t) => t.key === "schedule")) {
+        list = list.map((t) => (t.key === "schedule" ? { ...t, feature: true } : t));
+      } else {
+        const run = buildRunOfShow(gig);
+        list = [...list, {
+          key: "schedule", label: "Schedule", feature: true, viewOnly: true,
+          summary: run.length ? `${run.length} time${run.length === 1 ? "" : "s"}` : "No times yet",
+          state: run.length ? "done" : "empty",
+          render: () => <ScheduleView gig={gig} color={color} />,
+        }];
+      }
       // A page marked done counts as done (job 148).
       return list.map((t) => (isPageMarkedDone(role, gig, t.key) ? { ...t, state: "done", marked: true } : t));
     },
@@ -1064,7 +1108,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   ) : null;
   // Requests and Paperwork are running lists, not fields to fill: left out of
   // the FILLED count, same as the event's progress (profileProgress.js).
-  const counted = (list) => list.filter((t) => !t.excluded && t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && (template || t.key !== "event_link") && t.key !== "advance_sched");
+  const counted = (list) => list.filter((t) => !t.excluded && !t.viewOnly && t.key !== "requests" && t.key !== "tasks" && t.key !== "paperwork" && (template || t.key !== "event_link") && t.key !== "advance_sched");
   const doneTabs = counted(tabs).filter((t) => t.state === "done").length;
   const totalTabs = counted(tabs).length;
   const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
@@ -1090,8 +1134,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Pages opened from a feature button stay off the web and the page cards.
   const webTabs = tabs.filter((t) => !t.feature);
   const eventFormOn = tabs.some((t) => t.key === "event_link" && t.feature);
+  const scheduleOn = tabs.some((t) => t.key === "schedule" && t.feature);
   const featureDcas = [
     eventFormOn ? { key: "event_form", label: "Event Form", color, onClick: () => (layout === "pages" ? reveal("event_link") : setActive("event_link")) } : null,
+    scheduleOn ? { key: "schedule", label: "Schedule", color, onClick: () => (layout === "pages" ? reveal("schedule") : setActive("schedule")) } : null,
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
     canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
