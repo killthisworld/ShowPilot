@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Headphones, Lightbulb } from "lucide-react";
+import { Headphones, Lightbulb, ChevronDown } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import PilotCardView from "@/pages/PilotCardView";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
@@ -9,12 +9,13 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 
 // Engineers on call (jobs 205 / 206), under the date on the tech phone event page.
 // Audio and Lighting side by side, each a profile picture (tap -> their digital
-// card) with their name under it; when the audio
+// card) with their name under it and AUDIO / LIGHTING under that; when the audio
 // engineer also runs lights (engineer_info.lighting.same_as_audio) just the
-// audio engineer, with "Also running lights" ticked. A crew spot nobody filled
+// audio engineer, labelled AUDIO + LIGHTS. A crew spot nobody filled
 // in falls back to the event's owner when that's their job (an audio engineer's
-// own event -> they're on audio). People who can edit the Audio / Lighting
-// section can tick "Also running lights" right here (onSetLightsToo).
+// own event -> they're on audio). Techs on the event (people who can edit the
+// Audio / Lighting section) open a dropdown on the heading to tick "Also running
+// lights" (onSetLightsToo); nobody else sees that box.
 const G = "#8CFF3D";
 
 export default function OnCallStrip({ gig, ownerType, canEdit = false, onSetLightsToo }) {
@@ -54,6 +55,7 @@ export default function OnCallStrip({ gig, ownerType, canEdit = false, onSetLigh
   }, [ids]);
 
   const [openCard, setOpenCard] = useState(null);
+  const [openSettings, setOpenSettings] = useState(false);
 
   const people = [spots.audio, spots.lighting].filter(Boolean);
   // Nobody on audio or lights yet, and nothing to tick: say nothing.
@@ -85,19 +87,34 @@ export default function OnCallStrip({ gig, ownerType, canEdit = false, onSetLigh
     );
   };
 
-  // Only audio on call: offer "Also running lights" beside them.
-  const showLightsBox = !!spots.audio && !spots.lighting && (lightsToo || canEdit);
+  // Techs on the event (canEdit) get a dropdown under the heading with the
+  // "Also running lights" box (job 208). Everyone else just sees the pictures,
+  // with AUDIO / LIGHTING / AUDIO + LIGHTS under each name.
+  const hasDropdown = canEdit && !!spots.audio;
 
   return (
     <div className="pt-1 pb-2">
-      <div className="mb-3 text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>ENGINEERS ON CALL</div>
-      <div className="flex items-center gap-6">
+      {hasDropdown ? (
+        <button
+          type="button"
+          onClick={() => setOpenSettings((o) => !o)}
+          aria-expanded={openSettings}
+          className="mb-3 -my-1 py-1 flex items-center gap-1.5 text-[10.5px] tracking-[0.16em] text-white/45 hover:text-white/70"
+          style={{ fontFamily: SCENE_MONO }}
+        >
+          ENGINEERS ON CALL
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openSettings ? "rotate-180" : ""}`} />
+        </button>
+      ) : (
+        <div className="mb-3 text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>ENGINEERS ON CALL</div>
+      )}
+      {hasDropdown && openSettings && (
+        <div className="mb-3 px-3 py-2.5 rounded-xl border border-[#222] bg-[#111]">
+          <SameAsAudioCheck subtle label="Also running lights" checked={lightsToo} onChange={(v) => onSetLightsToo?.(v)} />
+        </div>
+      )}
+      <div className="flex items-start gap-6">
         {people.map((s) => <Person key={s.key} s={s} />)}
-        {showLightsBox && (
-          <div className="flex-1 flex justify-center pb-6">
-            <SameAsAudioCheck subtle label="Also running lights" checked={lightsToo} disabled={!canEdit} onChange={(v) => onSetLightsToo?.(v)} />
-          </div>
-        )}
       </div>
       {openCard && createPortal(<PilotCardView token={openCard} onClose={() => setOpenCard(null)} />, document.body)}
     </div>
