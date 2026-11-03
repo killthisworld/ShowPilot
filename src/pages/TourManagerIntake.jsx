@@ -463,7 +463,7 @@ export default function TourManagerIntake({ link } = {}) {
       seed={token}
       image={ec?.profile_photo_url || ""}
       keyCode={link?.code ? String(link.code).toUpperCase() : ""}
-      fromLine={`${shownName && shownName !== "your audio engineer" ? shownName : "Your audio engineer"} sent you a key`}
+      fromLine={`${shownName && shownName !== "your audio engineer" ? shownName : "Your audio engineer"} sent you a key to`}
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
