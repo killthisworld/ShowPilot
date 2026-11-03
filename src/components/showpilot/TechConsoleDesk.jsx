@@ -380,7 +380,9 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
 
       {/* Show */}
       <div className="relative shrink-0" style={{ borderTop: `4px solid ${color}`, background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.1))" : "#1c1c1c" }}>
-        <Link to={webTo} title="Open the event web" className="w-full px-[11px] pt-2 pb-2.5 flex flex-col gap-[3px] text-left" style={{ textShadow: ts }}>
+        {/* A fixed height (room for a two-line title and the venue) so who's on
+            starts at the same height on every card, however long the title. */}
+        <Link to={webTo} title="Open the event web" className={`w-full px-[11px] pt-2 pb-2.5 flex flex-col gap-[3px] text-left overflow-hidden ${fluid ? "h-[86px]" : "h-[104px]"}`} style={{ textShadow: ts }}>
           {!fluid && <span className="text-[12px] pr-6" style={{ fontFamily: SCENE_MONO, color }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>}
           <span className={`${fluid ? "text-[13px] xl:text-[17px] min-[1400px]:text-[18px] break-words pr-6 xl:pr-5" : "text-[18px] pr-5"} font-semibold leading-[1.15] line-clamp-2 w-full`}>{sceneTitle(s)}</span>
           <span className="text-[13px] text-white/75 truncate w-full">{s.venue || "No venue yet"}</span>
@@ -397,7 +399,7 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
       </div>
 
       <div className="flex-1 min-h-0 flex" style={{ borderTop: `1px solid ${line}`, background: glass }}>
-        <div className={`flex-1 min-w-0 flex flex-col gap-2.5 py-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
+        <div className={`flex-1 min-w-0 flex flex-col gap-2.5 pt-4 pb-2.5 ${fluid ? "pl-2 pr-1.5" : "pl-2.5 pr-2"}`}>
           {/* Who's on */}
           <div className="flex flex-col gap-1.5" style={{ textShadow: ts }}>
             <span className="text-[10px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>WHO'S ON</span>
