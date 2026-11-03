@@ -4,6 +4,8 @@
 -- their shared digital card shows. Before, the page read user_preferences
 -- directly, which a signed-out visitor can't, so the key and the centre
 -- circle lost the picture. Bodies are the live ones (job 199) plus that.
+-- Job 216 (2026-11-03): merged with job 215's live bodies (intake_event_fallback:
+-- fall back to the linked event's name, venue and date), so applying this keeps both.
 
 create or replace function public.get_opener_request(p_token uuid)
  returns jsonb
@@ -16,9 +18,9 @@ as $function$
     'include_services', o.include_services,
     'tour_manager_requests', case when t.id is null then null else jsonb_build_object(
       'band_name', t.band_name,
-      'event_name', t.event_name,
-      'venue', t.venue,
-      'date', t.date,
+      'event_name', coalesce(nullif(trim(t.event_name), ''), nullif(trim(s.event_name), '')),
+      'venue', coalesce(nullif(trim(t.venue), ''), nullif(trim(s.venue), '')),
+      'date', coalesce(t.date, s.date),
       'location', t.location,
       'engineer_user_id', t.engineer_user_id,
       'image', coalesce(nullif(s.icon_url, ''), nullif(s.venue_info->>'photo_url', '')),
@@ -56,7 +58,10 @@ begin
   end if;
   select jsonb_build_object(
            'image', coalesce(nullif(s.icon_url, ''), nullif(s.venue_info->>'photo_url', '')),
-           'event_type', coalesce(s.event_type, r.event_type))
+           'event_type', coalesce(s.event_type, r.event_type),
+           'event_name', coalesce(nullif(trim(r.event_name), ''), nullif(trim(s.event_name), '')),
+           'venue', coalesce(nullif(trim(r.venue), ''), nullif(trim(s.venue), '')),
+           'date', coalesce(r.date, s.date))
     into v_pic
     from public.shows s
    where s.id = coalesce(r.target_show_id, r.created_show_id);
