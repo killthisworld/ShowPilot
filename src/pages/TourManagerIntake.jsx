@@ -433,8 +433,9 @@ export default function TourManagerIntake({ link } = {}) {
   }
 
   // The Performer Intake form as an access key and web (job 195).
-  const showTitle = tmRequest?.event_name || tmRequest?.band_name || "Your show";
-  const dayLine = [tmRequest?.date ? new Date(tmRequest.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", tmRequest?.venue].filter(Boolean).join(" · ");
+  // No event name: the venue (job 214), then the act, then "Your show".
+  const showTitle = tmRequest?.event_name || tmRequest?.venue || tmRequest?.band_name || "Your show";
+  const dayLine = [tmRequest?.date ? new Date(tmRequest.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", showTitle === tmRequest?.venue ? "" : tmRequest?.venue].filter(Boolean).join(" · ");
   // The sender's card: read directly when allowed, else from the form's own
   // lookup, so a signed-out recipient still sees their picture (job 202).
   const ec = engineerCard || tmRequest?.engineer || null;
@@ -478,7 +479,7 @@ export default function TourManagerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={tmRequest?.venue} color="#8CFF3D" />
+          <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={showTitle === tmRequest?.venue ? "" : tmRequest?.venue} color="#8CFF3D" />
           <div className="text-[13.5px] text-white/60">Sending this puts the event on {shownName}'s ShowPilot.</div>
         </div>
       )}

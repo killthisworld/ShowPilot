@@ -239,8 +239,9 @@ export default function OpenerIntake({ link } = {}) {
   }
 
   const parent = context.tour_manager_requests;
-  const showTitle = parent?.event_name || parent?.band_name || "Your show";
-  const dayLine = [parent?.date ? new Date(parent.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", parent?.venue].filter(Boolean).join(" · ");
+  // No event name: the venue (job 214), then the act, then "Your show".
+  const showTitle = parent?.event_name || parent?.venue || parent?.band_name || "Your show";
+  const dayLine = [parent?.date ? new Date(parent.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "", showTitle === parent?.venue ? "" : parent?.venue].filter(Boolean).join(" · ");
   // The sender's card: read directly when allowed, else from the form's own
   // lookup, so a signed-out recipient still sees their picture (job 202).
   const ec = engineerCard || parent?.engineer || null;
@@ -293,7 +294,7 @@ export default function OpenerIntake({ link } = {}) {
       } : null}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
-          <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={parent?.venue} color="#8CFF3D" />
+          <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={showTitle === parent?.venue ? "" : parent?.venue} color="#8CFF3D" />
           {parent?.band_name && <div className="text-[14px] text-white/75">You're joining {parent.band_name}</div>}
         </div>
       )}
