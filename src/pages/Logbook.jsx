@@ -109,12 +109,16 @@ export default function Logbook() {
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     });
+    // This month is always a page (job 217), empty until its first show is past.
+    const nowD = new Date();
+    const thisMonth = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}`;
+    if (!groups[thisMonth]) groups[thisMonth] = [];
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [shows]);
 
   const availableYears = useMemo(
-    () => [...new Set(shows.map((s) => s.date?.slice(0, 4)).filter(Boolean))].sort().reverse(),
-    [shows]
+    () => [...new Set(monthGroups.map(([key]) => key.slice(0, 4)))].sort().reverse(),
+    [monthGroups]
   );
 
   const monthsInYear = useMemo(
@@ -347,6 +351,13 @@ export default function Logbook() {
                       Controls whether this month's stamps are visible on your public Logbook
                     </p>
                     {(() => {
+                      if (monthShows.length === 0) {
+                        return (
+                          <p className="text-center text-sm py-24" style={{ color: settings?.text_color || "#ffffff", opacity: 0.45 }}>
+                            Nothing landed this month yet. Shows show up here once they're done.
+                          </p>
+                        );
+                      }
                       const { positions, rows } = getConstellationLayout(monthShows);
                       const containerHeight = Math.max(320, rows * 110);
                       return (

@@ -307,11 +307,15 @@ export default function Cockpit({ embedded = false } = {}) {
         const linked = linkedDetails.filter(Boolean);
         const doneShows = [...owned, ...linked].filter((s) => s.done);
         const monthsOf = (list) => [...new Set(list.map((s) => s.date?.slice(0, 7)).filter(Boolean))].sort().reverse();
-        const months = monthsOf(doneShows);
-        // Desktop month editor: every month with a show, done or not; with no
-        // shows at all, at least this month so the Month tab still opens.
-        const allMonths = monthsOf([...owned, ...linked]);
-        if (allMonths.length === 0) allMonths.push(new Date().toISOString().slice(0, 7));
+        // This month is always there (job 217), even before its first show is
+        // done, so a new month's page can be set up (the "New month" reminder
+        // on Home points here).
+        const nowD = new Date();
+        const thisMonth = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}`;
+        const withThisMonth = (list) => (list.includes(thisMonth) ? list : [...list, thisMonth].sort().reverse());
+        const months = withThisMonth(monthsOf(doneShows));
+        // Desktop month editor: every month with a show, done or not, plus this month.
+        const allMonths = withThisMonth(monthsOf([...owned, ...linked]));
         setLogbookShows(doneShows);
         setLogbookBookedShows([...owned, ...linked].filter((s) => !s.done));
         const settingsMap = {};
