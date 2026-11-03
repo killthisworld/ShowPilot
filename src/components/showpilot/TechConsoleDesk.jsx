@@ -368,7 +368,12 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
-          <img src={photo} alt="" className="absolute left-1/2 top-10 w-[260%] max-w-none -translate-x-1/2 -z-20" />
+          {/* The photo turned sideways so a wide picture fills the whole tall
+              fader: sized to the card's height x width (container units),
+              then rotated a quarter turn. */}
+          <div aria-hidden="true" className="absolute inset-0 -z-20 overflow-hidden" style={{ containerType: "size" }}>
+            <img src={photo} alt="" className="absolute max-w-none" style={{ top: "50%", left: "50%", width: "100cqh", height: "100cqw", objectFit: "cover", transform: "translate(-50%, -50%) rotate(90deg)" }} />
+          </div>
           <div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.5))" }} />
         </>
       )}
