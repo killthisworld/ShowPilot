@@ -2,7 +2,8 @@
 // Slack, Discord and the like, the app fetches the page and reads its title,
 // description, picture and color. The site is a single page app, so every link
 // would otherwise say "ShowPilot" in green. vercel.json sends ONLY preview
-// fetchers (bots) for /v/<code>, /intake/<code>, /gig/shared and /gig/web here;
+// fetchers (bots) for /v/<code>, /intake/<code>, /gig/shared, /gig/web and the
+// fan page links (/rsvp/<token>, /e/<token>, /<custom-name>, job 220) here;
 // this returns the normal index.html with the event's name, the invitation
 // type, the overview-card picture (api/card.js) and the profile's color filled
 // in. People opening the link never come through here.

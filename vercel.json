@@ -71,6 +71,39 @@
       "destination": "/api/preview?kind=share&key=:key"
     },
     {
+      "source": "/rsvp/:key",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        }
+      ],
+      "destination": "/api/preview?kind=rsvp&key=:key"
+    },
+    {
+      "source": "/e/:key",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        }
+      ],
+      "destination": "/api/preview?kind=rsvp&key=:key"
+    },
+    {
+      "source": "/:slug((?!(?:forgot-password|reset-password|opener-intake|manager-links|email-change|band-profile|my-templates|experience|eventbrite|tm-intake|showpilot|register|calendar|archived|settings|logbook|profile|support|privacy|pricing|contact|records|logout|signup|signin|shared|linked|events|assets|static|invite|login|about|pilot|shows|event|admin|terms|chats|index|gigs|band|show|auth|home|help|fans|gig|api|app|new|web|fan|sky|www|dj|me)$)[a-z0-9]+(?:-[a-z0-9]+)*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|twitterbot|slackbot|slack-imgproxy|discordbot|whatsapp|telegrambot|linkedinbot|applebot|skypeuripreview|mastodon|redditbot|pinterest|googlebot|bingbot|embedly|vkshare|iframely|signal|imessage).*"
+        }
+      ],
+      "destination": "/api/preview?kind=rsvp&key=:slug"
+    },
+    {
       "source": "/((?!.*\\..*).*)",
       "destination": "/index.html"
     }

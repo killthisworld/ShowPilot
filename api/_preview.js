@@ -1,9 +1,9 @@
 // Shared by api/preview.js (page tags) and api/card.js (the picture): the
 // lookup for a link, the profile colors and the invitation-type wording.
 // Colors match ACCOUNT_TYPE_STYLES in src/lib/accountTypeStyle.js.
-const COLORS = { venue: "#60A5FA", manager: "#EF4444", band: "#EF4444", engineer: "#8CFF3D", lighting: "#8CFF3D" };
+const COLORS = { venue: "#60A5FA", manager: "#EF4444", band: "#EF4444", engineer: "#8CFF3D", lighting: "#8CFF3D", fan: "#E4E0FF" };
 export const DEFAULT_COLOR = "#8CFF3D";
-const ROLE_NAME = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio engineer", lighting: "Lighting tech" };
+const ROLE_NAME = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio engineer", lighting: "Lighting tech", fan: "Fan" };
 
 export const colorFor = (role) => COLORS[role] || DEFAULT_COLOR;
 
@@ -12,6 +12,8 @@ export function typeLabel(kind, info) {
   if (kind === "v") return "Venue event link";
   if (kind === "intake") return info?.form === "opener" ? "Opener set info form" : "Performer info form";
   if (kind === "invite") return `${ROLE_NAME[info?.role] || "Event"} invite`;
+  // A fan page link (job 220): RSVP, or Tickets when the page sells tickets.
+  if (kind === "rsvp") return info?.entry === "rsvp" ? "RSVP" : "Tickets";
   return "Event web";
 }
 
@@ -51,4 +53,4 @@ export function extraAccess(kind, info) {
   return (info?.sections || []).filter((k) => SECTION[k] && k !== home).map((k) => ({ ...SECTION[k], color: colorFor(k) }));
 }
 // The icon beside the invitation type: the profile the link is for.
-export const typeIcon = (kind, info) => (kind === "v" ? "venue" : kind === "intake" ? "band" : kind === "invite" ? info?.role : null);
+export const typeIcon = (kind, info) => (kind === "v" ? "venue" : kind === "intake" ? "band" : kind === "invite" ? info?.role : kind === "rsvp" ? "fan" : null);
