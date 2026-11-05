@@ -5,6 +5,7 @@ import { Check, Copy, ExternalLink, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
+import { TracksChip } from "@/components/showpilot/IntakeTracks";
 
 // This event's intake links (job 74, Oct 26): the Links feature on the Audio /
 // Lighting web on desktop. Everything Manage Links shows, for this event only:
@@ -35,6 +36,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
   const [copied, setCopied] = useState(null);
   const [making, setMaking] = useState(false);
   const [services, setServices] = useState(false);
+  const [askTracks, setAskTracks] = useState(false);
   const [adding, setAdding] = useState(null); // { id, include } while asking about services for another act's link
   const [busy, setBusy] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null); // link / opener id waiting for a second click
@@ -79,7 +81,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
       const engineerName = prefs?.display_name || user.user_metadata?.full_name || user.email || "";
       const { data, error } = await supabase
         .from("tour_manager_requests")
-        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, include_services: services })
+        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, include_services: services, ...(askTracks ? { ask_tracks: true } : {}) })
         .select().single();
       if (error) throw error;
       await load();
@@ -92,12 +94,12 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
   };
 
   // Another act's link on the same event (Manage Links' "Generate Additional Link").
-  const makeOpener = async (r, include) => {
+  const makeOpener = async (r, include, tracks = false) => {
     setAdding(null); setBusy(r.id); setErr("");
     try {
       const { data, error } = await supabase
         .from("opener_requests")
-        .insert({ tour_manager_request_id: r.id, engineer_user_id: user.id, order_index: (r.openers?.length || 0) + 1, include_services: !!include })
+        .insert({ tour_manager_request_id: r.id, engineer_user_id: user.id, order_index: (r.openers?.length || 0) + 1, include_services: !!include, ...(tracks ? { ask_tracks: true } : {}) })
         .select().single();
       if (error) throw error;
       await load();
@@ -160,6 +162,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                     {r.submitter_name && r.band_name ? ` · FROM ${r.submitter_name.toUpperCase()}` : ""}
                   </div>
                   {r.include_services && r.status === "submitted" && <div className="mt-1.5"><MultitrackChip value={r.multitrack_interest} /></div>}
+                  {r.ask_tracks && r.status === "submitted" && <TracksChip value={r.has_tracks} />}
                 </div>
                 <Status submitted={r.status === "submitted"} />
                 {copyBtn(r.id, mainUrl(r, user.id))}
@@ -171,6 +174,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                   <div className="min-w-0 flex-1">
                     <span className="block text-[13px] text-white/75 truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
                     {o.include_services && o.status === "submitted" && <div className="mt-1"><MultitrackChip value={o.multitrack_interest} small /></div>}
+                    {o.ask_tracks && o.status === "submitted" && <TracksChip value={o.has_tracks} small />}
                   </div>
                   <Status submitted={o.status === "submitted"} small />
                   {copyBtn(o.id, openerUrl(o))}
@@ -182,14 +186,18 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#2a2a2a] px-3 py-2">
                   <span className="text-[13px] text-white/65">Include additional services?</span>
                   {[[true, "Yes"], [false, "No"]].map(([v, t]) => (
-                    <button key={t} type="button" onClick={() => setAdding({ id: r.id, include: v })} className="h-8 px-3 rounded-lg border text-[13px] font-semibold"
+                    <button key={t} type="button" onClick={() => setAdding((a) => ({ ...a, include: v }))} className="h-8 px-3 rounded-lg border text-[13px] font-semibold"
                       style={adding.include === v ? { borderColor: color, color, background: color + "1a" } : { borderColor: "#333", color: "rgba(255,255,255,0.6)" }}>{t}</button>
                   ))}
-                  <button type="button" onClick={() => makeOpener(r, adding.include)} className="ml-auto h-8 px-3 rounded-lg text-[13px] font-bold" style={{ background: color, color: "#0d0d0d" }}>Make link</button>
+                  <label className="flex items-center gap-1.5 text-[13px] text-white/65 cursor-pointer">
+                    <input type="checkbox" checked={!!adding.tracks} onChange={(e) => setAdding((a) => ({ ...a, tracks: e.target.checked }))} className="accent-[#FDE047]" />
+                    Ask for tracks
+                  </label>
+                  <button type="button" onClick={() => makeOpener(r, adding.include, adding.tracks)} className="ml-auto h-8 px-3 rounded-lg text-[13px] font-bold" style={{ background: color, color: "#0d0d0d" }}>Make link</button>
                   <button type="button" onClick={() => setAdding(null)} className="h-8 px-2 text-[13px] text-white/45 hover:text-white">Cancel</button>
                 </div>
               ) : (
-                <button type="button" onClick={() => setAdding({ id: r.id, include: !!r.include_services })} disabled={busy === r.id}
+                <button type="button" onClick={() => setAdding({ id: r.id, include: !!r.include_services, tracks: !!r.ask_tracks })} disabled={busy === r.id}
                   className="h-9 rounded-lg border text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ borderColor: color + "55", color }}>
                   <Plus className="w-3.5 h-3.5" /> {busy === r.id ? "Making…" : "Link for another act"}
                 </button>
@@ -205,6 +213,10 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
               <label className="flex items-center gap-2 text-[13px] text-white/70 cursor-pointer">
                 <input type="checkbox" checked={services} onChange={(e) => setServices(e.target.checked)} className="accent-[#8CFF3D]" />
                 Include additional services
+              </label>
+              <label className="flex items-center gap-2 text-[13px] text-white/70 cursor-pointer">
+                <input type="checkbox" checked={askTracks} onChange={(e) => setAskTracks(e.target.checked)} className="accent-[#FDE047]" />
+                Ask for tracks
               </label>
               <button type="button" onClick={makeMain} disabled={making} className="h-10 px-4 rounded-[10px] flex items-center gap-1.5 text-[14px] font-bold disabled:opacity-60" style={{ background: color, color: "#0d0d0d" }}>
                 <Plus className="w-4 h-4" /> {making ? "Making…" : "New link for this event"}

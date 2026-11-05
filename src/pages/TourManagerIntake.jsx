@@ -10,8 +10,8 @@ import { Plus, Trash2, Music, Users, Wifi, Save } from "lucide-react";
 import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import { useToast } from "@/components/ui/use-toast";
 import IntakeRating from "@/components/showpilot/IntakeRating";
-import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import { useAsksTracks, intakeCorner, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3 } from "lucide-react";
@@ -31,6 +31,8 @@ const formatPhoneNumber = (value) => {
 export default function TourManagerIntake({ link } = {}) {
   const params = new URLSearchParams(window.location.search);
   const token = link?.token || params.get("token");
+  // "Ask for tracks?" on this link (job 74, Nov 5).
+  const asksTracks = useAsksTracks(token, "tm");
   const engineerUserId = link?.engineer || params.get("engineer");
   const engineerName = link ? (link.name || "your audio engineer") : params.get("name") ? decodeURIComponent(params.get("name")) : "your audio engineer";
 
@@ -294,6 +296,7 @@ export default function TourManagerIntake({ link } = {}) {
       if (rpcError) throw rpcError;
 
       clearPersistedState(`tm_intake_draft_${token}`);
+      if (asksTracks && form.has_tracks === false) rememberNoTracks(token, "tm");
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -425,11 +428,16 @@ export default function TourManagerIntake({ link } = {}) {
   }
 
   if (submitted && sentOff) {
-    return (
+    const sentScreen = (
       <IntakeSent seed={token} title="Sent!" line={`Your event info went to ${engineerName}. The event is on their ShowPilot now.`}>
         <IntakeRating token={token} />
       </IntakeSent>
     );
+    // Said they have tracks: straight into their set form (job 74, Nov 5).
+    if (asksTracks && form.has_tracks === true) {
+      return <IntakeTracksAfter token={token} kind="tm" sentLine={`Your event info went to ${engineerName}.`} fallback={sentScreen} />;
+    }
+    return sentScreen;
   }
 
   // The Performer Intake form as an access key and web (job 195).
@@ -473,10 +481,7 @@ export default function TourManagerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      corner={tmRequest?.include_services ? {
-        label: "Additional services", icon: Disc3, done: form.multitrack_interest === true || form.multitrack_interest === false,
-        body: () => <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} />,
-      } : null}
+      corner={intakeCorner({ services: !!tmRequest?.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={showTitle === tmRequest?.venue ? "" : tmRequest?.venue} color="#8CFF3D" />

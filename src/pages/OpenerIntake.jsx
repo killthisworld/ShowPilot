@@ -5,11 +5,11 @@ import { supabase } from "@/api/supabaseClient";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 
 import IntakeRating from "@/components/showpilot/IntakeRating";
-import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import { useAsksTracks, intakeCorner, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { Disc3 } from "lucide-react";
+import { Disc3, Music } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 
@@ -18,6 +18,8 @@ import { useToast } from "@/components/ui/use-toast";
 export default function OpenerIntake({ link } = {}) {
   const params = new URLSearchParams(window.location.search);
   const token = link?.token || params.get("token");
+  // "Ask for tracks?" on this link (job 74, Nov 5).
+  const asksTracks = useAsksTracks(token, "opener");
 
   const [context, setContext] = useState(null);
   const [loadingView, setLoadingView] = useState(true);
@@ -211,6 +213,7 @@ export default function OpenerIntake({ link } = {}) {
       });
       if (rpcError) throw rpcError;
       clearPersistedState(`opener_intake_draft_${token}`);
+      if (asksTracks && form.has_tracks === false) rememberNoTracks(token, "opener");
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -248,11 +251,16 @@ export default function OpenerIntake({ link } = {}) {
   const engineerName = ec?.display_name || "Your audio engineer";
 
   if ((submitted && sentOff) || context.status === "submitted") {
-    return (
+    const sentScreen = (
       <IntakeSent seed={token} title="Sent!" line={`Your set info is on the event${parent?.band_name ? ` with ${parent.band_name}` : ""}.`}>
         {submitted && <IntakeRating token={token} />}
       </IntakeSent>
     );
+    // Said they have tracks: straight into their set form (job 74, Nov 5).
+    if (submitted && asksTracks && form.has_tracks === true) {
+      return <IntakeTracksAfter token={token} kind="opener" sentLine="Your set info is on the event." fallback={sentScreen} />;
+    }
+    return sentScreen;
   }
 
   // The Opener Set Info form as an access key and web (job 195).
@@ -288,10 +296,7 @@ export default function OpenerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      corner={context.include_services ? {
-        label: "Additional services", icon: Disc3, done: form.multitrack_interest === true || form.multitrack_interest === false,
-        body: () => <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} />,
-      } : null}
+      corner={intakeCorner({ services: !!context.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={showTitle === parent?.venue ? "" : parent?.venue} color="#8CFF3D" />
