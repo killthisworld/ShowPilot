@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Check, FileAudio, Loader2, Plus, Trash2, Upload, AlertTriangle, Disc3 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Loader2, Plus, Trash2, AlertTriangle, Disc3, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { inspectWav, describeWav, qualityWarning, formatBytes, formatDuration } from "@/lib/wav";
-import { setUploadCall, uploadToDrive } from "@/lib/djTools";
+import { inspectWav, describeWav, qualityWarning } from "@/lib/wav";
+import { setUploadCall, uploadToDrive, DJ_COLOR } from "@/lib/djTools";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
@@ -23,8 +23,13 @@ const titleFromFile = (name) => name.replace(/\.wav$/i, "").replace(/^\d+[\s._-]
 // The page an artist opens from the DJ's link: their set in play order,
 // WAV files (checked to be real WAVs, quality shown) and a way to reach them.
 // WAVs go straight into the DJ's Google Drive.
-export default function DjSetUpload() {
-  const { token } = useParams();
+// Embeddable too: <DjSetUpload tokenOverride="..." embedded onDone={fn} />
+// (e.g. right after an intake form) uses that token and leaves out the
+// full-page wrapper.
+export default function DjSetUpload({ tokenOverride = null, embedded = false, onDone = null } = {}) {
+  const params = useParams();
+  const token = tokenOverride || params.token;
+  const [editName, setEditName] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null); // { event, slot, files, lineup }
   const [artistName, setArtistName] = useState("");
@@ -158,212 +163,201 @@ export default function DjSetUpload() {
     try {
       await save(true);
       setUploadCall(token, "finalize").catch(() => {}); // number the files in Drive; not essential
+      onDone?.();
     } catch { /* error already shown */ }
   };
 
-  const totals = useMemo(() => {
-    const withFile = tracks.filter((t) => t.file_id && files[t.file_id]);
-    return {
-      count: tracks.filter((t) => t.title || t.file_id).length,
-      files: withFile.length,
-      duration: withFile.reduce((s, t) => s + (Number(files[t.file_id]?.duration_sec) || 0), 0),
-    };
-  }, [tracks, files]);
+
+  // A plain function (not a component) so inputs keep focus between renders.
+  const shell = (children) => (embedded
+    ? <div className="text-white" style={{ fontFamily: SCENE_FONT }}>{children}</div>
+    : <div className="min-h-screen bg-[#0d0d0d] text-white pb-16" style={{ fontFamily: SCENE_FONT }}>{children}</div>);
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><Loader2 className="w-6 h-6 text-[#8CFF3D] animate-spin" /></div>;
+    return shell(<div className="py-16 flex items-center justify-center"><Loader2 className="w-6 h-6 text-[#8CFF3D] animate-spin" /></div>);
   }
   if (!data) {
-    return (
-      <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center px-6 text-center" style={{ fontFamily: SCENE_FONT }}>
-        <div>
+    return shell(
+        <div className="py-24 px-6 text-center">
           <Disc3 className="w-10 h-10 text-white/20 mx-auto" />
           <p className="mt-4 text-white text-2xl font-bold">This set link doesn't work</p>
           <p className="mt-1 text-white/50">Ask the DJ to send it again.</p>
         </div>
-      </div>
     );
   }
 
   const ev = data.event;
   const due = ev.due_at ? new Date(ev.due_at) : null;
   const overdue = due && due < new Date() && !submitted;
-  const dateLabel = ev.event_date ? new Date(ev.event_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : null;
+  const dateLabel = ev.event_date ? new Date(ev.event_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : null;
   const driveOk = ev.drive_connected;
+  const djName = ev.dj_name || "the DJ";
+  const djFirst = ev.dj_name ? ev.dj_name.split(/\s+/)[0] : "the DJ";
+  // Where you are in the running order, from the lineup (or the slot itself).
+  const lineup = data.lineup || [];
+  const youIdx = lineup.findIndex((l) => l.is_you);
+  const order = youIdx >= 0 ? youIdx + 1 : data.slot?.position || null;
+  const start = (youIdx >= 0 ? lineup[youIdx].set_start : null) || data.slot?.set_start || null;
+  const slotBit = start ? `you're on ${fmtTime(start)}${order ? ` (${ordinal(order)})` : ""}` : order && lineup.length > 1 ? `you're ${ordinal(order)} of ${lineup.length}` : null;
 
-  return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white pb-24" style={{ fontFamily: SCENE_FONT }}>
-      <header className="border-b border-[#1a1a1a] bg-[#0d0d0d]/95 backdrop-blur sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <div className="text-[10px] tracking-[0.16em] text-white/40" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · SET FOR {(ev.dj_name || "THE DJ").toUpperCase()}</div>
-          <div className="ml-auto flex items-center gap-2 text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>
-            {saving ? <><Loader2 className="w-3 h-3 animate-spin" /> SAVING</> : savedAt ? <><Check className="w-3 h-3 text-[#8CFF3D]" /> SAVED</> : null}
+  return shell(
+      <main className={`max-w-[560px] mx-auto ${embedded ? "" : "px-4 pt-7"} flex flex-col gap-5`}>
+        {/* One header: who it's for, the event, your slot, when it's due */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: DJ_COLOR }}>YOUR SET FOR {djName.toUpperCase()}</span>
+            <span className="ml-auto flex items-center gap-1.5 text-[10px] text-white/45" style={{ fontFamily: SCENE_MONO }}>
+              {saving ? <><Loader2 className="w-3 h-3 animate-spin" /> SAVING</> : savedAt ? <><Check className="w-3 h-3 text-[#8CFF3D]" /> SAVED</> : null}
+            </span>
           </div>
+          <h1 className="text-[30px] font-bold leading-[1.05] tracking-wide text-balance">{ev.title}</h1>
+          <p className="text-white/60 text-[15px]">{[dateLabel, ev.venue, slotBit].filter(Boolean).join(" · ")}</p>
+          {due && (
+            <span className="self-start mt-1.5 text-[11px] px-2.5 py-0.5 rounded-full" style={{ fontFamily: SCENE_MONO, color: overdue ? RED : AMBER, border: `1px solid ${(overdue ? RED : AMBER)}66` }}>
+              {overdue ? "WAS DUE " : "DUE "}{due.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase()}
+            </span>
+          )}
         </div>
-      </header>
+        {ev.note && <p className="m-0 text-white/80 text-[15px] whitespace-pre-wrap pl-3" style={{ borderLeft: `3px solid ${DJ_COLOR}` }}>{ev.note}</p>}
 
-      <main className="max-w-5xl mx-auto px-4 pt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_330px] items-start">
-        <section className="min-w-0 flex flex-col gap-5">
-          <div>
-            <h1 className="text-4xl font-bold leading-none tracking-wide text-balance">{ev.title}</h1>
-            <p className="mt-2 text-white/55 text-[15px]">{[dateLabel, ev.venue].filter(Boolean).join(" · ")}</p>
-            {due && (
-              <p className="mt-3 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full" style={{ fontFamily: SCENE_MONO, color: overdue ? RED : AMBER, background: (overdue ? RED : AMBER) + "1A", border: `1px solid ${(overdue ? RED : AMBER)}55` }}>
-                {overdue ? "WAS DUE " : "DUE "}{due.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).toUpperCase()}
-              </p>
-            )}
-            {ev.note && <p className="mt-4 text-white/75 text-[15px] whitespace-pre-wrap max-w-[65ch] border-l-2 border-[#8CFF3D]/50 pl-3">{ev.note}</p>}
-          </div>
+        {submitted && (
+          <p className="m-0 text-[14px] flex items-center gap-2 text-white/85"><Check className="w-4 h-4 text-[#8CFF3D] shrink-0" /> Your set is with {djFirst}. Changes here still reach them.</p>
+        )}
+        {!driveOk && (
+          <p className="m-0 text-[14px] flex items-start gap-2 text-white/80"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: AMBER }} /> {djFirst}'s Google Drive isn't connected, so WAVs can't be sent yet. Your track list still saves.</p>
+        )}
 
-          {submitted && (
-            <div className="rounded-xl px-4 py-3 flex items-center gap-3" style={{ background: G + "14", border: `1px solid ${G}55` }}>
-              <Check className="w-5 h-5 text-[#8CFF3D] shrink-0" />
-              <p className="text-[15px]">Your set is with the DJ. You can still change things here; they'll see the latest version.</p>
-            </div>
+        {/* Billed as: a small editable line */}
+        <div className="flex items-center gap-2 text-[14px] text-white/60 -mt-1">
+          {editName ? (
+            <input id="artist-name" autoFocus className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-white text-[15px] outline-none focus:border-[#8CFF3D]/60" value={artistName} maxLength={120}
+              onChange={(e) => setArtistName(e.target.value)} onBlur={() => { setEditName(false); save(false).catch(() => {}); }} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} placeholder="How you're billed" />
+          ) : (
+            <>
+              <span className="text-white font-semibold">{artistName || "Your name"}</span>
+              <button type="button" onClick={() => setEditName(true)} className="text-white/45 hover:text-white underline-offset-2 hover:underline">{artistName ? "Not you? edit" : "add your name"}</button>
+            </>
           )}
+        </div>
 
-          {!driveOk && (
-            <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: AMBER + "14", border: `1px solid ${AMBER}55` }}>
-              <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: AMBER }} />
-              <p className="text-[15px] text-white/85">The DJ hasn't connected their Google Drive yet, so WAV files can't be sent right now. Fill in your track list; it saves, and you can add the files once they've connected.</p>
-            </div>
-          )}
-
-          <label className="block">
-            <span className="block text-[11px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>ARTIST NAME</span>
-            <input id="artist-name" className={field} value={artistName} maxLength={120} onChange={(e) => setArtistName(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="How you're billed" />
-          </label>
-
-          <div>
-            <div className="flex flex-wrap items-end justify-between gap-2 mb-2">
-              <div>
-                <h2 className="text-2xl font-bold leading-none">Your set, in play order</h2>
-                <p className="text-white/45 text-sm mt-1">WAV only. Files are checked before they're sent, and their quality is shown.</p>
-              </div>
-              <div className="text-xs text-white/50" style={{ fontFamily: SCENE_MONO }}>
-                {totals.count} TRACK{totals.count === 1 ? "" : "S"} · {totals.files} WAV{totals.files === 1 ? "" : "S"}{totals.duration ? ` · ${formatDuration(totals.duration)}` : ""}
-              </div>
-            </div>
-
-            <ol className="flex flex-col gap-2">
-              {tracks.map((t, i) => (
-                <TrackRow
-                  key={t.k} i={i} t={t} count={tracks.length} meta={t.file_id ? files[t.file_id] : null} driveOk={driveOk}
-                  onChange={(patch) => patchTrack(t.k, patch)} onBlur={() => save(false).catch(() => {})}
-                  onFile={(f) => attach(t.k, f)} onRemove={() => removeTrack(t)} onMove={(d) => move(i, d)}
-                />
-              ))}
-            </ol>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => setTracks((ts) => [...ts, newTrack()])} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#2a2a2a] text-white/80 hover:text-white hover:border-white/30 text-sm font-semibold">
-                <Plus className="w-4 h-4" /> Add a track
-              </button>
-              {driveOk && (
-                <label className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#8CFF3D]/40 text-[#8CFF3D] hover:bg-[#8CFF3D]/10 text-sm font-semibold cursor-pointer">
-                  <Upload className="w-4 h-4" /> Add several WAVs at once
-                  <input type="file" accept=".wav,audio/wav,audio/x-wav" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addMany(e.target.files); e.target.value = ""; }} />
-                </label>
-              )}
-            </div>
+        {/* Tracks: one row each, the WAV right there */}
+        <section className="flex flex-col gap-2">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-[20px] font-bold leading-none">Tracks</h2>
+            <span className="text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}>IN PLAY ORDER</span>
           </div>
-
-          <label className="block max-w-md">
-            <span className="block text-[11px] tracking-[0.12em] text-white/45 mb-1.5" style={{ fontFamily: SCENE_MONO }}>BEST WAY TO REACH YOU</span>
-            <input id="contact" maxLength={200} className={field} value={contact} onChange={(e) => setContact(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="Phone or email, only the DJ sees this" />
-          </label>
-
-          {error && <p className="text-sm" style={{ color: RED }}>{error}</p>}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={submit} disabled={saving || uploading}
-              className="px-6 py-3 rounded-xl text-lg font-bold tracking-[0.04em] disabled:opacity-50"
-              style={{ background: G, color: "#0d0d0d" }}>
-              {submitted ? "SEND UPDATE TO THE DJ" : "SEND MY SET TO THE DJ"}
-            </button>
-            {uploading && <span className="text-sm text-white/50">Waiting for uploads to finish…</span>}
-          </div>
-        </section>
-
-        <aside className="lg:sticky lg:top-20 rounded-2xl border border-[#1f1f1f] bg-[#121212] p-4">
-          <div className="text-[11px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>RUNNING ORDER</div>
-          <ol className="mt-3 flex flex-col gap-1.5">
-            {(data.lineup || []).map((l, i) => (
-              <li key={i} className="flex items-center gap-3 rounded-lg px-2.5 py-2" style={l.is_you ? { background: G + "14", border: `1px solid ${G}55` } : { border: "1px solid transparent" }}>
-                <span className="text-xs text-white/40 w-5 text-right" style={{ fontFamily: SCENE_MONO }}>{i + 1}</span>
-                <span className={`flex-1 min-w-0 truncate font-semibold ${l.is_you ? "text-white" : "text-white/75"}`}>{l.is_you ? (artistName || "You") : (l.artist_name || "TBA")}</span>
-                <span className="text-xs text-white/50 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{l.set_start ? `${l.set_start}${l.set_end ? `–${l.set_end}` : ""}` : ""}</span>
-              </li>
+          <ol className="flex flex-col gap-2 m-0 p-0">
+            {tracks.map((t, i) => (
+              <TrackRow
+                key={t.k} i={i} t={t} count={tracks.length} meta={t.file_id ? files[t.file_id] : null} driveOk={driveOk}
+                onChange={(patch) => patchTrack(t.k, patch)} onBlur={() => save(false).catch(() => {})}
+                onFile={(f) => attach(t.k, f)} onRemove={() => removeTrack(t)} onMove={(d) => move(i, d)}
+              />
             ))}
           </ol>
-        </aside>
+          <div className="flex gap-2">
+            {driveOk ? (
+              <label className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[15px] font-semibold cursor-pointer hover:brightness-125" style={{ border: `1px dashed ${DJ_COLOR}88`, color: DJ_COLOR }}>
+                <Plus className="w-4 h-4" /> Add WAVs
+                <input type="file" accept=".wav,audio/wav,audio/x-wav" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addMany(e.target.files); e.target.value = ""; }} />
+              </label>
+            ) : <span className="flex-1" />}
+            <button type="button" onClick={() => setTracks((ts) => [...ts, newTrack()])} className="px-4 py-3 rounded-xl border border-[#2a2a2a] text-white/65 hover:text-white text-[14px]">Type one in</button>
+          </div>
+          <span className="text-[12px] text-white/40">Tap a track to add a note for {djFirst} (fades, cue points).</span>
+        </section>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[14px] font-semibold">How can {djFirst} reach you?</span>
+          <input id="contact" maxLength={200} className={field} value={contact} onChange={(e) => setContact(e.target.value)} onBlur={() => save(false).catch(() => {})} placeholder="Phone or email" />
+        </label>
+
+        {error && <p className="m-0 text-sm" style={{ color: RED }}>{error}</p>}
+
+        <div className="flex flex-col gap-1.5">
+          <button type="button" onClick={submit} disabled={saving || uploading}
+            className="w-full h-[52px] rounded-[14px] text-[16px] font-extrabold tracking-[0.04em] disabled:opacity-50"
+            style={{ background: G, color: "#0d0d0d" }}>
+            {uploading ? "WAITING FOR UPLOADS…" : submitted ? "SEND UPDATE" : "SEND MY SET"}
+          </button>
+          <span className="text-center text-[10px] text-white/40" style={{ fontFamily: SCENE_MONO }}>SAVES AS YOU GO · YOU CAN CHANGE IT AFTER SENDING</span>
+        </div>
       </main>
-    </div>
   );
+}
+
+function fmtTime(hhmm) {
+  const m = String(hhmm).match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return hhmm;
+  const h = Number(m[1]);
+  return `${((h + 11) % 12) + 1}:${m[2]} ${h >= 12 ? "PM" : "AM"}`;
+}
+function ordinal(n) {
+  const v = n % 100;
+  return `${n}${v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"}`;
 }
 
 function TrackRow({ i, t, count, meta, driveOk, onChange, onBlur, onFile, onRemove, onMove }) {
   const [drag, setDrag] = useState(false);
+  const [open, setOpen] = useState(!!t.notes);
+  const [menu, setMenu] = useState(false);
   const warn = meta ? qualityWarning({ sampleRate: meta.sample_rate, bitDepth: meta.bit_depth }) : null;
   const busy = ["checking", "waiting", "uploading"].includes(t.up.state);
-  const small = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm placeholder:text-white/25 outline-none focus:border-[#8CFF3D]/60 min-w-0";
+  const toggle = (e) => { if (e.target.closest("input, textarea, button, label")) return; setOpen((v) => !v); };
+
+  let sub, subColor = "rgba(255,255,255,0.45)";
+  if (t.up.state === "done" && meta) {
+    sub = [meta.name, describeWav({ sampleRate: meta.sample_rate, bitDepth: meta.bit_depth, channels: meta.channels, durationSec: meta.duration_sec })].filter(Boolean).join(" · ");
+    subColor = warn ? AMBER : G;
+    if (warn) sub += ` · ${warn}`;
+  } else if (t.up.state === "checking") sub = "Checking the file…";
+  else if (t.up.state === "waiting") sub = `Queued · ${t.up.msg}`;
+  else if (t.up.state === "uploading") sub = `Uploading ${t.up.pct}%`;
+  else if (t.up.state === "error") { sub = t.up.msg; subColor = RED; }
+  else sub = driveOk ? "No WAV yet" : "Track listed";
 
   return (
     <li
-      className="rounded-xl border bg-[#131313] p-3 flex gap-3 transition-colors"
-      style={{ borderColor: drag ? G : "#222" }}
+      onClick={toggle}
+      className="list-none rounded-xl border bg-[#161616] px-3 py-2.5 flex flex-col gap-2 cursor-pointer transition-colors"
+      style={{ borderColor: drag ? DJ_COLOR : "#262626" }}
       onDragOver={(e) => { if (driveOk) { e.preventDefault(); setDrag(true); } }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f && driveOk && !busy) onFile(f); }}
     >
-      <div className="flex flex-col items-center gap-1 pt-1">
-        <span className="text-lg font-bold tabular-nums w-7 text-center" style={{ color: G }}>{String(i + 1).padStart(2, "0")}</span>
-        <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => onMove(-1)} className="p-1 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
-        <button type="button" aria-label="Move down" disabled={i === count - 1} onClick={() => onMove(1)} className="p-1 text-white/40 hover:text-white disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5" /></button>
-      </div>
-
-      <div className="flex-1 min-w-0 flex flex-col gap-2">
-        <div className="grid gap-2 grid-cols-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_64px_64px]">
-          <input id={`t-title-${t.k}`} className={`${small} col-span-2 sm:col-span-1`} placeholder="Track title" maxLength={160} value={t.title} onChange={(e) => onChange({ title: e.target.value })} onBlur={onBlur} />
-          <input id={`t-artist-${t.k}`} className={`${small} col-span-2 sm:col-span-1`} placeholder="Original artist" maxLength={160} value={t.artist} onChange={(e) => onChange({ artist: e.target.value })} onBlur={onBlur} />
-          <input id={`t-bpm-${t.k}`} className={small} placeholder="BPM" maxLength={10} inputMode="decimal" value={t.bpm} onChange={(e) => onChange({ bpm: e.target.value })} onBlur={onBlur} />
-          <input id={`t-key-${t.k}`} className={small} placeholder="Key" maxLength={12} value={t.key} onChange={(e) => onChange({ key: e.target.value })} onBlur={onBlur} />
+      <div className="flex items-center gap-2.5">
+        <span className="text-[13px] tabular-nums w-5 shrink-0" style={{ fontFamily: SCENE_MONO, color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>
+        <div className="flex-1 min-w-0 flex flex-col">
+          <input id={`t-title-${t.k}`} className="w-full bg-transparent border border-transparent focus:border-[#2a2a2a] focus:bg-[#0d0d0d] rounded-md px-1.5 -mx-1.5 py-0.5 text-[15px] font-semibold text-white placeholder:text-white/30 outline-none"
+            placeholder="Track title" maxLength={160} value={t.title} onChange={(e) => onChange({ title: e.target.value })} onBlur={onBlur} />
+          <span className="text-[12px] truncate" style={{ color: subColor }}>{sub}</span>
+          {t.up.state === "uploading" && (
+            <span className="mt-1 h-1 rounded-full bg-[#222] overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${t.up.pct}%`, background: G }} /></span>
+          )}
         </div>
-        <input id={`t-notes-${t.k}`} className={small} placeholder="Notes for the DJ (cue points, transitions, edits)" maxLength={400} value={t.notes} onChange={(e) => onChange({ notes: e.target.value })} onBlur={onBlur} />
-
-        <div className="flex flex-wrap items-center gap-2 text-sm min-h-[30px]">
-          {t.up.state === "done" && meta ? (
-            <>
-              <FileAudio className="w-4 h-4 text-[#8CFF3D] shrink-0" />
-              <span className="text-white/80 truncate max-w-[16rem]">{meta.name}</span>
-              <span className="text-white/45 text-xs" style={{ fontFamily: SCENE_MONO }}>
-                {describeWav({ sampleRate: meta.sample_rate, bitDepth: meta.bit_depth, channels: meta.channels, durationSec: meta.duration_sec })} · {formatBytes(meta.size_bytes)}
-              </span>
-              {warn && <span className="text-xs" style={{ color: AMBER }}>{warn}</span>}
-            </>
-          ) : t.up.state === "checking" ? (
-            <span className="text-white/50 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking the file…</span>
-          ) : t.up.state === "waiting" ? (
-            <span className="text-white/50">Queued · {t.up.msg}</span>
-          ) : t.up.state === "uploading" ? (
-            <span className="flex items-center gap-2 w-full max-w-sm">
-              <span className="flex-1 h-1.5 rounded-full bg-[#222] overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${t.up.pct}%`, background: G }} /></span>
-              <span className="text-xs text-white/60 tabular-nums" style={{ fontFamily: SCENE_MONO }}>{t.up.pct}%</span>
-            </span>
-          ) : t.up.state === "error" ? (
-            <span className="text-sm" style={{ color: RED }}>{t.up.msg}</span>
-          ) : null}
-
-          {driveOk && !busy && (
-            <label className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#2a2a2a] text-white/70 hover:text-white hover:border-white/30 text-xs font-semibold cursor-pointer">
-              <Upload className="w-3.5 h-3.5" /> {t.file_id ? "Replace WAV" : "Attach WAV"}
-              <input type="file" accept=".wav,audio/wav,audio/x-wav" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
-            </label>
+        {driveOk && !busy && (
+          <label className="shrink-0 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold cursor-pointer hover:brightness-125"
+            style={t.file_id ? { borderColor: G + "66", color: G } : { borderColor: "#333", color: "#d4d4d4" }}>
+            {t.file_id ? "✓ WAV" : "Add WAV"}
+            <input type="file" accept=".wav,audio/wav,audio/x-wav" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+          </label>
+        )}
+        {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin text-white/50" />}
+        <div className="relative shrink-0">
+          <button type="button" aria-label="Track options" aria-expanded={menu} onClick={() => setMenu((v) => !v)} className="w-7 h-7 rounded-md flex items-center justify-center text-white/45 hover:text-white hover:bg-white/5"><MoreHorizontal className="w-4 h-4" /></button>
+          {menu && (
+            <div className="absolute right-0 top-8 z-20 w-40 rounded-lg bg-[#1a1a1a] border border-[#333] shadow-xl overflow-hidden" onMouseLeave={() => setMenu(false)}>
+              <button type="button" disabled={i === 0} onClick={() => { setMenu(false); onMove(-1); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-white/80 hover:bg-white/5 disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /> Move up</button>
+              <button type="button" disabled={i === count - 1} onClick={() => { setMenu(false); onMove(1); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-white/80 hover:bg-white/5 disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /> Move down</button>
+              <button type="button" disabled={busy} onClick={() => { setMenu(false); onRemove(); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-red-400 hover:bg-white/5 disabled:opacity-30"><Trash2 className="w-3.5 h-3.5" /> Remove</button>
+            </div>
           )}
         </div>
       </div>
-
-      <button type="button" aria-label="Remove track" disabled={busy} onClick={onRemove} className="self-start p-1.5 text-white/30 hover:text-red-400 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
+      {open && (
+        <textarea id={`t-notes-${t.k}`} rows={2} className="ml-7 bg-[#0d0d0d] border border-[#262626] rounded-lg px-2.5 py-1.5 text-white text-[14px] placeholder:text-white/30 outline-none focus:border-[#FDE047]/60 resize-none"
+          placeholder="Note for the DJ (fades, cue points, edits)" maxLength={400} value={t.notes} onChange={(e) => onChange({ notes: e.target.value })} onBlur={onBlur} />
+      )}
     </li>
   );
 }
