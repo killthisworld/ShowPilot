@@ -7,6 +7,7 @@ import { nextNotNeeded } from "@/lib/inviteGroups";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import TodayCard from "@/components/showpilot/TodayCard";
+import useAnnouncements from "@/lib/announcements";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { useAuth } from "@/lib/AuthContext";
@@ -62,6 +63,8 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   const undoTimer = useRef(null);
 
   const todayISO = localISO();
+  // Announcements and time changes you haven't seen (job 73, On the road).
+  const { unseen: notices, markSeen } = useAnnouncements();
 
   // The feed: each event's to-dos plus its recent changes, nearest event
   // first. An event with only changes still gets its own group.
@@ -140,7 +143,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   // Wait for Home to load your events too, so the empty "Nothing needs you"
   // card never flashes before the feed arrives.
   const loading = gigsLoading || feedLoading;
-  const nothing = !loading && rowCount === 0;
+  const nothing = !loading && rowCount === 0 && notices.length === 0;
 
   return (
     <div className="max-w-lg mx-auto pb-6" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -159,6 +162,35 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
       {todays.map((g) => (
         <TodayCard key={g.share_token || g.id} gig={g} accent={accent} todayWord={words.today} />
       ))}
+
+      {/* Announcements and time changes: pinned until you tap Got it. */}
+      {notices.length > 0 && (
+        <div className="flex flex-col gap-2.5 px-5 mb-4">
+          {notices.map((a) => {
+            const change = a.kind === "time_change";
+            return (
+              <div key={a.id} className="rounded-[16px] bg-[#151515] p-4 flex flex-col gap-2.5" style={{ border: `1px solid ${change ? "#5c4410" : "#2a2a2a"}` }}>
+                <span className="text-[13px]" style={{ color: change ? "#FFB547" : "rgba(255,255,255,0.55)" }}>
+                  {change ? `${a.label || "Time"} changed · ${a.event_title}` : `${a.author_name || "Someone"} · ${a.event_title}`}
+                </span>
+                {change ? (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-[20px] text-white/40 line-through" style={{ fontFamily: SCENE_MONO }}>{a.from_time}</span>
+                    <span className="text-[18px]" style={{ color: "#FFB547" }} aria-hidden>→</span>
+                    <span className="text-[20px] font-medium" style={{ fontFamily: SCENE_MONO, color: "#FFB547" }}>{a.to_time}</span>
+                  </div>
+                ) : (
+                  <p className="m-0 text-[16px] text-white leading-snug whitespace-pre-line break-words">{a.body}</p>
+                )}
+                <div className="flex items-center gap-3">
+                  <span className="flex-1 text-[12.5px] text-white/45">{change ? `By ${a.author_name || "someone on the event"}` : ""}</span>
+                  <button type="button" onClick={() => markSeen(a.id)} className="h-11 px-4 rounded-[10px] text-[14px] font-bold" style={change ? { background: "#FFB547", color: "#0d0d0d" } : { border: "1px solid #444", color: "#fff" }}>Got it</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2.5 px-5">
         {loading && (

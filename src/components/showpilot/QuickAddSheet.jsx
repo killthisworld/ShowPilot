@@ -4,6 +4,7 @@ import TicketCard from "@/components/showpilot/TicketCard";
 import MonthDropdown, { calendarMonthOptions } from "@/components/showpilot/MonthDropdown";
 import { X, Search, Check, CalendarPlus, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import AnnouncePane from "@/components/showpilot/AnnouncePane";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -199,7 +200,7 @@ export default function QuickAddSheet({ preferences, accent }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={kind === "event" ? `Add a new ${words.event.toLowerCase()}` : "Quick-add a task"}
+        aria-label={kind === "event" ? `Add a new ${words.event.toLowerCase()}` : kind === "announce" ? "Send an announcement" : "Quick-add a task"}
         className={`absolute left-0 right-0 bottom-0 mx-auto max-w-lg bg-[#121212] border-t border-[#2a2a2a] rounded-t-[22px] px-5 pt-2.5 pb-7 flex flex-col gap-3.5 transition-transform duration-200 ease-out ${visible ? "translate-y-0" : "translate-y-full"}`}
         style={{ height: "min(690px, 88vh)" }}
       >
@@ -211,7 +212,7 @@ export default function QuickAddSheet({ preferences, accent }) {
               <span key={n} className="w-[34px] h-[5px] rounded-full" style={{ background: stepIdx >= n ? accent : "#333" }} />
             ))}
             <span className={`${kind === "task" ? "ml-1.5 " : ""}text-[11px] text-white/55`} style={{ fontFamily: SCENE_MONO }}>
-              {kind === "event" ? `NEW ${words.event.toUpperCase()}` : step === "event" ? `PICK ${words.event.toUpperCase()}` : step === "task" ? "WRITE IT" : "DONE"}
+              {kind === "event" ? `NEW ${words.event.toUpperCase()}` : kind === "announce" ? "ANNOUNCE" : step === "event" ? `PICK ${words.event.toUpperCase()}` : step === "task" ? "WRITE IT" : "DONE"}
             </span>
           </div>
           <button onClick={close} aria-label="Close" className="w-11 h-11 rounded-full bg-[#1f1f1f] text-white flex items-center justify-center">
@@ -220,8 +221,8 @@ export default function QuickAddSheet({ preferences, accent }) {
         </div>
 
         {step === "event" && (
-          <div role="radiogroup" aria-label="What to add" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a]">
-            {[["task", "Task"], ["event", words.event[0].toUpperCase() + words.event.slice(1)]].map(([k, name]) => (
+          <div role="radiogroup" aria-label="What to add" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a]">
+            {[["task", "Task"], ["event", words.event[0].toUpperCase() + words.event.slice(1)], ["announce", "Announce"]].map(([k, name]) => (
               <button
                 key={k}
                 type="button"
@@ -235,6 +236,10 @@ export default function QuickAddSheet({ preferences, accent }) {
               </button>
             ))}
           </div>
+        )}
+
+        {step === "event" && kind === "announce" && (
+          <AnnouncePane accent={accent} words={words} onSent={close} />
         )}
 
         {step === "event" && kind === "event" && (
