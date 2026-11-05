@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useGoBack, previousScreen } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { MapPin, Ticket, Navigation, Image as ImageIcon, X, ArrowLeft, Mail, Check } from "lucide-react";
 import { shareLink } from "@/lib/share";
@@ -37,13 +36,6 @@ export default function FanEvent() {
   const token = resolved.token;
   const navigate = useNavigate();
   const [ev, setEv] = useState(null);
-  // Back shows when there is somewhere to go back to: earlier history (a fan
-  // who arrived from a link, or an owner who previewed from the app) or a
-  // signed-in ShowPilot user (falls back to their home).
-  const [signedIn, setSignedIn] = useState(false);
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => setSignedIn(!!data?.session)); }, []);
-  const hasHistory = !!previousScreen();
-  const goBack = useGoBack("/");
   const [state, setState] = useState("loading");
   // "Email me the event info" opt-in. One email per fan per event.
   const [wantEmail, setWantEmail] = useState(false);
@@ -242,11 +234,6 @@ export default function FanEvent() {
         <div className="px-5 pt-6 pb-5 border-b border-white/10" style={{ background: ev.flyer_url ? `linear-gradient(180deg, ${color}2a 0%, transparent 100%)` : `linear-gradient(180deg, ${color}38 0%, ${color}0f 60%, #0d0d0d 100%)` }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              {(hasHistory || signedIn) && (
-                <button type="button" onClick={goBack} aria-label="Go back" className="w-8 h-8 -ml-1 rounded-full flex items-center justify-center text-white/80 bg-black/35 border border-white/20 hover:bg-black/50">
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-              )}
               <span className="text-[10px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SHOWPILOT · EVENT</span>
             </div>
             {ev.event_type && (
