@@ -80,7 +80,10 @@ Deno.serve(async (req) => {
 
     let gtoken: string;
     try { gtoken = await accessTokenFor(conn.refresh_token); }
-    catch { return json({ error: "The DJ's Google Drive connection has expired. Let them know so they can reconnect it." }, 409); }
+    catch (e) {
+      console.error("DJ's Drive connection refused:", e instanceof Error ? e.message : e);
+      return json({ error: "The DJ's Google Drive connection has expired. Let them know so they can reconnect it." }, 409);
+    }
 
     // Event folder -> artist folder, made on first use and remade if the DJ deleted them.
     const slotFolder = async (): Promise<string> => {

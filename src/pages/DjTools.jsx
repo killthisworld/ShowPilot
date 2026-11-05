@@ -301,9 +301,17 @@ function DriveBadge({ drive, onConnect, onDisconnect }) {
   }
   if (!drive.connected) {
     return (
-      <button type="button" onClick={onConnect} className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl font-bold" style={{ background: BLUE + "1F", border: `1px solid ${BLUE}88`, color: BLUE }}>
-        <FolderOpen className="w-4 h-4" /> Connect Google Drive
-      </button>
+      <div className="ml-auto flex items-center gap-3">
+        {drive.expired && (
+          <div className="text-right">
+            <div className="text-[11px] tracking-[0.1em] text-[#FF6A00]" style={{ fontFamily: SCENE_MONO }}>DRIVE CONNECTION EXPIRED</div>
+            <div className="text-sm text-white/60">Artists can't send WAVs until you reconnect{drive.email ? ` ${drive.email}` : ""}.</div>
+          </div>
+        )}
+        <button type="button" onClick={onConnect} className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold" style={{ background: BLUE + "1F", border: `1px solid ${BLUE}88`, color: BLUE }}>
+          <FolderOpen className="w-4 h-4" /> {drive.expired ? "Reconnect Google Drive" : "Connect Google Drive"}
+        </button>
+      </div>
     );
   }
   return (

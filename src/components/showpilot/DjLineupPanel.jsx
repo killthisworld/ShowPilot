@@ -236,10 +236,11 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
         )}
         {drive && drive.configured && !drive.connected && (
           <button type="button" onClick={connectDrive} className={smallBtn} style={{ color: BLUE, border: `1px solid ${BLUE}66`, background: BLUE + "14" }}>
-            <FolderOpen className="w-3.5 h-3.5" /> Connect Drive
+            <FolderOpen className="w-3.5 h-3.5" /> {drive.expired ? "Reconnect Drive" : "Connect Drive"}
           </button>
         )}
       </div>
+      {drive && drive.expired && <span className="-mt-1 text-[10px] tracking-[0.08em] text-[#FF6A00]" style={{ fontFamily: SCENE_MONO }}>DRIVE CONNECTION EXPIRED · RECONNECT SO ARTISTS CAN SEND WAVS</span>}
       {drive && drive.connected && <span className="-mt-1 text-[10px] tracking-[0.08em] text-[#8CFF3D]/80" style={{ fontFamily: SCENE_MONO }}>WAVS GO TO {String(drive.email || "YOUR DRIVE").toUpperCase()}</span>}
       {drive && drive.configured === false && <span className="-mt-1 text-[10px] tracking-[0.08em] text-white/35" style={{ fontFamily: SCENE_MONO }}>TRACK LISTS ONLY · WAV UPLOADS ON ONCE DRIVE IS SET UP</span>}
 

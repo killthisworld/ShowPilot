@@ -56,9 +56,18 @@ Deno.serve(async (req) => {
 
     if (action === "status") {
       const conn = cfg.configured ? await getConnection() : null;
+      // A saved connection only counts if Google still takes it: while the
+      // Google app is in Testing, Google drops a connection after 7 days, and
+      // DJ Tools used to keep saying "connected" while artists' uploads failed.
+      let expired = false;
+      if (conn) {
+        try { await accessTokenFor(conn.refresh_token); }
+        catch (e) { expired = true; console.error("Drive connection no longer works:", e instanceof Error ? e.message : e); }
+      }
       return json({
         configured: cfg.configured,
-        connected: !!conn,
+        connected: !!conn && !expired,
+        expired,
         email: conn?.account_email ?? null,
         folder_url: conn?.root_folder_id ? folderLink(conn.root_folder_id) : null,
       });
