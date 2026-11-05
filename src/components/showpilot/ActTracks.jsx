@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Disc3, FileAudio, FolderOpen, X } from "lucide-react";
+import { Disc3, FolderOpen, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { DJ_COLOR } from "@/lib/djTools";
-import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
 // An act's tracks on the phone event page (job 219): the DJ set an act sent
@@ -11,7 +10,6 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 // tracks to send?"). Who sees them: whoever owns the event's set links - the
 // person who sent the link, whose Google Drive the WAVs went to (the tables'
 // own rules decide; everyone else just gets nothing back).
-const AMBER = "#FF9A3D";
 const norm = (s) => String(s || "").trim().toLowerCase();
 const folderUrl = (id) => `https://drive.google.com/drive/folders/${id}`;
 
@@ -44,9 +42,7 @@ export function useEventTracks(showId) {
 
 const summary = (entry) => {
   const tracks = Array.isArray(entry?.slot?.tracks) ? entry.slot.tracks : [];
-  const wavs = tracks.filter((t) => t.file_id && entry.files[t.file_id]);
-  const total = wavs.reduce((sum, t) => sum + (Number(entry.files[t.file_id].duration_sec) || 0), 0);
-  return { tracks, wavs, total };
+  return { tracks };
 };
 
 // The button on the act's row, next to its notes button. Nothing when the act hasn't sent tracks.
@@ -71,7 +67,7 @@ export function ActTracksButton({ entry, actName, onClick, size = "md" }) {
   );
 }
 
-// The sheet: the set in play order, each WAV's quality (opens it in Drive), contact, their folder.
+// The sheet: the set in play order (a track with a WAV opens it in Drive), and their folder.
 export function ActTracksSheet({ entry, actName, onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -80,8 +76,7 @@ export function ActTracksSheet({ entry, actName, onClose }) {
   }, [onClose]);
   if (!entry) return null;
   const s = entry.slot;
-  const { tracks, wavs, total } = summary(entry);
-  const sent = s.status === "submitted";
+  const { tracks } = summary(entry);
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={`${actName}'s tracks`} onClick={(e) => e.stopPropagation()}
@@ -91,39 +86,24 @@ export function ActTracksSheet({ entry, actName, onClose }) {
           <Disc3 className="w-5 h-5 mt-1 shrink-0" style={{ color: DJ_COLOR }} />
           <div className="flex-1 min-w-0">
             <h3 className="text-white font-bold text-lg leading-tight truncate">{actName}</h3>
-            <p className="text-[11px] tracking-[0.08em] mt-1" style={{ fontFamily: SCENE_MONO, color: sent ? "#8CFF3D" : "#60A5FA" }}>
-              {sent ? "SENT" : "STILL WORKING ON IT"} · {tracks.length} TRACK{tracks.length === 1 ? "" : "S"} · {wavs.length} WAV{total ? ` · ${formatDuration(total)}` : ""}
-            </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 -mt-1 flex items-center justify-center text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 flex flex-col gap-1.5">
+          {/* Just the order and the titles (Jay, Nov 5). A track with a WAV opens it in Drive. */}
           {tracks.length === 0 ? <p className="text-white/40 text-sm py-6 text-center">No tracks listed yet.</p> : tracks.map((t, k) => {
             const f = t.file_id ? entry.files[t.file_id] : null;
-            const warn = f ? qualityWarning({ sampleRate: f.sample_rate, bitDepth: f.bit_depth }) : null;
-            return (
-              <div key={k} className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-[#1b1b1b] border border-[#242424]">
-                <span className="text-[12px] tabular-nums text-white/45 w-5 pt-0.5" style={{ fontFamily: SCENE_MONO }}>{k + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[15px] text-white leading-snug">{t.title || "Untitled"}</div>
-                  {(t.artist || t.notes) && <div className="text-white/50 text-[13px] leading-snug">{[t.artist, t.notes].filter(Boolean).join(" · ")}</div>}
-                  {f ? (
-                    <a href={f.web_view_link || "#"} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1" style={{ color: warn ? AMBER : "#8CFF3D" }}>
-                      <FileAudio className="w-3.5 h-3.5" />
-                      <span className="text-[11.5px]" style={{ fontFamily: SCENE_MONO }}>{describeWav({ sampleRate: f.sample_rate, bitDepth: f.bit_depth, channels: f.channels, durationSec: f.duration_sec })}</span>
-                    </a>
-                  ) : <div className="mt-1 text-white/30 text-[12px]">No WAV</div>}
-                  {warn && <div className="text-[12px] mt-0.5" style={{ color: AMBER }}>{warn}</div>}
-                </div>
-              </div>
+            const row = (
+              <>
+                <span className="text-[13px] tabular-nums text-white/45 w-5" style={{ fontFamily: SCENE_MONO }}>{k + 1}</span>
+                <span className="min-w-0 flex-1 font-semibold text-[15px] text-white leading-snug">{t.title || "Untitled"}</span>
+              </>
             );
+            const cls = "flex items-center gap-3 px-3 py-3 rounded-lg bg-[#1b1b1b] border border-[#242424]";
+            return f?.web_view_link
+              ? <a key={k} href={f.web_view_link} target="_blank" rel="noreferrer" className={cls}>{row}</a>
+              : <div key={k} className={cls}>{row}</div>;
           })}
-          {s.contact && (
-            <div className="mt-2">
-              <div className="text-[10px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>CONTACT</div>
-              <div className="mt-1 text-white/80 text-sm select-text">{s.contact}</div>
-            </div>
-          )}
           {s.drive_folder_id && (
             <a href={folderUrl(s.drive_folder_id)} target="_blank" rel="noreferrer"
               className="mt-3 h-11 rounded-xl border flex items-center justify-center gap-2 text-sm font-semibold"
