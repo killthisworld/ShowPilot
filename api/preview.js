@@ -30,12 +30,9 @@ export default async function handler(req, res) {
     const color = colorFor(info.role);
     const type = typeLabel(kind, info);
     const desc = [type, prettyDate(info.date), info.venue].filter(Boolean).join(" · ");
-    const title = esc(info.title);
     const img = `${origin}/api/card?kind=${encodeURIComponent(kind)}&key=${encodeURIComponent(key)}`;
     const tags = [
       `<meta property="og:type" content="website" />`,
-      `<meta property="og:site_name" content="ShowPilot" />`,
-      `<meta property="og:title" content="${title}" />`,
       `<meta property="og:description" content="${esc(desc)}" />`,
       `<meta property="og:image" content="${img}" />`,
       `<meta property="og:image:width" content="1200" />`,
@@ -45,7 +42,9 @@ export default async function handler(req, res) {
       `<meta name="description" content="${esc(desc)}" />`,
     ].join("\n    ");
     html = html
-      .replace(/<title>[^<]*<\/title>/i, `<title>${title}</title>`)
+      // No page title (job 221): the card picture already carries the event
+      // name, so the strip under it in a text just shows showpilot.space.
+      .replace(/<title>[^<]*<\/title>\s*/i, "")
       .replace(/<meta name="theme-color"[^>]*>/i, `<meta name="theme-color" content="${color}" />`)
       .replace(/<\/head>/i, `    ${tags}\n  </head>`);
   }
