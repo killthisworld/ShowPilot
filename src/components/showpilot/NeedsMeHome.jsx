@@ -6,6 +6,7 @@ import useEventFeed from "@/lib/eventFeed";
 import { nextNotNeeded } from "@/lib/inviteGroups";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import TodayCard from "@/components/showpilot/TodayCard";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { useAuth } from "@/lib/AuthContext";
@@ -74,7 +75,7 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   });
 
   // Today's / tonight's event(s), for the card at the top.
-  const todays = useMemo(() => (gigs || []).filter((g) => g.date === todayISO), [gigs, todayISO]);
+  const todays = useMemo(() => (gigs || []).filter((g) => g.date === todayISO && g.share_token), [gigs, todayISO]);
 
   // Confirm a request, or mark a conflict sorted (status -> confirmed), or
   // flag a request as a conflict. The row leaves the feed once confirmed.
@@ -126,7 +127,6 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
 
 
   const dateLine = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  const tint = (c) => c + "1c";
   const sectionLabel = (txt, right) => (
     <div className="flex items-center text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>
       {txt}{right && <span className="ml-auto text-[11px] tracking-[0.1em] text-white/35" style={{ fontFamily: SCENE_MONO }}>{right}</span>}
@@ -155,21 +155,9 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
         </div>
       </div>
 
-      {/* Today / Tonight */}
+      {/* Today / Tonight: the show-day card (job 73, On the road). */}
       {todays.map((g) => (
-        <div
-          key={g.share_token || g.id}
-          className="mx-5 mb-3 w-[calc(100%-40px)] relative isolate overflow-hidden flex flex-col gap-2 p-3.5 rounded-[14px] text-left text-white"
-          style={{ background: tint(accent), border: `1.5px solid ${accent}`, boxShadow: `0 0 18px ${accent}40` }}
-        >
-          {g.icon_url && <img src={g.icon_url} alt="" className="absolute inset-0 -z-10 w-full h-full object-cover opacity-30" />}
-          <span className="flex justify-between w-full text-[13px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_FONT, color: accent }}>
-            <span>{words.today.toUpperCase()}</span>
-            {g.event_time && <span>{g.event_time.toUpperCase()}</span>}
-          </span>
-          <span className="text-lg font-semibold truncate w-full">{eventTitle(g)}</span>
-          {g.venue && <span className="text-xs text-white/70 truncate w-full" style={{ fontFamily: SCENE_MONO }}>{[g.venue, g.city].filter(Boolean).join(" · ").toUpperCase()}</span>}
-        </div>
+        <TodayCard key={g.share_token || g.id} gig={g} accent={accent} todayWord={words.today} />
       ))}
 
       <div className="flex flex-col gap-2.5 px-5">
