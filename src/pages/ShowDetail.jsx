@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -175,6 +176,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [selectedArtistFx, setSelectedArtistFx] = useState("__general__");
   // FX / Artist Notes (job 167): "__show__" = General (whole show), or an act's index.
   const [fxTarget, setFxTarget] = useState("__show__");
+  // Tracks each act sent for this event, by its set time (job 219).
+  const { tracksFor } = useEventTracks(id);
+  const [tracksAct, setTracksAct] = useState(null);
   const [showGenreSettings, setShowGenreSettings] = useState(false);
   const [showBusSettings, setShowBusSettings] = useState(false);
   const [genreDraft, setGenreDraft] = useState([]);
@@ -1192,7 +1196,12 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <PerformerFields
             band={activeBand}
             withPhoto={sectionPhotos}
-            setLengthAction={<ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />}
+            setLengthAction={
+              <div className="flex items-center gap-2">
+                <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />
+                <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
+              </div>
+            }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
             nameAction={isTechProductionAccount ? <LoadTemplateButton category="artist" label="Load Artist" onLoad={loadArtistTemplate} /> : null}
             afterName={<>
@@ -1218,6 +1227,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </CollapsibleSection>
         </div>
 
+      {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

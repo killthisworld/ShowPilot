@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
@@ -722,6 +723,9 @@ export default function SharedGig() {
   // FX / Artist Notes window (job 205): opened from each act's row.
   const [fxOpen, setFxOpen] = useState(false);
   const [fxTarget, setFxTarget] = useState("__show__");
+  // Tracks each act sent for this event, by its set time (job 219).
+  const { tracksFor } = useEventTracks(gig?.id);
+  const [tracksAct, setTracksAct] = useState(null);
   const [fxDirty, setFxDirty] = useState({ acts: false, show: false });
   const [fxSaving, setFxSaving] = useState(false);
   const [fxSaved, setFxSaved] = useState(false);
@@ -1509,6 +1513,7 @@ export default function SharedGig() {
                         {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
                         <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
                         </span>
@@ -1556,6 +1561,7 @@ export default function SharedGig() {
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                   </div>
                   {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>
@@ -1627,6 +1633,7 @@ export default function SharedGig() {
         <p className="text-white/20 text-xs text-center pt-2">Powered by Klean Studios</p>
       </div>
 
+      {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}
