@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
+import TimeSelect from "@/components/showpilot/TimeSelect";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
@@ -323,11 +324,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <>
             <p className="text-[15px] text-white/55 -mt-2">These times go on everyone's day sheet. Artist set times come from the Manager / Artist lineup.</p>
             <TableBox>
-              <div className="grid grid-cols-[130px_minmax(0,1fr)_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>TIME</span><span>WHAT</span><span /></div>
+              {/* Time is picked: hour, 15-minute steps, AM / PM (job 230). */}
+              <div className="hidden sm:grid grid-cols-[200px_minmax(0,1fr)_40px] gap-3 px-4 py-2 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}><span>TIME</span><span>WHAT</span><span /></div>
               {schedule.map((r, i) => (
-                <div key={r.id || i} className="grid grid-cols-[130px_minmax(0,1fr)_40px] gap-3 px-4 py-2 items-center">
-                  <input value={r.time || ""} onChange={(e) => setRow(i, "time", e.target.value)} disabled={off} placeholder="7:00 PM" className={inputCls} style={{ fontFamily: SCENE_MONO, fontSize: 14 }} aria-label="Time" />
-                  <input value={r.label || ""} onChange={(e) => setRow(i, "label", e.target.value)} disabled={off} placeholder="Doors" className={inputCls} aria-label="What happens" />
+                <div key={r.id || i} className="flex flex-wrap sm:grid sm:grid-cols-[200px_minmax(0,1fr)_40px] gap-x-3 gap-y-2 px-4 py-2 items-center">
+                  <TimeSelect value={r.time} onChange={(v) => setRow(i, "time", v)} disabled={off} color={color} label={r.label ? `${r.label} time` : "Time"} />
+                  <input value={r.label || ""} onChange={(e) => setRow(i, "label", e.target.value)} disabled={off} placeholder="Doors" className={`${inputCls} flex-1 min-w-[120px]`} aria-label="What happens" />
                   {ed && <button type="button" onClick={() => setVi("schedule", schedule.filter((_, idx) => idx !== i))} aria-label="Remove time" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
                 </div>
               ))}
@@ -343,7 +345,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 Hard curfew (the venue is fined if it runs over)
               </label>
             </div>
-            <Grid><In label="Load-out by" value={vi.load_out_by} onChange={(v) => setVi("load_out_by", v)} disabled={off} placeholder="12:30 AM" /></Grid>
+            <div className="flex flex-col gap-1.5">
+              <span className={labelCls} style={{ fontFamily: SCENE_MONO }}>LOAD-OUT BY</span>
+              <TimeSelect value={vi.load_out_by} onChange={(v) => setVi("load_out_by", v)} disabled={off} color={color} label="Load-out by" />
+            </div>
           </>
         ),
       },
@@ -689,21 +694,21 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       {b.requested_order && <span style={{ fontFamily: SCENE_MONO }} title="Lineup position the act asked for">ASKED FOR #{b.requested_order}</span>}
                     </div>
                   )}
-                  <div className="col-start-2 col-span-2 grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)_minmax(0,1fr)_auto] gap-2 items-end">
-                    <label className="grid gap-1 min-w-0">
+                  <div className="col-start-2 col-span-2 flex flex-wrap gap-2 items-end">
+                    <label className="grid gap-1 min-w-[120px] flex-[1.4]">
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>BILLING</span>
                       <select value={b.role || "N/A"} onChange={(e) => p.updateBand(i, "role", e.target.value)} disabled={!p.canEdit} className={inputCls} aria-label="Billing">
                         {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     </label>
-                    <label className="grid gap-1 min-w-0">
+                    <label className="grid gap-1 w-[76px] shrink-0">
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>MINUTES</span>
                       <input value={b.set_length_minutes || ""} onChange={(e) => p.updateBand(i, "set_length_minutes", e.target.value.replace(/[^0-9]/g, ""))} disabled={!p.canEdit} placeholder="45" inputMode="numeric" className={inputCls} aria-label="Set length in minutes" />
                     </label>
-                    <label className="grid gap-1 min-w-0">
+                    <div className="grid gap-1 shrink-0">
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ON AT</span>
-                      <input value={setTimes[b.band_name] || ""} onChange={(e) => setMi("set_times", { ...setTimes, [b.band_name]: e.target.value })} disabled={off || !b.band_name} placeholder="9:00 PM" className={inputCls} aria-label="Set time" />
-                    </label>
+                      <TimeSelect value={setTimes[b.band_name]} onChange={(v) => setMi("set_times", { ...setTimes, [b.band_name]: v })} disabled={off || !b.band_name} color={color} label={b.band_name ? `${b.band_name} set time` : "Set time"} />
+                    </div>
                     {/* This act's FX / Artist Notes, next to its set time (job 205). */}
                     <ActNotesButton act={b} onClick={() => setFxTarget(i)} />
                   </div>
