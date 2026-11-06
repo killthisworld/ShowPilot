@@ -74,3 +74,52 @@ begin
 end;
 $function$;
 
+
+-- ---------- The film's email, the morning after the show ----------
+-- 10 AM Eastern the day after the show (36-hour window like the countdown),
+-- one email per RSVP, logged in fan_countdown_log as notch 'film' so nobody
+-- gets it twice. Skips fans who stopped countdown emails. The fan-countdown
+-- function sends these on its usual 5-minute run.
+create or replace function public.fan_film_due()
+returns jsonb
+language sql
+stable
+security definer
+set search_path to 'public'
+as $function$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'show_id', s.id,
+    'fan_token', s.fan_token,
+    'fan_slug', s.fan_slug,
+    'event', jsonb_build_object(
+      'event_name', s.event_name,
+      'band_name', case when h ? 'band' then null else s.band_name end,
+      'date', s.date,
+      'venue', case when h ? 'venue' then null else s.venue end,
+      'title', nullif(btrim(s.fan_page->'film'->>'title'), ''),
+      'image', coalesce(nullif(s.fan_page->'film'->>'image', ''), case when h ? 'flyer' then null else nullif(s.fan_page->>'flyer_url', '') end, nullif(s.icon_url, ''))
+    ),
+    'rsvps', (
+      select jsonb_agg(jsonb_build_object('rsvp_id', r.id, 'email', r.email, 'name', r.name, 'sky_key', r.sky_key))
+      from public.fan_rsvps r
+      where r.show_id = s.id and r.countdown_stop is not true and coalesce(r.email, '') <> ''
+        and not exists (select 1 from public.fan_countdown_log l where l.show_id = s.id and l.notch_id = 'film' and l.rsvp_id = r.id and l.sent_at is not null)
+    )
+  )), '[]'::jsonb)
+  from public.shows s
+  cross join lateral (select coalesce(s.fan_page->'hidden', '[]'::jsonb) as h) hid
+  where s.fan_page_enabled is true
+    and coalesce(s.archived, false) = false
+    and s.fan_page->>'entry' = 'rsvp'
+    and coalesce(s.fan_page->'film'->>'on', 'true') <> 'false'
+    and s.date is not null
+    and now() >= public.countdown_opens_at(s.date + 1, 0, '10:00')
+    and now() < public.countdown_opens_at(s.date + 1, 0, '10:00') + interval '36 hours'
+    and exists (
+      select 1 from public.fan_rsvps r
+      where r.show_id = s.id and r.countdown_stop is not true and coalesce(r.email, '') <> ''
+        and not exists (select 1 from public.fan_countdown_log l where l.show_id = s.id and l.notch_id = 'film' and l.rsvp_id = r.id and l.sent_at is not null)
+    );
+$function$;
+
+revoke all on function public.fan_film_due() from public, anon, authenticated;

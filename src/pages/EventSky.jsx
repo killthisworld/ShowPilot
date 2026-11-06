@@ -336,7 +336,7 @@ export default function EventSky() {
   // message" link (?post=1). Read once, then taken off the address.
   const [arrival] = useState(() => {
     const m = /^(.+)\.([1-5])$/.exec(params.get("hype") || "");
-    return { hype: m ? { notch: m[1], level: Number(m[2]) } : null, post: params.get("post") === "1", ask: params.get("ask") === "1" };
+    return { hype: m ? { notch: m[1], level: Number(m[2]) } : null, post: params.get("post") === "1", ask: params.get("ask") === "1", film: params.get("film") === "1" };
   });
   const [toast, setToast] = useState("");
   const [composing, setComposing] = useState(false);
@@ -429,8 +429,8 @@ export default function EventSky() {
     arrived.current = true;
     try {
       const u = new URL(window.location.href);
-      if (u.searchParams.has("hype") || u.searchParams.has("post") || u.searchParams.has("ask")) {
-        u.searchParams.delete("hype"); u.searchParams.delete("post"); u.searchParams.delete("ask");
+      if (["hype", "post", "ask", "film"].some((k) => u.searchParams.has(k))) {
+        ["hype", "post", "ask", "film"].forEach((k) => u.searchParams.delete(k));
         window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       }
     } catch { /* keep the address as it is */ }
@@ -490,8 +490,9 @@ export default function EventSky() {
     }
     return ids;
   }, [layout, sky?.me?.id]);
-  // After the show (job 239): the film, built from this sky and the host's
-  // settings. Plays by itself the first time the sky opens after the show.
+  // After the show (job 239): Stellar Birth, built from this sky and the
+  // host's settings. Only once the show's day has passed. The morning-after
+  // email links here with &film=1, which opens it; the sky also has a button.
   const film = sky?.film?.show_over ? sky.film : null;
   const filmProps = useMemo(() => {
     if (!film) return null;
@@ -504,16 +505,14 @@ export default function EventSky() {
       dateLine: filmDateLine(film.date, film.venue),
       imageUrl: film.image || null,
       show: { you: true, header: true, name: true, date: true, ...(cfg.show || {}) },
-      fileName: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "after-the-show",
+      fileName: `stellar-birth-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`.replace(/-$/, ""),
     };
   }, [film, stars, sky?.me?.id, sky?.event]);
   const filmAuto = useRef(false);
   useEffect(() => {
-    if (!open || !filmProps || filmAuto.current) return;
+    if (!open || !filmProps || filmAuto.current || !arrival.film) return;
     filmAuto.current = true;
-    let seen = false;
-    try { seen = localStorage.getItem(`sp-film-seen-${key}`) === "1"; localStorage.setItem(`sp-film-seen-${key}`, "1"); } catch { /* play it */ }
-    if (!seen && !arrival.hype && !arrival.post && !arrival.ask) setFilmOpen(true);
+    setFilmOpen(true);
   }, [open, filmProps]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedStar = stars.find((s) => s.id === selected) || null;
   const minePost = sky?.me?.post_today || null;
@@ -574,7 +573,7 @@ export default function EventSky() {
             {/* Job 237: the three actions under the title, each its own color. */}
             <div className="mt-3 flex flex-wrap gap-2">
               {[
-                ...(filmProps ? [["Watch your night", () => setFilmOpen(true), "#FFB347"]] : []),
+                ...(filmProps ? [["Watch Stellar Birth", () => setFilmOpen(true), "#FFB347"]] : []),
                 [minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky", () => setComposing(true), color],
                 ["Message the host", () => setAsking(true), "#60A5FA"],
                 ["Event details", () => { window.location.href = pageHref; }, "#C084FC"],

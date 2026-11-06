@@ -12,6 +12,7 @@ import SkyPostsList from "@/components/showpilot/SkyPostsList";
 import HostMessagesList from "@/components/showpilot/HostMessagesList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import AfterShowFilm from "@/components/showpilot/AfterShowFilm";
+import ColorPicker from "@/components/showpilot/ColorPicker";
 import { filmDateLine } from "@/lib/afterShowFilm";
 import { hashColor } from "@/lib/constellation";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
@@ -281,7 +282,7 @@ function OwnerSheet({ showId, onClose }) {
           capacity,
           discover: draft.discover,
           qr: draft.qr,
-          film: { on: draft.film.on, stars: draft.film.stars, show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
+          film: { on: draft.film.on, stars: /^#[0-9a-f]{6}$/i.test(draft.film.stars) ? draft.film.stars : "mixed", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
         fan_countdown: {
@@ -791,7 +792,6 @@ function OwnerSheet({ showId, onClose }) {
   const fm = draft?.film;
   const setFilm = (patch) => set({ film: { ...fm, ...patch } });
   const filmPic = fm ? (fm.image || draft.flyer || row?.icon_url || "") : "";
-  const STAR_PICKS = [["mixed", "Each fan's own color"], ["#8CFF3D", "Green"], ["#FFB347", "Gold"], ["#FFFFFF", "White"]];
   const pickFilmImage = async (e) => {
     const file = e.target.files?.[0]; e.target.value = "";
     if (!file) return;
@@ -803,18 +803,15 @@ function OwnerSheet({ showId, onClose }) {
   const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: fm?.stars === "mixed" ? hashColor(`p${i}x`) : fm?.stars })), [fm?.stars]);
   const filmSection = fm && (
     <section className="rounded-2xl p-4 mt-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
-      <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · FILM</div>
-      {note("The day after the show, everyone who RSVP'd gets a short film in their sky: all the stars pull together into one sun, then your event's picture, name and date. They can save it to their phone.")}
+      <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · STELLAR BIRTH</div>
+      {note("A short film only fans who RSVP'd get, once the show is over: every star in the sky pulls together into one sun, then your event's picture, name and date. It's emailed to them the morning after (10 AM Eastern), and their sky gets a Watch Stellar Birth button. They can save it vertical or horizontal.")}
       {segmented([[true, "On"], [false, "Off"]], fm.on, (v) => setFilm({ on: v }), "After-the-show film")}
       {fm.on && (<>
         {label("STAR COLOR")}
-        <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
-          {STAR_PICKS.map(([k, l]) => chip(fm.stars === k, l, () => setFilm({ stars: k }), k))}
-          <label className="flex items-center gap-1.5 ml-1 text-[13px]" style={{ color: SOFT }}>
-            <input type="color" value={fm.stars === "mixed" ? "#8CFF3D" : fm.stars} onChange={(e) => setFilm({ stars: e.target.value.toUpperCase() })} aria-label="Pick a star color"
-              className="w-9 h-9 rounded-lg bg-transparent border border-[#262b52] cursor-pointer" />
-            Any color
-          </label>
+        <div className="mt-1.5 flex flex-wrap gap-3 items-center">
+          <ColorPicker value={fm.stars === "mixed" ? "" : fm.stars} onChange={(c) => setFilm({ stars: String(c).toUpperCase() })}
+            label={fm.stars === "mixed" ? "Each fan's own color" : "Star color"} contentClassName="z-[130]" />
+          {fm.stars !== "mixed" && <button type="button" onClick={() => setFilm({ stars: "mixed" })} className="text-[13px] text-white/55 hover:text-white">Use each fan's own color</button>}
         </div>
 
         {label("WHAT IT SHOWS")}
@@ -850,11 +847,11 @@ function OwnerSheet({ showId, onClose }) {
         <button type="button" onClick={() => setFilmPreview(true)} className="mt-4 w-full h-12 rounded-xl text-[15px] font-bold text-[#1a0d00]" style={{ background: "#FFB347" }}>
           Preview the film
         </button>
-        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You". Publish to save your changes.</p>
+        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You" in green. Publish to save your changes.</p>
       </>)}
       {filmPreview && (
         <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)}
-          imageUrl={filmPic || null} show={fm.show} fileName="after-the-show-preview" onClose={() => setFilmPreview(false)} />
+          imageUrl={filmPic || null} show={fm.show} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
       )}
     </section>
   );

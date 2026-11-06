@@ -22,7 +22,7 @@ function addRecent(color) {
   localStorage.setItem(RECENT_KEY, JSON.stringify(next));
 }
 
-export default function ColorPicker({ value, onChange, label }) {
+export default function ColorPicker({ value, onChange, label, contentClassName = "" }) {
   const [customColor, setCustomColor] = useState(value || "#8CFF3D");
   const [open, setOpen] = useState(false);
   const [recentColors, setRecentColors] = useState([]);
@@ -45,7 +45,7 @@ export default function ColorPicker({ value, onChange, label }) {
           <span className="text-sm text-white/70">{label || "Color"}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 bg-[#1a1a1a] border-[#2a2a2a] p-3" align="start">
+      <PopoverContent className={`w-64 bg-[#1a1a1a] border-[#2a2a2a] p-3 ${contentClassName}`} align="start">
         <div className="space-y-3">
           {recentColors.length > 0 && (
             <div>

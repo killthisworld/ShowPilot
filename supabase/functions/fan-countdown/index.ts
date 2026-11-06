@@ -140,6 +140,54 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   return { subject, html, text, stop };
 }
 
+// The morning after the show (job 239): "Stellar Birth" is ready in the
+// fan's sky. Links straight to it (&film=1).
+type FilmDue = { show_id: string; fan_token: string; fan_slug: string | null; event: { event_name?: string; band_name?: string; date: string; venue?: string; title?: string; image?: string }; rsvps: Rsvp[] | null };
+export function buildFilmEmail(site: string, due: FilmDue, fan: Rsvp) {
+  const ev = due.event;
+  const title = ev.title || ev.event_name || ev.band_name || "the show";
+  const base = `${site}${due.fan_slug ? `/${due.fan_slug}` : `/rsvp/${due.fan_token}`}`;
+  const sky = `${base}/sky?k=${encodeURIComponent(fan.sky_key)}`;
+  const watch = `${sky}&film=1`;
+  const ask = `${sky}&ask=1`;
+  const stop = `${site}/fan/unsubscribe?countdown=${encodeURIComponent(fan.sky_key)}`;
+  const when = [dateLong(ev.date), ev.venue].filter(Boolean).join(" · ");
+  const subject = `Stellar Birth: your night at ${title}`;
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#05060f;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#05060f;"><tr><td align="center" style="padding:28px 14px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff;">
+      <tr><td style="padding:0 2px 14px;">
+        <div style="font-family:${mono};font-size:11px;letter-spacing:.16em;color:#FFB347;">AFTER THE SHOW · STELLAR BIRTH</div>
+        <div style="margin-top:8px;font-size:30px;font-weight:700;line-height:1.08;">${esc(title)}</div>
+        ${when ? `<div style="margin-top:4px;font-size:15px;color:#d6d8f5;">${esc(when)}</div>` : ""}
+      </td></tr>
+      ${ev.image ? `<tr><td style="padding:0 0 14px;"><img src="${esc(ev.image)}" alt="" width="520" style="display:block;width:100%;max-height:300px;object-fit:cover;border-radius:14px;border:1px solid #232849;"></td></tr>` : ""}
+      <tr><td style="padding:0 0 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b0e24;border:1px solid #2b2f5a;border-radius:16px;"><tr><td style="padding:18px;">
+          <div style="font-size:20px;font-weight:700;line-height:1.3;">${esc(fan.name ? `${fan.name}, every` : "Every")} star from the night came together.</div>
+          <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#d6d8f5;">Everyone who RSVP'd was a star in the sky. Watch them pull together into one sun, then save the video to keep.</div>
+          <a href="${esc(watch)}" style="display:inline-block;margin-top:14px;padding:12px 20px;background:#FFB347;color:#1a0d00;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">Watch Stellar Birth &rsaquo;</a>
+        </td></tr></table>
+      </td></tr>
+      <tr><td style="padding:6px 2px 0;font-size:14px;line-height:1.5;color:#d6d8f5;text-align:center;">
+        Have info or a question? <a href="${esc(ask)}" style="color:${G};font-weight:700;text-decoration:none;">Message the host &rsaquo;</a>
+      </td></tr>
+      <tr><td style="padding:22px 2px 0;font-size:12px;line-height:1.5;color:#7e83b8;">
+        You're getting this because you RSVP'd to ${esc(title)} on Show Pilot.<br>
+        <a href="${esc(stop)}" style="color:#b7bbe6;">Stop these emails</a>
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+  const text = [
+    `Stellar Birth · ${title}`, when, "",
+    `${fan.name ? `${fan.name}, every` : "Every"} star from the night came together. Watch it and save the video to keep:`,
+    watch, "",
+    `Have info or a question? Message the host: ${ask}`, "",
+    `Stop these emails: ${stop}`,
+  ].join("\n");
+  return { subject, html, text, stop };
+}
+
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
   const { data: ok } = await admin.rpc("check_digest_secret", { p_secret: req.headers.get("x-cron-secret") ?? "" });
@@ -181,5 +229,33 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ notches: due.length, sent, failed }), { headers: { "Content-Type": "application/json" } });
+  // The morning after: Stellar Birth emails (job 239).
+  const { data: filmData, error: filmError } = await admin.rpc("fan_film_due");
+  if (filmError) console.error(filmError);
+  const films = (Array.isArray(filmData) ? filmData : []) as FilmDue[];
+  for (const item of films) {
+    const done: string[] = [];
+    for (const fan of item.rsvps ?? []) {
+      const { subject, html, text, stop } = buildFilmEmail(site, item, fan);
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `fan-film-${item.show_id}-${fan.rsvp_id}`,
+        },
+        body: JSON.stringify({ from, to: [fan.email], subject, html, text, headers: { "List-Unsubscribe": `<${stop}>` } }),
+      });
+      if (!res.ok) { failed++; console.error("Resend error", res.status, (await res.text()).slice(0, 300)); continue; }
+      done.push(fan.rsvp_id);
+      sent++;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    if (done.length) {
+      const { error: markErr } = await admin.rpc("mark_countdown_sent", { p_show_id: item.show_id, p_notch: "film", p_rsvp_ids: done });
+      if (markErr) console.error(markErr);
+    }
+  }
+
+  return new Response(JSON.stringify({ notches: due.length, films: films.length, sent, failed }), { headers: { "Content-Type": "application/json" } });
 });

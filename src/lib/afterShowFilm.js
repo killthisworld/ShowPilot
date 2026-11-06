@@ -8,6 +8,7 @@
 //
 // stars:    [{ id, color, me }]   (color "#rrggbb")
 // show:     { you, header, name, date } booleans (all on by default)
+// orientation: "portrait" (1080x1920, default) or "landscape" (1920x1080)
 // image:    an <img> or <canvas> for the header card, or null for a stand-in
 //
 // Plain JS, no React, so the same file can run outside the app (previews).
@@ -156,7 +157,9 @@ const easeOut = (x) => 1 - Math.pow(1 - x, 3);
 const easeInOut = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 export function createFilm(canvas, opts = {}) {
-  const W = FILM_W, H = FILM_H, DUR = FILM_SECONDS;
+  // Landscape puts the sun on the left and the event on the right.
+  const land = opts.orientation === "landscape";
+  const W = land ? FILM_H : FILM_W, H = land ? FILM_W : FILM_H, DUR = FILM_SECONDS;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
   const sun = makeSun();
@@ -170,10 +173,14 @@ export function createFilm(canvas, opts = {}) {
   let seed = 7;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const field = Array.from({ length: 520 }, () => ({ x: rand() * W, y: rand() * H, r: rand() * 1.6 + .3, a: rand() * .6 + .15, tw: rand() * 6, sp: rand() * 1.5 + .4 }));
-  const SUN_X = W / 2, SUN_Y = 700, SUN_DRAW = 1180;
+  const SUN_X = land ? W * .29 : W / 2, SUN_Y = land ? H / 2 : 700, SUN_DRAW = land ? 1040 : 1180;
+  // The event's column: centered under the sun (portrait) or to its right.
+  const EV_X = land ? W * .7 : W / 2;
+  const CARD = land ? { w: 780, h: 439, y: 150 } : { w: 860, h: 484, y: 1150 };
+  const TITLE_Y = land ? 730 : 1745, TITLE_Y_BARE = land ? 520 : 1400, TEXT_W = land ? 840 : 940;
   const list = (opts.stars && opts.stars.length ? opts.stars : [{ id: "you", color: "#8CFF3D", me: true }]).slice(0, 400);
   const n = list.length;
-  const cx = W / 2, cy = 820, rx = W * .44, ry = 620;
+  const cx = W / 2, cy = land ? H / 2 : 820, rx = W * (land ? .46 : .44), ry = land ? H * .42 : 620;
   const stars = list.map((s, i) => {
     const frac = Math.min(1, Math.sqrt((i + .6) / Math.max(n, 6)) + (rand() - .5) * .12);
     const th = i * 2.39996 + (rand() - .5) * .9;
@@ -241,9 +248,9 @@ export function createFilm(canvas, opts = {}) {
       // Motion: a comet tail of fading, shrinking copies along the path it
       // just travelled, longer the faster it falls.
       if (now.p > .01) {
-        const steps = 14;
+        const steps = 26;
         for (let i = steps; i >= 1; i--) {
-          const q = starPos(a, t - i * .028);
+          const q = starPos(a, t - i * .015);
           const k = 1 - i / (steps + 1);
           const sz = base * (1.6 + 2.2 * now.p) * (.35 + .65 * k);
           ctx.globalAlpha = appear * k * k * .55 * Math.min(1, now.p * 4);
@@ -398,11 +405,11 @@ export function createFilm(canvas, opts = {}) {
 
     // The event: picture, then name, then date. Without a picture the text
     // moves up into its place.
-    let textY = 1745;
+    let textY = TITLE_Y;
     if (show.header) {
       const hIn = easeOut(seg(t, 8.0, 9.4));
       if (hIn > 0) {
-        const cw = 860, ch = 484, x = (W - cw) / 2, y = 1150 + (1 - hIn) * 70;
+        const cw = CARD.w, ch = CARD.h, x = EV_X - cw / 2, y = CARD.y + (1 - hIn) * 70;
         ctx.save(); ctx.globalAlpha = hIn;
         ctx.shadowColor = "rgba(255,150,50,.35)"; ctx.shadowBlur = 60;
         roundRect(x, y, cw, ch, 28); ctx.fillStyle = "#111"; ctx.fill(); ctx.shadowBlur = 0;
@@ -410,14 +417,14 @@ export function createFilm(canvas, opts = {}) {
         ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 2; roundRect(x, y, cw, ch, 28); ctx.stroke();
         ctx.restore();
       }
-    } else textY = 1400;
+    } else textY = TITLE_Y_BARE;
     const nT = show.header ? 9.4 : 8.2;
     if (show.name) {
       const nIn = easeOut(seg(t, nT, nT + 1.2));
       if (nIn > 0) {
         ctx.save(); ctx.globalAlpha = nIn; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
         ctx.shadowColor = "rgba(255,170,80,.45)"; ctx.shadowBlur = 24;
-        fitText(title.toUpperCase(), W / 2, textY + (1 - nIn) * 26, 940, 104);
+        fitText(title.toUpperCase(), EV_X, textY + (1 - nIn) * 26, TEXT_W, 104);
         ctx.restore();
       }
     }
@@ -427,7 +434,7 @@ export function createFilm(canvas, opts = {}) {
         ctx.save(); ctx.globalAlpha = dIn; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,214,160,.92)";
         ctx.font = '500 32px "IBM Plex Mono", ui-monospace, Menlo, monospace';
         if ("letterSpacing" in ctx) ctx.letterSpacing = "5px";
-        ctx.fillText(dateLine.toUpperCase(), W / 2, (show.name ? textY + 67 : textY) + (1 - dIn) * 16, 960);
+        ctx.fillText(dateLine.toUpperCase(), EV_X, (show.name ? textY + 67 : textY) + (1 - dIn) * 16, TEXT_W);
         ctx.restore();
       }
     }
@@ -444,7 +451,7 @@ export function createFilm(canvas, opts = {}) {
     else { const cb = ended; ended = null; cb?.(); }
   }
   return {
-    duration: DUR,
+    duration: DUR, width: W, height: H,
     play(onEnd, progress) {
       cancelAnimationFrame(raf); shooting = []; dust = []; seed = 11;
       ended = onEnd || null; onTime = progress || null;
