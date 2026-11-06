@@ -5,6 +5,8 @@ import { hashColor, hashString, seededRandom } from "@/lib/constellation";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
+import AfterShowFilm from "@/components/showpilot/AfterShowFilm";
+import { filmDateLine } from "@/lib/afterShowFilm";
 import useFanToken from "@/lib/useFanToken";
 
 // /e/:token/sky?k=<sky key>  (public, no login)
@@ -339,6 +341,7 @@ export default function EventSky() {
   const [toast, setToast] = useState("");
   const [composing, setComposing] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [filmOpen, setFilmOpen] = useState(false);
   const [phase, setPhase] = useState("verifying"); // verifying | unlocking | open | failed
   const [sky, setSky] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -487,6 +490,31 @@ export default function EventSky() {
     }
     return ids;
   }, [layout, sky?.me?.id]);
+  // After the show (job 239): the film, built from this sky and the host's
+  // settings. Plays by itself the first time the sky opens after the show.
+  const film = sky?.film?.show_over ? sky.film : null;
+  const filmProps = useMemo(() => {
+    if (!film) return null;
+    const cfg = film.config || {};
+    const one = /^#[0-9a-f]{6}$/i.test(cfg.stars || "") ? cfg.stars : null;
+    const title = String(cfg.title || "").trim() || sky?.event?.event_name || sky?.event?.band_name || "Tonight";
+    return {
+      stars: stars.map((s0) => ({ id: s0.id, me: s0.id === sky?.me?.id, color: one || hashColor(s0.id) })),
+      title,
+      dateLine: filmDateLine(film.date, film.venue),
+      imageUrl: film.image || null,
+      show: { you: true, header: true, name: true, date: true, ...(cfg.show || {}) },
+      fileName: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "after-the-show",
+    };
+  }, [film, stars, sky?.me?.id, sky?.event]);
+  const filmAuto = useRef(false);
+  useEffect(() => {
+    if (!open || !filmProps || filmAuto.current) return;
+    filmAuto.current = true;
+    let seen = false;
+    try { seen = localStorage.getItem(`sp-film-seen-${key}`) === "1"; localStorage.setItem(`sp-film-seen-${key}`, "1"); } catch { /* play it */ }
+    if (!seen && !arrival.hype && !arrival.post && !arrival.ask) setFilmOpen(true);
+  }, [open, filmProps]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedStar = stars.find((s) => s.id === selected) || null;
   const minePost = sky?.me?.post_today || null;
 
@@ -546,6 +574,7 @@ export default function EventSky() {
             {/* Job 237: the three actions under the title, each its own color. */}
             <div className="mt-3 flex flex-wrap gap-2">
               {[
+                ...(filmProps ? [["Watch your night", () => setFilmOpen(true), "#FFB347"]] : []),
                 [minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky", () => setComposing(true), color],
                 ["Message the host", () => setAsking(true), "#60A5FA"],
                 ["Event details", () => { window.location.href = pageHref; }, "#C084FC"],
@@ -609,6 +638,7 @@ export default function EventSky() {
       )}
 
       {unlockOpen && <UnlockPanel notch={unlockOpen} color={color} onClose={() => setUnlockOpen(null)} />}
+      {filmOpen && filmProps && <AfterShowFilm {...filmProps} onClose={() => setFilmOpen(false)} />}
       {asking && open && sky && <HostMessage color={color} onClose={() => setAsking(false)} onSend={sendToHost} />}
       {composing && open && sky && (
         <PostComposer color={color} today={sky.today} mine={minePost} onClose={() => setComposing(false)} onSave={savePost} onRemove={removePost} />

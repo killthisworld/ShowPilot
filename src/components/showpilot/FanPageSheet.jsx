@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Eye, EyeOff, FileText, ImagePlus, MapPin, Paperclip, Pencil, Plus, Share2, Ticket, Users, X } from "lucide-react";
@@ -11,6 +11,9 @@ import RsvpList from "@/components/showpilot/RsvpList";
 import SkyPostsList from "@/components/showpilot/SkyPostsList";
 import HostMessagesList from "@/components/showpilot/HostMessagesList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
+import AfterShowFilm from "@/components/showpilot/AfterShowFilm";
+import { filmDateLine } from "@/lib/afterShowFilm";
+import { hashColor } from "@/lib/constellation";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
 import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
@@ -133,6 +136,14 @@ function OwnerSheet({ showId, onClose }) {
       // RSVP capacity: no limit, or a max number of people.
       capacityOn: typeof cfg.capacity === "number" && cfg.capacity >= 1,
       capacity: typeof cfg.capacity === "number" && cfg.capacity >= 1 ? String(Math.floor(cfg.capacity)) : "",
+      // After-the-show film (job 239).
+      film: {
+        on: cfg.film?.on !== false,
+        stars: /^#[0-9a-f]{6}$/i.test(cfg.film?.stars || "") ? cfg.film.stars : "mixed",
+        show: { you: true, header: true, name: true, date: true, ...(cfg.film?.show || {}) },
+        title: cfg.film?.title || "",
+        image: cfg.film?.image || "",
+      },
       // Fan Discover (job 85): list this event for fans nearby. Off by default.
       discover: cfg.discover === true,
       qr: cfg.qr || null,
@@ -270,6 +281,7 @@ function OwnerSheet({ showId, onClose }) {
           capacity,
           discover: draft.discover,
           qr: draft.qr,
+          film: { on: draft.film.on, stars: draft.film.stars, show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
         fan_countdown: {
@@ -772,6 +784,81 @@ function OwnerSheet({ showId, onClose }) {
       style={on ? { background: "rgba(140,255,61,0.14)", color: G, boxShadow: "inset 0 0 0 1px rgba(140,255,61,0.5)" } : { color: SOFT, boxShadow: `inset 0 0 0 1px ${EDGE_LINE}` }}>{label}</button>
   );
 
+  // ---- After-the-show film (job 239) ----
+  const [filmPreview, setFilmPreview] = useState(false);
+  const [filmUploading, setFilmUploading] = useState(false);
+  const filmImgRef = useRef(null);
+  const fm = draft?.film;
+  const setFilm = (patch) => set({ film: { ...fm, ...patch } });
+  const filmPic = fm ? (fm.image || draft.flyer || row?.icon_url || "") : "";
+  const STAR_PICKS = [["mixed", "Each fan's own color"], ["#8CFF3D", "Green"], ["#FFB347", "Gold"], ["#FFFFFF", "White"]];
+  const pickFilmImage = async (e) => {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { setErr("Pictures must be under 8 MB."); return; }
+    setFilmUploading(true);
+    try { setFilm({ image: await uploadIconImage(file) }); } catch { setErr("Couldn't upload the picture."); }
+    setFilmUploading(false);
+  };
+  const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: fm?.stars === "mixed" ? hashColor(`p${i}x`) : fm?.stars })), [fm?.stars]);
+  const filmSection = fm && (
+    <section className="rounded-2xl p-4 mt-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
+      <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · FILM</div>
+      {note("The day after the show, everyone who RSVP'd gets a short film in their sky: all the stars pull together into one sun, then your event's picture, name and date. They can save it to their phone.")}
+      {segmented([[true, "On"], [false, "Off"]], fm.on, (v) => setFilm({ on: v }), "After-the-show film")}
+      {fm.on && (<>
+        {label("STAR COLOR")}
+        <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+          {STAR_PICKS.map(([k, l]) => chip(fm.stars === k, l, () => setFilm({ stars: k }), k))}
+          <label className="flex items-center gap-1.5 ml-1 text-[13px]" style={{ color: SOFT }}>
+            <input type="color" value={fm.stars === "mixed" ? "#8CFF3D" : fm.stars} onChange={(e) => setFilm({ stars: e.target.value.toUpperCase() })} aria-label="Pick a star color"
+              className="w-9 h-9 rounded-lg bg-transparent border border-[#262b52] cursor-pointer" />
+            Any color
+          </label>
+        </div>
+
+        {label("WHAT IT SHOWS")}
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {[["you", "\"You\" on their star"], ["header", "Event picture"], ["name", "Name"], ["date", "Date and venue"]].map(([k, l]) =>
+            chip(fm.show[k] !== false, `${fm.show[k] !== false ? "✓ " : ""}${l}`, () => setFilm({ show: { ...fm.show, [k]: fm.show[k] === false } }), k))}
+        </div>
+
+        {fm.show.name !== false && (<>
+          {label("TITLE")}
+          <input className={`${inputCls} mt-1.5`} maxLength={60} value={fm.title} onChange={(e) => setFilm({ title: e.target.value })} placeholder={title} aria-label="Film title" />
+          <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>Leave blank to use the event name.</p>
+        </>)}
+
+        {fm.show.header !== false && (<>
+          {label("CARD PICTURE")}
+          <div className="mt-1.5 flex items-center gap-3">
+            <div className="w-[112px] aspect-video rounded-lg overflow-hidden border border-[#262b52] bg-[#0a0c1c] shrink-0 flex items-center justify-center">
+              {filmPic ? <img src={filmPic} alt="" className="w-full h-full object-cover" /> : <span className="text-[11px]" style={{ color: DIM }}>Stage glow</span>}
+            </div>
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <button type="button" disabled={filmUploading} onClick={() => filmImgRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#05060f] border border-[#262b52] text-white/85 text-[14px] font-semibold disabled:opacity-50">
+                <ImagePlus className="w-4 h-4" /> {filmUploading ? "Uploading..." : fm.image ? "Replace picture" : "Use a different picture"}
+              </button>
+              {fm.image && <button type="button" onClick={() => setFilm({ image: "" })} className="text-left text-[13px] text-white/55 hover:text-white">Use the flyer instead</button>}
+              {!fm.image && <span className="text-[12.5px]" style={{ color: DIM }}>{draft.flyer ? "Using the fan page flyer." : row?.icon_url ? "Using the event picture." : "No picture yet: a stage-glow stand-in shows."}</span>}
+            </div>
+          </div>
+          <input ref={filmImgRef} type="file" accept="image/*" className="hidden" onChange={pickFilmImage} />
+        </>)}
+
+        <button type="button" onClick={() => setFilmPreview(true)} className="mt-4 w-full h-12 rounded-xl text-[15px] font-bold text-[#1a0d00]" style={{ background: "#FFB347" }}>
+          Preview the film
+        </button>
+        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You". Publish to save your changes.</p>
+      </>)}
+      {filmPreview && (
+        <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)}
+          imageUrl={filmPic || null} show={fm.show} fileName="after-the-show-preview" onClose={() => setFilmPreview(false)} />
+      )}
+    </section>
+  );
+
   const countdownTab = draft && (
     <div className="space-y-3">
       <input ref={notchImageRef} type="file" accept="image/*" className="hidden" onChange={pickNotchImage} />
@@ -887,6 +974,7 @@ function OwnerSheet({ showId, onClose }) {
           <Plus className="w-4 h-4" /> Add a notch ({cd.notches.length}/5)
         </button>
       )}
+      {filmSection}
     </div>
   );
 
