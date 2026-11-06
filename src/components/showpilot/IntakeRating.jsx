@@ -26,8 +26,21 @@ export default function IntakeRating({ token, onRate = null }) {
     else setSent(true);
   };
 
+  // The thank-you (job 229): bright, softly glowing like the stars behind it.
   if (sent) {
-    return <p className="mt-6 text-sm text-white/45">Thanks for your feedback!</p>;
+    return (
+      <div className="ir-thanks mt-8 text-center" role="status">
+        <style>{`
+          @keyframes ir-in { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+          @keyframes ir-shine { 0%, 100% { text-shadow: 0 0 10px rgba(255,255,255,0.55), 0 0 26px rgba(170,200,255,0.35); } 50% { text-shadow: 0 0 16px rgba(255,255,255,0.85), 0 0 40px rgba(170,200,255,0.55); } }
+          .ir-thanks p { animation: ir-in 1.1s cubic-bezier(.2,.8,.2,1) both, ir-shine 3.6s ease-in-out 1.1s infinite; }
+          .ir-thanks p + p { animation-delay: .35s, 1.45s; }
+          @media (prefers-reduced-motion: reduce) { .ir-thanks p { animation: none; text-shadow: 0 0 12px rgba(255,255,255,0.6); } }
+        `}</style>
+        <p className="text-white text-[22px] font-semibold leading-snug">We greatly appreciate your feedback.</p>
+        <p className="mt-2 text-white/90 text-[17px] leading-snug">Have a great event and God bless.</p>
+      </div>
+    );
   }
 
   const shown = hover || rating;
