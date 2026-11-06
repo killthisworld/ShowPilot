@@ -420,14 +420,15 @@ export default function IntakeKeyWeb({
 
 // After sending (job 195): the night sky, a big tick, and whatever comes
 // after it (the rating box).
-export function IntakeSent({ seed, title = "Sent!", line, children }) {
+// bare (job 228): just the night sky and children (the set form's feedback step).
+export function IntakeSent({ seed, title = "Sent!", line, children, bare = false }) {
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d] flex items-center justify-center px-4">
       <SkyBack seed={seed} dim={0.3} />
       <div className="so-fade relative text-center max-w-sm w-full py-10" style={{ zIndex: 1 }}>
-        <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: GREEN }} />
-        <h2 className="text-[30px] font-bold mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title}</h2>
-        {line && <p className="text-white/60 text-[15px]">{line}</p>}
+        {!bare && <CheckCircle className="w-16 h-16 mx-auto mb-4" style={{ color: GREEN }} />}
+        {!bare && <h2 className="text-[30px] font-bold mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title}</h2>}
+        {!bare && line && <p className="text-white/60 text-[15px]">{line}</p>}
         {children}
       </div>
     </div>

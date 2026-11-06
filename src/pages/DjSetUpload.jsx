@@ -197,11 +197,12 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   // Sent (job 225): just that, for good.
   if (submitted && !sendOff) {
     const n = tracks.filter((t) => t.title || t.file_id).length;
+    // After an intake: the disc flies, then straight to its feedback form (job 228).
+    if (afterSent) return <IntakeSent seed={token} bare>{afterSent}</IntakeSent>;
     // Centred on the night sky, like the intake form's Sent screen.
     return (
       <IntakeSent seed={token} title="Sent!" line={`Your set is with ${ev.dj_name || "the DJ"}.`}>
         {n > 0 && <p className="mt-3 text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{n} TRACK{n === 1 ? "" : "S"}</p>}
-        {afterSent}
       </IntakeSent>
     );
   }
