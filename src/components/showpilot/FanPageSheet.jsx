@@ -720,6 +720,9 @@ function OwnerSheet({ showId, onClose }) {
       blankNotch(0, "reminder", { subject: `Tonight: ${title}` }),
     ],
   };
+  // Email message boxes (job 232): tall, and they grow with the text so the
+  // whole message reads at once, at the email's own line spacing.
+  const fitBox = (el) => { if (!el) return; el.style.height = "auto"; el.style.height = `${el.scrollHeight + 2}px`; };
   const sortedNotches = [...cd.notches].sort((a, b) => b.days_before - a.days_before || String(a.time).localeCompare(String(b.time)));
   // "18:30" -> "6:30 PM"
   const timeLabel = (t) => {
@@ -838,7 +841,7 @@ function OwnerSheet({ showId, onClose }) {
             <input className={`${inputCls} mt-1.5`} maxLength={150} value={n.subject} onChange={(e) => setNotch(n.id, { subject: e.target.value })}
               placeholder={unlock ? `A notch just turned: ${title}` : n.days_before === 0 ? `Tonight: ${title}` : n.days_before === 1 ? `Tomorrow: ${title}` : `${n.days_before} days to go: ${title}`} />
             {label("MESSAGE (OPTIONAL)", "mt-3")}
-            <textarea className={`${inputCls} mt-1.5 min-h-[80px]`} maxLength={1500} value={n.message} onChange={(e) => setNotch(n.id, { message: e.target.value })}
+            <textarea ref={fitBox} onInput={(e) => fitBox(e.currentTarget)} className={`${inputCls} mt-1.5 min-h-[220px] !leading-[1.45] resize-y`} maxLength={1500} value={n.message} onChange={(e) => setNotch(n.id, { message: e.target.value })}
               placeholder={unlock ? "A line to go with the unlock" : "Anything fans should know. Date, doors, venue and their key are added automatically."} />
 
             {unlock && (
@@ -848,7 +851,7 @@ function OwnerSheet({ showId, onClose }) {
                   {KINDS.map(([k, l]) => chip(n.kind === k, l, () => setNotch(n.id, { kind: k }), k))}
                 </div>
                 <input className={`${inputCls} mt-2.5`} maxLength={80} value={n.title} onChange={(e) => setNotch(n.id, { title: e.target.value })} placeholder="Title fans see, e.g. Three songs we've never played live" />
-                <textarea className={`${inputCls} mt-2 min-h-[90px]`} maxLength={2000} value={n.body} onChange={(e) => setNotch(n.id, { body: e.target.value })} placeholder="The text that unlocks" />
+                <textarea ref={fitBox} onInput={(e) => fitBox(e.currentTarget)} className={`${inputCls} mt-2 min-h-[180px] !leading-[1.45] resize-y`} maxLength={2000} value={n.body} onChange={(e) => setNotch(n.id, { body: e.target.value })} placeholder="The text that unlocks" />
                 <div className="mt-2 flex items-center gap-2.5">
                   {n.image_url && <img src={n.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-[#262b52]" />}
                   <button type="button" disabled={!!uploadingNotch} onClick={() => { setUploadingNotch(n.id); notchImageRef.current?.click(); }}
