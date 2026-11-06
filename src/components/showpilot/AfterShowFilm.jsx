@@ -53,7 +53,9 @@ export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, 
     filmRef.current.play(() => setEnded(true), setProgress);
   }, []);
 
-  // (Re)build the film for the chosen orientation, then play it.
+  // Build the film for the chosen orientation. It plays on open; switching
+  // Vertical / Horizontal afterwards only redraws it (Replay plays it).
+  const opened = useRef(false);
   useEffect(() => {
     let off = false;
     setReady(false);
@@ -64,7 +66,8 @@ export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, 
       filmRef.current?.stop();
       filmRef.current = createFilm(canvasRef.current, { stars, title, dateLine, image: im, show, orientation });
       setReady(true);
-      start();
+      if (!opened.current) { opened.current = true; start(); }
+      else { filmRef.current.still(12); setProgress(0); setEnded(true); }
     });
     return () => { off = true; filmRef.current?.stop(); };
   }, [orientation]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -143,7 +146,7 @@ export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, 
 
         {/* After it ends: Save video, Replay, Back to sky. */}
         {ended && !recording && (
-          <div className="absolute inset-0 flex items-center justify-center p-6">
+          <div className="absolute inset-0 flex items-center justify-center p-6 bg-black/60">
             <div className="w-full max-w-sm flex flex-col items-center gap-3 text-center">
               <div className="text-[11px] tracking-[0.18em]" style={{ fontFamily: SCENE_MONO, color: SUN }}>STELLAR BIRTH</div>
               <div className="text-white text-[22px] font-bold leading-tight" style={{ textWrap: "balance" }}>{title}</div>

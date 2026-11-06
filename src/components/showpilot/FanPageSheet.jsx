@@ -109,7 +109,7 @@ function OwnerSheet({ showId, onClose }) {
   const fileRef = useRef(null);
   const attachRef = useRef(null);
   const desktop = useIsDesktop();
-  const [tab, setTab] = useState("page"); // page | guests | share | setup
+  const [tab, setTab] = useState("page"); // page | guests | share | countdown | film | setup
   const [editing, setEditing] = useState(null); // which part of the page is open
   const [stats, setStats] = useState(null); // local shows stats (job 92)
   const [countdownStats, setCountdownStats] = useState(null); // per-notch sent / opened (job 78)
@@ -802,7 +802,7 @@ function OwnerSheet({ showId, onClose }) {
   };
   const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: fm?.stars === "mixed" ? hashColor(`p${i}x`) : fm?.stars })), [fm?.stars]);
   const filmSection = fm && (
-    <section className="rounded-2xl p-4 mt-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
+    <section className="rounded-2xl p-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
       <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · STELLAR BIRTH</div>
       {note("A short film only fans who RSVP'd get, once the show is over: every star in the sky pulls together into one sun, then your event's picture, name and date. It's emailed to them the morning after (10 AM Eastern), and their sky gets a Watch Stellar Birth button. They can save it vertical or horizontal.")}
       {segmented([[true, "On"], [false, "Off"]], fm.on, (v) => setFilm({ on: v }), "After-the-show film")}
@@ -971,7 +971,6 @@ function OwnerSheet({ showId, onClose }) {
           <Plus className="w-4 h-4" /> Add a notch ({cd.notches.length}/5)
         </button>
       )}
-      {filmSection}
     </div>
   );
 
@@ -980,15 +979,16 @@ function OwnerSheet({ showId, onClose }) {
     { id: "guests", label: "Guests" },
     { id: "share", label: "Share" },
     { id: "countdown", label: "Countdown" },
+    { id: "film", label: "Stellar Birth" },
     { id: "setup", label: "Setup" },
   ];
   const tabBar = (
-    <div role="tablist" aria-label="Fan page" className="flex gap-1 p-1 rounded-full" style={{ background: "rgba(14,17,40,0.85)", border: `1px solid ${EDGE_LINE}` }}>
+    <div role="tablist" aria-label="Fan page" className="flex gap-1 p-1 rounded-full overflow-x-auto" style={{ background: "rgba(14,17,40,0.85)", border: `1px solid ${EDGE_LINE}`, scrollbarWidth: "none" }}>
       {TABS.map((t) => {
         const sel = tab === t.id;
         return (
           <button key={t.id} type="button" role="tab" aria-selected={sel} onClick={() => { setTab(t.id); if (t.id !== "page" && !desktop) setEditing(null); }}
-            className="flex-auto h-9 rounded-full text-[13px] font-bold tracking-[0.01em] transition-colors whitespace-nowrap px-2.5" style={{ background: sel ? G : "transparent", color: sel ? "#0d0d0d" : SOFT }}>
+            className="flex-auto shrink-0 h-9 rounded-full text-[13px] font-bold tracking-[0.01em] transition-colors whitespace-nowrap px-2.5" style={{ background: sel ? (t.id === "film" ? "#FFB347" : G) : "transparent", color: sel ? "#0d0d0d" : t.id === "film" ? "#FFB347" : SOFT }}>
             {t.label}
           </button>
         );
@@ -1061,7 +1061,7 @@ function OwnerSheet({ showId, onClose }) {
   const keepTyping = (e) => {
     if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) e.stopPropagation();
   };
-  const tabContent = { guests: guestsTab, share: shareTab, setup: setupTab, countdown: countdownTab };
+  const tabContent = { guests: guestsTab, share: shareTab, setup: setupTab, countdown: countdownTab, film: filmSection };
 
   if (desktop) {
     // Desktop: tabs across the top; the live preview always on the left, the
