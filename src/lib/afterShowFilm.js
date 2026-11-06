@@ -21,16 +21,21 @@ export const FILM_SECONDS = 17.2;
 const SUN_PX = 900;
 
 const SUN_FS = `precision highp float;
-uniform vec2 res; uniform float t; uniform float k; uniform vec3 tint; uniform float useTint;
-// A host-picked sun color (job 241): keep the sun's light and shade, recolor
-// it from deep shadow through the color to a white-hot core.
+uniform vec2 res; uniform float t; uniform float k; uniform float useTint; uniform float hueShift; uniform float satScale;
+// A host-picked sun color (job 241/242): turn the natural sun's hue toward the
+// picked one in YIQ space. Brightness and contrast stay exactly as they were,
+// so the boiling cells, spots, limb darkening and flames read the same in any
+// color; only the hue (and, for pale picks, the saturation) changes.
 vec3 tinted(vec3 c){
-  float L=dot(c,vec3(.35,.5,.15));
-  vec3 lo=tint*.25, hi=mix(tint,vec3(1.),.62);
-  vec3 o=mix(lo,tint,smoothstep(.02,.5,L));
-  // fades to nothing where the original was dark, so the sun's square
-  // canvas never shows
-  return mix(o,hi,smoothstep(.62,1.15,L))*smoothstep(0.,.14,L)*1.1;
+  float Y=dot(c,vec3(.299,.587,.114));
+  float I=dot(c,vec3(.596,-.274,-.322));
+  float Q=dot(c,vec3(.211,-.523,.312));
+  float cs=cos(hueShift), sn=sin(hueShift);
+  float I2=(I*cs-Q*sn)*satScale, Q2=(I*sn+Q*cs)*satScale;
+  vec3 o=vec3(Y+.956*I2+.621*Q2, Y-.272*I2-.647*Q2, Y-1.106*I2+1.703*Q2);
+  // keep the white-hot core white-hot
+  float hot=smoothstep(.85,1.2,Y);
+  return max(mix(o,vec3(Y),hot*.35),0.);
 }
 vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
 vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}
@@ -122,8 +127,16 @@ function makeSun(tintHex) {
   const uT = gl.getUniformLocation(pr, "t"), uK = gl.getUniformLocation(pr, "k");
   gl.uniform2f(gl.getUniformLocation(pr, "res"), SUN_PX, SUN_PX); gl.viewport(0, 0, SUN_PX, SUN_PX);
   const rgb = hexRgb(tintHex);
-  gl.uniform3f(gl.getUniformLocation(pr, "tint"), rgb ? rgb[0] / 255 : 1, rgb ? rgb[1] / 255 : .7, rgb ? rgb[2] / 255 : .28);
+  // How far to turn the natural sun's hue (its mid-tone orange) to reach the
+  // picked color, and how saturated to keep it (white / grey picks go pale).
+  const yiq = ([r, g, b]) => [.596 * r - .274 * g - .322 * b, .211 * r - .523 * g + .312 * b];
+  const [ri, rq] = yiq([1, .55, .15]);
+  const [ti, tq] = rgb ? yiq(rgb.map((v) => v / 255)) : [ri, rq];
+  const shift = Math.atan2(tq, ti) - Math.atan2(rq, ri);
+  const sat = Math.min(1.25, Math.hypot(ti, tq) / Math.hypot(ri, rq));
   gl.uniform1f(gl.getUniformLocation(pr, "useTint"), rgb ? 1 : 0);
+  gl.uniform1f(gl.getUniformLocation(pr, "hueShift"), shift);
+  gl.uniform1f(gl.getUniformLocation(pr, "satScale"), sat);
   return {
     canvas: c,
     render(t, k) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.uniform1f(uT, t); gl.uniform1f(uK, k); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); },
