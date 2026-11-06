@@ -497,10 +497,10 @@ export default function EventSky() {
   const filmProps = useMemo(() => {
     if (!film) return null;
     const cfg = film.config || {};
-    const one = /^#[0-9a-f]{6}$/i.test(cfg.stars || "") ? cfg.stars : null;
     const title = String(cfg.title || "").trim() || sky?.event?.event_name || sky?.event?.band_name || "Tonight";
     return {
-      stars: stars.map((s0) => ({ id: s0.id, me: s0.id === sky?.me?.id, color: one || hashColor(s0.id) })),
+      stars: stars.map((s0) => ({ id: s0.id, me: s0.id === sky?.me?.id, color: hashColor(s0.id) })),
+      sun: /^#[0-9a-f]{6}$/i.test(cfg.sun || "") ? cfg.sun : null,
       title,
       dateLine: filmDateLine(film.date, film.venue),
       imageUrl: film.image || null,

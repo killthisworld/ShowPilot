@@ -140,7 +140,9 @@ function OwnerSheet({ showId, onClose }) {
       // After-the-show film (job 239).
       film: {
         on: cfg.film?.on !== false,
-        stars: /^#[0-9a-f]{6}$/i.test(cfg.film?.stars || "") ? cfg.film.stars : "mixed",
+        // The sun's color (job 241); blank = the natural sun. Stars always
+        // keep each fan's own sky color.
+        sun: /^#[0-9a-f]{6}$/i.test(cfg.film?.sun || "") ? cfg.film.sun : "",
         show: { you: true, header: true, name: true, date: true, ...(cfg.film?.show || {}) },
         title: cfg.film?.title || "",
         image: cfg.film?.image || "",
@@ -282,7 +284,7 @@ function OwnerSheet({ showId, onClose }) {
           capacity,
           discover: draft.discover,
           qr: draft.qr,
-          film: { on: draft.film.on, stars: /^#[0-9a-f]{6}$/i.test(draft.film.stars) ? draft.film.stars : "mixed", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
+          film: { on: draft.film.on, sun: /^#[0-9a-f]{6}$/i.test(draft.film.sun) ? draft.film.sun : "", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
         fan_countdown: {
@@ -800,19 +802,20 @@ function OwnerSheet({ showId, onClose }) {
     try { setFilm({ image: await uploadIconImage(file) }); } catch { setErr("Couldn't upload the picture."); }
     setFilmUploading(false);
   };
-  const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: fm?.stars === "mixed" ? hashColor(`p${i}x`) : fm?.stars })), [fm?.stars]);
+  const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: hashColor(`p${i}x`) })), []);
   const filmSection = fm && (
     <section className="rounded-2xl p-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
       <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · STELLAR BIRTH</div>
       {note("A short film only fans who RSVP'd get, once the show is over: every star in the sky pulls together into one sun, then your event's picture, name and date. It's emailed to them the morning after (10 AM Eastern), and their sky gets a Watch Stellar Birth button. They can save it vertical or horizontal.")}
       {segmented([[true, "On"], [false, "Off"]], fm.on, (v) => setFilm({ on: v }), "After-the-show film")}
       {fm.on && (<>
-        {label("STAR COLOR")}
+        {label("SUN COLOR")}
         <div className="mt-1.5 flex flex-wrap gap-3 items-center">
-          <ColorPicker value={fm.stars === "mixed" ? "" : fm.stars} onChange={(c) => setFilm({ stars: String(c).toUpperCase() })}
-            label={fm.stars === "mixed" ? "Each fan's own color" : "Star color"} contentClassName="z-[130]" />
-          {fm.stars !== "mixed" && <button type="button" onClick={() => setFilm({ stars: "mixed" })} className="text-[13px] text-white/55 hover:text-white">Use each fan's own color</button>}
+          <ColorPicker value={fm.sun || "#FFB347"} onChange={(c) => setFilm({ sun: String(c).toUpperCase() })}
+            label={fm.sun ? "Sun color" : "Natural sun"} contentClassName="z-[130]" />
+          {fm.sun && <button type="button" onClick={() => setFilm({ sun: "" })} className="text-[13px] text-white/55 hover:text-white">Use the natural sun</button>}
         </div>
+        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The sun, its glow and the blast take this color. Each fan's star keeps its own color from the sky.</p>
 
         {label("WHAT IT SHOWS")}
         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -851,7 +854,7 @@ function OwnerSheet({ showId, onClose }) {
       </>)}
       {filmPreview && (
         <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)}
-          imageUrl={filmPic || null} show={fm.show} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
+          imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
       )}
     </section>
   );

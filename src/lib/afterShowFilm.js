@@ -8,6 +8,7 @@
 //
 // stars:    [{ id, color, me }]   (color "#rrggbb")
 // show:     { you, header, name, date } booleans (all on by default)
+// sun:      "#rrggbb" to recolor the sun (and its glow and blast); none = natural
 // orientation: "portrait" (1080x1920, default) or "landscape" (1920x1080)
 // image:    an <img> or <canvas> for the header card, or null for a stand-in
 //
@@ -20,7 +21,17 @@ export const FILM_SECONDS = 17.2;
 const SUN_PX = 900;
 
 const SUN_FS = `precision highp float;
-uniform vec2 res; uniform float t; uniform float k;
+uniform vec2 res; uniform float t; uniform float k; uniform vec3 tint; uniform float useTint;
+// A host-picked sun color (job 241): keep the sun's light and shade, recolor
+// it from deep shadow through the color to a white-hot core.
+vec3 tinted(vec3 c){
+  float L=dot(c,vec3(.35,.5,.15));
+  vec3 lo=tint*.25, hi=mix(tint,vec3(1.),.62);
+  vec3 o=mix(lo,tint,smoothstep(.02,.5,L));
+  // fades to nothing where the original was dark, so the sun's square
+  // canvas never shows
+  return mix(o,hi,smoothstep(.62,1.15,L))*smoothstep(0.,.14,L)*1.1;
+}
 vec3 mod289(vec3 x){return x-floor(x*(1./289.))*289.;}
 vec4 mod289(vec4 x){return x-floor(x*(1./289.))*289.;}
 vec4 permute(vec4 x){return mod289(((x*34.)+1.)*x);}
@@ -90,10 +101,11 @@ void main(){
   vec3 cc2=(vec3(1.,.42,.06)*flame*1.7+vec3(1.,.62,.24)*loops*1.4+vec3(1.,.55,.18)*glow*.55)*edge;
   vec3 outC=col*al+cc2*(1.-al);
   float outA=max(al, clamp(max(max(cc2.r,cc2.g),cc2.b),0.,1.));
+  if(useTint>.5) outC=tinted(outC);
   gl_FragColor=vec4(outC*k, outA*k);
 }`;
 
-function makeSun() {
+function makeSun(tintHex) {
   const c = document.createElement("canvas"); c.width = SUN_PX; c.height = SUN_PX;
   const gl = c.getContext("webgl", { premultipliedAlpha: true, alpha: true, preserveDrawingBuffer: true });
   if (!gl) return null;
@@ -109,6 +121,9 @@ function makeSun() {
   const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   const uT = gl.getUniformLocation(pr, "t"), uK = gl.getUniformLocation(pr, "k");
   gl.uniform2f(gl.getUniformLocation(pr, "res"), SUN_PX, SUN_PX); gl.viewport(0, 0, SUN_PX, SUN_PX);
+  const rgb = hexRgb(tintHex);
+  gl.uniform3f(gl.getUniformLocation(pr, "tint"), rgb ? rgb[0] / 255 : 1, rgb ? rgb[1] / 255 : .7, rgb ? rgb[2] / 255 : .28);
+  gl.uniform1f(gl.getUniformLocation(pr, "useTint"), rgb ? 1 : 0);
   return {
     canvas: c,
     render(t, k) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.uniform1f(uT, t); gl.uniform1f(uK, k); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); },
@@ -127,6 +142,16 @@ function starSprite(color) {
   core.addColorStop(0, "rgba(255,255,255,1)"); core.addColorStop(1, "rgba(255,255,255,0)");
   g.fillStyle = core; g.fillRect(0, 0, s, s);
   return c;
+}
+function shade(hex, f) {
+  const c = hexRgb(hex) || [255, 255, 255];
+  return "#" + c.map((v) => Math.round(v * f).toString(16).padStart(2, "0")).join("");
+}
+function hexRgb(hex) {
+  const h = String(hex || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 function hexA(hex, a) {
   const h = String(hex || "#ffffff").replace("#", "");
@@ -162,7 +187,11 @@ export function createFilm(canvas, opts = {}) {
   const W = land ? FILM_H : FILM_W, H = land ? FILM_W : FILM_H, DUR = FILM_SECONDS;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
-  const sun = makeSun();
+  const sunHex = hexRgb(opts.sun) ? opts.sun : null;
+  const sun = makeSun(sunHex);
+  const glowRgb = hexRgb(sunHex) || [255, 140, 40];
+  const G3 = (hexRgb(sunHex) || [255, 170, 80]).join(",");
+  const soft = sunHex ? hexRgb(sunHex).map((v) => Math.round(v + (255 - v) * .6)).join(",") : "255,214,160";
   const show = { you: true, header: true, name: true, date: true, ...(opts.show || {}) };
   const title = String(opts.title || "Tonight");
   const dateLine = String(opts.dateLine || "");
@@ -176,8 +205,9 @@ export function createFilm(canvas, opts = {}) {
   const SUN_X = land ? W * .29 : W / 2, SUN_Y = land ? H / 2 : 700, SUN_DRAW = land ? 1040 : 1180;
   // The event's column: centered under the sun (portrait) or to its right.
   const EV_X = land ? W * .7 : W / 2;
-  const CARD = land ? { w: 780, h: 439, y: 150 } : { w: 860, h: 484, y: 1150 };
-  const TITLE_Y = land ? 730 : 1745, TITLE_Y_BARE = land ? 520 : 1400, TEXT_W = land ? 840 : 940;
+  // Landscape: the card, name and date sit as one block centered top to bottom.
+  const CARD = land ? { w: 780, h: 439, y: Math.round((H - (439 + 200)) / 2) } : { w: 860, h: 484, y: 1150 };
+  const TITLE_Y = land ? CARD.y + CARD.h + 120 : 1745, TITLE_Y_BARE = land ? H / 2 : 1400, TEXT_W = land ? 840 : 940;
   const list = (opts.stars && opts.stars.length ? opts.stars : [{ id: "you", color: "#8CFF3D", me: true }]).slice(0, 400);
   const n = list.length;
   const cx = W / 2, cy = land ? H / 2 : 820, rx = W * (land ? .46 : .44), ry = land ? H * .42 : 620;
@@ -310,7 +340,7 @@ export function createFilm(canvas, opts = {}) {
   // The blast after the collapse: a soft shock front (no hard line), an
   // uneven shell of hot plasma that cools from white to deep orange as it
   // spreads, light rays, and a lens streak across the flash.
-  const hot = sprite("#fff2d6"), warm = sprite("#ffb04a"), deep = sprite("#ff5a1f");
+  const hot = sprite("#fff2d6"), warm = sprite(sunHex || "#ffb04a"), deep = sprite(sunHex ? shade(sunHex, .55) : "#ff5a1f");
   function blast(t) {
     const b = seg(t, 5.3, 7.4), e = easeOut(b), fadeB = 1 - b;
     ctx.globalCompositeOperation = "lighter";
@@ -319,8 +349,8 @@ export function createFilm(canvas, opts = {}) {
     const R = 60 + e * 1250;
     const sA = Math.pow(fadeB, 2);
     const sg = ctx.createRadialGradient(SUN_X, SUN_Y, R * .35, SUN_X, SUN_Y, R * 1.12);
-    sg.addColorStop(0, "rgba(255,170,80,0)");
-    sg.addColorStop(.6, `rgba(255,170,90,${.07 * sA})`);
+    sg.addColorStop(0, `rgba(${G3},0)`);
+    sg.addColorStop(.6, `rgba(${G3},${.07 * sA})`);
     sg.addColorStop(.86, `rgba(255,215,170,${.16 * sA})`);
     sg.addColorStop(1, "rgba(255,200,140,0)");
     ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(SUN_X, SUN_Y, R * 1.12, 0, 6.283); ctx.fill();
@@ -388,7 +418,7 @@ export function createFilm(canvas, opts = {}) {
       const grow = easeOut(seg(t, 5.3, 6.8)), k = seg(t, 5.3, 5.9);
       const s = SUN_DRAW * (.15 + .85 * grow + Math.sin(seg(t, 5.3, 7.2) * Math.PI) * .05);
       const bl = ctx.createRadialGradient(SUN_X, SUN_Y, s * .2, SUN_X, SUN_Y, s * .75);
-      bl.addColorStop(0, `rgba(255,140,40,${.28 * k})`); bl.addColorStop(1, "rgba(255,120,30,0)");
+      bl.addColorStop(0, `rgba(${glowRgb.join(",")},${.28 * k})`); bl.addColorStop(1, `rgba(${glowRgb.join(",")},0)`);
       ctx.fillStyle = bl; ctx.beginPath(); ctx.arc(SUN_X, SUN_Y, s * .75, 0, 6.283); ctx.fill();
       if (sun) { sun.render(t + 2, k); ctx.drawImage(sun.canvas, SUN_X - s / 2, SUN_Y - s / 2, s, s); }
       else {
@@ -411,7 +441,7 @@ export function createFilm(canvas, opts = {}) {
       if (hIn > 0) {
         const cw = CARD.w, ch = CARD.h, x = EV_X - cw / 2, y = CARD.y + (1 - hIn) * 70;
         ctx.save(); ctx.globalAlpha = hIn;
-        ctx.shadowColor = "rgba(255,150,50,.35)"; ctx.shadowBlur = 60;
+        ctx.shadowColor = `rgba(${G3},.35)`; ctx.shadowBlur = 60;
         roundRect(x, y, cw, ch, 28); ctx.fillStyle = "#111"; ctx.fill(); ctx.shadowBlur = 0;
         ctx.save(); roundRect(x, y, cw, ch, 28); ctx.clip(); drawCover(header, x, y, cw, ch); ctx.restore();
         ctx.strokeStyle = "rgba(255,255,255,.16)"; ctx.lineWidth = 2; roundRect(x, y, cw, ch, 28); ctx.stroke();
@@ -423,7 +453,7 @@ export function createFilm(canvas, opts = {}) {
       const nIn = easeOut(seg(t, nT, nT + 1.2));
       if (nIn > 0) {
         ctx.save(); ctx.globalAlpha = nIn; ctx.textAlign = "center"; ctx.fillStyle = "#fff";
-        ctx.shadowColor = "rgba(255,170,80,.45)"; ctx.shadowBlur = 24;
+        ctx.shadowColor = `rgba(${G3},.45)`; ctx.shadowBlur = 24;
         fitText(title.toUpperCase(), EV_X, textY + (1 - nIn) * 26, TEXT_W, 104);
         ctx.restore();
       }
@@ -431,7 +461,7 @@ export function createFilm(canvas, opts = {}) {
     if (show.date && dateLine) {
       const dIn = easeOut(seg(t, nT + .8, nT + 1.8));
       if (dIn > 0) {
-        ctx.save(); ctx.globalAlpha = dIn; ctx.textAlign = "center"; ctx.fillStyle = "rgba(255,214,160,.92)";
+        ctx.save(); ctx.globalAlpha = dIn; ctx.textAlign = "center"; ctx.fillStyle = `rgba(${soft},.92)`;
         ctx.font = '500 32px "IBM Plex Mono", ui-monospace, Menlo, monospace';
         if ("letterSpacing" in ctx) ctx.letterSpacing = "5px";
         ctx.fillText(dateLine.toUpperCase(), EV_X, (show.name ? textY + 67 : textY) + (1 - dIn) * 16, TEXT_W);

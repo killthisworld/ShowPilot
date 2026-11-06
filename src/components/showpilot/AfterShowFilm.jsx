@@ -35,7 +35,7 @@ function loadFonts() {
   return fontsReady;
 }
 
-export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, fileName = "stellar-birth", onClose, preview = false }) {
+export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, sun = null, fileName = "stellar-birth", onClose, preview = false }) {
   const canvasRef = useRef(null);
   const filmRef = useRef(null);
   const imgRef = useRef(undefined);
@@ -64,7 +64,7 @@ export default function AfterShowFilm({ stars, title, dateLine, imageUrl, show, 
       imgRef.current = im;
       if (off || !canvasRef.current) return;
       filmRef.current?.stop();
-      filmRef.current = createFilm(canvasRef.current, { stars, title, dateLine, image: im, show, orientation });
+      filmRef.current = createFilm(canvasRef.current, { stars, title, dateLine, image: im, show, orientation, sun });
       setReady(true);
       if (!opened.current) { opened.current = true; start(); }
       else { filmRef.current.still(12); setProgress(0); setEnded(true); }
