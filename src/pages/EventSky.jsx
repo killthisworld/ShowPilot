@@ -4,7 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { hashColor, hashString, seededRandom } from "@/lib/constellation";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import SkyKey from "@/components/showpilot/SkyKey";
-import GalaxyCanvas from "@/components/showpilot/GalaxyCanvas";
+import NightSky from "@/components/showpilot/NightSky";
 import useFanToken from "@/lib/useFanToken";
 
 // /e/:token/sky?k=<sky key>  (public, no login)
@@ -114,46 +114,6 @@ const KIND_LABEL = {
 };
 const notchWhen = (d) => (d === 0 ? "SHOW DAY" : d === 1 ? "DAY BEFORE" : d === 7 ? "1 WEEK" : d === 14 ? "2 WEEKS" : `${d} DAYS`);
 const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
-
-// A row of notches under the title: turned ones glow, unlocks can be opened,
-// locked ones show the day they turn. The show-day pass sits at the end.
-function CountdownStrip({ notches, passOpen, showDay, color, seen, onOpen }) {
-  const turned = notches.filter((n) => n.open).length;
-  return (
-    <div className="shrink-0 px-5 pb-1">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>COUNTDOWN · {turned} OF {notches.length} TURNED</span>
-      </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {notches.map((n) => {
-          const unlock = n.type === "unlock";
-          const isNew = n.open && unlock && !n.seen && !seen[n.id];
-          const clickable = n.open && unlock;
-          return (
-            <button key={n.id} type="button" disabled={!clickable} onClick={() => clickable && onOpen(n)}
-              aria-label={n.open ? (unlock ? `Open ${KIND_LABEL[n.kind] || "unlock"}` : "Reminder sent") : `Turns ${shortDate(n.opens_at)}`}
-              className="relative shrink-0 min-w-[86px] max-w-[150px] rounded-xl px-2.5 py-2 text-left"
-              style={{
-                background: n.open ? (unlock ? `${color}1f` : "rgba(255,255,255,0.06)") : "rgba(8,10,28,0.7)",
-                border: `1px solid ${n.open ? (unlock ? `${color}99` : "rgba(255,255,255,0.18)") : "rgba(255,255,255,0.1)"}`,
-                boxShadow: isNew ? `0 0 14px ${color}66` : "none",
-              }}>
-              <span className="block text-[10px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: n.open ? color : "rgba(255,255,255,0.45)" }}>{notchWhen(n.days_before)}</span>
-              <span className="block text-[13px] font-bold leading-tight mt-0.5 text-white truncate">
-                {n.open ? (unlock ? (n.title || KIND_LABEL[n.kind] || "Unlocked") : "Reminder") : `🔒 ${shortDate(n.opens_at)}`}
-              </span>
-              {isNew && <span className="absolute -top-1.5 -right-1.5 px-1.5 rounded-full text-[9px] font-bold tracking-[0.08em] text-[#0d0d0d]" style={{ background: color, fontFamily: SCENE_MONO }}>NEW</span>}
-            </button>
-          );
-        })}
-        <span className="shrink-0 min-w-[86px] rounded-xl px-2.5 py-2" style={{ background: passOpen ? `${color}1f` : "rgba(8,10,28,0.7)", border: `1px solid ${passOpen ? `${color}99` : "rgba(255,255,255,0.1)"}` }}>
-          <span className="block text-[10px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: passOpen ? color : "rgba(255,255,255,0.45)" }}>SHOW DAY</span>
-          <span className="block text-[13px] font-bold leading-tight mt-0.5 text-white">{passOpen ? "Your pass" : `🔒 ${shortDate(showDay + "T12:00:00")}`}</span>
-        </span>
-      </div>
-    </div>
-  );
-}
 
 // What a turned Unlock notch reveals: text, an image and/or a link.
 function UnlockPanel({ notch, color, onClose }) {
@@ -532,7 +492,7 @@ export default function EventSky() {
   const minePost = sky?.me?.post_today || null;
 
   return (
-    <div className="sky-root fixed inset-x-0 top-0 overflow-hidden bg-[#03040c] text-white" style={{ fontFamily: SCENE_FONT }}>
+    <div className="sky-root fixed inset-x-0 top-0 overflow-hidden bg-black text-white" style={{ fontFamily: SCENE_FONT }}>
       <style>{`
         .sky-root { height: 100vh; height: 100dvh; }
         @keyframes skyMePulse { 0%,100% { transform: scale(1); opacity: .85 } 50% { transform: scale(1.45); opacity: 1 } }
@@ -542,8 +502,10 @@ export default function EventSky() {
       `}</style>
 
       {/* The sky fades and settles into view as the key opens. */}
+      {/* The moving night sky with shooting stars, like the other star pages
+          (job 237). */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 isolate"
         style={{
           opacity: revealing ? 1 : 0.35,
           transform: open ? "scale(1)" : "scale(1.08)",
@@ -551,7 +513,7 @@ export default function EventSky() {
           transition: "opacity 1200ms ease, transform 1600ms cubic-bezier(.2,.8,.2,1), filter 1400ms ease",
         }}
       >
-        <GalaxyCanvas seed={token} />
+        <NightSky seed={token} dim={0.1} />
       </div>
 
       {/* Key overlay */}
@@ -579,14 +541,24 @@ export default function EventSky() {
         // height (short phones, in-app browsers, long event names) the text
         // takes what it needs and the stars fill only the space left.
         <div className="absolute inset-0 flex flex-col">
-          <div className="shrink-0 px-5 pt-5 pb-3" style={{ background: "linear-gradient(180deg, rgba(3,4,12,0.75), rgba(3,4,12,0))" }}>
+          <div className="shrink-0 px-5 pt-5 pb-3" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.75), rgba(0,0,0,0))" }}>
             <h1 className="font-bold leading-[0.95] line-clamp-2" style={{ fontSize: "clamp(26px, 8.5vw, 34px)" }}>{ev?.event_name || ev?.band_name || "Tonight"}</h1>
             {(dateLabel || ev?.venue) && <p className="mt-1.5 text-[15px] text-white/65 truncate">{[dateLabel, ev?.venue].filter(Boolean).join(" at ")}</p>}
+            {/* Job 237: the three actions under the title, each its own color. */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                [minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky", () => setComposing(true), color],
+                ["Message the host", () => setAsking(true), "#60A5FA"],
+                ["Event details", () => { window.location.href = pageHref; }, "#C084FC"],
+              ].map(([label, go, c]) => (
+                <button key={c} type="button" onClick={go}
+                  className="h-10 px-4 rounded-full text-[14px] font-bold whitespace-nowrap backdrop-blur-sm hover:brightness-125"
+                  style={{ color: c, background: `${c}1f`, border: `1.5px solid ${c}99`, boxShadow: `0 0 14px ${c}26` }}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-
-          {countdown && notches.length > 0 && (
-            <CountdownStrip notches={notches} passOpen={passOpen} showDay={countdown.show_day} color={color} seen={seenNow} onOpen={openUnlock} />
-          )}
 
           {/* Stars fill the space between the title and the footer. */}
           <div ref={fieldRef} className="relative flex-1 min-h-[160px] mx-7 my-3" onClick={() => setSelected(null)}>
@@ -626,20 +598,13 @@ export default function EventSky() {
             )}
           </div>
 
-          <div className="shrink-0 px-5 pt-3 pb-5" style={{ background: "linear-gradient(0deg, rgba(3,4,12,0.85), rgba(3,4,12,0))" }}>
+          <div className="shrink-0 px-5 pt-3 pb-5" style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.85), rgba(0,0,0,0))" }}>
             <p className="font-bold leading-tight" style={{ fontSize: "clamp(17px, 5.2vw, 20px)" }}>
               {stars.length} {stars.length === 1 ? "star" : "stars"} in the sky, {sky.people} {sky.people === 1 ? "person" : "people"} coming
             </p>
             <p className="mt-0.5 text-[15px] leading-snug text-white/60">
               {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
             </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
-              <button type="button" onClick={() => setComposing(true)} className="h-10 px-4 rounded-full text-[14px] font-bold text-[#0d0d0d]" style={{ background: color }}>
-                {minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky"}
-              </button>
-              <button type="button" onClick={() => setAsking(true)} className="text-[13px] text-white/70 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Message the host</button>
-              <a href={pageHref} className="text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
-            </div>
           </div>
         </div>
       )}
