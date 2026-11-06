@@ -61,7 +61,8 @@ export function intakeCorners({ services, asksTracks, form, update, icons }) {
 // Right after sending, for an act that has tracks: their set form for this
 // event (made on the server).
 // Returns null (so the page shows its usual Sent screen) when there's no slot.
-export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
+// afterSent: shown under the set's Sent screen (the intake's feedback form; job 227).
+export function IntakeTracksAfter({ token, kind, sentLine, fallback, afterSent = null }) {
   const [slot, setSlot] = useState(undefined); // undefined = loading, null = none
   useEffect(() => {
     let alive = true;
@@ -80,7 +81,7 @@ export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
 
   // Straight into their set form (no "Now your tracks" banner or "I'll do
   // this later"; Jay, Nov 6). Sending it is one time and ends on the Sent sky.
-  return <DjSetUpload tokenOverride={slot} />;
+  return <DjSetUpload tokenOverride={slot} afterSent={afterSent} />;
 }
 
 // An act that answered No: remembered for the sender.

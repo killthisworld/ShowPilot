@@ -435,7 +435,7 @@ export default function TourManagerIntake({ link } = {}) {
     );
     // Said they have tracks: straight into their set form (job 74, Nov 5).
     if (asksTracks && form.has_tracks === true) {
-      return <IntakeTracksAfter token={token} kind="tm" sentLine={`Your event info went to ${engineerName}.`} fallback={sentScreen} />;
+      return <IntakeTracksAfter token={token} kind="tm" sentLine={`Your event info went to ${engineerName}.`} fallback={sentScreen} afterSent={<IntakeRating token={token} />} />;
     }
     return sentScreen;
   }

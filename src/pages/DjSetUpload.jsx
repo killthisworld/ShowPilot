@@ -27,7 +27,8 @@ const titleFromFile = (name) => name.replace(/\.wav$/i, "").replace(/^\d+[\s._-]
 // Embeddable too: <DjSetUpload tokenOverride="..." embedded onDone={fn} />
 // (e.g. right after an intake form) uses that token and leaves out the
 // full-page wrapper.
-export default function DjSetUpload({ tokenOverride = null, embedded = false, onDone = null } = {}) {
+// afterSent: shown under the Sent screen (after an intake: its feedback form; job 227).
+export default function DjSetUpload({ tokenOverride = null, embedded = false, onDone = null, afterSent = null } = {}) {
   const params = useParams();
   const token = tokenOverride || params.token;
   const [editName, setEditName] = useState(false);
@@ -200,6 +201,7 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
     return (
       <IntakeSent seed={token} title="Sent!" line={`Your set is with ${ev.dj_name || "the DJ"}.`}>
         {n > 0 && <p className="mt-3 text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{n} TRACK{n === 1 ? "" : "S"}</p>}
+        {afterSent}
       </IntakeSent>
     );
   }

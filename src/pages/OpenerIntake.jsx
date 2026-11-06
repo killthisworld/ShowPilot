@@ -258,7 +258,7 @@ export default function OpenerIntake({ link } = {}) {
     );
     // Said they have tracks: straight into their set form (job 74, Nov 5).
     if (submitted && asksTracks && form.has_tracks === true) {
-      return <IntakeTracksAfter token={token} kind="opener" sentLine="Your set info is on the event." fallback={sentScreen} />;
+      return <IntakeTracksAfter token={token} kind="opener" sentLine="Your set info is on the event." fallback={sentScreen} afterSent={<IntakeRating token={token} />} />;
     }
     return sentScreen;
   }
