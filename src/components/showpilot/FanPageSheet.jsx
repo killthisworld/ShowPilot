@@ -88,6 +88,8 @@ const EDGE_LINE = "#232849";
 const PANEL = "rgba(14,17,40,0.92)";
 const SOFT = "#b7bbe6";
 const DIM = "#7e83b8";
+// Countdown emails per event, before and after the show together (job 244).
+const MAX_NOTCHES = 6;
 const Y = "#F2FF00";
 
 // Owner-only fan page editor (job 90). The fan page itself is the editor: a
@@ -153,8 +155,10 @@ function OwnerSheet({ showId, onClose }) {
       // Countdown (job 78): its own column, so unlocks never reach the public page early.
       countdown: {
         enabled: data.fan_countdown?.enabled === true,
-        notches: Array.isArray(data.fan_countdown?.notches) ? data.fan_countdown.notches.slice(0, 5).map((n) => ({
-          id: String(n.id || `n${Math.random().toString(36).slice(2, 8)}`), days_before: Math.max(0, Math.min(30, Number(n.days_before) || 0)),
+        notches: Array.isArray(data.fan_countdown?.notches) ? data.fan_countdown.notches.slice(0, MAX_NOTCHES).map((n) => ({
+          // below zero = after the show (job 244)
+          id: String(n.id || `n${Math.random().toString(36).slice(2, 8)}`), days_before: Math.max(-30, Math.min(30, Number(n.days_before) || 0)),
+          film: n.film === true,
           time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(n.time || "")) ? n.time : "10:00",
           type: n.type === "unlock" ? "unlock" : "reminder", subject: n.subject || "", message: n.message || "", kind: n.kind || "",
           title: n.title || "", body: n.body || "", image_url: n.image_url || "", link_url: n.link_url || "",
@@ -289,8 +293,9 @@ function OwnerSheet({ showId, onClose }) {
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
         fan_countdown: {
           enabled: draft.countdown.enabled,
-          notches: draft.countdown.notches.slice(0, 5).map((n) => ({
-            id: n.id, days_before: n.days_before, time: /^([01]\d|2[0-3]):[0-5]\d$/.test(n.time || "") ? n.time : "10:00", type: n.type,
+          notches: draft.countdown.notches.slice(0, MAX_NOTCHES).map((n) => ({
+            id: n.id, days_before: n.days_before, time: /^([01]\d|2[0-3]):[0-5]\d$/.test(n.time || "") ? n.time : "10:00",
+            type: n.days_before < 0 ? "reminder" : n.type, film: n.days_before < 0 && n.film === true,
             subject: n.subject.trim().slice(0, 150), message: n.message.trim().slice(0, 1500),
             kind: n.type === "unlock" ? n.kind || "note" : "", title: n.title.trim().slice(0, 80), body: n.body.trim().slice(0, 2000),
             image_url: n.image_url, link_url: n.link_url.trim(),
@@ -730,7 +735,7 @@ function OwnerSheet({ showId, onClose }) {
   const setCd = (patch) => set({ countdown: { ...cd, ...patch } });
   const setNotch = (id, patch) => setCd({ notches: cd.notches.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
   const newNotchId = () => `n${Math.random().toString(36).slice(2, 8)}`;
-  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, time: "10:00", type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", ...extra });
+  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, time: "10:00", type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", film: false, ...extra });
   const QUICK = {
     reminder: () => [blankNotch(1, "reminder", { subject: `Get ready for ${title}` })],
     full: () => [
@@ -767,8 +772,10 @@ function OwnerSheet({ showId, onClose }) {
   // Hidden when the show is today (Morning of covers it) or over 30 days out.
   const todayEt = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   const todayDays = row?.date ? Math.round((Date.parse(row.date + "T00:00:00Z") - Date.parse(todayEt + "T00:00:00Z")) / 86400000) : null;
-  const showTodayPick = todayDays != null && todayDays >= 1 && todayDays <= 30;
+  const showTodayPick = todayDays != null && todayDays !== 0 && todayDays >= -30 && todayDays <= 30;
   const HYPE_LEVELS = [["👀", "Curious"], ["🙂", "Ready"], ["🔥", "Hyped"], ["🚀", "So hyped"], ["🤯", "Losing it"]];
+  const AFTER_PICKS = [[-1, "Day after"], [-2, "2 days after"], [-7, "1 week after"]];
+  const dayWords = (d) => (d === 0 ? "morning of" : d < 0 ? `${-d} ${d === -1 ? "day" : "days"} after` : `${d} ${d === 1 ? "day" : "days"} before`);
   const DAY_PICKS = [[0, "Morning of"], [1, "Day before"], [3, "3 days"], [7, "1 week"], [14, "2 weeks"]];
   const KINDS = [["note", "Artist note"], ["setlist", "Setlist tease"], ["playlist", "Playlist"], ["bts", "Behind the scenes"], ["doors", "Doors & parking"], ["merch", "Merch first look"]];
   const [uploadingNotch, setUploadingNotch] = useState(null);
@@ -793,6 +800,25 @@ function OwnerSheet({ showId, onClose }) {
   const filmImgRef = useRef(null);
   const fm = draft?.film;
   const setFilm = (patch) => set({ film: { ...fm, ...patch } });
+  // Update just the film settings (job 244), without publishing anything else
+  // that's still being edited on the other tabs.
+  const filmClean = (f) => ({ on: f.on, sun: /^#[0-9a-f]{6}$/i.test(f.sun || "") ? f.sun : "", show: f.show, title: String(f.title || "").trim().slice(0, 60), image: f.image || "" });
+  const filmChanged = !!(fm && saved && JSON.stringify(filmClean(fm)) !== JSON.stringify(filmClean(saved.film)));
+  const [filmSaving, setFilmSaving] = useState(false);
+  const [filmSaved, setFilmSaved] = useState(false);
+  const saveFilm = async () => {
+    if (!row || filmSaving) return;
+    setFilmSaving(true); setErr("");
+    const { data, error } = await supabase.from("shows").update({ fan_page: { ...(row.fan_page || {}), film: filmClean(fm) } }).eq("id", showId).select(SELECT).single();
+    setFilmSaving(false);
+    if (error || !data) { setErr("Couldn't update Stellar Birth. Try again."); return; }
+    setRow(data);
+    setDraft((d) => ({ ...d, film: toDraft(data).film }));
+    setFilmSaved(true); setTimeout(() => setFilmSaved(false), 2500);
+  };
+  const filmEmailNote = draft?.countdown?.enabled && draft.countdown.notches.some((x) => x.days_before < 0 && x.film)
+    ? "It goes out with your after-show countdown email (Countdown tab), and their sky gets a Watch Stellar Birth button."
+    : "It's emailed to them the morning after (10 AM Eastern) unless you attach it to an after-show email on the Countdown tab, and their sky gets a Watch Stellar Birth button.";
   const filmPic = fm ? (fm.image || draft.flyer || row?.icon_url || "") : "";
   const pickFilmImage = async (e) => {
     const file = e.target.files?.[0]; e.target.value = "";
@@ -806,7 +832,7 @@ function OwnerSheet({ showId, onClose }) {
   const filmSection = fm && (
     <section className="rounded-2xl p-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
       <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · STELLAR BIRTH</div>
-      {note("A short film only fans who RSVP'd get, once the show is over: every star in the sky pulls together into one sun, then your event's picture, name and date. It's emailed to them the morning after (10 AM Eastern), and their sky gets a Watch Stellar Birth button. They can save it vertical or horizontal.")}
+      {note(`A short film only fans who RSVP'd get, once the show is over: every star in the sky pulls together into one sun, then your event's picture, name and date. ${filmEmailNote} They can save it vertical or horizontal.`)}
       {segmented([[true, "On"], [false, "Off"]], fm.on, (v) => setFilm({ on: v }), "After-the-show film")}
       {fm.on && (<>
         {label("SUN COLOR")}
@@ -850,8 +876,13 @@ function OwnerSheet({ showId, onClose }) {
         <button type="button" onClick={() => setFilmPreview(true)} className="mt-4 w-full h-12 rounded-xl text-[15px] font-bold text-[#1a0d00]" style={{ background: "#FFB347" }}>
           Preview the film
         </button>
-        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You" in green. Publish to save your changes.</p>
+        <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You" in green.</p>
       </>)}
+      <button type="button" onClick={saveFilm} disabled={!filmChanged || filmSaving}
+        className="mt-4 w-full h-12 rounded-xl text-[15px] font-bold border disabled:opacity-50"
+        style={{ color: "#FFB347", borderColor: "rgba(255,179,71,0.55)", background: filmChanged ? "rgba(255,179,71,0.1)" : "transparent" }}>
+        {filmSaving ? "Updating…" : filmSaved ? "✓ Stellar Birth updated" : filmChanged ? "Update Stellar Birth" : "Stellar Birth is up to date"}
+      </button>
       {filmPreview && (
         <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
           imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
@@ -865,7 +896,7 @@ function OwnerSheet({ showId, onClose }) {
       {section("Countdown", <>
         {segmented([[false, "Off"], [true, "On"]], !!cd.enabled, (k) => setCd({ enabled: k, notches: k && !cd.notches.length ? QUICK.reminder() : cd.notches }), "Countdown")}
         {note(cd.enabled
-          ? "Each notch is an email to everyone who RSVP'd, sent on its day at the time you pick (Eastern; 10 AM unless you change it). An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away. Every email ends with a hype meter (you see the taps here) and a link to post a message in the sky."
+          ? "Each notch is an email to everyone who RSVP'd, sent on its day at the time you pick (Eastern; 10 AM unless you change it). An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away. Every email ends with a hype meter (you see the taps here) and a link to post a message in the sky. Add an after-show email to thank fans, and attach Stellar Birth to it once the film is ready."
           : "Keep fans excited before the show with up to 5 emails, each one turning a notch on their key. Off by default.")}
         {cd.enabled && !rsvp && <p className="mt-2 text-[14px] leading-relaxed text-[#FF6A00]">Countdown emails go to people who RSVP. Switch how fans get in to RSVP under Setup, or the countdown won't send.</p>}
         {cd.enabled && !row?.date && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no date yet, so the countdown can't be scheduled.</p>}
@@ -888,13 +919,15 @@ function OwnerSheet({ showId, onClose }) {
         // minutes and picks up anything due in the last 36 hours.
         const passed = passedTime && !isToday;
         const st = countdownStats?.[n.id];
-        const unlock = n.type === "unlock";
+        const afterShow = n.days_before < 0;
+        const unlock = n.type === "unlock" && !afterShow;
         return (
           <section key={n.id} className="rounded-2xl p-4" style={{ background: PANEL, border: `1px solid ${unlock ? "rgba(140,255,61,0.35)" : EDGE_LINE}` }}>
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0" style={{ background: unlock ? G : "#1c2042", color: unlock ? "#0d0d0d" : "#fff", fontFamily: SCENE_MONO }}>{idx + 1}</span>
               <span className="flex-1 min-w-0">
-                <span className="block text-[16px] font-bold text-white truncate">{unlock ? "Unlock" : "Reminder"} · {n.days_before === 0 ? "morning of" : `${n.days_before} ${n.days_before === 1 ? "day" : "days"} before`}{isToday ? " · today" : ""}</span>
+                <span className="block text-[16px] font-bold text-white truncate">{afterShow ? "After the show" : unlock ? "Unlock" : "Reminder"} · {dayWords(n.days_before)}{isToday ? " · today" : ""}</span>
+                {afterShow && n.film && <span className="block text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>STELLAR BIRTH ATTACHED</span>}
                 <span className="block text-[12px]" style={{ color: passed ? "#FF6A00" : DIM, fontFamily: SCENE_MONO }}>
                   {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · ${timeLabel(n.time).toUpperCase()} ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}{isToday && passedTime && !st?.sent ? " · SENDS SOON" : ""}
                   {st ? ` · SENT ${st.sent} · OPENED ${st.opened}` : ""}
@@ -912,13 +945,13 @@ function OwnerSheet({ showId, onClose }) {
 
             {label("WHEN", "mt-3")}
             <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
-              {showTodayPick && chip(n.days_before === todayDays, "Today", () => setNotch(n.id, { days_before: todayDays }), "today")}
-              {DAY_PICKS.map(([d, l]) => chip(n.days_before === d, l, () => setNotch(n.id, { days_before: d }), d))}
+              {showTodayPick && (afterShow ? todayDays < 0 : todayDays > 0) && chip(n.days_before === todayDays, "Today", () => setNotch(n.id, { days_before: todayDays }), "today")}
+              {(afterShow ? AFTER_PICKS : DAY_PICKS).map(([d, l]) => chip(n.days_before === d, l, () => setNotch(n.id, { days_before: d }), d))}
               <label className="flex items-center gap-1.5 ml-1">
-                <input type="number" inputMode="numeric" min={0} max={30} value={n.days_before} aria-label="Days before the show"
-                  onChange={(e) => setNotch(n.id, { days_before: Math.max(0, Math.min(30, Number(e.target.value.replace(/[^0-9]/g, "")) || 0)) })}
+                <input type="number" inputMode="numeric" min={afterShow ? 1 : 0} max={30} value={Math.abs(n.days_before)} aria-label={afterShow ? "Days after the show" : "Days before the show"}
+                  onChange={(e) => { const v = Math.max(afterShow ? 1 : 0, Math.min(30, Number(e.target.value.replace(/[^0-9]/g, "")) || 0)); setNotch(n.id, { days_before: afterShow ? -v : v }); }}
                   className="w-[64px] bg-[#0a0c1c] border border-[#262b52] rounded-lg px-2 py-1.5 text-white text-[14px] text-right focus:outline-none focus:border-[#8CFF3D]/60" style={{ fontFamily: SCENE_MONO }} />
-                <span className="text-[13px]" style={{ color: SOFT }}>days before</span>
+                <span className="text-[13px]" style={{ color: SOFT }}>{afterShow ? "days after" : "days before"}</span>
               </label>
             </div>
             {/* Send time (job 213): any time on that day, Eastern. */}
@@ -935,15 +968,31 @@ function OwnerSheet({ showId, onClose }) {
             {isToday && passedTime && !st?.sent && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>That time has already gone by today, so it goes out within about 5 minutes of saving. Pick a later time to send it later today.</p>}
             {passed && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>This day has passed, so it won't email. Fans see it as already turned in the sky.</p>}
 
-            {label("TYPE", "mt-3")}
-            {segmented([["reminder", "Reminder"], ["unlock", "Unlock"]], n.type, (k) => setNotch(n.id, { type: k, kind: k === "unlock" ? (n.kind || "note") : n.kind }), "Notch type")}
+            {afterShow ? (<>
+              {/* Job 244: hand the film to this email. */}
+              {label("STELLAR BIRTH", "mt-3")}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                <button type="button" aria-pressed={!!n.film} onClick={() => setNotch(n.id, { film: !n.film })}
+                  className="px-3.5 py-2 rounded-full text-[14px] font-bold"
+                  style={n.film ? { background: "#FFB347", color: "#1a0d00" } : { color: "#FFB347", boxShadow: "inset 0 0 0 1px rgba(255,179,71,0.6)" }}>
+                  {n.film ? "✓ Stellar Birth attached" : "+ Attach Stellar Birth"}
+                </button>
+                <button type="button" onClick={() => setTab("film")} className="text-[13px] text-white/60 hover:text-white underline underline-offset-2">Set it up</button>
+              </div>
+              <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>
+                {!draft.film.on ? "Stellar Birth is turned off on its tab, so this email won't include it." : n.film ? "This email carries a Watch Stellar Birth button, and the automatic morning-after email is skipped." : "Adds a Watch Stellar Birth button to this email."}
+              </p>
+            </>) : (<>
+              {label("TYPE", "mt-3")}
+              {segmented([["reminder", "Reminder"], ["unlock", "Unlock"]], n.type, (k) => setNotch(n.id, { type: k, kind: k === "unlock" ? (n.kind || "note") : n.kind }), "Notch type")}
+            </>)}
 
             {label("EMAIL SUBJECT", "mt-3")}
             <input className={`${inputCls} mt-1.5`} maxLength={150} value={n.subject} onChange={(e) => setNotch(n.id, { subject: e.target.value })}
-              placeholder={unlock ? `A notch just turned: ${title}` : n.days_before === 0 ? `Tonight: ${title}` : n.days_before === 1 ? `Tomorrow: ${title}` : `${n.days_before} days to go: ${title}`} />
+              placeholder={afterShow ? (n.film ? `Stellar Birth: your night at ${title}` : `Thanks for coming: ${title}`) : unlock ? `A notch just turned: ${title}` : n.days_before === 0 ? `Tonight: ${title}` : n.days_before === 1 ? `Tomorrow: ${title}` : `${n.days_before} days to go: ${title}`} />
             {label("MESSAGE (OPTIONAL)", "mt-3")}
             <textarea ref={fitBox} onInput={(e) => fitBox(e.currentTarget)} className={`${inputCls} mt-1.5 min-h-[220px] !leading-[1.45] resize-y`} maxLength={1500} value={n.message} onChange={(e) => setNotch(n.id, { message: e.target.value })}
-              placeholder={unlock ? "A line to go with the unlock" : "Anything fans should know. Date, doors, venue and their key are added automatically."} />
+              placeholder={afterShow ? "A thank-you, photos, what's next. The date and venue are added automatically." : unlock ? "A line to go with the unlock" : "Anything fans should know. Date, doors, venue and their key are added automatically."} />
 
             {unlock && (
               <div className="mt-3 rounded-xl p-3" style={{ background: "#0a0c1c", border: "1px solid #1c2042" }}>
@@ -968,11 +1017,17 @@ function OwnerSheet({ showId, onClose }) {
         );
       })}
 
-      {cd.enabled && cd.notches.length < 5 && (
-        <button type="button" onClick={() => setCd({ notches: [...cd.notches, blankNotch([7, 3, 14, 1, 0, 2, 5, 10, 21, 30].find((d) => !dayCounts[d]) ?? 0, "reminder")] })}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[15px] font-bold" style={{ color: G, border: `1px dashed ${EDGE_LINE}` }}>
-          <Plus className="w-4 h-4" /> Add a notch ({cd.notches.length}/5)
-        </button>
+      {cd.enabled && cd.notches.length < MAX_NOTCHES && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button type="button" onClick={() => setCd({ notches: [...cd.notches, blankNotch([7, 3, 14, 1, 0, 2, 5, 10, 21, 30].find((d) => !dayCounts[d]) ?? 0, "reminder")] })}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[15px] font-bold" style={{ color: G, border: `1px dashed ${EDGE_LINE}` }}>
+            <Plus className="w-4 h-4" /> Add a notch ({cd.notches.length}/{MAX_NOTCHES})
+          </button>
+          <button type="button" onClick={() => setCd({ notches: [...cd.notches, blankNotch([-1, -2, -7, -3].find((d) => !dayCounts[d]) ?? -1, "reminder", { film: !cd.notches.some((x) => x.film) })] })}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[15px] font-bold" style={{ color: "#FFB347", border: "1px dashed rgba(255,179,71,0.45)" }}>
+            <Plus className="w-4 h-4" /> Add an after-show email
+          </button>
+        </div>
       )}
     </div>
   );

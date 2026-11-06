@@ -22,7 +22,7 @@ function siteUrl(): string {
 
 type Notch = {
   id: string; days_before: number | string; type?: string; subject?: string; message?: string;
-  kind?: string; title?: string;
+  kind?: string; title?: string; film?: boolean;
 };
 type Ev = {
   event_name?: string; band_name?: string; date: string; door_time?: string; show_time?: string;
@@ -48,25 +48,33 @@ const whenWord = (d: number) => (d === 0 ? "Tonight" : d === 1 ? "Tomorrow" : d 
 export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   const ev = due.event;
   const n = due.notch;
-  const d = Math.max(0, Number(n.days_before) || 0);
-  const unlock = n.type === "unlock";
+  // Below zero = after the show (job 244): -1 the day after, and so on.
+  const raw = Number(n.days_before) || 0;
+  const after = raw < 0;
+  const d = Math.max(0, raw);
+  const film = after && n.film === true;
+  const unlock = n.type === "unlock" && !after;
   const title = titleOf(ev);
   const base = `${site}${due.fan_slug ? `/${due.fan_slug}` : `/rsvp/${due.fan_token}`}`;
   const sky = `${base}/sky?k=${encodeURIComponent(fan.sky_key)}`;
   const stop = `${site}/fan/unsubscribe?countdown=${encodeURIComponent(fan.sky_key)}`;
   const custom = String(n.subject || "").trim().slice(0, 150);
-  const subject = custom || (unlock
+  const eyebrow = after ? (film ? "AFTER THE SHOW · STELLAR BIRTH" : "AFTER THE SHOW") : `${whenWord(d).toUpperCase()} · COUNTDOWN`;
+  const subject = custom || (after
+    ? (film ? `Stellar Birth: your night at ${title}` : `Thanks for coming: ${title}`)
+    : unlock
     ? `A notch just turned: ${title}`
     : d === 0 ? `Tonight: ${title}` : d === 1 ? `Tomorrow: ${title}` : `${whenWord(d)}: ${title}`);
+  const watch = `${sky}&film=1`;
   const message = String(n.message || "").trim();
   const place = [ev.city, ev.state].filter(Boolean).join(", ");
   const rows: [string, string][] = [];
   rows.push(["DATE", dateLong(ev.date)]);
-  if (ev.door_time) rows.push(["DOORS", ev.door_time]);
-  if (ev.show_time) rows.push(["SHOW", ev.show_time]);
+  if (!after && ev.door_time) rows.push(["DOORS", ev.door_time]);
+  if (!after && ev.show_time) rows.push(["SHOW", ev.show_time]);
   if (ev.venue) rows.push(["VENUE", ev.venue]);
-  if (ev.address || place) rows.push(["ADDRESS", [ev.address, place].filter(Boolean).join(", ")]);
-  if (ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
+  if (!after && (ev.address || place)) rows.push(["ADDRESS", [ev.address, place].filter(Boolean).join(", ")]);
+  if (!after && ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
   // Hype meter (job 234): one tap opens the fan's sky and records the answer.
   const hypeLink = (lvl: number) => `${sky}&hype=${encodeURIComponent(n.id)}.${lvl}`;
   const postLink = `${sky}&post=1`;
@@ -79,10 +87,18 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#05060f;"><tr><td align="center" style="padding:28px 14px;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff;">
       <tr><td style="padding:0 2px 14px;">
-        <div style="font-family:${mono};font-size:11px;letter-spacing:.16em;color:${G};">${esc(whenWord(d).toUpperCase())} · COUNTDOWN</div>
+        <div style="font-family:${mono};font-size:11px;letter-spacing:.16em;color:${film ? "#FFB347" : G};">${esc(eyebrow)}</div>
         <div style="margin-top:8px;font-size:30px;font-weight:700;line-height:1.08;">${esc(title)}</div>
         ${ev.band_name && ev.event_name && ev.band_name !== ev.event_name ? `<div style="margin-top:2px;font-size:17px;color:#d6d8f5;font-weight:600;">${esc(ev.band_name)}</div>` : ""}
       </td></tr>
+      ${film ? `<tr><td style="padding:0 0 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b0e24;border:1px solid #5a3f1c;border-radius:16px;"><tr><td style="padding:18px;">
+          <div style="font-family:${mono};font-size:11px;letter-spacing:.14em;color:#FFB347;">STELLAR BIRTH</div>
+          <div style="margin-top:8px;font-size:20px;font-weight:700;line-height:1.3;">${esc(fan.name ? `${fan.name}, every` : "Every")} star from the night came together.</div>
+          <div style="margin-top:6px;font-size:15px;line-height:1.5;color:#d6d8f5;">Watch them pull together into one sun, then save the video to keep.</div>
+          <a href="${esc(watch)}" style="display:inline-block;margin-top:14px;padding:12px 20px;background:#FFB347;color:#1a0d00;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">Watch Stellar Birth &rsaquo;</a>
+        </td></tr></table>
+      </td></tr>` : ""}
       ${ev.flyer_url && !unlock ? `<tr><td style="padding:0 0 14px;"><img src="${esc(ev.flyer_url)}" alt="" width="520" style="display:block;width:100%;max-height:300px;object-fit:cover;border-radius:14px;border:1px solid #232849;"></td></tr>` : ""}
       ${unlock ? `<tr><td style="padding:0 0 14px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b0e24;border:1px solid #2b2f5a;border-radius:16px;"><tr><td style="padding:18px;">
@@ -98,16 +114,16 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
           ${rows.map(([k, v], i) => `<tr><td style="padding:10px 14px;${i ? "border-top:1px solid #1c2042;" : ""}font-family:${mono};font-size:11px;letter-spacing:.12em;color:#7e83b8;width:100px;vertical-align:top;">${k}</td><td style="padding:10px 14px;${i ? "border-top:1px solid #1c2042;" : ""}font-size:15px;">${esc(v)}</td></tr>`).join("")}
         </table>
       </td></tr>
-      ${!unlock ? `<tr><td style="padding:0 0 6px;"><a href="${esc(sky)}" style="display:inline-block;padding:12px 20px;background:${G};color:#0d0d0d;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">Open your key &rsaquo;</a>
+      ${!unlock ? `<tr><td style="padding:0 0 6px;"><a href="${esc(sky)}" style="display:inline-block;padding:12px 20px;background:${G};color:#0d0d0d;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">${after ? "Open your sky" : "Open your key"} &rsaquo;</a>
         <a href="${esc(base)}" style="display:inline-block;margin-left:6px;padding:12px 16px;border:1px solid #232849;border-radius:12px;color:#fff;font-weight:700;font-size:15px;text-decoration:none;">Event page</a></td></tr>` : ""}
-      <tr><td style="padding:18px 0 0;">
+      ${after ? "" : `<tr><td style="padding:18px 0 0;">
         <div style="padding:16px 12px 14px;background:#0e1128;border:1px solid #232849;border-radius:14px;text-align:center;">
           <div style="font-family:${mono};font-size:11px;letter-spacing:.14em;color:${G};">HOW HYPED ARE YOU?</div>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px;table-layout:fixed;"><tr>${hypeCells}</tr></table>
           <div style="margin-top:12px;font-size:13px;line-height:1.45;color:#b7bbe6;">Tap one to open your sky. You can post a message there once a day for everyone coming to see.</div>
           <a href="${esc(postLink)}" style="display:inline-block;margin-top:10px;font-size:14px;font-weight:700;color:${G};text-decoration:none;">Post a message in the sky &rsaquo;</a>
         </div>
-      </td></tr>
+      </td></tr>`}
       <tr><td style="padding:16px 2px 0;font-size:14px;line-height:1.5;color:#d6d8f5;text-align:center;">
         Have info or a question? <a href="${esc(askLink)}" style="color:${G};font-weight:700;text-decoration:none;">Message the host &rsaquo;</a>
       </td></tr>
@@ -119,19 +135,17 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   </td></tr></table></body></html>`;
 
   const text = [
-    `${whenWord(d)} · ${title}`,
+    `${after ? "After the show" : whenWord(d)} · ${title}`,
     "",
+    film ? `Stellar Birth: every star from the night came together. Watch it and save the video:\n${watch}\n` : null,
     unlock ? `Your key turned a notch. Something new is waiting in the sky: ${teaser}\n${sky}\n` : null,
     message ? `From the host:\n${message}\n` : null,
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
-    unlock ? null : `Open your key: ${sky}`,
+    unlock ? null : `${after ? "Open your sky" : "Open your key"}: ${sky}`,
     `Event page: ${base}`,
     "",
-    "How hyped are you? Tap one:",
-    ...HYPE.map(([emoji, label], i) => `${emoji} ${label}: ${hypeLink(i + 1)}`),
-    `Post a message in the sky: ${postLink}`,
-    "",
+    ...(after ? [] : ["How hyped are you? Tap one:", ...HYPE.map(([emoji, label], i) => `${emoji} ${label}: ${hypeLink(i + 1)}`), `Post a message in the sky: ${postLink}`, ""]),
     `Have info or a question? Message the host: ${askLink}`,
     "",
     `Stop countdown emails: ${stop}`,
