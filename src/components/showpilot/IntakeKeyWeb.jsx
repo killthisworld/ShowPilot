@@ -183,9 +183,10 @@ export function SenderCircle({ center, color, desktop }) {
 
 // circles: [{ key, label, short?, hint?, required?, done, body: () => node }]
 // corner: { label, icon: Component, done?, body: () => node } for the top right (Additional services).
+// cornerBL: the same, for the bottom left (Tracks; job 224).
 export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
-  actName, center = null, circles = [], corner = null, show = null,
+  actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
   sent = false, onSentOff = null,
 }) {
@@ -194,7 +195,7 @@ export default function IntakeKeyWeb({
   useSendOff(sent, onSentOff);
   const off = !!sent;
   const [phase, setPhase] = useState("idle"); // idle | unlocking | open
-  const [pane, setPane] = useState("start"); // start | show | corner | <circle key>
+  const [pane, setPane] = useState("start"); // start | show | corner | cornerBL | <circle key>
   const opening = phase === "unlocking";
   const N = circles.length;
   const done = circles.filter((c) => c.done).length;
@@ -264,7 +265,9 @@ export default function IntakeKeyWeb({
   // ---------- The web ----------
   const nodeSize = N > 9 ? 17 : 20;
   const cornerCls = "absolute w-[15%] aspect-square min-w-[54px] rounded-[12px] border-[1.5px] flex flex-col items-center justify-center gap-1 text-[10.5px] sm:text-[12px] font-bold text-center px-1 leading-tight backdrop-blur-sm";
-  const CornerIcon = corner?.icon;
+  // The optional boxes: top right and bottom left.
+  const extraBoxes = [["corner", corner, "right-0 top-0"], ["cornerBL", cornerBL, "left-0 bottom-0"]].filter(([, c]) => c);
+  const openBox = extraBoxes.find(([id]) => id === pane)?.[1] || null;
   const web = (
     <div className="relative w-full aspect-square">
       <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${off ? "so-gone" : ""}`} aria-hidden="true">
@@ -279,12 +282,15 @@ export default function IntakeKeyWeb({
           <CalendarDays className="w-[30%] h-[30%]" style={{ color }} />The show
         </button>
       )}
-      {corner && (
-        <button type="button" onClick={() => setPane(pane === "corner" ? "start" : "corner")} aria-pressed={pane === "corner"} className={`${cornerCls} right-0 top-0 ${off ? "so-gone" : ""}`}
-          style={corner.done ? { borderColor: GREEN, background: GREEN, color: "#0d0d0d" } : { borderColor: color, background: pane === "corner" ? `${color}33` : "rgba(17,17,17,0.85)" }}>
-          {CornerIcon && <CornerIcon className="w-[28%] h-[28%]" style={{ color: corner.done ? "#0d0d0d" : color }} />}{corner.label}
-        </button>
-      )}
+      {extraBoxes.map(([id, c, pos]) => {
+        const Icon = c.icon;
+        return (
+          <button key={id} type="button" onClick={() => setPane(pane === id ? "start" : id)} aria-pressed={pane === id} className={`${cornerCls} ${pos} ${off ? "so-gone" : ""}`}
+            style={c.done ? { borderColor: GREEN, background: GREEN, color: "#0d0d0d" } : { borderColor: color, background: pane === id ? `${color}33` : "rgba(17,17,17,0.85)" }}>
+            {Icon && <Icon className="w-[28%] h-[28%]" style={{ color: c.done ? "#0d0d0d" : color }} />}{c.label}
+          </button>
+        );
+      })}
       {circles.map((c, i) => {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
         const on = pane === c.key;
@@ -321,10 +327,10 @@ export default function IntakeKeyWeb({
       {saveBtn}
     </div>
   );
-  const cornerBody = corner && (
+  const cornerBody = openBox && (
     <div className="flex flex-col gap-3">
-      {panelHead(corner.label, corner.done ? "DONE" : "OPTIONAL", null)}
-      <div className="text-left">{corner.body()}</div>
+      {panelHead(openBox.label, openBox.done ? "DONE" : "OPTIONAL", null)}
+      <div className="text-left">{openBox.body()}</div>
       <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>
     </div>
   );
@@ -376,7 +382,7 @@ export default function IntakeKeyWeb({
             reserved={250 + (error ? 28 : 0)}
             web={web}
             below={sendRow}
-            panel={off ? null : cur ? circleBody : pane === "corner" ? cornerBody : null}
+            panel={off ? null : cur ? circleBody : openBox ? cornerBody : null}
             panelKey={pane}
           />
         </div>
@@ -384,7 +390,7 @@ export default function IntakeKeyWeb({
       </div>
     );
   }
-  const sheetOpen = (!!cur || pane === "corner") && !off;
+  const sheetOpen = (!!cur || !!openBox) && !off;
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={seed} dim={0.25} />
@@ -398,7 +404,7 @@ export default function IntakeKeyWeb({
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>
           <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/45" />
-          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : corner?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
+          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : openBox?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-center relative h-8 mb-1">
               <span className="w-10 h-1 rounded-full bg-[#3a3a3a]" aria-hidden="true" />
               <button type="button" onClick={close} aria-label="Close" className="absolute right-0 top-0 w-10 h-10 flex items-center justify-center text-white/60"><X className="w-5 h-5" /></button>

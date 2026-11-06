@@ -6,7 +6,7 @@ import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
-import { useAsksTracks, intakeCorner, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
+import { useAsksTracks, intakeCorners, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3, Music } from "lucide-react";
@@ -296,7 +296,7 @@ export default function OpenerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      corner={intakeCorner({ services: !!context.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !!context.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={showTitle === parent?.venue ? "" : parent?.venue} color="#8CFF3D" />

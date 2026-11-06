@@ -46,26 +46,17 @@ export function TracksQuestion({ value, onChange }) {
   );
 }
 
-// The intake web's top-right corner: Additional services, Tracks, or both.
-export function intakeCorner({ services, asksTracks, form, update, icons }) {
-  if (!services && !asksTracks) return null;
+// The intake web's optional boxes (job 224): Additional services in the top
+// right, Tracks in the bottom left, each only when the link asks for it.
+export function intakeCorners({ services, asksTracks, form, update, icons }) {
   const mtDone = form.multitrack_interest === true || form.multitrack_interest === false;
   const trDone = form.has_tracks === true || form.has_tracks === false;
-  if (services && !asksTracks) {
-    return { label: "Additional services", icon: icons.services, done: mtDone,
-      body: () => <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} /> };
-  }
-  if (!services) {
-    return { label: "Tracks", icon: icons.tracks, done: trDone,
-      body: () => <TracksQuestion value={form.has_tracks ?? null} onChange={(v) => update("has_tracks", v)} /> };
-  }
-  return { label: "Extras", icon: icons.services, done: mtDone && trDone,
-    body: () => (
-      <div className="flex flex-col gap-3">
-        <TracksQuestion value={form.has_tracks ?? null} onChange={(v) => update("has_tracks", v)} />
-        <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} />
-      </div>
-    ) };
+  return {
+    corner: services ? { label: "Additional services", icon: icons.services, done: mtDone,
+      body: () => <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} /> } : null,
+    cornerBL: asksTracks ? { label: "Tracks", icon: icons.tracks, done: trDone,
+      body: () => <TracksQuestion value={form.has_tracks ?? null} onChange={(v) => update("has_tracks", v)} /> } : null,
+  };
 }
 
 // Right after sending, for an act that has tracks: their set form for this

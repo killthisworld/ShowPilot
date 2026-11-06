@@ -11,7 +11,7 @@ import CollapsibleSection from "@/components/showpilot/CollapsibleSection";
 import { useToast } from "@/components/ui/use-toast";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
-import { useAsksTracks, intakeCorner, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
+import { useAsksTracks, intakeCorners, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3 } from "lucide-react";
@@ -481,7 +481,7 @@ export default function TourManagerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      corner={intakeCorner({ services: !!tmRequest?.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !!tmRequest?.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={showTitle === tmRequest?.venue ? "" : tmRequest?.venue} color="#8CFF3D" />
