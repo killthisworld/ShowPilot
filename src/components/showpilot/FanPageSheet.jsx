@@ -739,6 +739,11 @@ function OwnerSheet({ showId, onClose }) {
     t.setDate(t.getDate() - d);
     return t;
   };
+  // "Today" (job 231): however many days the show is from today, Eastern.
+  // Hidden when the show is today (Morning of covers it) or over 30 days out.
+  const todayEt = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+  const todayDays = row?.date ? Math.round((Date.parse(row.date + "T00:00:00Z") - Date.parse(todayEt + "T00:00:00Z")) / 86400000) : null;
+  const showTodayPick = todayDays != null && todayDays >= 1 && todayDays <= 30;
   const DAY_PICKS = [[0, "Morning of"], [1, "Day before"], [3, "3 days"], [7, "1 week"], [14, "2 weeks"]];
   const KINDS = [["note", "Artist note"], ["setlist", "Setlist tease"], ["playlist", "Playlist"], ["bts", "Behind the scenes"], ["doors", "Doors & parking"], ["merch", "Merch first look"]];
   const [uploadingNotch, setUploadingNotch] = useState(null);
@@ -780,7 +785,11 @@ function OwnerSheet({ showId, onClose }) {
       {cd.enabled && sortedNotches.map((n, idx) => {
         const when = notchDate(n.days_before);
         const [nh, nm] = String(n.time || "10:00").split(":").map(Number);
-        const passed = when && new Date(when.getTime() + (nh * 60 + nm) * 60000) < new Date();
+        const isToday = todayDays != null && todayDays >= 0 && n.days_before === todayDays;
+        const passedTime = when && new Date(when.getTime() + (nh * 60 + nm) * 60000) < new Date();
+        // A time already gone today still sends: the sender runs every 5
+        // minutes and picks up anything due in the last 36 hours.
+        const passed = passedTime && !isToday;
         const st = countdownStats?.[n.id];
         const unlock = n.type === "unlock";
         return (
@@ -788,9 +797,9 @@ function OwnerSheet({ showId, onClose }) {
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0" style={{ background: unlock ? G : "#1c2042", color: unlock ? "#0d0d0d" : "#fff", fontFamily: SCENE_MONO }}>{idx + 1}</span>
               <span className="flex-1 min-w-0">
-                <span className="block text-[16px] font-bold text-white truncate">{unlock ? "Unlock" : "Reminder"} · {n.days_before === 0 ? "morning of" : `${n.days_before} ${n.days_before === 1 ? "day" : "days"} before`}</span>
+                <span className="block text-[16px] font-bold text-white truncate">{unlock ? "Unlock" : "Reminder"} · {n.days_before === 0 ? "morning of" : `${n.days_before} ${n.days_before === 1 ? "day" : "days"} before`}{isToday ? " · today" : ""}</span>
                 <span className="block text-[12px]" style={{ color: passed ? "#FF6A00" : DIM, fontFamily: SCENE_MONO }}>
-                  {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · ${timeLabel(n.time).toUpperCase()} ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}
+                  {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · ${timeLabel(n.time).toUpperCase()} ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}{isToday && passedTime && !st?.sent ? " · SENDS SOON" : ""}
                   {st ? ` · SENT ${st.sent} · OPENED ${st.opened}` : ""}
                 </span>
               </span>
@@ -799,6 +808,7 @@ function OwnerSheet({ showId, onClose }) {
 
             {label("WHEN", "mt-3")}
             <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+              {showTodayPick && chip(n.days_before === todayDays, "Today", () => setNotch(n.id, { days_before: todayDays }), "today")}
               {DAY_PICKS.map(([d, l]) => chip(n.days_before === d, l, () => setNotch(n.id, { days_before: d }), d))}
               <label className="flex items-center gap-1.5 ml-1">
                 <input type="number" inputMode="numeric" min={0} max={30} value={n.days_before} aria-label="Days before the show"
@@ -818,6 +828,7 @@ function OwnerSheet({ showId, onClose }) {
               <span className="text-[13px]" style={{ color: SOFT }}>Eastern</span>
             </label>
             {dayCounts[n.days_before] > 1 && <p className="mt-1.5 text-[13px] text-[#FF6A00]">Two notches go out the same day. Fans get both emails.</p>}
+            {isToday && passedTime && !st?.sent && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>That time has already gone by today, so it goes out within about 5 minutes of saving. Pick a later time to send it later today.</p>}
             {passed && <p className="mt-1.5 text-[13px]" style={{ color: SOFT }}>This day has passed, so it won't email. Fans see it as already turned in the sky.</p>}
 
             {label("TYPE", "mt-3")}
