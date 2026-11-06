@@ -310,6 +310,58 @@ function PostComposer({ color, today, mine, onClose, onSave, onRemove }) {
   );
 }
 
+// A private note to the host (job 235): only the event's owner sees it.
+function HostMessage({ color, onClose, onSend }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [sent, setSent] = useState(false);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const send = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true); setErr("");
+    const e = await onSend(text.trim());
+    setBusy(false);
+    if (e) setErr(e); else setSent(true);
+  };
+  return (
+    <div className="absolute inset-0 z-30 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Message the host">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-t-[22px] sm:rounded-[22px] p-5" style={{ background: "#0b0e24", border: "1px solid #2b2f5a", boxShadow: `0 0 40px ${color}22` }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color }}>PRIVATE · ONLY THE HOST SEES THIS</div>
+            <h2 className="mt-1 text-[24px] font-bold leading-tight">{sent ? "Sent to the host" : "Message the host"}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-9 h-9 rounded-full text-white/70 border border-white/20">×</button>
+        </div>
+        {sent ? (
+          <>
+            <p className="mt-3 text-[16px] leading-relaxed text-white/80">Thanks! The host will see it with your RSVP and can reply to the email you RSVP'd with.</p>
+            <button type="button" onClick={onClose} className="mt-4 w-full h-12 rounded-xl text-[16px] font-bold text-[#0d0d0d]" style={{ background: color }}>Back to the sky</button>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-[15px] leading-snug text-white/65">Info for the host or a question about the show. They see your name and can reply by email.</p>
+            <textarea autoFocus value={text} maxLength={1000} rows={5} onChange={(e) => setText(e.target.value)}
+              placeholder="Is there parking nearby? Can I bring a camera?" aria-label="Your message to the host"
+              className="mt-3 w-full rounded-xl px-3.5 py-3 text-[17px] leading-snug text-white bg-[#05060f] border border-[#2b2f5a] placeholder:text-white/35 focus:outline-none focus:border-[#8CFF3D]/60 resize-none" />
+            <div className="mt-1 text-right text-[12px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{text.length} / 1000</div>
+            {err && <p className="mt-1 text-[14px] text-red-400">{err}</p>}
+            <button type="button" onClick={send} disabled={busy || !text.trim()} className="mt-3 w-full h-12 rounded-xl text-[16px] font-bold text-[#0d0d0d] disabled:opacity-50" style={{ background: color }}>
+              {busy ? "Sending…" : "Send to the host"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EventSky() {
   const { token: tokenKey } = useParams();
   const resolved = useFanToken(tokenKey);
@@ -322,10 +374,11 @@ export default function EventSky() {
   // message" link (?post=1). Read once, then taken off the address.
   const [arrival] = useState(() => {
     const m = /^(.+)\.([1-5])$/.exec(params.get("hype") || "");
-    return { hype: m ? { notch: m[1], level: Number(m[2]) } : null, post: params.get("post") === "1" };
+    return { hype: m ? { notch: m[1], level: Number(m[2]) } : null, post: params.get("post") === "1", ask: params.get("ask") === "1" };
   });
   const [toast, setToast] = useState("");
   const [composing, setComposing] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [phase, setPhase] = useState("verifying"); // verifying | unlocking | open | failed
   const [sky, setSky] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -414,8 +467,8 @@ export default function EventSky() {
     arrived.current = true;
     try {
       const u = new URL(window.location.href);
-      if (u.searchParams.has("hype") || u.searchParams.has("post")) {
-        u.searchParams.delete("hype"); u.searchParams.delete("post");
+      if (u.searchParams.has("hype") || u.searchParams.has("post") || u.searchParams.has("ask")) {
+        u.searchParams.delete("hype"); u.searchParams.delete("post"); u.searchParams.delete("ask");
         window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       }
     } catch { /* keep the address as it is */ }
@@ -427,7 +480,8 @@ export default function EventSky() {
           setToast(data ? `${emoji} ${label}. Got it, see you there!` : "");
         });
     }
-    if (arrival.post) setComposing(true);
+    if (arrival.ask) setAsking(true);
+    else if (arrival.post) setComposing(true);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!toast) return undefined;
@@ -443,6 +497,10 @@ export default function EventSky() {
     setSelected(sky?.me?.id || null);
     refresh();
     return "";
+  };
+  const sendToHost = async (message) => {
+    const { error } = await supabase.rpc("send_host_message", { p_token: token, p_key: key, p_message: message });
+    return error ? (error.message || "Couldn't send it. Try again.") : "";
   };
   const removePost = async () => {
     const { error } = await supabase.rpc("delete_sky_message", { p_token: token, p_key: key });
@@ -575,10 +633,11 @@ export default function EventSky() {
             <p className="mt-0.5 text-[15px] leading-snug text-white/60">
               {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
             </p>
-            <div className="mt-2.5 flex items-center gap-3">
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 whitespace-nowrap">
               <button type="button" onClick={() => setComposing(true)} className="h-10 px-4 rounded-full text-[14px] font-bold text-[#0d0d0d]" style={{ background: color }}>
                 {minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky"}
               </button>
+              <button type="button" onClick={() => setAsking(true)} className="text-[13px] text-white/70 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Message the host</button>
               <a href={pageHref} className="text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
             </div>
           </div>
@@ -586,6 +645,7 @@ export default function EventSky() {
       )}
 
       {unlockOpen && <UnlockPanel notch={unlockOpen} color={color} onClose={() => setUnlockOpen(null)} />}
+      {asking && open && sky && <HostMessage color={color} onClose={() => setAsking(false)} onSend={sendToHost} />}
       {composing && open && sky && (
         <PostComposer color={color} today={sky.today} mine={minePost} onClose={() => setComposing(false)} onSave={savePost} onRemove={removePost} />
       )}

@@ -70,6 +70,8 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   // Hype meter (job 234): one tap opens the fan's sky and records the answer.
   const hypeLink = (lvl: number) => `${sky}&hype=${encodeURIComponent(n.id)}.${lvl}`;
   const postLink = `${sky}&post=1`;
+  // Info or questions go to the host inside Show Pilot, per event (job 235).
+  const askLink = `${sky}&ask=1`;
   const hypeCells = HYPE.map(([emoji, label], i) => `<td align="center" style="padding:0 3px;"><a href="${esc(hypeLink(i + 1))}" style="display:block;padding:10px 2px 8px;background:#0b0e24;border:1px solid #2b2f5a;border-radius:12px;color:#fff;text-decoration:none;"><span style="display:block;font-size:24px;line-height:1.1;">${emoji}</span><span style="display:block;margin-top:4px;font-family:${mono};font-size:9px;letter-spacing:.02em;white-space:nowrap;color:#b7bbe6;">${label}</span></a></td>`).join("");
   const teaser = unlock ? (n.title?.trim() || KIND_LABEL[n.kind || ""] || "something new") : "";
 
@@ -106,6 +108,9 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
           <a href="${esc(postLink)}" style="display:inline-block;margin-top:10px;font-size:14px;font-weight:700;color:${G};text-decoration:none;">Post a message in the sky &rsaquo;</a>
         </div>
       </td></tr>
+      <tr><td style="padding:16px 2px 0;font-size:14px;line-height:1.5;color:#d6d8f5;text-align:center;">
+        Have info or a question? <a href="${esc(askLink)}" style="color:${G};font-weight:700;text-decoration:none;">Message the host &rsaquo;</a>
+      </td></tr>
       <tr><td style="padding:22px 2px 0;font-size:12px;line-height:1.5;color:#7e83b8;">
         You're getting this because you RSVP'd to ${esc(title)} on Show Pilot. Your RSVP and key stay active either way.<br>
         <a href="${esc(stop)}" style="color:#b7bbe6;">Stop countdown emails</a>
@@ -126,6 +131,8 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
     "How hyped are you? Tap one:",
     ...HYPE.map(([emoji, label], i) => `${emoji} ${label}: ${hypeLink(i + 1)}`),
     `Post a message in the sky: ${postLink}`,
+    "",
+    `Have info or a question? Message the host: ${askLink}`,
     "",
     `Stop countdown emails: ${stop}`,
   ].filter((l) => l !== null).join("\n");

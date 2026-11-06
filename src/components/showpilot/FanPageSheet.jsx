@@ -9,6 +9,7 @@ import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
 import SkyPostsList from "@/components/showpilot/SkyPostsList";
+import HostMessagesList from "@/components/showpilot/HostMessagesList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
 import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
@@ -696,6 +697,7 @@ function OwnerSheet({ showId, onClose }) {
   // ---- Guests: the RSVP list ----
   const guestsTab = row && (savedRsvp && row.fan_page_enabled ? (
     <>
+      <HostMessagesList showId={showId} />
       <RsvpList showId={showId} tall={desktop} capacity={savedCap} />
       <SkyPostsList showId={showId} />
     </>
