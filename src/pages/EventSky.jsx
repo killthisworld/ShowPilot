@@ -503,6 +503,7 @@ export default function EventSky() {
       sun: /^#[0-9a-f]{6}$/i.test(cfg.sun || "") ? cfg.sun : null,
       title,
       dateLine: filmDateLine(film.date, film.venue),
+      date: film.date, venue: film.venue,
       imageUrl: film.image || null,
       show: { you: true, header: true, name: true, date: true, ...(cfg.show || {}) },
       fileName: `stellar-birth-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`.replace(/-$/, ""),

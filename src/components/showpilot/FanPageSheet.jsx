@@ -819,7 +819,7 @@ function OwnerSheet({ showId, onClose }) {
 
         {label("WHAT IT SHOWS")}
         <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {[["you", "\"You\" on their star"], ["header", "Event picture"], ["name", "Name"], ["date", "Date and venue"]].map(([k, l]) =>
+          {[["you", "\"You\" on their star"], ["header", "Event picture"], ["name", "Name"], ["date", "ShowPilot date stamp"]].map(([k, l]) =>
             chip(fm.show[k] !== false, `${fm.show[k] !== false ? "✓ " : ""}${l}`, () => setFilm({ show: { ...fm.show, [k]: fm.show[k] === false } }), k))}
         </div>
 
@@ -853,7 +853,7 @@ function OwnerSheet({ showId, onClose }) {
         <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The preview uses sample stars. Fans see one star for every RSVP, theirs marked "You" in green. Publish to save your changes.</p>
       </>)}
       {filmPreview && (
-        <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)}
+        <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
           imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
       )}
     </section>

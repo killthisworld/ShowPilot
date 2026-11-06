@@ -3,11 +3,12 @@
 // it, then its name and date, then everything fades to black. Drawn on a
 // 1080x1920 canvas so it can be recorded as a 9:16 phone video.
 //
-//   const film = createFilm(canvas, { stars, title, dateLine, image, show });
+//   const film = createFilm(canvas, { stars, title, date, venue, image, show });
 //   film.play(onEnd); film.stop(); film.still(12);
 //
 // stars:    [{ id, color, me }]   (color "#rrggbb")
 // show:     { you, header, name, date } booleans (all on by default)
+// date, venue: for the ShowPilot stamp slammed onto the card's corner (job 243)
 // sun:      "#rrggbb" to recolor the sun (and its glow and blast); none = natural
 // orientation: "portrait" (1080x1920, default) or "landscape" (1920x1080)
 // image:    an <img> or <canvas> for the header card, or null for a stand-in
@@ -194,6 +195,60 @@ const easeIn = (x) => x * x * x;
 const easeOut = (x) => 1 - Math.pow(1 - x, 3);
 const easeInOut = (x) => (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
+// The ShowPilot stamp (job 243): a round rubber-stamp impression with
+// SHOWPILOT across the top, the venue along the bottom and the date in the
+// middle, in one ink color, with the uneven gaps real ink leaves.
+function makeStamp(date, venue, ink, R) {
+  const d = date ? new Date(String(date).slice(0, 10) + "T12:00:00") : null;
+  if (!d || isNaN(d)) return null;
+  const pad = 24, S = R * 2 + pad * 2, c = document.createElement("canvas"); c.width = S; c.height = S;
+  const g = c.getContext("2d"), m = S / 2;
+  g.strokeStyle = ink; g.fillStyle = ink; g.textAlign = "center"; g.textBaseline = "middle";
+  g.lineWidth = R * .065; g.beginPath(); g.arc(m, m, R - g.lineWidth / 2, 0, 6.283); g.stroke();
+  g.lineWidth = R * .022; g.beginPath(); g.arc(m, m, R * .74, 0, 6.283); g.stroke();
+  // text around the ring
+  const arcText = (text, radius, center, size, bottom) => {
+    g.save(); g.font = `700 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    const chars = text.split(""); const widths = chars.map((ch) => g.measureText(ch).width + size * .12);
+    const total = widths.reduce((a, b) => a + b, 0); let a = center - (bottom ? -1 : 1) * total / radius / 2;
+    for (let i = 0; i < chars.length; i++) {
+      const w = widths[i], step = w / radius;
+      a += (bottom ? -1 : 1) * step / 2;
+      g.save(); g.translate(m + Math.cos(a) * radius, m + Math.sin(a) * radius);
+      g.rotate(a + (bottom ? -Math.PI / 2 : Math.PI / 2)); g.fillText(chars[i], 0, 0); g.restore();
+      a += (bottom ? -1 : 1) * step / 2;
+    }
+    g.restore();
+  };
+  const ringR = R * .87, ringSize = R * .2;
+  arcText("SHOWPILOT", ringR, -Math.PI / 2, ringSize, false);
+  let v = String(venue || "").toUpperCase().trim();
+  if (v.length > 18) v = v.slice(0, 17).trim() + "…";
+  if (v) arcText(v, ringR, Math.PI / 2, ringSize * .8, true);
+  // stars on the sides
+  for (const side of [-1, 1]) {
+    g.save(); g.translate(m + side * ringR, m); g.font = `700 ${ringSize * .8}px sans-serif`; g.fillText("★", 0, 0); g.restore();
+  }
+  // date in the middle
+  g.font = `600 ${R * .16}px "IBM Plex Mono", ui-monospace, monospace`;
+  g.fillText(d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase(), m, m - R * .36);
+  g.font = `700 ${R * .42}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  g.fillText(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase(), m, m + R * .02);
+  g.font = `600 ${R * .17}px "IBM Plex Mono", ui-monospace, monospace`;
+  g.fillText(String(d.getFullYear()), m, m + R * .38);
+  // ink gaps: knock out specks and a few soft worn patches
+  g.globalCompositeOperation = "destination-out";
+  let sd = 9; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 900; i++) { g.globalAlpha = .3 + rr() * .7; const x = rr() * S, y = rr() * S, z = rr() * 2.4 + .4; g.fillRect(x, y, z, z); }
+  for (let i = 0; i < 6; i++) {
+    const x = rr() * S, y = rr() * S, z = R * (.15 + rr() * .25);
+    const wg = g.createRadialGradient(x, y, 0, x, y, z); wg.addColorStop(0, "rgba(0,0,0,.55)"); wg.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalAlpha = 1; g.fillStyle = wg; g.fillRect(x - z, y - z, z * 2, z * 2);
+  }
+  g.globalCompositeOperation = "source-over"; g.globalAlpha = 1;
+  return c;
+}
+
 export function createFilm(canvas, opts = {}) {
   // Landscape puts the sun on the left and the event on the right.
   const land = opts.orientation === "landscape";
@@ -208,6 +263,7 @@ export function createFilm(canvas, opts = {}) {
   const show = { you: true, header: true, name: true, date: true, ...(opts.show || {}) };
   const title = String(opts.title || "Tonight");
   const dateLine = String(opts.dateLine || "");
+  const stampImg = makeStamp(opts.date, opts.venue, hexRgb(opts.sun) ? opts.sun : "#8CFF3D", land ? 118 : 132);
   const header = opts.image || standInHeader();
   const sprites = new Map();
   const sprite = (c) => { if (!sprites.has(c)) sprites.set(c, starSprite(c)); return sprites.get(c); };
@@ -449,10 +505,17 @@ export function createFilm(canvas, opts = {}) {
     // The event: picture, then name, then date. Without a picture the text
     // moves up into its place.
     let textY = TITLE_Y;
+    const nT = show.header ? 9.4 : 8.2;
+    const stampOn = show.date && stampImg;
+    const ST = nT + 1.1; // the stamp lands
+    const hitT = t - ST;
+    const jolt = stampOn && hitT > 0 && hitT < .22 ? Math.sin(hitT * 70) * (1 - hitT / .22) * 7 : 0;
+    let cardBox = null;
     if (show.header) {
       const hIn = easeOut(seg(t, 8.0, 9.4));
       if (hIn > 0) {
-        const cw = CARD.w, ch = CARD.h, x = EV_X - cw / 2, y = CARD.y + (1 - hIn) * 70;
+        const cw = CARD.w, ch = CARD.h, x = EV_X - cw / 2 + jolt * .4, y = CARD.y + (1 - hIn) * 70 + jolt;
+        cardBox = { x, y, cw, ch };
         ctx.save(); ctx.globalAlpha = hIn;
         ctx.shadowColor = `rgba(${G3},.35)`; ctx.shadowBlur = 60;
         roundRect(x, y, cw, ch, 28); ctx.fillStyle = "#111"; ctx.fill(); ctx.shadowBlur = 0;
@@ -461,7 +524,6 @@ export function createFilm(canvas, opts = {}) {
         ctx.restore();
       }
     } else textY = TITLE_Y_BARE;
-    const nT = show.header ? 9.4 : 8.2;
     if (show.name) {
       const nIn = easeOut(seg(t, nT, nT + 1.2));
       if (nIn > 0) {
@@ -471,7 +533,28 @@ export function createFilm(canvas, opts = {}) {
         ctx.restore();
       }
     }
-    if (show.date && dateLine) {
+    // The ShowPilot stamp slams onto the card's top-right corner (or under
+    // the name when there's no picture): drops in big, hits, settles, with a
+    // little ink burst.
+    if (stampOn && t > ST - .25) {
+      const sz = stampImg.width;
+      const cx = cardBox ? cardBox.x + cardBox.cw - sz * .3 : EV_X;
+      const cy = cardBox ? cardBox.y + sz * .22 : textY + (show.name ? 60 : 0) + sz * .48;
+      const fall = clamp01((t - (ST - .25)) / .25);
+      const scale = t < ST ? 2.3 - 1.4 * easeIn(fall) : 1 + .06 * Math.exp(-hitT * 18) * Math.cos(hitT * 40);
+      const alpha = t < ST ? .25 + .55 * fall : .92;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(-.24 + (t < ST ? (1 - fall) * .12 : 0)); ctx.scale(scale, scale);
+      if (t < ST) { ctx.shadowColor = "rgba(0,0,0,.55)"; ctx.shadowBlur = 30 * (1 - fall); ctx.shadowOffsetY = 26 * (1 - fall); }
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(stampImg, -sz / 2, -sz / 2);
+      ctx.restore();
+      if (hitT > 0 && hitT < .5) {
+        const bt = hitT / .5;
+        ctx.save(); ctx.globalAlpha = (1 - bt) * .5; ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 3 * (1 - bt) + 1;
+        ctx.beginPath(); ctx.arc(cx, cy, sz * (.42 + bt * .35), 0, 6.283); ctx.stroke(); ctx.restore();
+      }
+    }
+    if (show.date && dateLine && !stampImg) {
       const dIn = easeOut(seg(t, nT + .8, nT + 1.8));
       if (dIn > 0) {
         ctx.save(); ctx.globalAlpha = dIn; ctx.textAlign = "center"; ctx.fillStyle = `rgba(${soft},.92)`;
