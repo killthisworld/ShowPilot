@@ -37,8 +37,8 @@ export default function IntakeRating({ token, onRate = null }) {
           .ir-thanks p + p { animation-delay: .35s, 1.45s; }
           @media (prefers-reduced-motion: reduce) { .ir-thanks p { animation: none; text-shadow: 0 0 12px rgba(255,255,255,0.6); } }
         `}</style>
-        <p className="text-white text-[22px] font-semibold leading-snug">We greatly appreciate your feedback.</p>
-        <p className="mt-2 text-white/90 text-[17px] leading-snug">Have a great event and God bless.</p>
+        <p className="text-white text-[16px] font-semibold leading-snug">We greatly appreciate your feedback.</p>
+        <p className="mt-1.5 text-white text-[16px] font-semibold leading-snug">Have a great event and God bless!</p>
       </div>
     );
   }
