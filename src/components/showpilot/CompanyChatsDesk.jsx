@@ -9,6 +9,8 @@ import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
 import { PhotoBar } from "@/components/showpilot/CompanyChats";
+import useFanThreads from "@/hooks/useFanThreads";
+import { FansHeading, FanThreadBar, FanThreadView, FAN_G } from "@/components/showpilot/FanThreads";
 import NightSky from "@/components/showpilot/NightSky";
 import { openRooms } from "@/lib/hiddenProfiles";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
@@ -31,7 +33,10 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
   const [gone, setGone] = useState(() => new Set());
   const [hiddenEvents, setHiddenEvents] = useState(() => readHiddenEventRooms());
   const [user, setUser] = useState(null);
-  const [sel, setSel] = useState(null); // { kind: "chat", id } | { kind: "event", token }
+  const [sel, setSel] = useState(null); // { kind: "chat", id } | { kind: "event", token } | { kind: "fans", showId }
+  // Fan messages, one thread per event (job 236).
+  const { threads: fanThreads, reload: reloadFans } = useFanThreads();
+  const fanNew = fanThreads.reduce((n, t) => n + Number(t.unread || 0), 0);
   const today = localISO();
 
   useEffect(() => { supabase.auth.getUser().then(({ data: d }) => setUser(d?.user || null)); }, []);
@@ -71,6 +76,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
 
   const chatColor = (c) => (c.kind === "direct" ? BLUE : c.kind === "general_room" ? "#9CA3AF" : sectionMeta(c.section).color);
   const selChat = sel?.kind === "chat" ? chats.find((c) => c.id === sel.id) || null : null;
+  const selFans = sel?.kind === "fans" ? fanThreads.find((t) => t.show_id === sel.showId) || null : null;
   const selEvent = sel?.kind === "event" ? (gigs || []).find((g) => g.share_token === sel.token) || null : null;
 
   const trash = (label, onClick) => (
@@ -97,7 +103,7 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
               <p className="flex-1 m-0 text-sm text-white/70">Couldn't load your chats just now.</p>
               <button onClick={reload} className="h-10 px-3.5 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold">Retry</button>
             </div>
-          ) : chats.length === 0 && upcoming.length === 0 ? (
+          ) : chats.length === 0 && upcoming.length === 0 && fanThreads.length === 0 ? (
             <div className="rounded-xl bg-[#151515] border border-[#262626] p-5 flex flex-col items-center gap-2 text-center">
               <MessageCircle className="w-8 h-8 text-white/40" />
               <p className="m-0 text-base font-semibold text-white">No conversations yet</p>
@@ -132,6 +138,24 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
                       {unread > 0 && <span className="min-w-[24px] h-[24px] px-1.5 rounded-full text-xs font-bold flex items-center justify-center shrink-0" style={{ background: G, color: "#0d0d0d" }}>{unread}</span>}
                       {trash(title, () => remove(c))}
                     </PhotoBar>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!loading && fanThreads.length > 0 && (
+            <div className="flex flex-col gap-2 shrink-0">
+              <FansHeading count={fanNew} />
+              {fanThreads.map((t) => {
+                const on = selFans?.show_id === t.show_id;
+                return (
+                  <div key={t.show_id} role="button" tabIndex={0} aria-pressed={on} aria-label={`Fan messages, ${eventTitle(t)}`}
+                    onClick={() => setSel({ kind: "fans", showId: t.show_id })}
+                    onKeyDown={(e) => { if (e.key === "Enter") setSel({ kind: "fans", showId: t.show_id }); }}
+                    className="group relative cursor-pointer rounded-xl overflow-hidden border border-[#262626]">
+                    {on && <span aria-hidden="true" className="absolute inset-0 z-10 pointer-events-none border-2 rounded-xl" style={{ borderColor: FAN_G }} />}
+                    <FanThreadBar t={t} photo={byToken[t.share_token]?.icon_url} className="min-h-[88px]" />
                   </div>
                 );
               })}
@@ -180,6 +204,8 @@ export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = fals
               eventHref={selChat.share_token ? `/gig/web?token=${selChat.share_token}` : null}
               shareToken={selChat.share_token || null}
             />
+          ) : selFans ? (
+            <FanThreadView key={selFans.show_id} t={selFans} photo={byToken[selFans.share_token]?.icon_url} onRead={reloadFans} />
           ) : selEvent ? (
             <EventRooms key={selEvent.share_token} gig={selEvent} user={user} color={eventTypeColor(selEvent.event_type) || accent} />
           ) : (

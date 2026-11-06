@@ -6,6 +6,8 @@ import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import useFanThreads from "@/hooks/useFanThreads";
+import { FansHeading, FanThreadBar, FanThreadSheet } from "@/components/showpilot/FanThreads";
 import { chatHref, chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
 
 const BLUE = "#60A5FA";
@@ -114,6 +116,10 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
   const [gone, setGone] = useState(() => new Set());
   const [hiddenEvents, setHiddenEvents] = useState(() => readHiddenEventRooms());
   const today = localISO();
+  // Fan messages, one thread per event (job 236).
+  const { threads: fanThreads, reload: reloadFans } = useFanThreads();
+  const [openFans, setOpenFans] = useState(null);
+  const fanNew = fanThreads.reduce((n, t) => n + Number(t.unread || 0), 0);
 
   // Chats for events that haven't happened yet (no date counts as upcoming).
   const chats = useMemo(() => {
@@ -156,7 +162,7 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
           <p className="flex-1 m-0 text-sm text-white/70">Couldn't load your chats just now.</p>
           <button onClick={reload} className="h-11 px-3.5 rounded-[10px] bg-[#1f1f1f] text-white text-[13px] font-semibold">Retry</button>
         </div>
-      ) : chats.length === 0 ? (upcoming.length > 0 ? null :
+      ) : chats.length === 0 ? (upcoming.length > 0 || fanThreads.length > 0 ? null :
         <div className="rounded-xl bg-[#151515] border border-[#262626] p-5 flex flex-col items-center gap-2 text-center">
           <MessageCircle className="w-8 h-8 text-white/40" />
           <p className="m-0 text-base font-semibold text-white">No conversations yet</p>
@@ -196,8 +202,20 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
         </>
       )}
 
-      {!loading && upcoming.length > 0 && (
+      {!loading && fanThreads.length > 0 && (
         <div className={`${chats.length ? "pt-6" : ""} flex flex-col gap-2`}>
+          <FansHeading count={fanNew} />
+          {fanThreads.map((t) => (
+            <button key={t.show_id} type="button" onClick={() => setOpenFans(t)} aria-label={`Fan messages, ${eventTitle(t)}`}
+              className="block w-full text-left rounded-xl overflow-hidden border border-[#262626]">
+              <FanThreadBar t={t} photo={byToken[t.share_token]?.icon_url} className="min-h-[88px]" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && upcoming.length > 0 && (
+        <div className={`${chats.length || fanThreads.length ? "pt-6" : ""} flex flex-col gap-2`}>
           <div className="text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>{words.event.toUpperCase()} ROOMS</div>
           <div className="flex flex-col gap-2">
             {upcoming.map((g) => (
@@ -215,6 +233,10 @@ export default function CompanyChats({ preferences, gigs, gigsLoading = false })
         </div>
       )}
 
+      {openFans && (
+        <FanThreadSheet t={openFans} photo={byToken[openFans.share_token]?.icon_url} onRead={reloadFans}
+          onClose={() => { setOpenFans(null); reloadFans(); }} />
+      )}
     </div>
   );
 }

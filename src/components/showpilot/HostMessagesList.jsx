@@ -15,7 +15,9 @@ const when = (iso) => {
     + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).toUpperCase();
 };
 
-export default function HostMessagesList({ showId }) {
+// fill: no height cap (the Chats page gives it the whole panel).
+// onRead: called once the new messages have been marked read.
+export default function HostMessagesList({ showId, fill = false, onRead }) {
   const [msgs, setMsgs] = useState(null);
   const [err, setErr] = useState("");
 
@@ -26,7 +28,7 @@ export default function HostMessagesList({ showId }) {
       if (error) { setErr("Couldn't load messages."); setMsgs([]); return; }
       const list = Array.isArray(data) ? data : [];
       setMsgs(list);
-      if (list.some((m) => !m.read)) supabase.rpc("mark_host_messages_read", { p_show_id: showId }).then(({ error: e }) => { if (e) console.error(e); });
+      if (list.some((m) => !m.read)) supabase.rpc("mark_host_messages_read", { p_show_id: showId }).then(({ error: e }) => { if (e) console.error(e); else onRead?.(); });
     });
     return () => { alive = false; };
   }, [showId]);
@@ -48,11 +50,11 @@ export default function HostMessagesList({ showId }) {
       ) : msgs.length === 0 ? (
         <p className="mt-3 text-[15px] text-white/45">No messages yet.</p>
       ) : (
-        <ul className="mt-3 space-y-2 max-h-[420px] overflow-y-auto">
+        <ul className={`mt-3 space-y-2 ${fill ? "" : "max-h-[420px] overflow-y-auto"}`}>
           {msgs.map((m) => (
             <li key={m.id} className="rounded-xl px-3 py-2.5" style={{ background: "#05060f", border: `1px solid ${m.read ? "#1c2042" : "rgba(140,255,61,0.35)"}` }}>
               <div className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-white/55" style={{ fontFamily: SCENE_MONO }}>
-                {!m.read && <span style={{ color: G }}>NEW ·</span>}
+                {!m.read && <span className="shrink-0 whitespace-nowrap" style={{ color: G }}>NEW ·</span>}
                 <span className="truncate">{(m.name || "Fan").toUpperCase()} · PARTY OF {m.guests}</span>
                 <span className="ml-auto shrink-0">{when(m.at)}</span>
               </div>
