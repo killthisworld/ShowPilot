@@ -5,6 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { inspectWav, describeWav, qualityWarning } from "@/lib/wav";
 import { setUploadCall, uploadToDrive, DJ_COLOR } from "@/lib/djTools";
+import { SEND_OFF_CSS, SendOffCenter, useSendOff } from "@/components/showpilot/IntakeKeyWeb";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
@@ -40,6 +41,10 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   const [savedAt, setSavedAt] = useState(null);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  // Sending is one time (job 225): it plays the send-off like the intake web,
+  // then the link only shows that it's sent - no editing, no "send update".
+  const [sendOff, setSendOff] = useState(false);
+  useSendOff(sendOff, () => setSendOff(false));
   const queue = useRef(Promise.resolve()); // uploads run one at a time
   const stateRef = useRef({});
   stateRef.current = { artistName, tracks, contact };
@@ -83,7 +88,6 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
       if (e || !d) { setError("Couldn't save. Check your connection and try again."); throw e || new Error("save failed"); }
       applyServer(d);
       setSavedAt(new Date());
-      if (submit) setSubmitted(true);
       return d;
     };
     const p = saveChain.current.then(run, run);
@@ -162,6 +166,8 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   const submit = async () => {
     try {
       await save(true);
+      setSendOff(true);
+      setSubmitted(true);
       setUploadCall(token, "finalize").catch(() => {}); // number the files in Drive; not essential
       onDone?.();
     } catch { /* error already shown */ }
@@ -187,6 +193,21 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   }
 
   const ev = data.event;
+  // Sent (job 225): just that, for good.
+  if (submitted && !sendOff) {
+    const n = tracks.filter((t) => t.title || t.file_id).length;
+    return shell(
+      <div className="so-fade max-w-[560px] mx-auto px-6 py-20 flex flex-col items-center text-center gap-3">
+        <style>{SEND_OFF_CSS}</style>
+        <span className="w-20 h-20 rounded-full flex items-center justify-center border-2" style={{ borderColor: G, background: G + "14" }}>
+          <Check className="w-9 h-9" style={{ color: G }} />
+        </span>
+        <h1 className="text-[34px] font-bold leading-none mt-2">Sent</h1>
+        <p className="text-white/65 text-[16px]">Your set is with {ev.dj_name || "the DJ"}.</p>
+        {n > 0 && <p className="text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{n} TRACK{n === 1 ? "" : "S"}</p>}
+      </div>
+    );
+  }
   const due = ev.due_at ? new Date(ev.due_at) : null;
   const overdue = due && due < new Date() && !submitted;
   const dateLabel = ev.event_date ? new Date(ev.event_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : null;
@@ -201,7 +222,8 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   const slotBit = start ? `you're on ${fmtTime(start)}${order ? ` (${ordinal(order)})` : ""}` : order && lineup.length > 1 ? `you're ${ordinal(order)} of ${lineup.length}` : null;
 
   return shell(
-      <main className={`max-w-[560px] mx-auto ${embedded ? "" : "px-4 pt-7"} flex flex-col gap-5`}>
+      <main className={`djs-form max-w-[560px] mx-auto ${embedded ? "" : "px-4 pt-7"} flex flex-col gap-5`}>
+        {sendOff && <style className="djs-keep">{".djs-form > :not(.djs-keep) { opacity: 0; transition: opacity .45s ease; pointer-events: none; }"}</style>}
         {/* One header: who it's for, the event, your slot, when it's due */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
@@ -220,9 +242,6 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
         </div>
         {ev.note && <p className="m-0 text-white/80 text-[15px] whitespace-pre-wrap pl-3" style={{ borderLeft: `3px solid ${DJ_COLOR}` }}>{ev.note}</p>}
 
-        {submitted && (
-          <p className="m-0 text-[14px] flex items-center gap-2 text-white/85"><Check className="w-4 h-4 text-[#8CFF3D] shrink-0" /> Your set is with {djFirst}. Changes here still reach them.</p>
-        )}
         {!driveOk && (
           <p className="m-0 text-[14px] flex items-start gap-2 text-white/80"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: AMBER }} /> {djFirst}'s Google Drive isn't connected, so WAVs can't be sent yet. Your track list still saves.</p>
         )}
@@ -278,10 +297,23 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
           <button type="button" onClick={submit} disabled={saving || uploading}
             className="w-full h-[52px] rounded-[14px] text-[16px] font-extrabold tracking-[0.04em] disabled:opacity-50"
             style={{ background: G, color: "#0d0d0d" }}>
-            {uploading ? "WAITING FOR UPLOADS…" : submitted ? "SEND UPDATE" : "SEND MY SET"}
+            {uploading ? "WAITING FOR UPLOADS…" : "SEND MY SET"}
           </button>
-          <span className="text-center text-[10px] text-white/40" style={{ fontFamily: SCENE_MONO }}>SAVES AS YOU GO · YOU CAN CHANGE IT AFTER SENDING</span>
+          <span className="text-center text-[10px] text-white/40" style={{ fontFamily: SCENE_MONO }}>SAVES AS YOU GO · YOU SEND IT ONCE</span>
         </div>
+        {sendOff && (
+          <div className="djs-keep fixed inset-0 z-50 pointer-events-none flex items-center justify-center" aria-live="polite">
+            <style>{SEND_OFF_CSS}</style>
+            <span className="sr-only">Sending your set</span>
+            <div className="relative w-[120px] h-[120px] so-fade">
+              <SendOffCenter off color={DJ_COLOR}>
+                <span className="absolute inset-0 rounded-full flex items-center justify-center border-[3px]" style={{ borderColor: DJ_COLOR, background: "#141414", boxShadow: `0 0 28px ${DJ_COLOR}66` }}>
+                  <Disc3 className="w-12 h-12" style={{ color: DJ_COLOR }} />
+                </span>
+              </SendOffCenter>
+            </div>
+          </div>
+        )}
       </main>
   );
 }

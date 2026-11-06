@@ -65,6 +65,7 @@ export function intakeCorners({ services, asksTracks, form, update, icons }) {
 export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
   const [slot, setSlot] = useState(undefined); // undefined = loading, null = none
   const [later, setLater] = useState(false);
+  const [tracksSent, setTracksSent] = useState(false); // sent once (job 225): no "do this later"
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -108,11 +109,13 @@ export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
         </div>
       </div>
       <div className="max-w-[560px] mx-auto px-4 pt-4">
-        <DjSetUpload tokenOverride={slot} embedded onDone={() => {}} />
+        <DjSetUpload tokenOverride={slot} embedded onDone={() => setTracksSent(true)} />
       </div>
-      <div className="max-w-[560px] mx-auto px-4 pb-10 text-center">
-        <button type="button" onClick={() => setLater(true)} className="text-white/50 hover:text-white text-[14px] underline underline-offset-4">I'll do this later</button>
-      </div>
+      {!tracksSent && (
+        <div className="max-w-[560px] mx-auto px-4 pb-10 text-center">
+          <button type="button" onClick={() => setLater(true)} className="text-white/50 hover:text-white text-[14px] underline underline-offset-4">I'll do this later</button>
+        </div>
+      )}
     </div>
   );
 }
