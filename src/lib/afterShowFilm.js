@@ -275,7 +275,8 @@ export function createFilm(canvas, opts = {}) {
   // The event's column: centered under the sun (portrait) or to its right.
   const EV_X = land ? W * .7 : W / 2;
   // Landscape: the card, name and date sit as one block centered top to bottom.
-  const CARD = land ? { w: 780, h: 439, y: Math.round((H - (439 + 200)) / 2) } : { w: 860, h: 484, y: 1150 };
+  // (+50: a little lower than dead center, job 245; the stamp sits on top.)
+  const CARD = land ? { w: 780, h: 439, y: Math.round((H - (439 + 200)) / 2) + 50 } : { w: 860, h: 484, y: 1150 };
   const TITLE_Y = land ? CARD.y + CARD.h + 120 : 1745, TITLE_Y_BARE = land ? H / 2 : 1400, TEXT_W = land ? 840 : 940;
   const list = (opts.stars && opts.stars.length ? opts.stars : [{ id: "you", color: "#8CFF3D", me: true }]).slice(0, 400);
   const n = list.length;
