@@ -399,7 +399,6 @@ export default function EventSky() {
   const countdown = sky?.countdown || null;
   const notches = countdown?.notches || [];
   const passOpen = countdown ? Date.now() >= new Date(countdown.show_opens_at).getTime() : false;
-  const keyNotches = countdown ? [...notches.map((n) => !!n.open), passOpen] : null;
   const [unlockOpen, setUnlockOpen] = useState(null);
   const [seenNow, setSeenNow] = useState({});
   const openUnlock = (n) => {
@@ -521,7 +520,7 @@ export default function EventSky() {
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
           <div style={{ width: 280 * keyScale, height: 280 * keyScale }}>
             <div style={{ transform: `scale(${keyScale})`, transformOrigin: "top left" }}>
-              <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} notches={keyNotches} />
+              <SkyKey seed={key} color={color} phase={phase === "failed" ? "failed" : phase} onDone={onKeyDone} />
             </div>
           </div>
           {phase === "verifying" && <p className="mt-6 text-lg text-white/60">Checking your key…</p>}
@@ -603,7 +602,7 @@ export default function EventSky() {
               {stars.length} {stars.length === 1 ? "star" : "stars"} in the sky, {sky.people} {sky.people === 1 ? "person" : "people"} coming
             </p>
             <p className="mt-0.5 text-[15px] leading-snug text-white/60">
-              {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
+              {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}.
             </p>
           </div>
         </div>
