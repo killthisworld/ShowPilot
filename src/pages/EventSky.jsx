@@ -92,15 +92,15 @@ function SkyStar({ star, color, isMe, revealDelay, onSelect, selected, scale = 1
           boxShadow: `0 0 ${isMe ? 16 : 9}px ${isMe ? 5 : 2}px ${color}${isMe ? "ee" : "aa"}`,
         }}
       />
-      {isMe && (
-        <span className="absolute rounded-full border" style={{ width: core + 18, height: core + 18, borderColor: "rgba(255,255,255,0.55)" }} />
-      )}
       {(isMe || selected) && (
+        <span className="absolute rounded-full border" style={{ width: core + 18, height: core + 18, borderColor: selected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)" }} />
+      )}
+      {isMe && (
         <span
           className="absolute top-full mt-0.5 whitespace-nowrap px-2 py-0.5 rounded-full text-[13px] font-semibold text-white"
           style={{ background: "rgba(8,10,28,0.78)", border: "1px solid rgba(255,255,255,0.18)" }}
         >
-          {isMe ? "You" : `Party of ${star.guests}`}
+          You
         </span>
       )}
     </button>
@@ -186,6 +186,130 @@ function UnlockPanel({ notch, color, onClose }) {
   );
 }
 
+// ---------- Hype meter + a message a day (job 234) ----------
+const HYPE = [["👀", "Curious"], ["🙂", "Ready"], ["🔥", "Hyped"], ["🚀", "So hyped"], ["🤯", "Losing it"]];
+const MAX_POST = 140;
+const MAX_BUBBLES = 12; // the newest messages get a bubble; older ones show when the star is tapped
+const dayWord = (day, today) => {
+  if (!day) return "";
+  if (day === today) return "TODAY";
+  const t = today ? new Date(today + "T12:00:00") : new Date();
+  t.setDate(t.getDate() - 1);
+  if (day === t.toISOString().slice(0, 10)) return "YESTERDAY";
+  return shortDate(day + "T12:00:00");
+};
+const preview = (m) => (m.length > 26 ? `${m.slice(0, 25).trimEnd()}…` : m);
+
+// A short preview over a star that has a message.
+function PostBubble({ message, isMe }) {
+  return (
+    <span
+      className="absolute left-0 top-0 pointer-events-none whitespace-nowrap px-2.5 py-1 rounded-xl text-[12.5px] leading-tight text-white"
+      style={{
+        transform: "translate(-50%, calc(-100% - 20px))",
+        background: isMe ? "rgba(140,255,61,0.16)" : "rgba(10,13,34,0.86)",
+        border: `1px solid ${isMe ? "rgba(140,255,61,0.55)" : "rgba(255,255,255,0.2)"}`,
+        boxShadow: "0 4px 14px rgba(0,0,0,0.45)",
+        zIndex: 4,
+      }}
+    >
+      {preview(message)}
+      <span aria-hidden="true" className="absolute left-1/2 -bottom-[5px] w-2.5 h-2.5 -translate-x-1/2 rotate-45"
+        style={{ background: isMe ? "#1d2b17" : "rgb(10,13,34)", borderRight: `1px solid ${isMe ? "rgba(140,255,61,0.55)" : "rgba(255,255,255,0.2)"}`, borderBottom: `1px solid ${isMe ? "rgba(140,255,61,0.55)" : "rgba(255,255,255,0.2)"}` }} />
+    </span>
+  );
+}
+
+// Tapping a star: its party and its latest message.
+function StarCard({ star, isMe, today, color, onClose, onPost }) {
+  const post = star.post;
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center px-1" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-2xl p-4" style={{ background: "rgba(11,14,36,0.94)", border: `1px solid ${isMe ? `${color}88` : "#2b2f5a"}`, boxShadow: "0 10px 30px rgba(0,0,0,0.55)" }}>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: isMe ? color : "rgba(255,255,255,0.6)" }}>
+            {isMe ? "YOU · " : ""}PARTY OF {star.guests}{post ? ` · ${dayWord(post.day, today)}` : ""}
+          </span>
+          <button type="button" onClick={onClose} aria-label="Close" className="ml-auto -mr-1 w-8 h-8 rounded-full text-white/60 hover:text-white">×</button>
+        </div>
+        {post
+          ? <p className="mt-1 text-[17px] leading-snug text-white break-words">{post.message}</p>
+          : <p className="mt-1 text-[15px] leading-snug text-white/55">{isMe ? "You haven't posted a message yet." : "No message yet."}</p>}
+        {isMe && (
+          <button type="button" onClick={onPost} className="mt-3 h-10 px-4 rounded-full text-[14px] font-bold text-[#0d0d0d]" style={{ background: color }}>
+            {post && post.day === today ? "Edit today's message" : "Post today's message"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Write today's message: one a day, 140 characters, no name shown.
+function PostComposer({ color, today, mine, onClose, onSave, onRemove }) {
+  const [text, setText] = useState(mine?.message || "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const hidden = !!mine?.hidden;
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const save = async () => {
+    if (!text.trim() || busy) return;
+    setBusy(true); setErr("");
+    const e = await onSave(text.trim());
+    setBusy(false);
+    if (e) setErr(e);
+  };
+  const remove = async () => {
+    setBusy(true); setErr("");
+    const e = await onRemove();
+    setBusy(false);
+    if (e) setErr(e);
+  };
+  return (
+    <div className="absolute inset-0 z-30 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Post a message in the sky">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-t-[22px] sm:rounded-[22px] p-5" style={{ background: "#0b0e24", border: "1px solid #2b2f5a", boxShadow: `0 0 40px ${color}22` }}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color }}>{dayWord(today, today) || "TODAY"} · ONE MESSAGE A DAY</div>
+            <h2 className="mt-1 text-[24px] font-bold leading-tight">{mine && !hidden ? "Edit today's message" : "Post to the sky"}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="shrink-0 w-9 h-9 rounded-full text-white/70 border border-white/20">×</button>
+        </div>
+        {hidden ? (
+          <p className="mt-3 text-[15px] leading-relaxed text-white/75">The host hid today's message, so only you can see it. You can post a new one tomorrow.</p>
+        ) : (
+          <>
+            <p className="mt-2 text-[15px] leading-snug text-white/65">It shows over your star for everyone coming. Your name never shows, just your party size.</p>
+            <textarea
+              autoFocus value={text} maxLength={MAX_POST} rows={3}
+              onChange={(e) => setText(e.target.value.replace(/\n/g, " "))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(); } }}
+              placeholder="Can't wait for this one!"
+              aria-label="Your message"
+              className="mt-3 w-full rounded-xl px-3.5 py-3 text-[17px] leading-snug text-white bg-[#05060f] border border-[#2b2f5a] placeholder:text-white/35 focus:outline-none focus:border-[#8CFF3D]/60 resize-none"
+            />
+            <div className="mt-1 text-right text-[12px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{text.length} / {MAX_POST}</div>
+            {err && <p className="mt-1 text-[14px] text-red-400">{err}</p>}
+            <div className="mt-3 flex items-center gap-2">
+              {mine && (
+                <button type="button" onClick={remove} disabled={busy} className="h-12 px-4 rounded-xl text-[15px] font-semibold text-white/80 border border-white/20 disabled:opacity-50">Take it down</button>
+              )}
+              <button type="button" onClick={save} disabled={busy || !text.trim()} className="flex-1 h-12 rounded-xl text-[16px] font-bold text-[#0d0d0d] disabled:opacity-50" style={{ background: color }}>
+                {busy ? "Posting…" : mine ? "Save" : "Post it"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function EventSky() {
   const { token: tokenKey } = useParams();
   const resolved = useFanToken(tokenKey);
@@ -194,6 +318,14 @@ export default function EventSky() {
   const pageHref = window.location.pathname.replace(/\/sky\/?$/, "");
   const [params] = useSearchParams();
   const key = params.get("k") || "";
+  // From the email's hype buttons (?hype=<notch>.<1-5>) and its "Post a
+  // message" link (?post=1). Read once, then taken off the address.
+  const [arrival] = useState(() => {
+    const m = /^(.+)\.([1-5])$/.exec(params.get("hype") || "");
+    return { hype: m ? { notch: m[1], level: Number(m[2]) } : null, post: params.get("post") === "1" };
+  });
+  const [toast, setToast] = useState("");
+  const [composing, setComposing] = useState(false);
   const [phase, setPhase] = useState("verifying"); // verifying | unlocking | open | failed
   const [sky, setSky] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -275,6 +407,72 @@ export default function EventSky() {
   }, []);
   useEffect(() => { if (open) firstOpen.current = false; }, [open]);
 
+  // Once the sky is open: record the hype tap and/or open the composer.
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (!open || arrived.current) return;
+    arrived.current = true;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.has("hype") || u.searchParams.has("post")) {
+        u.searchParams.delete("hype"); u.searchParams.delete("post");
+        window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      }
+    } catch { /* keep the address as it is */ }
+    if (arrival.hype) {
+      const [emoji, label] = HYPE[arrival.hype.level - 1];
+      supabase.rpc("set_countdown_hype", { p_token: token, p_key: key, p_notch: arrival.hype.notch, p_level: arrival.hype.level })
+        .then(({ data, error }) => {
+          if (error) console.error(error);
+          setToast(data ? `${emoji} ${label}. Got it, see you there!` : "");
+        });
+    }
+    if (arrival.post) setComposing(true);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!toast) return undefined;
+    const id = setTimeout(() => setToast(""), 4000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  const refresh = () => load().then(({ data }) => { if (data) setSky(data); });
+  const savePost = async (message) => {
+    const { error } = await supabase.rpc("post_sky_message", { p_token: token, p_key: key, p_message: message });
+    if (error) return error.message || "Couldn't post it. Try again.";
+    setComposing(false);
+    setSelected(sky?.me?.id || null);
+    refresh();
+    return "";
+  };
+  const removePost = async () => {
+    const { error } = await supabase.rpc("delete_sky_message", { p_token: token, p_key: key });
+    if (error) return "Couldn't take it down. Try again.";
+    setComposing(false);
+    refresh();
+    return "";
+  };
+  // The newest messages get bubbles; your own always does.
+  // Bubbles go to the newest messages first, skipping any that would cover a
+  // bubble already placed; those stars get a small dot and open on tap.
+  const bubbleIds = useMemo(() => {
+    const ids = new Set();
+    const boxes = [];
+    const meId = sky?.me?.id;
+    const byNew = layout.positions.filter((p) => p.star.post)
+      .sort((a, b) => (a.star.id === meId ? -1 : b.star.id === meId ? 1 : String(b.star.post.at).localeCompare(String(a.star.post.at))));
+    for (const p of byNew) {
+      if (ids.size >= MAX_BUBBLES + (meId && p.star.id === meId ? 1 : 0)) break;
+      const w = Math.min(26, p.star.post.message.length) * 7.2 + 24, h = 28;
+      const box = { l: p.x - w / 2, r: p.x + w / 2, t: p.y - 20 - h, b: p.y - 20 };
+      if (boxes.some((o) => box.l < o.r + 4 && box.r > o.l - 4 && box.t < o.b + 3 && box.b > o.t - 3)) continue;
+      boxes.push(box);
+      ids.add(p.star.id);
+    }
+    return ids;
+  }, [layout, sky?.me?.id]);
+  const selectedStar = stars.find((s) => s.id === selected) || null;
+  const minePost = sky?.me?.post_today || null;
+
   return (
     <div className="sky-root fixed inset-x-0 top-0 overflow-hidden bg-[#03040c] text-white" style={{ fontFamily: SCENE_FONT }}>
       <style>{`
@@ -352,9 +550,22 @@ export default function EventSky() {
                     revealDelay={firstOpen.current ? (isMe ? 700 : 100 + Math.min(i, 40) * 25) : 0}
                     onSelect={(e) => { e.stopPropagation(); setSelected(selected === p.star.id ? null : p.star.id); }}
                   />
+                  {p.star.post && selected !== p.star.id && (bubbleIds.has(p.star.id)
+                    ? <PostBubble message={p.star.post.message} isMe={isMe} />
+                    : <span aria-hidden="true" className="absolute left-0 top-0 w-[7px] h-[7px] rounded-full pointer-events-none" style={{ transform: "translate(7px, -15px)", background: "rgba(255,255,255,0.8)", boxShadow: "0 0 6px rgba(255,255,255,0.7)", zIndex: 4 }} />)}
                 </div>
               );
             })}
+            {toast && (
+              <div role="status" className="absolute left-1/2 -translate-x-1/2 top-0 z-20 px-4 py-2.5 rounded-full text-[15px] font-semibold text-white whitespace-nowrap"
+                style={{ background: "rgba(11,14,36,0.95)", border: `1px solid ${color}88`, boxShadow: `0 0 22px ${color}33` }}>
+                {toast}
+              </div>
+            )}
+            {selectedStar && (
+              <StarCard star={selectedStar} isMe={selectedStar.id === sky.me?.id} today={sky.today} color={color}
+                onClose={() => setSelected(null)} onPost={() => setComposing(true)} />
+            )}
           </div>
 
           <div className="shrink-0 px-5 pt-3 pb-5" style={{ background: "linear-gradient(0deg, rgba(3,4,12,0.85), rgba(3,4,12,0))" }}>
@@ -364,12 +575,21 @@ export default function EventSky() {
             <p className="mt-0.5 text-[15px] leading-snug text-white/60">
               {sky.me?.name ? `${sky.me.name}, your` : "Your"} star joined{joined ? ` on ${joined}` : ""}. Every new RSVP adds another.
             </p>
-            <a href={pageHref} className="inline-block mt-2 text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
+            <div className="mt-2.5 flex items-center gap-3">
+              <button type="button" onClick={() => setComposing(true)} className="h-10 px-4 rounded-full text-[14px] font-bold text-[#0d0d0d]" style={{ background: color }}>
+                {minePost && !minePost.hidden ? "Edit today's message" : "Post to the sky"}
+              </button>
+              <a href={pageHref} className="text-[13px] text-white/55 underline underline-offset-2 hover:text-white" style={{ fontFamily: SCENE_MONO }}>Event details</a>
+            </div>
           </div>
         </div>
       )}
 
       {unlockOpen && <UnlockPanel notch={unlockOpen} color={color} onClose={() => setUnlockOpen(null)} />}
+      {composing && open && sky && (
+        <PostComposer color={color} today={sky.today} mine={minePost} onClose={() => setComposing(false)} onSave={savePost} onRemove={removePost} />
+      )}
+
     </div>
   );
 }

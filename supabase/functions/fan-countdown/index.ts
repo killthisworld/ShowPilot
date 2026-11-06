@@ -38,6 +38,8 @@ export const KIND_LABEL: Record<string, string> = {
   bts: "a behind-the-scenes look", doors: "doors & parking", merch: "a first look at the merch",
 };
 
+// Hype meter levels, 1 to 5 (job 234).
+const HYPE: [string, string][] = [["👀", "CURIOUS"], ["🙂", "READY"], ["🔥", "HYPED"], ["🚀", "SO HYPED"], ["🤯", "LOSING IT"]];
 const titleOf = (ev: Ev) => ev.event_name || ev.band_name || "the show";
 const dateLong = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
@@ -65,6 +67,10 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   if (ev.venue) rows.push(["VENUE", ev.venue]);
   if (ev.address || place) rows.push(["ADDRESS", [ev.address, place].filter(Boolean).join(", ")]);
   if (ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
+  // Hype meter (job 234): one tap opens the fan's sky and records the answer.
+  const hypeLink = (lvl: number) => `${sky}&hype=${encodeURIComponent(n.id)}.${lvl}`;
+  const postLink = `${sky}&post=1`;
+  const hypeCells = HYPE.map(([emoji, label], i) => `<td align="center" style="padding:0 3px;"><a href="${esc(hypeLink(i + 1))}" style="display:block;padding:10px 2px 8px;background:#0b0e24;border:1px solid #2b2f5a;border-radius:12px;color:#fff;text-decoration:none;"><span style="display:block;font-size:24px;line-height:1.1;">${emoji}</span><span style="display:block;margin-top:4px;font-family:${mono};font-size:9px;letter-spacing:.02em;white-space:nowrap;color:#b7bbe6;">${label}</span></a></td>`).join("");
   const teaser = unlock ? (n.title?.trim() || KIND_LABEL[n.kind || ""] || "something new") : "";
 
   const html = `<!doctype html><html><body style="margin:0;padding:0;background:#05060f;">
@@ -92,6 +98,14 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
       </td></tr>
       ${!unlock ? `<tr><td style="padding:0 0 6px;"><a href="${esc(sky)}" style="display:inline-block;padding:12px 20px;background:${G};color:#0d0d0d;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">Open your key &rsaquo;</a>
         <a href="${esc(base)}" style="display:inline-block;margin-left:6px;padding:12px 16px;border:1px solid #232849;border-radius:12px;color:#fff;font-weight:700;font-size:15px;text-decoration:none;">Event page</a></td></tr>` : ""}
+      <tr><td style="padding:18px 0 0;">
+        <div style="padding:16px 12px 14px;background:#0e1128;border:1px solid #232849;border-radius:14px;text-align:center;">
+          <div style="font-family:${mono};font-size:11px;letter-spacing:.14em;color:${G};">HOW HYPED ARE YOU?</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px;table-layout:fixed;"><tr>${hypeCells}</tr></table>
+          <div style="margin-top:12px;font-size:13px;line-height:1.45;color:#b7bbe6;">Tap one to open your sky. You can post a message there once a day for everyone coming to see.</div>
+          <a href="${esc(postLink)}" style="display:inline-block;margin-top:10px;font-size:14px;font-weight:700;color:${G};text-decoration:none;">Post a message in the sky &rsaquo;</a>
+        </div>
+      </td></tr>
       <tr><td style="padding:22px 2px 0;font-size:12px;line-height:1.5;color:#7e83b8;">
         You're getting this because you RSVP'd to ${esc(title)} on Show Pilot. Your RSVP and key stay active either way.<br>
         <a href="${esc(stop)}" style="color:#b7bbe6;">Stop countdown emails</a>
@@ -108,6 +122,10 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
     "",
     unlock ? null : `Open your key: ${sky}`,
     `Event page: ${base}`,
+    "",
+    "How hyped are you? Tap one:",
+    ...HYPE.map(([emoji, label], i) => `${emoji} ${label}: ${hypeLink(i + 1)}`),
+    `Post a message in the sky: ${postLink}`,
     "",
     `Stop countdown emails: ${stop}`,
   ].filter((l) => l !== null).join("\n");

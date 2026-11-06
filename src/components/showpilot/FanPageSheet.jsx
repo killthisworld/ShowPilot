@@ -8,6 +8,7 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
+import SkyPostsList from "@/components/showpilot/SkyPostsList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
 import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
@@ -694,7 +695,10 @@ function OwnerSheet({ showId, onClose }) {
 
   // ---- Guests: the RSVP list ----
   const guestsTab = row && (savedRsvp && row.fan_page_enabled ? (
-    <RsvpList showId={showId} tall={desktop} capacity={savedCap} />
+    <>
+      <RsvpList showId={showId} tall={desktop} capacity={savedCap} />
+      <SkyPostsList showId={showId} />
+    </>
   ) : (
     <div className="rounded-2xl p-5 text-center" style={{ background: PANEL, border: `1px dashed ${EDGE_LINE}` }}>
       <Users className="w-7 h-7 mx-auto" style={{ color: G }} />
@@ -747,6 +751,7 @@ function OwnerSheet({ showId, onClose }) {
   const todayEt = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   const todayDays = row?.date ? Math.round((Date.parse(row.date + "T00:00:00Z") - Date.parse(todayEt + "T00:00:00Z")) / 86400000) : null;
   const showTodayPick = todayDays != null && todayDays >= 1 && todayDays <= 30;
+  const HYPE_LEVELS = [["👀", "Curious"], ["🙂", "Ready"], ["🔥", "Hyped"], ["🚀", "So hyped"], ["🤯", "Losing it"]];
   const DAY_PICKS = [[0, "Morning of"], [1, "Day before"], [3, "3 days"], [7, "1 week"], [14, "2 weeks"]];
   const KINDS = [["note", "Artist note"], ["setlist", "Setlist tease"], ["playlist", "Playlist"], ["bts", "Behind the scenes"], ["doors", "Doors & parking"], ["merch", "Merch first look"]];
   const [uploadingNotch, setUploadingNotch] = useState(null);
@@ -771,7 +776,7 @@ function OwnerSheet({ showId, onClose }) {
       {section("Countdown", <>
         {segmented([[false, "Off"], [true, "On"]], !!cd.enabled, (k) => setCd({ enabled: k, notches: k && !cd.notches.length ? QUICK.reminder() : cd.notches }), "Countdown")}
         {note(cd.enabled
-          ? "Each notch is an email to everyone who RSVP'd, sent on its day at the time you pick (Eastern; 10 AM unless you change it). An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away."
+          ? "Each notch is an email to everyone who RSVP'd, sent on its day at the time you pick (Eastern; 10 AM unless you change it). An Unlock also reveals something in the event's sky and turns a notch on the fan's key. Fans who RSVP late see past unlocks right away. Every email ends with a hype meter (you see the taps here) and a link to post a message in the sky."
           : "Keep fans excited before the show with up to 5 emails, each one turning a notch on their key. Off by default.")}
         {cd.enabled && !rsvp && <p className="mt-2 text-[14px] leading-relaxed text-[#FF6A00]">Countdown emails go to people who RSVP. Switch how fans get in to RSVP under Setup, or the countdown won't send.</p>}
         {cd.enabled && !row?.date && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no date yet, so the countdown can't be scheduled.</p>}
@@ -805,6 +810,13 @@ function OwnerSheet({ showId, onClose }) {
                   {when ? `${when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase()} · ${timeLabel(n.time).toUpperCase()} ET` : "NO DATE"}{passed ? " · ALREADY PASSED" : ""}{isToday && passedTime && !st?.sent ? " · SENDS SOON" : ""}
                   {st ? ` · SENT ${st.sent} · OPENED ${st.opened}` : ""}
                 </span>
+                {/* Hype meter answers to this email (job 234). */}
+                {st?.hyped > 0 && (
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px]" style={{ fontFamily: SCENE_MONO, color: SOFT }}>
+                    <span style={{ color: G }}>HYPE · {st.hyped} {st.hyped === 1 ? "TAP" : "TAPS"}</span>
+                    {HYPE_LEVELS.map(([emoji, l], i) => <span key={l} title={l}>{emoji} {st.hype?.[String(i + 1)] || 0}</span>)}
+                  </span>
+                )}
               </span>
               <button type="button" onClick={() => setCd({ notches: cd.notches.filter((x) => x.id !== n.id) })} aria-label="Remove notch" className="p-2 rounded-lg text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
             </div>
