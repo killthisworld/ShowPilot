@@ -956,13 +956,19 @@ function OwnerSheet({ showId, onClose }) {
     </div>
   );
   const starfield = { background: `radial-gradient(1px 1px at 12% 18%, #ffffff55, transparent), radial-gradient(1px 1px at 72% 32%, #ffffff40, transparent), radial-gradient(1px 1px at 40% 78%, #ffffff35, transparent), radial-gradient(1px 1px at 88% 82%, #ffffff40, transparent), ${NAVY}` };
+  // Typing in a box here stays here (job 233). The sheet can open from inside
+  // a clickable event card whose Space / Enter key opens the card; React
+  // passes key presses up through the portal to it, which swallowed spaces.
+  const keepTyping = (e) => {
+    if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) e.stopPropagation();
+  };
   const tabContent = { guests: guestsTab, share: shareTab, setup: setupTab, countdown: countdownTab };
 
   if (desktop) {
     // Desktop: tabs across the top; the live preview always on the left, the
     // open part's editor (or the Guests / Share / Setup tab) on the right.
     return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ fontFamily: SCENE_FONT }}>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ fontFamily: SCENE_FONT }} onKeyDown={keepTyping}>
         <div className="absolute inset-0 bg-black/70" onClick={close} />
         <div className="relative w-full max-w-[1120px] h-[min(94vh,880px)] flex flex-col rounded-[22px] overflow-hidden" style={{ ...starfield, border: `1px solid ${EDGE_LINE}`, boxShadow: "0 24px 70px rgba(0,0,0,0.7)" }}>
           <div className="px-6 pt-5 pb-3.5 space-y-3.5" style={{ borderBottom: `1px solid ${EDGE_LINE}` }}>
@@ -1004,7 +1010,7 @@ function OwnerSheet({ showId, onClose }) {
   // Phone: a tall sheet. Page = the preview; tapping a part slides its editor
   // up over the bottom of the preview.
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ fontFamily: SCENE_FONT }}>
+    <div className="fixed inset-0 z-[70] flex items-end justify-center" style={{ fontFamily: SCENE_FONT }} onKeyDown={keepTyping}>
       <div className="absolute inset-0 bg-black/70" onClick={close} />
       <div className="relative w-full max-w-lg h-[94dvh] flex flex-col rounded-t-[22px] overflow-hidden" style={{ ...starfield, borderTop: `1px solid ${EDGE_LINE}`, boxShadow: "0 -10px 40px rgba(0,0,0,0.6)" }}>
         <div className="shrink-0 px-4 pt-2.5 pb-3 space-y-3">
