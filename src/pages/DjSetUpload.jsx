@@ -5,7 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { inspectWav, describeWav, qualityWarning } from "@/lib/wav";
 import { setUploadCall, uploadToDrive, DJ_COLOR } from "@/lib/djTools";
-import { SEND_OFF_CSS, SendOffCenter, useSendOff } from "@/components/showpilot/IntakeKeyWeb";
+import { SEND_OFF_CSS, SendOffCenter, useSendOff, IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
@@ -196,16 +196,11 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   // Sent (job 225): just that, for good.
   if (submitted && !sendOff) {
     const n = tracks.filter((t) => t.title || t.file_id).length;
-    return shell(
-      <div className="so-fade max-w-[560px] mx-auto px-6 py-20 flex flex-col items-center text-center gap-3">
-        <style>{SEND_OFF_CSS}</style>
-        <span className="w-20 h-20 rounded-full flex items-center justify-center border-2" style={{ borderColor: G, background: G + "14" }}>
-          <Check className="w-9 h-9" style={{ color: G }} />
-        </span>
-        <h1 className="text-[34px] font-bold leading-none mt-2">Sent</h1>
-        <p className="text-white/65 text-[16px]">Your set is with {ev.dj_name || "the DJ"}.</p>
-        {n > 0 && <p className="text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{n} TRACK{n === 1 ? "" : "S"}</p>}
-      </div>
+    // Centred on the night sky, like the intake form's Sent screen.
+    return (
+      <IntakeSent seed={token} title="Sent!" line={`Your set is with ${ev.dj_name || "the DJ"}.`}>
+        {n > 0 && <p className="mt-3 text-[11px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{n} TRACK{n === 1 ? "" : "S"}</p>}
+      </IntakeSent>
     );
   }
   const due = ev.due_at ? new Date(ev.due_at) : null;

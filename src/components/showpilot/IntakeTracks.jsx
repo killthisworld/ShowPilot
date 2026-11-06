@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { CheckCircle, Copy, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import { DJ_COLOR, slotLink } from "@/lib/djTools";
+import { DJ_COLOR } from "@/lib/djTools";
 import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
 import DjSetUpload from "@/pages/DjSetUpload";
 
@@ -60,13 +59,10 @@ export function intakeCorners({ services, asksTracks, form, update, icons }) {
 }
 
 // Right after sending, for an act that has tracks: their set form for this
-// event (made on the server), with "I'll do this later" and the saved link.
+// event (made on the server).
 // Returns null (so the page shows its usual Sent screen) when there's no slot.
 export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
   const [slot, setSlot] = useState(undefined); // undefined = loading, null = none
-  const [later, setLater] = useState(false);
-  const [tracksSent, setTracksSent] = useState(false); // sent once (job 225): no "do this later"
-  const [copied, setCopied] = useState(false);
   useEffect(() => {
     let alive = true;
     supabase.rpc("intake_dj_slot", { p_token: token, p_kind: kind }).then(({ data, error }) => {
@@ -81,43 +77,10 @@ export function IntakeTracksAfter({ token, kind, sentLine, fallback }) {
     return <div className="min-h-[100dvh] bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>;
   }
   if (!slot) return fallback;
-  const link = slotLink(slot);
-  const copy = () => { navigator.clipboard?.writeText(link).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); };
 
-  if (later) {
-    return (
-      <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex items-center justify-center px-5">
-        <div className="max-w-sm w-full text-center flex flex-col gap-4">
-          <CheckCircle className="w-14 h-14 mx-auto" style={{ color: "#8CFF3D" }} />
-          <h2 className="text-[28px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Sent!</h2>
-          <p className="text-white/60 text-[15px]">{sentLine} Your tracks can wait: this link opens your set any time.</p>
-          <button type="button" onClick={copy} className="h-11 rounded-xl border text-[14px] font-semibold flex items-center justify-center gap-2" style={{ borderColor: DJ_COLOR + "88", color: DJ_COLOR }}>
-            {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy my set link</>}
-          </button>
-          <a href={link} className="text-white/55 text-[14px] underline underline-offset-4">Open my set now</a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-[100dvh] bg-[#0d0d0d] text-white">
-      <div className="max-w-[560px] mx-auto px-4 pt-5">
-        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl" style={{ background: "#8CFF3D14", border: "1px solid #8CFF3D44" }}>
-          <CheckCircle className="w-4 h-4 shrink-0" style={{ color: "#8CFF3D" }} />
-          <span className="text-[13px] text-white/80">{sentLine} Now your tracks:</span>
-        </div>
-      </div>
-      <div className="max-w-[560px] mx-auto px-4 pt-4">
-        <DjSetUpload tokenOverride={slot} embedded onDone={() => setTracksSent(true)} />
-      </div>
-      {!tracksSent && (
-        <div className="max-w-[560px] mx-auto px-4 pb-10 text-center">
-          <button type="button" onClick={() => setLater(true)} className="text-white/50 hover:text-white text-[14px] underline underline-offset-4">I'll do this later</button>
-        </div>
-      )}
-    </div>
-  );
+  // Straight into their set form (no "Now your tracks" banner or "I'll do
+  // this later"; Jay, Nov 6). Sending it is one time and ends on the Sent sky.
+  return <DjSetUpload tokenOverride={slot} />;
 }
 
 // An act that answered No: remembered for the sender.
