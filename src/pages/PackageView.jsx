@@ -86,8 +86,8 @@ export default function PackageView() {
 
   if (step === "offer") {
     return (
-      <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-6">
-        <div className="w-full max-w-[460px]">
+      <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-6 lg:px-10 lg:py-10">
+        <div className="w-full max-w-[460px] lg:max-w-[1080px]">
           <OfferDates wants={pkg.wants} booked={booked} actName={pkg.act_name} submitting={busy} error={error}
             initial={pkg.is_venue ? { offers: pkg.offers, message: pkg.venue_message } : null}
             onSubmit={(offers, message) => respond(offers, message, false)} onBack={() => setStep("web")} />

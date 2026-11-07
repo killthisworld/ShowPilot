@@ -5,6 +5,7 @@ import { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 // The sender's side once the venue answers (job 246, step 3): pick one of the
 // dates offered and confirm. Confirming bursts the package open into the new
 // event (the circles fly out, the event card lands), then links to it.
+// On a laptop the offered dates sit side by side as cards.
 const GREEN = "#8CFF3D";
 const BLUE = "#60A5FA";
 const RED = "#F87171";
@@ -17,37 +18,37 @@ export function ConfirmDates({ pkg, venueName, busy, error, onConfirm }) {
   const offers = Array.isArray(pkg.offers) ? pkg.offers : [];
   const [pick, setPick] = useState(offers[0]?.date || "");
   return (
-    <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-6">
-      <div className="w-full max-w-[460px] flex flex-col gap-4">
+    <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center lg:items-center px-4 py-6 lg:px-10">
+      <div className="w-full max-w-[460px] lg:max-w-[980px] flex flex-col gap-4 lg:gap-6">
         <div className="flex items-center gap-3">
           <span className="w-12 h-12 rounded-full shrink-0 border-2" style={{ borderColor: BLUE, background: "#1b2433" }} aria-hidden="true" />
           <div className="flex flex-col gap-0.5 min-w-0">
             <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: MONO, color: BLUE }}>{(venueName || "THE VENUE").toUpperCase()} REPLIED</span>
-            <h1 className="text-[32px] font-bold leading-none" style={{ fontFamily: COND }}>They can do {offers.length} date{offers.length === 1 ? "" : "s"}</h1>
+            <h1 className="text-[32px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: COND }}>They can do {offers.length} date{offers.length === 1 ? "" : "s"}</h1>
           </div>
         </div>
-        <div role="radiogroup" aria-label="Dates offered" className="flex flex-col gap-2.5">
+        <div role="radiogroup" aria-label="Dates offered" className="flex flex-col gap-2.5 lg:grid lg:gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(offers.length, 1)}, minmax(0, 1fr))` }}>
           {offers.map((o) => {
             const on = pick === o.date;
             return (
-              <button key={o.date} type="button" role="radio" aria-checked={on} onClick={() => setPick(o.date)} className="min-h-[80px] rounded-[14px] px-3.5 py-2.5 text-left flex items-center gap-3 border"
+              <button key={o.date} type="button" role="radio" aria-checked={on} onClick={() => setPick(o.date)} className="min-h-[80px] rounded-[14px] px-3.5 py-2.5 text-left flex items-center gap-3 border lg:relative lg:flex-col lg:items-start lg:gap-4 lg:p-5 lg:min-h-[220px]"
                 style={on ? { borderColor: GREEN, background: `${GREEN}12` } : { borderColor: "#262626", background: "#151515" }}>
-                <span className="w-[54px] h-[58px] rounded-[10px] bg-[#0f0f0f] border border-[#2a2a2a] flex flex-col items-center justify-center shrink-0">
+                <span className="w-[54px] h-[58px] lg:w-[76px] lg:h-[82px] rounded-[10px] bg-[#0f0f0f] border border-[#2a2a2a] flex flex-col items-center justify-center shrink-0">
                   <span className="text-[10px] tracking-[0.1em] text-white/60" style={{ fontFamily: MONO }}>{fmt(o.date, { weekday: "short" }).toUpperCase()}</span>
-                  <span className="text-[26px] font-bold leading-none" style={{ fontFamily: COND }}>{fmt(o.date, { day: "numeric" })}</span>
+                  <span className="text-[26px] lg:text-[38px] font-bold leading-none" style={{ fontFamily: COND }}>{fmt(o.date, { day: "numeric" })}</span>
                 </span>
                 <span className="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <span className="text-[16px] font-bold">{fmt(o.date)}</span>
-                  <span className="text-[13px] text-white/65">{[o.billing, o.set_time && `on at ${o.set_time}`, o.load_in && `load-in ${o.load_in}`].filter(Boolean).join(" · ")}</span>
+                  <span className="text-[16px] lg:text-[20px] font-bold">{fmt(o.date)}</span>
+                  <span className="text-[13px] lg:text-[14px] text-white/65">{[o.billing, o.set_time && `on at ${o.set_time}`, o.load_in && `load-in ${o.load_in}`].filter(Boolean).join(" · ")}</span>
                 </span>
-                <span className="w-[22px] h-[22px] rounded-full shrink-0 box-border" style={on ? { border: `7px solid ${GREEN}`, background: "#0d0d0d" } : { border: "2px solid #444" }} aria-hidden="true" />
+                <span className="w-[22px] h-[22px] rounded-full shrink-0 box-border lg:absolute lg:top-5 lg:right-5" style={on ? { border: `7px solid ${GREEN}`, background: "#0d0d0d" } : { border: "2px solid #444" }} aria-hidden="true" />
               </button>
             );
           })}
         </div>
         {pkg.venue_message && <div className="rounded-[12px] border border-[#262626] bg-[#151515] px-3.5 py-3 text-[14px] text-white/80">"{pkg.venue_message}"{venueName ? ` · ${venueName}` : ""}</div>}
         {error && <p className="text-center text-[14px] text-red-400">{error}</p>}
-        <button type="button" disabled={!pick || busy} onClick={() => onConfirm(pick)} className="mt-2 min-h-[54px] rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
+        <button type="button" disabled={!pick || busy} onClick={() => onConfirm(pick)} className="mt-2 min-h-[54px] lg:w-[420px] lg:self-center rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
           {busy ? "Booking…" : pick ? `Confirm ${fmt(pick)}` : "Pick a date"}
         </button>
         <p className="text-center text-[12.5px] text-white/50">Confirming makes the event on {venueName || "the venue"}'s side with your info filled in, and puts it on your calendar.</p>

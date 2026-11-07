@@ -6,7 +6,8 @@ import { DAYS } from "@/lib/bookingPackage";
 // The venue offers up to 3 dates for a booking package (job 246, step 2).
 // Nights the act wants are outlined in their red; nights the venue already
 // has an event are crossed out. Set time, load-in and billing go with every
-// date offered.
+// date offered. On a laptop the calendar sits on the left and the details
+// (picked dates, billing, times, note, Offer) on the right, all on one screen.
 const BLUE = "#60A5FA";
 const RED = "#F87171";
 const MONO = "'JetBrains Mono', monospace";
@@ -55,12 +56,14 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
   const fmt = (key) => new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:gap-6">
       <div className="flex flex-col gap-1">
         <span className="text-[11px] tracking-[0.14em]" style={{ fontFamily: MONO, color: BLUE }}>OFFER DATES TO {(actName || "THEM").toUpperCase()}</span>
-        <h1 className="text-[34px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Pick up to 3</h1>
+        <h1 className="text-[34px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Pick up to 3</h1>
       </div>
 
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8 lg:items-start">
+      <div className="flex flex-col gap-4 lg:rounded-[18px] lg:border lg:border-[#1f1f1f] lg:bg-[#111] lg:p-5">
       <div className="flex items-center gap-2">
         <button type="button" aria-label="Previous month" onClick={() => setView(new Date(y, m - 1, 1))} className="w-11 h-11 rounded-[10px] border border-[#333] flex items-center justify-center"><ChevronLeft className="w-5 h-5" /></button>
         <span className="flex-1 text-center text-[16px] font-bold">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
@@ -71,7 +74,7 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
         {cells.map((c, i) => c ? (
           <button key={c.key} type="button" disabled={c.past || c.isBooked} aria-pressed={c.on} onClick={() => toggle(c.key)}
             aria-label={`${fmt(c.key)}${c.isBooked ? ", you already have an event" : c.want ? ", a night they want" : ""}`}
-            className="h-11 rounded-[10px] text-[14px] font-bold border disabled:cursor-not-allowed"
+            className="h-11 lg:h-[52px] rounded-[10px] text-[14px] lg:text-[16px] font-bold border disabled:cursor-not-allowed"
             style={c.isBooked ? { background: "#1f1f1f", color: "rgba(255,255,255,0.3)", borderColor: "#1f1f1f", textDecoration: "line-through" }
               : c.on ? { background: BLUE, color: "#0d0d0d", borderColor: BLUE }
               : c.past ? { color: "rgba(255,255,255,0.2)", borderColor: "transparent" }
@@ -85,9 +88,17 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[3px] border" style={{ borderColor: `${RED}99` }} />Nights they want</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-[3px] bg-[#2a2a2a]" />You already have an event</span>
       </div>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+      <div className="hidden lg:flex items-center justify-between">
+        <span className={label + " mb-0"} style={{ fontFamily: MONO }}>DATES YOU'RE OFFERING</span>
+        <span className="text-[12px] text-white/50" style={{ fontFamily: MONO }}>{n} / 3</span>
+      </div>
+      {n === 0 && <p className="hidden lg:block m-0 text-[14px] text-white/45 rounded-[12px] border border-dashed border-[#2a2a2a] px-3 py-3 text-center">Tap nights on the calendar.</p>}
 
       {n > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
           {picked.map((k) => (
             <button key={k} type="button" onClick={() => toggle(k)} aria-label={`Remove ${fmt(k)}`} className="min-h-[40px] pl-3 pr-2 rounded-full text-[13.5px] font-bold flex items-center gap-1.5" style={{ background: `${BLUE}22`, color: "#93C5FD", border: `1px solid ${BLUE}66` }}>{fmt(k)}<X className="w-3.5 h-3.5" /></button>
           ))}
@@ -120,6 +131,8 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
         {submitting ? "Sending…" : n ? `Offer ${n} date${n === 1 ? "" : "s"}` : "Pick a date"}
       </button>
       {onBack && <button type="button" onClick={onBack} className="min-h-[44px] text-[14px] text-white/60">Back to their package</button>}
+      </div>
+      </div>
     </div>
   );
 }

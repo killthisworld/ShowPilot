@@ -84,26 +84,30 @@ export default function TechAskView() {
   const sched = Array.isArray(ask.schedule) ? ask.schedule : [];
   const timeOf = (re) => sched.find((r) => re.test(r.label || ""))?.time || "";
   const chips = [["LOAD-IN", timeOf(/^load.?in/i)], ["DOORS", timeOf(/door/i)], ["CURFEW", timeOf(/curfew/i)]].filter(([, v]) => v);
+  const askedBy = (cls) => (
+    <div className={`items-center gap-3 ${cls}`}>
+      <span className="w-9 h-9 lg:w-12 lg:h-12 rounded-full border-2 shrink-0 overflow-hidden" style={{ borderColor: BLUE, background: "#1b2433" }}>{ask.asked_by?.photo && <img src={ask.asked_by.photo} alt="" className="w-full h-full object-cover" />}</span>
+      <span className="text-[14.5px] lg:text-[16px] text-white/80"><span className="font-bold text-white">{venueName}</span> asked if you're free{ask.role === "lighting" ? " for lights" : " for sound"}</span>
+    </div>
+  );
+  // Phone: one column. Laptop: the event on the left, the answer on the right.
   return (
-    <IntakeSent seed={code} bare>
-      <div className="text-left flex flex-col gap-4">
-        <div className="flex items-center gap-3">
-          <span className="w-9 h-9 rounded-full border-2 shrink-0 overflow-hidden" style={{ borderColor: BLUE, background: "#1b2433" }}>{ask.asked_by?.photo && <img src={ask.asked_by.photo} alt="" className="w-full h-full object-cover" />}</span>
-          <span className="text-[14.5px] text-white/80"><span className="font-bold text-white">{venueName}</span> asked if you're free{ask.role === "lighting" ? " for lights" : " for sound"}</span>
-        </div>
+    <IntakeSent seed={code} bare wide>
+      <div className="text-left flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10 lg:items-center">
+        {askedBy("flex lg:hidden")}
         <div className="rounded-[18px] border border-[#262626] overflow-hidden bg-[#151515]/95">
-          {ask.image ? <img src={ask.image} alt="" className="w-full h-[130px] object-cover" /> : null}
-          <div className="p-4 flex flex-col gap-3">
+          {ask.image ? <img src={ask.image} alt="" className="w-full h-[130px] lg:h-[210px] object-cover" /> : null}
+          <div className="p-4 lg:p-6 flex flex-col gap-3 lg:gap-4">
             <div>
-              <div className="text-[30px] font-bold leading-none" style={{ fontFamily: COND }}>{ask.title || "A show"}</div>
-              <div className="text-[14px] text-white/75 mt-1">{[fmt(ask.date), ask.venue].filter(Boolean).join(" · ")}</div>
+              <div className="text-[30px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: COND }}>{ask.title || "A show"}</div>
+              <div className="text-[14px] lg:text-[16px] text-white/75 mt-1">{[fmt(ask.date), ask.venue].filter(Boolean).join(" · ")}</div>
             </div>
             {chips.length > 0 && (
               <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${chips.length}, minmax(0, 1fr))` }}>
                 {chips.map(([k, v]) => (
-                  <div key={k} className="rounded-[10px] bg-[#0f0f0f] border border-[#262626] p-2 text-center">
-                    <div className="text-[9.5px] tracking-[0.1em] text-white/55" style={{ fontFamily: MONO }}>{k}</div>
-                    <div className="text-[14px] font-bold">{v}</div>
+                  <div key={k} className="rounded-[10px] bg-[#0f0f0f] border border-[#262626] p-2 lg:p-3 text-center">
+                    <div className="text-[9.5px] lg:text-[10.5px] tracking-[0.1em] text-white/55" style={{ fontFamily: MONO }}>{k}</div>
+                    <div className="text-[14px] lg:text-[17px] font-bold">{v}</div>
                   </div>
                 ))}
               </div>
@@ -112,26 +116,29 @@ export default function TechAskView() {
               <div className="flex flex-col gap-1.5">
                 <div className="text-[10px] tracking-[0.12em] text-white/55" style={{ fontFamily: MONO }}>PLAYING</div>
                 {ask.bands.map((b, i) => (
-                  <div key={i} className="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] border" style={{ borderColor: `${RED}66`, background: "#1a1313" }}>
+                  <div key={i} className="flex items-center gap-2.5 px-2.5 py-2 lg:px-3.5 lg:py-3 rounded-[10px] border" style={{ borderColor: `${RED}66`, background: "#1a1313" }}>
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: RED }} />
-                    <span className="flex-1 min-w-0 text-[14px] font-bold truncate">{b.band_name}</span>
-                    <span className="text-[12.5px] text-white/65 shrink-0">{[b.set_time, b.inputs ? `${b.inputs} input${b.inputs === 1 ? "" : "s"}` : "", b.members ? `${b.members}-piece` : ""].filter(Boolean).join(" · ")}</span>
+                    <span className="flex-1 min-w-0 text-[14px] lg:text-[16px] font-bold truncate">{b.band_name}</span>
+                    <span className="text-[12.5px] lg:text-[14px] text-white/65 shrink-0">{[b.set_time, b.inputs ? `${b.inputs} input${b.inputs === 1 ? "" : "s"}` : "", b.members ? `${b.members}-piece` : ""].filter(Boolean).join(" · ")}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
         </div>
-        {error && <p className="text-center text-[14px] text-red-400">{error}</p>}
-        {ask.status === "asked" ? (
-          <div className="flex flex-col gap-2.5">
-            <button type="button" disabled={busy} onClick={() => answer(true)} className={`${btn} disabled:opacity-50`} style={{ background: GREEN, color: "#0d0d0d" }}>{busy ? "Sending…" : "I'm in"}</button>
-            <button type="button" disabled={busy} onClick={() => answer(false)} className={`${btn} border border-[#333] text-white/80 disabled:opacity-50`}>Can't make it</button>
-            <p className="text-center text-[12.5px] text-white/55">Saying yes puts the show on your calendar with their inputs and stage plot.</p>
-          </div>
-        ) : (
-          <p className="text-center text-[14px] text-white/60">This one's been answered.</p>
-        )}
+        <div className="flex flex-col gap-4 lg:gap-5">
+          {askedBy("hidden lg:flex")}
+          {error && <p className="text-center lg:text-left text-[14px] text-red-400 m-0">{error}</p>}
+          {ask.status === "asked" ? (
+            <div className="flex flex-col gap-2.5">
+              <button type="button" disabled={busy} onClick={() => answer(true)} className={`${btn} disabled:opacity-50`} style={{ background: GREEN, color: "#0d0d0d" }}>{busy ? "Sending…" : "I'm in"}</button>
+              <button type="button" disabled={busy} onClick={() => answer(false)} className={`${btn} border border-[#333] text-white/80 disabled:opacity-50`}>Can't make it</button>
+              <p className="text-center lg:text-left text-[12.5px] text-white/55">Saying yes puts the show on your calendar with their inputs and stage plot.</p>
+            </div>
+          ) : (
+            <p className="text-center lg:text-left text-[14px] text-white/60">This one's been answered.</p>
+          )}
+        </div>
       </div>
     </IntakeSent>
   );
