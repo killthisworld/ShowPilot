@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle, Plus, Trash2, Upload, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
+import { Check, CheckCircle, Plus, Trash2, Upload, MessageSquare, Lock, CalendarDays, X, ExternalLink } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
@@ -592,17 +592,50 @@ export default function EventLink() {
   );
   const changeName = !info.key && !off ? <button type="button" onClick={() => { setUnlocked(false); setKeyPhase("idle"); }} className="text-[12.5px] text-white/50 underline min-h-[40px]">Not {actName}? Change the name</button> : null;
 
+  // Laptop: what's on the web, beside it, until a circle is opened (job 247).
+  const pickBtn = "min-h-[46px] px-3 rounded-[10px] border bg-[#101010] hover:border-[#444] flex items-center gap-3 text-left";
+  const idleBody = (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col items-center gap-1 text-center">
+        <div className="text-[10.5px] tracking-[0.12em] text-white/55" style={mono}>{done} OF {N} DONE</div>
+        <div className="text-[30px] font-bold leading-tight" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Fill it in</div>
+        <p className="text-[13.5px] text-white/60">Tap a circle on the web, or pick one here.</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <button type="button" onClick={() => setPane("show")} className={pickBtn} style={{ borderColor: "#2a2a2a" }}>
+          <CalendarDays className="w-4 h-4 shrink-0" style={{ color: BLUE }} />
+          <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">The show</span>
+        </button>
+        {asks.map((a) => {
+          const ok = isDone(a);
+          return (
+            <button key={a.key} type="button" onClick={() => setPane(`ask:${a.key}`)} className={pickBtn} style={{ borderColor: ok ? `${GREEN}66` : "#2a2a2a" }}>
+              <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={ok ? { background: GREEN } : { border: "1.5px solid rgba(255,255,255,0.3)" }}>
+                {ok && <Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3} />}
+              </span>
+              <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{a.label}</span>
+              {!ok && a.required && <span className="shrink-0 text-[10px] tracking-[0.1em] text-white/55" style={mono}>NEEDED</span>}
+            </button>
+          );
+        })}
+        <button type="button" onClick={() => setPane("question")} className={pickBtn} style={{ borderColor: "#2a2a2a" }}>
+          <MessageSquare className="w-4 h-4 shrink-0" style={{ color: BLUE }} />
+          <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">Ask a question</span>
+        </button>
+      </div>
+    </div>
+  );
+
   if (desktop) {
     // Laptop: the web on the left, what you're filling in on the right.
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
         <SkyBack seed={code} dim={0.25} />
-        <div key={webKey} className={`el-web-in relative max-w-[1400px] mx-auto px-8 py-6 flex flex-col gap-4 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
-          <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
-          {previewBar}
-          {header(true)}
+        <div key={webKey} className={`el-web-in relative px-8 py-6 ${sendOff === "gone" ? "opacity-0" : ""}`} style={{ zIndex: 1 }}>
           {/* Fits the window; the web stays put and a circle opens beside it (job 202). */}
           <DesktopFit
+            top={<><div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>{previewBar}{header(true)}</>}
+            idle={off ? null : idleBody}
             reserved={266 + (previewBar ? 64 : 0) + (changeName ? 56 : 0) + (submitted ? 34 : 0)}
             web={web}
             below={<>

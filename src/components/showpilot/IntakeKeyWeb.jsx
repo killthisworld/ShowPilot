@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Lock, CheckCircle, CalendarDays, X, Plane } from "lucide-react";
+import { Lock, Check, CheckCircle, CalendarDays, X, Plane } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -43,34 +43,32 @@ function useViewport() {
   }, []);
   return v;
 }
-export function DesktopFit({ reserved = 250, web, below = null, panel = null, panelKey = "" }) {
+// The web and its panel are one block, centred, sized to the window (job 247):
+// the panel is always there beside the web (what's in it when nothing's open,
+// the circle when one is), so nothing hugs one edge of a wide screen.
+export function DesktopFit({ reserved = 250, top = null, web, below = null, panel = null, panelKey = "", idle = null }) {
   const { w, h } = useViewport();
-  const GAP = 40, PANEL_MIN = 320, PANEL_MAX = 460, PAD = 64;
+  const GAP = 40, PAD = 64;
+  // The page's own width (no scrollbar), capped like the rest of the app.
+  const vw = Math.min(1400, (typeof document !== "undefined" && document.documentElement.clientWidth) || w);
+  const avail = vw - PAD;
   const tall = Math.max(340, Math.min(720, h - reserved));
-  // Centred if the web can stay at least 420px (or its full height) with a panel beside it.
-  const centredSize = Math.min(tall, w - 2 * (GAP + 24 + PANEL_MIN));
-  const centred = centredSize >= Math.min(420, tall);
-  const size = centred ? centredSize : Math.max(340, Math.min(tall, w - PAD - GAP - PANEL_MIN));
-  const side = (w - size) / 2 - GAP - 24;
-  const panelW = centred ? Math.min(PANEL_MAX, side) : undefined;
-  const card = panel && (
-    <div key={panelKey} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overscroll-contain" style={{ maxHeight: size }}>
-      {panel}
-    </div>
-  );
-  const column = <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>;
-  if (centred) {
-    return (
-      <div className="relative flex justify-center">
-        {column}
-        {card && <div className="absolute top-0" style={{ left: `calc(50% + ${size / 2 + GAP}px)`, width: panelW }}>{card}</div>}
-      </div>
-    );
-  }
+  const size = Math.max(340, Math.min(tall, avail - GAP - 340));
+  const panelW = Math.max(320, Math.min(440, avail - GAP - size));
+  const body = panel || idle;
   return (
-    <div className="flex items-start" style={{ gap: GAP }}>
-      {column}
-      <div className="flex-1 min-w-0">{card}</div>
+    <div className="mx-auto flex flex-col gap-4" style={{ width: size + GAP + panelW, maxWidth: "100%" }}>
+      {top}
+      <div className="flex items-start" style={{ gap: GAP }}>
+        <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>
+        <div className="shrink-0" style={{ width: panelW }}>
+          {body && (
+            <div key={panel ? panelKey : "idle"} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overscroll-contain" style={{ maxHeight: size }}>
+              {body}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -333,9 +331,36 @@ export default function IntakeKeyWeb({
   );
   const cornerBody = openBox && (
     <div className="flex flex-col gap-3">
-      {panelHead(openBox.label, readOnly ? "" : openBox.done ? "DONE" : "OPTIONAL", null)}
+      {panelHead(openBox.label, readOnly ? "" : openBox.done ? "DONE" : openBox.required ? "NEEDED" : "OPTIONAL", null)}
       <div className="text-left">{openBox.body()}</div>
       {readOnly ? saveBtn : <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>}
+    </div>
+  );
+  // Laptop: what's in the web, beside it, until a circle is opened (job 247).
+  const idleItems = [
+    ...circles.map((c) => ({ id: c.key, label: c.label, done: c.done, required: c.required })),
+    ...extraBoxes.map(([id, c]) => ({ id, label: c.label, done: c.done, required: c.required })),
+  ];
+  const idleBody = (
+    <div className="flex flex-col gap-3">
+      {panelHead(readOnly ? "What's inside" : "Fill it in", readOnly ? `${N} THING${N === 1 ? "" : "S"}` : `${done} OF ${N} DONE`, readOnly ? "Tap a circle, or pick one here." : "Tap a circle on the web, or pick one here.")}
+      <div className="flex flex-col gap-1.5">
+        {show && (
+          <button type="button" onClick={() => setPane("show")} className="min-h-[46px] px-3 rounded-[10px] border border-[#2a2a2a] bg-[#101010] hover:border-[#444] flex items-center gap-3 text-left">
+            <CalendarDays className="w-4 h-4 shrink-0" style={{ color }} />
+            <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{showLabel}</span>
+          </button>
+        )}
+        {idleItems.map((it) => (
+          <button key={it.id} type="button" onClick={() => setPane(it.id)} className="min-h-[46px] px-3 rounded-[10px] border bg-[#101010] hover:border-[#444] flex items-center gap-3 text-left" style={{ borderColor: !readOnly && it.done ? `${GREEN}66` : "#2a2a2a" }}>
+            <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={!readOnly && it.done ? { background: GREEN } : { border: "1.5px solid rgba(255,255,255,0.3)" }}>
+              {!readOnly && it.done && <Check className="w-3 h-3 text-[#0d0d0d]" strokeWidth={3} />}
+            </span>
+            <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{it.label}</span>
+            {!readOnly && !it.done && it.required && <span className="shrink-0 text-[10px] tracking-[0.1em] text-white/55" style={mono}>NEEDED</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
   // Green only once every needed circle is filled (job 198).
@@ -381,11 +406,11 @@ export default function IntakeKeyWeb({
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
         <SkyBack seed={seed} dim={0.25} />
-        <div className="ikw-in relative max-w-[1400px] mx-auto px-8 py-6 flex flex-col gap-4" style={{ zIndex: 1 }}>
-          <div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>
-          {header(true)}
+        <div className="ikw-in relative px-8 py-6" style={{ zIndex: 1 }}>
           {/* Fits the window; the web stays put and a circle opens beside it (job 202). */}
           <DesktopFit
+            top={<><div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>{header(true)}</>}
+            idle={off ? null : idleBody}
             reserved={250 + (error ? 28 : 0)}
             web={web}
             below={sendRow}
