@@ -1,5 +1,6 @@
-import React from "react";
-import { Plus, Trash2, X, Paperclip, User, Music } from "lucide-react";
+import React, { useState } from "react";
+import { Plus, Trash2, X, Paperclip, User, Music, LayoutGrid } from "lucide-react";
+import StagePlotBuilder from "@/components/showpilot/StagePlotBuilder";
 import VocalsQuestion, { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
@@ -115,7 +116,14 @@ function MembersBody({ h }) {
 }
 
 function StagePlotBody({ h }) {
-  const { form, handleStagePlotUpload, removeStagePlotFile } = h;
+  const { form, handleStagePlotUpload, removeStagePlotFile, update, getInstruments } = h;
+  // No stage plot? Make one from the members (job 249).
+  const [building, setBuilding] = useState(false);
+  const placeMember = (i, x, y) => {
+    const members = [...(form.band_members || [])];
+    members[i] = { ...members[i], stage_x: x, stage_y: y };
+    update("band_members", members);
+  };
   return (
     <div className="flex flex-col gap-2">
       <label className="min-h-[110px] flex flex-col items-center justify-center gap-2 border-[1.5px] border-dashed border-[#3a3a3a] rounded-[14px] text-white/65 text-[14.5px] cursor-pointer hover:border-white/40">
@@ -128,6 +136,23 @@ function StagePlotBody({ h }) {
           <button type="button" onClick={() => removeStagePlotFile(i)} aria-label="Remove file" className="min-h-[36px] w-[36px] flex items-center justify-center text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
         </div>
       ))}
+      {!building ? (
+        <button type="button" onClick={() => setBuilding(true)} className="mt-1 min-h-[44px] rounded-[12px] border border-[#2c2c2c] text-[14px] font-semibold flex items-center justify-center gap-2" style={{ color: GREEN }}>
+          <LayoutGrid className="w-4 h-4" />No stage plot? Make one here
+        </button>
+      ) : (
+        <div className="mt-2 pt-3 border-t border-[#222]">
+          <StagePlotBuilder
+            members={form.band_members || []}
+            getInstruments={getInstruments}
+            onPlace={placeMember}
+            actName={form.band_name}
+            files={form.stage_plot_files || []}
+            onRemoveFile={removeStagePlotFile}
+            onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -184,7 +209,7 @@ export function intakeCircles(h, { seen = {}, card = null } = {}) {
     c("members", "Members and inputs", "Members & inputs", "Who plays what, and what the engineer plugs in", true,
       members.some((m) => has(m.name) || getInstruments(m).some((x) => has(x.name))),
       members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <MembersBody h={h} />),
-    c("plot", "Stage plot", "Stage plot", "A photo or PDF is fine", false,
+    c("plot", "Stage plot", "Stage plot", "Upload one, or make it here", false,
       (form.stage_plot_files || []).length > 0, (form.stage_plot_files || []).length > 0, () => <StagePlotBody h={h} />),
     c("notes", "Notes for the engineer", "Notes", "For the whole band or one member", false,
       has(form.general_notes) || members.some((m) => has(m.notes)), has(form.general_notes) || members.some((m) => has(m.notes)), () => <NotesBody h={h} />),

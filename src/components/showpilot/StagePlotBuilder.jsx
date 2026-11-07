@@ -1,0 +1,211 @@
+import React, { useRef, useState } from "react";
+import jsPDF from "jspdf";
+import { FileDown, Loader2, X } from "lucide-react";
+import { SCENE_MONO } from "@/lib/sceneStyle";
+
+// Make a stage plot right on the intake form (job 249): every member from
+// "Members and inputs" is a token the act drags onto the stage (audience at
+// the bottom), then "Make my stage plot" draws a simple PDF - the stage with
+// everyone placed, plus who plays what - and adds it to their stage plot
+// files like an upload. Positions live on each member (stage_x / stage_y,
+// 0-1 across and down the stage), so nothing new is stored anywhere else.
+const G = "#8CFF3D";
+const MADE_PREFIX = "Stage plot - ";
+
+const initials = (name, i) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return String(i + 1);
+  return (parts[0][0] + (parts[1]?.[0] || "")).toUpperCase();
+};
+const clamp = (v) => Math.min(0.95, Math.max(0.05, v));
+const placed = (m) => typeof m.stage_x === "number" && typeof m.stage_y === "number";
+
+// The PDF: landscape letter, stage on the left two thirds, who plays what on the right.
+export function stagePlotPdf({ actName, members, getInstruments }) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+  const W = doc.internal.pageSize.getWidth();
+  const M = 36;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text(actName || "Stage plot", M, M + 14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(110);
+  doc.text(actName ? "STAGE PLOT  ·  made with ShowPilot" : "made with ShowPilot", M, M + 32);
+  doc.setTextColor(0);
+
+  // Stage.
+  const sx = M, sy = M + 52, sw = 470, sh = 400;
+  doc.setDrawColor(40);
+  doc.setLineWidth(1.5);
+  doc.roundedRect(sx, sy, sw, sh, 8, 8);
+  doc.setFontSize(9);
+  doc.setTextColor(120);
+  doc.text("UPSTAGE", sx + sw / 2, sy + 16, { align: "center" });
+  doc.text("DOWNSTAGE", sx + sw / 2, sy + sh - 10, { align: "center" });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  doc.text("AUDIENCE", sx + sw / 2, sy + sh + 24, { align: "center" });
+  doc.setLineWidth(0.8);
+  doc.line(sx + 40, sy + sh + 32, sx + sw - 40, sy + sh + 32);
+
+  const list = members.map((m, i) => ({ m, i, inst: (getInstruments(m) || []).map((x) => x.name).filter(Boolean) }));
+  list.filter(({ m }) => placed(m)).forEach(({ m, i, inst }) => {
+    const cx = sx + m.stage_x * sw, cy = sy + m.stage_y * sh;
+    doc.setFillColor(235);
+    doc.setDrawColor(30);
+    doc.setLineWidth(1.2);
+    doc.circle(cx, cy, 17, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text(initials(m.name, i), cx, cy + 4, { align: "center" });
+    doc.setFontSize(9.5);
+    doc.text(m.name || `Member ${i + 1}`, cx, cy + 30, { align: "center" });
+    if (inst.length) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(90);
+      doc.text(doc.splitTextToSize(inst.join(", "), 120), cx, cy + 41, { align: "center" });
+      doc.setTextColor(0);
+    }
+  });
+
+  // Who plays what.
+  const lx = sx + sw + 30, lw = W - lx - M;
+  let y = sy + 6;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("WHO PLAYS WHAT", lx, y);
+  y += 18;
+  list.forEach(({ m, i }) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.text(m.name || `Member ${i + 1}`, lx, y);
+    y += 13;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    (getInstruments(m) || []).filter((x) => x.name).forEach((x) => {
+      const bits = [x.name, x.mic_di, x.phantom_power ? "+48V" : ""].filter(Boolean).join("  ·  ");
+      doc.splitTextToSize(bits, lw).forEach((line) => { doc.text(line, lx + 8, y); y += 11; });
+    });
+    y += 7;
+  });
+  return doc;
+}
+
+export default function StagePlotBuilder({ members = [], getInstruments, onPlace, actName, files = [], onRemoveFile, onAddFile }) {
+  const stage = useRef(null);
+  const [drag, setDrag] = useState(null); // member index being dragged
+  const [picked, setPicked] = useState(null); // tapped token: shows "Take off stage"
+  const [making, setMaking] = useState(false);
+  const [madeNote, setMadeNote] = useState("");
+
+  const posFrom = (e) => {
+    const r = stage.current.getBoundingClientRect();
+    return [clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height)];
+  };
+  const startDrag = (i) => (e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); setDrag(i); setPicked(i); };
+  const moveDrag = (e) => { if (drag === null) return; const [x, y] = posFrom(e); onPlace(drag, x, y); };
+  const endDrag = () => setDrag(null);
+
+  // Put a member on stage: spread along the front, left to right.
+  const putOn = (i) => {
+    const onStage = members.filter(placed).length;
+    onPlace(i, clamp(0.2 + ((onStage * 0.2) % 0.6)), onStage < 4 ? 0.62 : 0.32);
+    setPicked(i);
+  };
+  const takeOff = (i) => { onPlace(i, null, null); setPicked(null); };
+
+  const make = async () => {
+    setMaking(true);
+    setMadeNote("");
+    try {
+      const doc = stagePlotPdf({ actName, members, getInstruments });
+      const name = `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
+      // One made plot at a time: a new one replaces the last.
+      files.map((f, i) => [f, i]).filter(([f]) => String(f.name || "").startsWith(MADE_PREFIX)).map(([, i]) => i).reverse().forEach((i) => onRemoveFile(i));
+      const file = new File([doc.output("blob")], name, { type: "application/pdf" });
+      await onAddFile(file);
+      setMadeNote("Added to your stage plot files.");
+    } catch (err) {
+      console.error(err);
+      setMadeNote("Couldn't make it. Try again.");
+    }
+    setMaking(false);
+  };
+
+  const named = members.map((m, i) => ({ m, i })).filter(({ m }) => (m.name || "").trim() || (getInstruments(m) || []).some((x) => x.name));
+  const off = named.filter(({ m }) => !placed(m));
+  const onCount = named.length - off.length;
+
+  if (!named.length) {
+    return <p className="text-[13.5px] text-white/50 text-center py-3">Add your members in "Members and inputs" first, then place them here.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div
+        ref={stage}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClick={(e) => { if (e.target === stage.current) setPicked(null); }}
+        className="relative w-full rounded-[14px] border border-[#333] bg-[#0b0b0b] select-none"
+        style={{ aspectRatio: "4 / 3", touchAction: "none", backgroundImage: "linear-gradient(#161616 1px, transparent 1px), linear-gradient(90deg, #161616 1px, transparent 1px)", backgroundSize: "25% 25%" }}
+        aria-label="Stage. Drag each member to where they stand."
+      >
+        <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>UPSTAGE</span>
+        <span className="absolute bottom-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>DOWNSTAGE</span>
+        {named.filter(({ m }) => placed(m)).map(({ m, i }) => {
+          const inst = (getInstruments(m) || []).map((x) => x.name).filter(Boolean).join(", ");
+          return (
+            <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: drag === i ? 3 : 2 }}>
+              <button
+                type="button"
+                onPointerDown={startDrag(i)}
+                aria-label={`${m.name || `Member ${i + 1}`}: drag to move`}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold cursor-grab active:cursor-grabbing"
+                style={{ background: picked === i ? G : "#1d1d1d", color: picked === i ? "#0d0d0d" : G, border: `2px solid ${G}`, touchAction: "none", boxShadow: drag === i ? `0 0 16px ${G}88` : "none" }}
+              >
+                {initials(m.name, i)}
+              </button>
+              <span className="mt-1 max-w-[96px] text-center text-[11px] font-semibold text-white leading-tight truncate pointer-events-none">{m.name || `Member ${i + 1}`}</span>
+              {inst && <span className="max-w-[96px] text-center text-[10px] text-white/50 leading-tight truncate pointer-events-none">{inst}</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-center text-[11px] tracking-[0.16em] text-white/45 -mt-1" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</div>
+
+      {picked !== null && placed(members[picked] || {}) && (
+        <button type="button" onClick={() => takeOff(picked)} className="self-center min-h-[36px] px-3 rounded-full border border-[#3a3a3a] text-[12.5px] text-white/60 flex items-center gap-1.5"><X className="w-3.5 h-3.5" />Take {members[picked]?.name || "them"} off stage</button>
+      )}
+
+      {off.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[12px] text-white/50">Tap to put on stage, then drag into place:</span>
+          <div className="flex flex-wrap gap-1.5">
+            {off.map(({ m, i }) => (
+              <button key={i} type="button" onClick={() => putOn(i)} className="min-h-[38px] px-3 rounded-full border text-[13px] font-semibold" style={{ borderColor: G + "66", color: G }}>
+                + {m.name || `Member ${i + 1}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={make}
+        disabled={making || onCount === 0}
+        className="min-h-[46px] rounded-xl font-semibold text-[14.5px] flex items-center justify-center gap-2 disabled:opacity-40"
+        style={{ background: G, color: "#0d0d0d" }}
+      >
+        {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+        {making ? "Making it…" : "Make my stage plot"}
+      </button>
+      {madeNote && <span className="text-center text-[12.5px]" style={{ color: madeNote.startsWith("Added") ? G : "#f87171" }}>{madeNote}</span>}
+    </div>
+  );
+}
