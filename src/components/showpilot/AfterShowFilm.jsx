@@ -80,27 +80,49 @@ export default function AfterShowFilm({ stars, title, dateLine, date = null, ven
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [onClose, recording]);
 
+  // The finished video, kept so Save video can hand it over again without
+  // re-recording. Cleared when the shape changes.
+  const [made, setMade] = useState(null);
+  useEffect(() => { setMade(null); }, [orientation]);
+
+  // Phones only open the share sheet ("Save Video") straight after a tap, and
+  // recording takes the whole film, so the tap that started it has expired by
+  // the end (job 250). If the sheet is refused, the video waits and the next
+  // tap on Save video opens it. Elsewhere it downloads.
+  const deliver = async (file) => {
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title }); return "Saved."; }
+      catch (e) {
+        if (e?.name === "AbortError") return "";
+        if (e?.name === "NotAllowedError") return "ready";
+      }
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a"); a.href = url; a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return `Saved ${file.name} to your downloads.`;
+  };
+
   const save = async () => {
     if (!filmRef.current || recording) return;
-    setRecording(true); setEnded(false); setNote("");
+    setNote("");
+    if (made) {
+      const msg = await deliver(made);
+      setNote(msg === "ready" ? "Couldn't open Save. Try Save video again." : msg);
+      return;
+    }
+    setRecording(true); setEnded(false);
     let msg = "";
     try {
       const { blob, ext } = await recordFilm(canvasRef.current, filmRef.current, setProgress);
-      const name = `${fileName}-${land ? "horizontal" : "vertical"}.${ext}`;
-      const file = new File([blob], name, { type: blob.type });
-      // Phones: the share sheet has "Save Video". Elsewhere: a download.
-      if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title }); msg = "Saved."; }
-        catch (e) { if (e?.name !== "AbortError") throw e; }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = name;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 10_000);
-        msg = `Saved ${name} to your downloads.`;
-      }
+      if (!blob.size) throw new Error("empty");
+      const file = new File([blob], `${fileName}-${land ? "horizontal" : "vertical"}.${ext}`, { type: blob.type });
+      setMade(file);
+      msg = await deliver(file);
+      if (msg === "ready") msg = "Your video is ready. Tap Save video to keep it.";
     } catch (e) {
-      msg = e?.message === "unsupported" ? "This browser can't make the video. Try Safari or Chrome." : "Couldn't make the video. Try again.";
+      msg = e?.message === "unsupported" ? "This browser can't make the video. Try Safari or Chrome." : `Couldn't make the video. Try again. (${e?.name || e?.message || "error"})`;
     }
     setRecording(false); setEnded(true); setNote(msg);
   };
@@ -152,7 +174,7 @@ export default function AfterShowFilm({ stars, title, dateLine, date = null, ven
               <div className="text-white text-[22px] font-bold leading-tight" style={{ textWrap: "balance" }}>{title}</div>
               <div className="mt-1">{orientToggle}</div>
               <button type="button" onClick={save} className="mt-1 w-full h-12 rounded-full flex items-center justify-center gap-2 text-[16px] font-bold text-[#1a0d00]" style={{ background: SUN }}>
-                <Download className="w-5 h-5" /> Save video
+                <Download className="w-5 h-5" /> {made ? "Save video (ready)" : "Save video"}
               </button>
               <button type="button" onClick={start} className="w-full h-12 rounded-full flex items-center justify-center gap-2 text-[16px] font-semibold text-white border border-white/25 hover:bg-white/5">
                 <RotateCcw className="w-4 h-4" /> Replay
