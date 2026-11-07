@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake } from "lucide-react";
+import useBookings from "@/lib/useBookings";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -16,6 +17,8 @@ const TABS = [
   { path: "/", label: "Home", icon: Home },
   { path: "/band/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/?view=chats", label: "Chats", icon: MessageCircle, chats: true },
+  // Booking packages (job 246): Incoming / Dates offered / Booked.
+  { path: "/bookings", label: "Bookings", icon: Handshake, bookings: true },
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
@@ -60,6 +63,7 @@ export default function BandBottomTabs() {
               <span className="relative">
                 <tab.icon className="w-5 h-5" />
                 {tab.chats && <RailUnread />}
+                {tab.bookings && <RailBookings />}
               </span>
               <span className="text-xs font-semibold tracking-[0.04em]">{tab.label}</span>
             </Link>
@@ -87,6 +91,18 @@ function RailUnread() {
   );
 }
 
+// Bookings waiting on you, on the rail's Bookings tab.
+function RailBookings() {
+  const { data } = useBookings();
+  const n = (data?.needs || []).length;
+  if (!n) return null;
+  return (
+    <span className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#F87171] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
 function CompanyPhoneBar({ preferences, pathname, search }) {
   const accent = getAccountTypeStyle(preferences?.account_type).color;
   const { data } = useNeedsMe();
@@ -99,6 +115,9 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
 
   // Open tasks that are yours, across your events, on Needs me (job 210).
   const myTaskTotal = (data?.tasks || []).length;
+  // Plus booking packages waiting on you (job 246), which sit on Needs me too.
+  const { data: bookings } = useBookings();
+  const needsTotal = myTaskTotal + (bookings?.needs || []).length;
   const tab = (key, to, label, Icon, badge, badgeColor = "#8CFF3D") => {
     const active = activeKey === key;
     return (
@@ -127,7 +146,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
-          {tab("needs", "/", "Needs me", Zap, myTaskTotal, "#FF6A00")}
+          {tab("needs", "/", "Needs me", Zap, needsTotal, "#FF6A00")}
           {tab("events", "/band/calendar", "Calendar", CalendarDays)}
           <button
             onClick={openQuickAdd}

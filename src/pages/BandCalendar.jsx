@@ -18,6 +18,7 @@ import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBand
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import EventOverviewSheet from "@/components/showpilot/EventOverviewSheet";
 import DayEventOverview from "@/components/showpilot/DayEventOverview";
+import { BookingsCalendarRow } from "@/components/showpilot/BookingsNeeds";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -288,6 +289,8 @@ export default function BandCalendar() {
         onNext={() => setCurrentMonth((m) => m.clone().add(1, "month"))}
         cells={headerCells}
       />
+      {/* Dates on hold from booking packages (job 246). */}
+      <div className="px-4 pt-3 max-w-lg mx-auto empty:hidden"><BookingsCalendarRow /></div>
 
       {loading ? (
         <div className="flex justify-center py-20">

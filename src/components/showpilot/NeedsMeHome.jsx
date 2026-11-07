@@ -7,6 +7,8 @@ import { nextNotNeeded } from "@/lib/inviteGroups";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import TodayCard from "@/components/showpilot/TodayCard";
+import BookingsNeeds from "@/components/showpilot/BookingsNeeds";
+import useBookings from "@/lib/useBookings";
 import useAnnouncements from "@/lib/announcements";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
@@ -143,7 +145,8 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
   // Wait for Home to load your events too, so the empty "Nothing needs you"
   // card never flashes before the feed arrives.
   const loading = gigsLoading || feedLoading;
-  const nothing = !loading && rowCount === 0 && notices.length === 0;
+  const { data: bookings } = useBookings();
+  const nothing = !loading && rowCount === 0 && notices.length === 0 && !(bookings?.needs || []).length;
 
   return (
     <div className="max-w-lg mx-auto pb-6" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -162,6 +165,9 @@ export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) 
       {todays.map((g) => (
         <TodayCard key={g.share_token || g.id} gig={g} accent={accent} todayWord={words.today} />
       ))}
+
+      {/* Booking packages waiting on you (job 246). */}
+      <BookingsNeeds />
 
       {/* Announcements and time changes: pinned until you tap Got it. */}
       {notices.length > 0 && (

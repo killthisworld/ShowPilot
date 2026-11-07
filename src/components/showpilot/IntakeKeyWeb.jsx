@@ -188,7 +188,7 @@ export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
   actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
-  sent = false, onSentOff = null, startOpen = false,
+  sent = false, onSentOff = null, startOpen = false, belowSend = null, readOnly = false, unlockLabel = "Unlock my web", showLabel = "The show",
 }) {
   const desktop = useIsDesktop();
   // Submitted: play the send-off, then the page shows the thanks (job 200).
@@ -227,7 +227,7 @@ export default function IntakeKeyWeb({
     const action = (
       <div className="flex flex-col gap-3">
         <button type="button" disabled={opening} onClick={() => setPhase("unlocking")} className="min-h-[56px] rounded-[14px] font-bold text-[17px] flex items-center justify-center gap-2.5" style={{ background: color, color: "#0d0d0d", boxShadow: `0 0 24px ${color}55` }}>
-          <Lock className="w-5 h-5" />Unlock my web
+          <Lock className="w-5 h-5" />{unlockLabel}
         </button>
         <p className="text-center text-[12.5px] text-white/55 leading-relaxed">{N} thing{N === 1 ? "" : "s"} to fill in. No account needed. Your answers save as you go.</p>
       </div>
@@ -280,7 +280,7 @@ export default function IntakeKeyWeb({
       </svg>
       {show && (
         <button type="button" onClick={() => setPane(pane === "show" ? "start" : "show")} aria-pressed={pane === "show"} className={`${cornerCls} left-0 top-0 ${off ? "so-gone" : ""}`} style={{ borderColor: color, background: pane === "show" ? `${color}33` : "rgba(17,17,17,0.85)" }}>
-          <CalendarDays className="w-[30%] h-[30%]" style={{ color }} />The show
+          <CalendarDays className="w-[30%] h-[30%]" style={{ color }} />{showLabel}
         </button>
       )}
       {extraBoxes.map(([id, c, pos]) => {
@@ -320,19 +320,22 @@ export default function IntakeKeyWeb({
       {hint && <p className="text-[13.5px] text-white/60">{hint}</p>}
     </div>
   );
-  const saveBtn = <button type="button" onClick={save} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>;
+  // readOnly: someone else's web to look through (a booking package the venue opened; job 246).
+  const saveBtn = readOnly
+    ? <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] border border-[#333] text-white">Close</button>
+    : <button type="button" onClick={save} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>;
   const circleBody = cur && (
     <div className="flex flex-col gap-3">
-      {panelHead(cur.label, `${cur.done ? "DONE" : cur.required ? "NEEDED" : "OPTIONAL"} · ${curIdx + 1} / ${N}`, cur.hint)}
+      {panelHead(cur.label, readOnly ? `${curIdx + 1} / ${N}` : `${cur.done ? "DONE" : cur.required ? "NEEDED" : "OPTIONAL"} · ${curIdx + 1} / ${N}`, readOnly ? null : cur.hint)}
       <div className="text-left">{cur.body()}</div>
       {saveBtn}
     </div>
   );
   const cornerBody = openBox && (
     <div className="flex flex-col gap-3">
-      {panelHead(openBox.label, openBox.done ? "DONE" : "OPTIONAL", null)}
+      {panelHead(openBox.label, readOnly ? "" : openBox.done ? "DONE" : "OPTIONAL", null)}
       <div className="text-left">{openBox.body()}</div>
-      <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>
+      {readOnly ? saveBtn : <button type="button" onClick={close} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>}
     </div>
   );
   // Green only once every needed circle is filled (job 198).
@@ -348,6 +351,7 @@ export default function IntakeKeyWeb({
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}
+      {belowSend}
     </div>
   );
   const header = (big) => (
@@ -356,16 +360,18 @@ export default function IntakeKeyWeb({
         <div className="text-[11px] tracking-[0.14em] truncate" style={{ ...mono, color }}>{[actName ? `${actName}'s web` : "", dateLine].filter(Boolean).join(" · ").toUpperCase()}</div>
         <h1 className={`${big ? "text-[44px]" : "text-[28px]"} leading-[1.02] font-bold truncate`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title || "Your show"}</h1>
       </div>
-      <div className="pt-1 flex flex-col items-end gap-1 shrink-0">
-        <span className="text-[11px] tracking-[0.08em] text-white/75" style={mono}>{done} OF {N} DONE</span>
-        <PlaneProgress done={done} total={N} big={big} color={GREEN} />
-      </div>
+      {!readOnly && (
+        <div className="pt-1 flex flex-col items-end gap-1 shrink-0">
+          <span className="text-[11px] tracking-[0.08em] text-white/75" style={mono}>{done} OF {N} DONE</span>
+          <PlaneProgress done={done} total={N} big={big} color={GREEN} />
+        </div>
+      )}
     </div>
   );
   const showModal = pane === "show" && show ? createPortal(
     <div className="fixed inset-0 flex items-center justify-center p-4 text-white" style={{ zIndex: 60 }}>
       <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div role="dialog" aria-modal="true" aria-label="The show" className="ikw-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-5">
+      <div role="dialog" aria-modal="true" aria-label={showLabel} className="ikw-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-5">
         <button type="button" onClick={close} aria-label="Close" className="absolute right-2 top-2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
         {show()}
       </div>

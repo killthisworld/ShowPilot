@@ -23,6 +23,7 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
 import LightingDesk from "@/components/showpilot/LightingDesk";
+import TechAsksCard from "@/components/showpilot/TechAsksCard";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
@@ -672,6 +673,11 @@ export default function Home() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Venues asking if you're free (job 246). */}
+      <div className="px-4 pt-3 max-w-lg mx-auto empty:hidden">
+        <TechAsksCard accent={accountStyle.color} />
       </div>
 
       {/* Status strip */}

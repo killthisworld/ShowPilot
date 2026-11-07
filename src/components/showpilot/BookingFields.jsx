@@ -152,3 +152,93 @@ export function SendToBody({ to, setTo, formatPhone = (v) => v }) {
 }
 export const sendToDone = (to) => has(to.name) && (has(to.email) || has(to.phone));
 export { RED as PACKAGE_COLOR };
+
+// ---------- What the venue sees (read-only; job 246, step 2) ----------
+const Row = ({ k, v }) => (v ? (
+  <div className="flex justify-between gap-3 py-2 border-t border-[#1f1f1f] first:border-t-0 text-[14.5px]">
+    <span className="text-white/55 shrink-0">{k}</span><span className="text-right font-semibold break-words min-w-0">{v}</span>
+  </div>
+) : null);
+const Empty = ({ children }) => <p className="text-center text-[14px] text-white/50">{children}</p>;
+const instrumentsOf = (m) => (Array.isArray(m.instruments) ? m.instruments : m.instrument ? [{ name: m.instrument, mic_di: m.mic_di }] : []);
+const MERCH = { own: "Their own table + seller", venue: "They'd like the venue to sell it", none: "No merch" };
+
+export function packageReadCircles(pkg, wantsText) {
+  const d = pkg?.data || {};
+  const members = Array.isArray(d.band_members) ? d.band_members : [];
+  const files = Array.isArray(d.stage_plot_files) ? d.stage_plot_files : [];
+  const links = (Array.isArray(d.promo_links) ? d.promo_links : []).filter((l) => has(l.url));
+  const hosp = d.hospitality || {};
+  const merch = d.merch || {};
+  const inputs = members.reduce((n, m) => n + instrumentsOf(m).filter((i) => has(i.name)).length, 0);
+  const genres = Array.isArray(d.genre_tags) ? d.genre_tags : [];
+  const c = (key, label, short, done, body) => ({ key, label, short, done, body });
+  return [
+    c("artist", "Artist and set", "Artist & set", true, () => (
+      <div className="flex flex-col">
+        <Row k="Artist" v={pkg.act_name} />
+        <Row k="Set" v={has(d.set_length_minutes) ? `${d.set_length_minutes} min` : ""} />
+        <Row k="Genre" v={genres.join(", ")} />
+      </div>
+    )),
+    c("members", "Members and inputs", "Members & inputs", members.length > 0, () => (members.length ? (
+      <div className="flex flex-col gap-2">
+        <span className="text-center text-[12.5px] text-white/55">{members.length} member{members.length === 1 ? "" : "s"} · {inputs} input{inputs === 1 ? "" : "s"}</span>
+        {members.map((m, i) => (
+          <div key={i} className="rounded-[12px] border border-[#242424] bg-[#101010] px-3 py-2.5 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[15px] font-bold">{m.name || `Member ${i + 1}`}</div>
+              <div className="text-[13px] text-white/65">{instrumentsOf(m).filter((x) => has(x.name)).map((x) => `${x.name}${x.mic_di ? ` (${x.mic_di})` : ""}${x.phantom_power ? " +48V" : ""}`).join(" · ") || "No inputs listed"}</div>
+            </div>
+            {m.bus_type && <span className="shrink-0 px-2 py-1 rounded-[8px] border border-[#333] text-[12px] font-semibold text-white/80">{m.bus_type}</span>}
+          </div>
+        ))}
+      </div>
+    ) : <Empty>No members listed yet.</Empty>)),
+    c("plot", "Stage plot", "Stage plot", files.length > 0, () => (files.length ? (
+      <div className="flex flex-col gap-2">
+        {files.map((f, i) => <a key={i} href={f.url} target="_blank" rel="noreferrer" className="min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><ExternalLink className="w-4 h-4 shrink-0" /><span className="truncate">{f.name || "Stage plot"}</span></a>)}
+      </div>
+    ) : <Empty>No stage plot sent.</Empty>)),
+    c("notes", "Notes for the engineer", "Notes", has(d.general_notes) || members.some((m) => has(m.notes)), () => (
+      <div className="flex flex-col gap-2 text-[14.5px] text-white/85 whitespace-pre-wrap">
+        {has(d.general_notes) && <p>{d.general_notes}</p>}
+        {members.filter((m) => has(m.notes)).map((m, i) => <p key={i}><span className="font-bold">{m.name}:</span> {m.notes}</p>)}
+        {!has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
+      </div>
+    )),
+    c("hosp", "Hospitality and merch", "Hospitality", hospitalityHas(d), () => (hospitalityHas(d) ? (
+      <div className="flex flex-col">
+        <Row k="Meals" v={has(hosp.meals) ? String(hosp.meals) : ""} />
+        <Row k="Guest list" v={has(hosp.guests) ? `+${hosp.guests}` : ""} />
+        <Row k="Dietary" v={hosp.dietary} />
+        <Row k="Drinks & green room" v={hosp.drinks} />
+        <Row k="Merch" v={MERCH[merch.table] || ""} />
+        <Row k="Split" v={merch.split} />
+      </div>
+    ) : <Empty>Nothing asked for.</Empty>)),
+    c("promo", "Promo", "Promo", promoHas(d), () => (
+      <div className="flex flex-col gap-3 items-center">
+        {d.photo_url && <img src={d.photo_url} alt={`${pkg.act_name}`} className="w-full max-w-[280px] rounded-[14px] border border-[#2a2a2a] object-cover" />}
+        {links.map((l, i) => {
+          const kind = LINK_KINDS.find((k) => k.key === l.kind)?.label || "Link";
+          return <a key={i} href={linkHref(l.url)} target="_blank" rel="noreferrer" className="w-full min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><ExternalLink className="w-4 h-4 shrink-0" />{kind}<span className="text-white/50 font-normal truncate">{String(l.url).replace(/^https?:\/\//, "")}</span></a>;
+        })}
+        {!promoHas(d) && <Empty>No promo sent.</Empty>}
+      </div>
+    )),
+    c("dates", "Dates wanted", "Dates wanted", true, () => (
+      <div className="flex flex-col gap-2 text-center">
+        <span className="text-[18px] font-bold">{wantsText || "Any time"}</span>
+        {has(pkg.wants?.note) && <p className="text-[14.5px] text-white/75">"{pkg.wants.note}"</p>}
+      </div>
+    )),
+    c("contact", "Their contact", "Contact", [d.submitter_name, d.submitter_phone, d.submitter_email].some(has), () => (
+      <div className="flex flex-col">
+        <Row k="Name" v={d.submitter_name} />
+        <Row k="Phone" v={d.submitter_phone ? <a href={`tel:${String(d.submitter_phone).replace(/[^\d+]/g, "")}`} style={{ color: GREEN }}>{d.submitter_phone}</a> : ""} />
+        <Row k="Email" v={d.submitter_email ? <a href={`mailto:${d.submitter_email}`} style={{ color: GREEN }}>{d.submitter_email}</a> : ""} />
+      </div>
+    )),
+  ];
+}

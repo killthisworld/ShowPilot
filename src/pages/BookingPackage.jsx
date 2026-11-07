@@ -6,7 +6,8 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 import { useActForm } from "@/lib/useActForm";
-import { savePackage, sendPackage, loadPackage, wantsLine, packageUrl, PACKAGE_RED } from "@/lib/bookingPackage";
+import { savePackage, sendPackage, loadPackage, loadPublicPackage, wantsLine, packageUrl, PACKAGE_RED } from "@/lib/bookingPackage";
+import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone } from "@/components/showpilot/BookingFields";
@@ -47,6 +48,10 @@ export default function BookingPackage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  // The venue's answer (step 3): offered dates to confirm, a pass, or booked.
+  const [answer, setAnswer] = useState(null); // { status, offers, venue_message, venueName, show_id, picked_date }
+  const [booked, setBooked] = useState(null); // { share_token, date } once confirmed here
+  const [confirming, setConfirming] = useState(false);
   const dirty = useRef(false);
   const h = useActForm(form, (fn) => { dirty.current = true; setForm(fn); }, `booking_${user?.id || "anon"}`);
 
@@ -76,7 +81,17 @@ export default function BookingPackage() {
             setWants({ months: [], days: [], note: "", ...(row.wants || {}) });
             setTo({ name: row.to_name || "", email: row.to_email || "", phone: row.to_phone || "" });
             setSeen(Object.fromEntries(["artist", "members", "plot", "notes", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
-            if (row.status === "sent" && row.code) setCode(row.code);
+            if (["sent", "offered", "declined", "booked"].includes(row.status) && row.code) setCode(row.code);
+            if (["offered", "declined", "booked"].includes(row.status)) {
+              let venueName = row.to_name || "";
+              try { const pub = await loadPublicPackage(row.code); venueName = pub?.venue?.name || venueName; } catch {}
+              let share = "";
+              if (row.status === "booked" && row.show_id) {
+                const { data: lg } = await supabase.from("linked_gigs").select("share_token").eq("user_id", user.id).eq("show_id", row.show_id).maybeSingle();
+                share = lg?.share_token || "";
+              }
+              if (!gone) setAnswer({ status: row.status, offers: row.offers || [], venue_message: row.venue_message || "", venueName, show_id: row.show_id, picked_date: row.picked_date, share });
+            }
           }
         } catch (e) {
           console.error(e);
@@ -174,6 +189,43 @@ export default function BookingPackage() {
       <div className="min-h-screen bg-[#05060d] flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-[#F87171]/30 border-t-[#F87171] rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  const confirm = async (date) => {
+    setConfirming(true);
+    setError("");
+    try {
+      const { data, error: e } = await supabase.rpc("confirm_booking_package", { p_id: pkgId, p_date: date });
+      if (e) throw e;
+      setBooked({ share_token: data?.share_token || "", date });
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't book it. Try again.");
+    }
+    setConfirming(false);
+  };
+  // Passed: the same package to another venue, as a new one.
+  const sendElsewhere = async () => {
+    try {
+      const row = await savePackage({ act: form.band_name, data: toData(form), wants, to: { name: "", email: "", phone: "" } });
+      if (row?.id) { setAnswer(null); setCode(""); setPkgId(row.id); navigate(`/book/${row.id}`); }
+    } catch (e) { console.error(e); }
+  };
+
+  if (booked || answer?.status === "booked") {
+    const share = booked?.share_token || answer?.share || "";
+    return <BookedBurst seed={pkgId || "package"} actName={form.band_name} venueName={answer?.venueName || to.name} date={booked?.date || answer?.picked_date} openHref={share ? `/gig/web?token=${share}` : ""} />;
+  }
+  if (answer?.status === "offered") {
+    return <ConfirmDates pkg={answer} venueName={answer.venueName} busy={confirming} error={error} onConfirm={confirm} />;
+  }
+  if (answer?.status === "declined") {
+    return (
+      <IntakeSent seed={pkgId || "package"} title={`${answer.venueName || "The venue"} passed this time`} line={answer.venue_message ? `"${answer.venue_message}"` : "They can't fit you in right now."}>
+        <button type="button" onClick={sendElsewhere} className="mt-6 w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: "#8CFF3D", color: "#0d0d0d" }}>Send it to another venue</button>
+        <a href="/" className="block mt-3 text-[14px] text-white/60 underline">Back to ShowPilot</a>
+      </IntakeSent>
     );
   }
 
