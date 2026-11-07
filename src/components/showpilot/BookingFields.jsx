@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Plus, X, ExternalLink, ImagePlus, Trash2 } from "lucide-react";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
-import { upcomingMonths, DAYS } from "@/lib/bookingPackage";
+import { DAYS } from "@/lib/bookingPackage";
 
 // The booking package's own circles (job 246): Hospitality & merch, Promo,
 // Dates wanted, and the "Send to" corner. The act circles (Artist & set,
@@ -48,6 +48,74 @@ export function HospitalityBody({ form, update }) {
 export const hospitalityHas = (form) => {
   const h = form.hospitality || {}, m = form.merch || {};
   return [h.meals, h.guests, h.dietary, h.drinks, m.table, m.split].some(has);
+};
+
+// ---------- Deal and draw: what a venue weighs before it books (job 248) ----------
+export const DEAL_ASKS = [["flat", "Guarantee"], ["door", "Door split"], ["vs", "Guarantee vs %"], ["open", "Open to offers"]];
+export const AGES = [["all", "All ages"], ["18", "18+"], ["21", "21+"], ["any", "Either"]];
+export const BACKLINE = [["own", "We bring everything"], ["drums", "Need drums"], ["bass", "Need a bass amp"], ["guitar", "Need a guitar amp"], ["keys", "Need keys"]];
+const textOf = (list, k) => list.find(([v]) => v === k)?.[1] || "";
+export const money = (v) => { const s = String(v ?? "").trim(); return !s ? "" : /^[\d,.]+$/.test(s) ? `$${s}` : s; };
+export function dealAskLine(deal = {}) {
+  if (deal.ask === "open") return "Open to offers";
+  if (deal.ask === "flat") return deal.guarantee ? `${money(deal.guarantee)} guarantee` : "Guarantee";
+  if (deal.ask === "door") return deal.door_percent ? `${deal.door_percent}% of the door` : "Door split";
+  if (deal.ask === "vs") return [money(deal.guarantee), deal.door_percent ? `${deal.door_percent}%` : ""].filter(Boolean).join(" vs ") || "Guarantee vs %";
+  return "";
+}
+export const backlineLine = (deal = {}) => {
+  const b = Array.isArray(deal.backline) ? deal.backline : [];
+  const s = b.map((k) => textOf(BACKLINE, k)).filter(Boolean).join(", ");
+  return [s, deal.share_backline ? "happy to share" : ""].filter(Boolean).join(" · ");
+};
+export function DealBody({ form, update }) {
+  const deal = form.deal || {};
+  const set = (k, v) => update("deal", { ...deal, [k]: v });
+  const backline = Array.isArray(deal.backline) ? deal.backline : [];
+  const toggleBack = (k) => {
+    if (k === "own") return set("backline", backline.includes("own") ? [] : ["own"]);
+    const rest = backline.filter((x) => x !== "own");
+    set("backline", rest.includes(k) ? rest.filter((x) => x !== k) : [...rest, k]);
+  };
+  const choice = (list, key, multi) => (
+    <div className="flex flex-wrap gap-2 justify-center">
+      {list.map(([v, text]) => {
+        const on = multi ? backline.includes(v) : deal[key] === v;
+        const c = chip(on);
+        return <button key={v} type="button" aria-pressed={on} onClick={() => (multi ? toggleBack(v) : set(key, on ? "" : v))} className={c.className} style={c.style}>{text}</button>;
+      })}
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-2">
+        <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
+        <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
+      </div>
+      <label><span className={label}>RECENT SHOWS</span><textarea rows={2} value={deal.recent || ""} onChange={(e) => set("recent", e.target.value)} placeholder="The Earl, Atlanta - 180 people, Oct" className={`${inputCls} py-2.5 resize-none`} /></label>
+      <div className="flex flex-col gap-2">
+        <span className={label}>THE DEAL YOU'RE LOOKING FOR</span>
+        {choice(DEAL_ASKS, "ask")}
+        {(deal.ask === "flat" || deal.ask === "vs" || deal.ask === "door") && (
+          <div className="grid grid-cols-2 gap-2">
+            {(deal.ask === "flat" || deal.ask === "vs") && <label><span className={label}>GUARANTEE</span><input inputMode="decimal" value={deal.guarantee || ""} onChange={(e) => set("guarantee", e.target.value)} placeholder="$500" className={inputCls} /></label>}
+            {(deal.ask === "door" || deal.ask === "vs") && <label><span className={label}>DOOR %</span><input type="number" inputMode="numeric" min="0" max="100" value={deal.door_percent ?? ""} onChange={(e) => set("door_percent", e.target.value === "" ? "" : Number(e.target.value))} placeholder="70" className={inputCls} /></label>}
+          </div>
+        )}
+      </div>
+      <label><span className={label}>TICKET PRICE YOU'D SUGGEST</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15 adv / $18 door" className={inputCls} /></label>
+      <div className="flex flex-col gap-2"><span className={label}>AGES</span>{choice(AGES, "age")}</div>
+      <div className="flex flex-col gap-2">
+        <span className={label}>BACKLINE</span>
+        {choice(BACKLINE, "backline", true)}
+        {(() => { const c = chip(!!deal.share_backline); return <div className="flex justify-center"><button type="button" aria-pressed={!!deal.share_backline} onClick={() => set("share_backline", !deal.share_backline)} className={c.className} style={c.style}>Happy to share with other acts</button></div>; })()}
+      </div>
+    </div>
+  );
+}
+export const dealHas = (form) => {
+  const d = form.deal || {};
+  return [d.hometown, d.draw, d.recent, d.ask, d.ticket_price, d.age].some(has) || (Array.isArray(d.backline) && d.backline.length > 0);
 };
 
 // ---------- Promo: the act's picture and their links ----------
@@ -106,23 +174,51 @@ export function PromoBody({ form, update, uploadFile }) {
 export const promoHas = (form) => has(form.photo_url) || (form.promo_links || []).some((l) => has(l.url));
 
 // ---------- Dates wanted ----------
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const selectCls = `${inputCls} appearance-none pr-9 bg-no-repeat bg-[right_12px_center] bg-[length:14px] cursor-pointer`;
+const caret = { backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-opacity='.6' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")" };
+const monthKeyLabel = (k) => { const [y, m] = k.split("-").map(Number); return `${MONTH_NAMES[m - 1].slice(0, 3)} ${y}`; };
+
+// Months as a dropdown (month + year, job 248): add as many as you like;
+// each one shows as a chip you can take off.
 export function DatesBody({ wants, setWants }) {
   const months = Array.isArray(wants.months) ? wants.months : [];
   const days = Array.isArray(wants.days) ? wants.days : [];
   const toggle = (list, key) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
   const anyTime = months.includes("any");
+  const now = new Date();
+  const thisY = now.getFullYear(), thisM = now.getMonth() + 1;
+  const years = [thisY, thisY + 1, thisY + 2];
+  const [pickY, setPickY] = useState(thisY);
+  const [pickM, setPickM] = useState(thisM);
+  const pickKey = `${pickY}-${String(pickM).padStart(2, "0")}`;
+  const past = pickY === thisY && pickM < thisM;
+  const added = months.includes(pickKey);
+  const addMonth = () => { if (!past && !added) setWants({ ...wants, months: [...months.filter((k) => k !== "any"), pickKey].sort() }); };
+  const chosen = months.filter((k) => k !== "any").sort();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <span className={label}>MONTHS</span>
-        <div className="flex flex-wrap gap-2 justify-center">
-          {upcomingMonths().map((m) => {
-            const on = months.includes(m.key);
-            const c = chip(on);
-            return <button key={m.key} type="button" aria-pressed={on} disabled={anyTime} onClick={() => setWants({ ...wants, months: toggle(months, m.key) })} className={`${c.className} disabled:opacity-40`} style={c.style}>{m.label}</button>;
-          })}
-          {(() => { const c = chip(anyTime); return <button type="button" aria-pressed={anyTime} onClick={() => setWants({ ...wants, months: anyTime ? [] : ["any"] })} className={c.className} style={c.style}>Any time</button>; })()}
+        <div className="flex gap-2">
+          <select aria-label="Month" value={pickM} disabled={anyTime} onChange={(e) => setPickM(Number(e.target.value))} className={`${selectCls} flex-[3] disabled:opacity-40`} style={caret}>
+            {MONTH_NAMES.map((n, i) => <option key={n} value={i + 1} disabled={pickY === thisY && i + 1 < thisM}>{n}</option>)}
+          </select>
+          <select aria-label="Year" value={pickY} disabled={anyTime} onChange={(e) => { const y = Number(e.target.value); setPickY(y); if (y === thisY && pickM < thisM) setPickM(thisM); }} className={`${selectCls} flex-[2] disabled:opacity-40`} style={caret}>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <button type="button" onClick={addMonth} disabled={anyTime || past || added} className="shrink-0 min-h-[44px] px-4 rounded-lg text-[14px] font-bold flex items-center gap-1 disabled:opacity-40" style={{ background: GREEN, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />{added ? "Added" : "Add"}</button>
         </div>
+        {(chosen.length > 0 || anyTime) && (
+          <div className="flex flex-wrap gap-2 justify-center">
+            {anyTime ? (
+              <span className="min-h-[40px] px-3.5 rounded-full text-[14px] font-bold border flex items-center" style={{ borderColor: GREEN, background: `${GREEN}1f`, color: "#B6FF85" }}>Any time</span>
+            ) : chosen.map((k) => (
+              <button key={k} type="button" onClick={() => setWants({ ...wants, months: months.filter((x) => x !== k) })} aria-label={`Remove ${monthKeyLabel(k)}`} className="min-h-[40px] pl-3.5 pr-2.5 rounded-full text-[14px] font-bold border flex items-center gap-1.5" style={{ borderColor: GREEN, background: `${GREEN}1f`, color: "#B6FF85" }}>{monthKeyLabel(k)}<X className="w-3.5 h-3.5" /></button>
+            ))}
+          </div>
+        )}
+        {(() => { const c = chip(anyTime); return <div className="flex justify-center"><button type="button" aria-pressed={anyTime} onClick={() => setWants({ ...wants, months: anyTime ? [] : ["any"] })} className={c.className} style={c.style}>Any time works</button></div>; })()}
       </div>
       <div className="flex flex-col gap-2">
         <span className={label}>NIGHTS</span>
@@ -172,6 +268,7 @@ export function packageReadCircles(pkg, wantsText) {
   const merch = d.merch || {};
   const inputs = members.reduce((n, m) => n + instrumentsOf(m).filter((i) => has(i.name)).length, 0);
   const genres = Array.isArray(d.genre_tags) ? d.genre_tags : [];
+  const deal = d.deal || {};
   const c = (key, label, short, done, body) => ({ key, label, short, done, body });
   return [
     c("artist", "Artist and set", "Artist & set", true, () => (
@@ -207,6 +304,17 @@ export function packageReadCircles(pkg, wantsText) {
         {!has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
       </div>
     )),
+    c("deal", "Deal and draw", "Deal & draw", dealHas(d), () => (dealHas(d) ? (
+      <div className="flex flex-col">
+        <Row k="Based in" v={deal.hometown} />
+        <Row k="Expected draw" v={has(deal.draw) ? `${deal.draw} people` : ""} />
+        <Row k="Recent shows" v={deal.recent} />
+        <Row k="Deal" v={dealAskLine(deal)} />
+        <Row k="Tickets" v={deal.ticket_price} />
+        <Row k="Ages" v={textOf(AGES, deal.age)} />
+        <Row k="Backline" v={backlineLine(deal)} />
+      </div>
+    ) : <Empty>Nothing sent about the deal or draw.</Empty>)),
     c("hosp", "Hospitality and merch", "Hospitality", hospitalityHas(d), () => (hospitalityHas(d) ? (
       <div className="flex flex-col">
         <Row k="Meals" v={has(hosp.meals) ? String(hosp.meals) : ""} />

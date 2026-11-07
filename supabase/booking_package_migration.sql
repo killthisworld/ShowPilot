@@ -357,6 +357,10 @@ declare
   v_vi jsonb := '{}'::jsonb;
   v_fx jsonb;
   v_billing text;
+  v_deal jsonb;
+  v_ask text;
+  v_terms jsonb;
+  v_back text;
 begin
   select * into v_row from public.booking_packages where id = p_id and created_by = v_uid for update;
   if v_row.id is null then
@@ -379,11 +383,31 @@ begin
   select account_type into v_sender_type from public.user_preferences where user_id = v_uid;
   v_billing := coalesce(nullif(v_offer->>'billing', ''), 'Headliner');
 
+  -- What the act asked for on the deal and draw (job 248): it goes in the
+  -- event's notes, the venue's deal starts as a draft with their ask, and the
+  -- suggested ticket price goes on the event.
+  v_deal := coalesce(v_d->'deal', '{}'::jsonb);
+  v_ask := v_deal->>'ask';
+  select string_agg(case b when 'own' then 'Bringing everything' when 'drums' then 'Needs drums' when 'bass' then 'Needs a bass amp'
+                              when 'guitar' then 'Needs a guitar amp' when 'keys' then 'Needs keys' end, ', ')
+    into v_back
+    from jsonb_array_elements_text(case when jsonb_typeof(v_deal->'backline') = 'array' then v_deal->'backline' else '[]'::jsonb end) b;
+  if coalesce((v_deal->>'share_backline')::boolean, false) then
+    v_back := concat_ws(' · ', v_back, 'happy to share');
+  end if;
+
   v_hosp := concat_ws(' · ',
     case when coalesce(v_d->'hospitality'->>'meals', '') <> '' then 'Meals: ' || (v_d->'hospitality'->>'meals') end,
     nullif(v_d->'hospitality'->>'dietary', ''),
     nullif(v_d->'hospitality'->>'drinks', ''),
     case when coalesce(v_d->'hospitality'->>'guests', '') <> '' then 'Guest list: ' || (v_d->'hospitality'->>'guests') end);
+  v_hosp := concat_ws(E'\n',
+    nullif(v_hosp, ''),
+    case when coalesce(v_deal->>'hometown', '') <> '' then 'Based in: ' || (v_deal->>'hometown') end,
+    case when coalesce(v_deal->>'draw', '') <> '' then 'Expected draw: ' || (v_deal->>'draw') end,
+    case when coalesce(v_deal->>'recent', '') <> '' then 'Recent shows: ' || (v_deal->>'recent') end,
+    case v_deal->>'age' when 'all' then 'Ages: all ages' when '18' then 'Ages: 18+' when '21' then 'Ages: 21+' end,
+    case when coalesce(v_back, '') <> '' then 'Backline: ' || v_back end);
 
   v_mi := jsonb_strip_nulls(jsonb_build_object(
     'contact_name', nullif(v_d->>'submitter_name', ''),
@@ -406,13 +430,28 @@ begin
 
   insert into public.shows (
     owner_id, band_name, venue, date, genre_tag, genre_tags, band_members, stage_plot_url, stage_plot_files,
-    icon_url, manager_info, venue_info, status
+    icon_url, manager_info, venue_info, promoter_info, status
   ) values (
     v_row.venue_user_id, v_row.act_name, coalesce(v_venue_name, nullif(v_row.to_name, '')), p_date,
     v_d->'genre_tags'->>0, coalesce(v_d->'genre_tags', '[]'::jsonb), coalesce(v_d->'band_members', '[]'::jsonb),
     nullif(v_d->>'stage_plot_url', ''), coalesce(v_d->'stage_plot_files', '[]'::jsonb),
-    nullif(v_d->>'photo_url', ''), coalesce(v_mi, '{}'::jsonb), v_vi, 'not_started'
+    nullif(v_d->>'photo_url', ''), coalesce(v_mi, '{}'::jsonb), v_vi,
+    case when coalesce(v_deal->>'ticket_price', '') <> '' then jsonb_build_object('ticket_price', v_deal->>'ticket_price') else '{}'::jsonb end,
+    'not_started'
   ) returning id, share_token into v_show_id, v_share;
+
+  -- The venue's deal for this event starts from what the act asked for (a
+  -- draft only the venue sees until they send it).
+  if v_ask in ('flat', 'door', 'vs') then
+    v_terms := jsonb_strip_nulls(jsonb_build_object(
+      'deal_type', v_ask,
+      'guarantee', case when v_ask in ('flat', 'vs') then nullif(v_deal->>'guarantee', '') end,
+      'door_percent', case when v_ask in ('door', 'vs') then nullif(v_deal->>'door_percent', '') end,
+      'merch_split', nullif(v_d->'merch'->>'split', '')));
+    insert into public.event_deals (show_id, terms, status, updated_by)
+    values (v_show_id, v_terms, 'draft', v_row.venue_user_id)
+    on conflict (show_id) do nothing;
+  end if;
 
   insert into public.show_bands (
     show_id, role, sort_order, band_name, genre_tags, genre_tag, band_members, set_length_minutes, general_notes,

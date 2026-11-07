@@ -10,7 +10,7 @@ import { savePackage, sendPackage, loadPackage, loadPublicPackage, wantsLine, pa
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone } from "@/components/showpilot/BookingFields";
+import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas } from "@/components/showpilot/BookingFields";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
 // as a web, the dates they want, and who it goes to, then sends it with the
@@ -21,7 +21,7 @@ const EMPTY = {
   band_name: "", set_length_minutes: "", genre_tags: [], band_members: [],
   stage_plot_url: "", stage_plot_files: [], general_notes: "",
   submitter_name: "", submitter_phone: "", submitter_email: "",
-  photo_url: "", promo_links: [], hospitality: {}, merch: {},
+  photo_url: "", promo_links: [], hospitality: {}, merch: {}, deal: {},
 };
 // The act's info as the package keeps it (everything but the name).
 const toData = (form) => {
@@ -80,7 +80,7 @@ export default function BookingPackage() {
             setForm({ ...EMPTY, ...(row.data || {}), band_name: row.act_name || "" });
             setWants({ months: [], days: [], note: "", ...(row.wants || {}) });
             setTo({ name: row.to_name || "", email: row.to_email || "", phone: row.to_phone || "" });
-            setSeen(Object.fromEntries(["artist", "members", "plot", "notes", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
+            setSeen(Object.fromEntries(["artist", "members", "plot", "notes", "deal", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
             if (["sent", "offered", "declined", "booked"].includes(row.status) && row.code) setCode(row.code);
             if (["offered", "declined", "booked"].includes(row.status)) {
               let venueName = row.to_name || "";
@@ -155,6 +155,8 @@ export default function BookingPackage() {
   const hasMonths = (wants.months || []).length > 0;
   const circles = [
     byKey.artist, byKey.members, byKey.plot, byKey.notes,
+    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
+      done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
     { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table", required: false,
       done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} /> },
     { key: "promo", label: "Promo", short: "Promo", hint: "Your picture and links the venue can share", required: false,
