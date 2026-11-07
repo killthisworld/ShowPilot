@@ -25,6 +25,7 @@ import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
 import IntakeShortLink from '@/pages/IntakeShortLink';
 import EventLink from '@/pages/EventLink';
+import BookingPackage from '@/pages/BookingPackage';
 import PilotCardView from '@/pages/PilotCardView';
 import PilotWorkHistory from '@/pages/PilotWorkHistory';
 import ArchivedShows from '@/pages/ArchivedShows';
@@ -84,6 +85,9 @@ const AuthenticatedApp = () => {
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/intake/:code" element={<IntakeShortLink />} />
       <Route path="/v/:code" element={<EventLink />} />
+      {/* Booking package (job 246): the artist / manager builds and sends it. */}
+      <Route path="/book" element={<BookingPackage />} />
+      <Route path="/book/:id" element={<BookingPackage />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />

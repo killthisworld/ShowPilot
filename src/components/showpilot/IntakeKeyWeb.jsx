@@ -188,13 +188,14 @@ export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
   actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
-  sent = false, onSentOff = null,
+  sent = false, onSentOff = null, startOpen = false,
 }) {
   const desktop = useIsDesktop();
   // Submitted: play the send-off, then the page shows the thanks (job 200).
   useSendOff(sent, onSentOff);
   const off = !!sent;
-  const [phase, setPhase] = useState("idle"); // idle | unlocking | open
+  // startOpen: no key first (the sender's own web, e.g. a booking package; job 246).
+  const [phase, setPhase] = useState(startOpen ? "open" : "idle"); // idle | unlocking | open
   const [pane, setPane] = useState("start"); // start | show | corner | cornerBL | <circle key>
   const opening = phase === "unlocking";
   const N = circles.length;
@@ -343,7 +344,7 @@ export default function IntakeKeyWeb({
       {/* Always a green Submit (job 197); with something still needed it
           opens that circle instead of sending. */}
       {(
-        <button type="button" onClick={() => { if (ready) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); } }} disabled={sending} aria-label={ready ? sendLabel : `${sendLabel}: fill in ${needLeft.map((c) => c.short || c.label).join(", ")} first`} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={ready ? { background: GREEN, color: "#0d0d0d" } : { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" }}>
+        <button type="button" onClick={() => { if (ready) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); else if (corner && corner.required && !corner.done) setPane("corner"); } }} disabled={sending} aria-label={ready ? sendLabel : `${sendLabel}: fill in ${[...needLeft.map((c) => c.short || c.label), ...(corner && corner.required && !corner.done ? [corner.label] : [])].join(", ")} first`} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={ready ? { background: GREEN, color: "#0d0d0d" } : { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" }}>
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}
