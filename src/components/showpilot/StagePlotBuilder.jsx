@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import jsPDF from "jspdf";
 import { FileDown, Loader2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import { positionOfMember, positionColor, positionLabel, inkOn } from "@/lib/stagePositions";
 
 // Make a stage plot right on the intake form (job 249): every member from
 // "Members and inputs" is a token the act drags onto the stage (audience at
@@ -9,6 +10,8 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 // everyone placed, plus who plays what - and adds it to their stage plot
 // files like an upload. Positions live on each member (stage_x / stage_y,
 // 0-1 across and down the stage), so nothing new is stored anywhere else.
+// Black stage, each member colored by their position (drums, keys, guitar...);
+// `colors` are the link's engineer's own colors from Settings, else defaults.
 const G = "#8CFF3D";
 const MADE_PREFIX = "Stage plot - ";
 
@@ -20,54 +23,65 @@ const initials = (name, i) => {
 const clamp = (v) => Math.min(0.95, Math.max(0.05, v));
 const placed = (m) => typeof m.stage_x === "number" && typeof m.stage_y === "number";
 
-// The PDF: landscape letter, stage on the left two thirds, who plays what on the right.
-export function stagePlotPdf({ actName, members, getInstruments }) {
+const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+// The PDF: landscape letter on black. Stage on the left with everyone placed,
+// each colored by their position; who plays what and the color key on the right.
+export function stagePlotPdf({ actName, members, getInstruments, colors }) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
   const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
   const M = 36;
+  doc.setFillColor(0, 0, 0);
+  doc.rect(0, 0, W, H, "F");
+  doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.text(actName || "Stage plot", M, M + 14);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(110);
+  doc.setTextColor(150);
   doc.text(actName ? "STAGE PLOT  ·  made with ShowPilot" : "made with ShowPilot", M, M + 32);
-  doc.setTextColor(0);
 
   // Stage.
   const sx = M, sy = M + 52, sw = 470, sh = 400;
-  doc.setDrawColor(40);
+  doc.setDrawColor(200);
   doc.setLineWidth(1.5);
   doc.roundedRect(sx, sy, sw, sh, 8, 8);
   doc.setFontSize(9);
-  doc.setTextColor(120);
+  doc.setTextColor(140);
   doc.text("UPSTAGE", sx + sw / 2, sy + 16, { align: "center" });
   doc.text("DOWNSTAGE", sx + sw / 2, sy + sh - 10, { align: "center" });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.setTextColor(0);
+  doc.setTextColor(255, 255, 255);
   doc.text("AUDIENCE", sx + sw / 2, sy + sh + 24, { align: "center" });
+  doc.setDrawColor(200);
   doc.setLineWidth(0.8);
   doc.line(sx + 40, sy + sh + 32, sx + sw - 40, sy + sh + 32);
 
-  const list = members.map((m, i) => ({ m, i, inst: (getInstruments(m) || []).map((x) => x.name).filter(Boolean) }));
-  list.filter(({ m }) => placed(m)).forEach(({ m, i, inst }) => {
+  const list = members.map((m, i) => {
+    const pos = positionOfMember(m, getInstruments);
+    return { m, i, pos, color: positionColor(pos, colors), inst: (getInstruments(m) || []).map((x) => x.name).filter(Boolean) };
+  });
+  list.filter(({ m }) => placed(m)).forEach(({ m, i, color, inst }) => {
     const cx = sx + m.stage_x * sw, cy = sy + m.stage_y * sh;
-    doc.setFillColor(235);
-    doc.setDrawColor(30);
-    doc.setLineWidth(1.2);
+    doc.setFillColor(...rgb(color));
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(1);
     doc.circle(cx, cy, 17, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
+    doc.setTextColor(...rgb(inkOn(color)));
     doc.text(initials(m.name, i), cx, cy + 4, { align: "center" });
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(9.5);
     doc.text(m.name || `Member ${i + 1}`, cx, cy + 30, { align: "center" });
     if (inst.length) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.5);
-      doc.setTextColor(90);
+      doc.setTextColor(...rgb(color));
       doc.text(doc.splitTextToSize(inst.join(", "), 120), cx, cy + 41, { align: "center" });
-      doc.setTextColor(0);
     }
   });
 
@@ -76,25 +90,49 @@ export function stagePlotPdf({ actName, members, getInstruments }) {
   let y = sy + 6;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
   doc.text("WHO PLAYS WHAT", lx, y);
   y += 18;
-  list.forEach(({ m, i }) => {
+  list.forEach(({ m, i, color }) => {
+    doc.setFillColor(...rgb(color));
+    doc.circle(lx + 4, y - 3.5, 4, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
-    doc.text(m.name || `Member ${i + 1}`, lx, y);
+    doc.setTextColor(255, 255, 255);
+    doc.text(m.name || `Member ${i + 1}`, lx + 13, y);
     y += 13;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
+    doc.setTextColor(190);
     (getInstruments(m) || []).filter((x) => x.name).forEach((x) => {
       const bits = [x.name, x.mic_di, x.phantom_power ? "+48V" : ""].filter(Boolean).join("  ·  ");
-      doc.splitTextToSize(bits, lw).forEach((line) => { doc.text(line, lx + 8, y); y += 11; });
+      doc.splitTextToSize(bits, lw - 13).forEach((line) => { doc.text(line, lx + 13, y); y += 11; });
     });
     y += 7;
   });
+
+  // Color key: just the positions on this plot.
+  const used = [...new Set(list.map((l) => l.pos))];
+  if (used.length) {
+    y += 8;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(150);
+    doc.text("KEY", lx, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    used.forEach((k) => {
+      doc.setFillColor(...rgb(positionColor(k, colors)));
+      doc.roundedRect(lx, y - 8, 10, 10, 2, 2, "F");
+      doc.setTextColor(220);
+      doc.text(positionLabel(k), lx + 16, y);
+      y += 14;
+    });
+  }
   return doc;
 }
 
-export default function StagePlotBuilder({ members = [], getInstruments, onPlace, actName, files = [], onRemoveFile, onAddFile }) {
+export default function StagePlotBuilder({ members = [], getInstruments, onPlace, actName, files = [], onRemoveFile, onAddFile, colors = null }) {
   const stage = useRef(null);
   const [drag, setDrag] = useState(null); // member index being dragged
   const [picked, setPicked] = useState(null); // tapped token: shows "Take off stage"
@@ -109,10 +147,13 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
   const moveDrag = (e) => { if (drag === null) return; const [x, y] = posFrom(e); onPlace(drag, x, y); };
   const endDrag = () => setDrag(null);
 
-  // Put a member on stage: spread along the front, left to right.
+  // Put a member on stage: the first free spot, front row left to right, then
+  // the back row, then the middle (never on top of someone already there).
+  const SPOTS = [0.2, 0.4, 0.6, 0.8].map((x) => [x, 0.66]).concat([0.2, 0.4, 0.6, 0.8].map((x) => [x, 0.3]), [0.3, 0.5, 0.7].map((x) => [x, 0.48]));
   const putOn = (i) => {
-    const onStage = members.filter(placed).length;
-    onPlace(i, clamp(0.2 + ((onStage * 0.2) % 0.6)), onStage < 4 ? 0.62 : 0.32);
+    const taken = members.filter(placed);
+    const free = SPOTS.find(([x, y]) => !taken.some((m) => Math.abs(m.stage_x - x) < 0.12 && Math.abs(m.stage_y - y) < 0.12)) || [0.5, 0.5];
+    onPlace(i, free[0], free[1]);
     setPicked(i);
   };
   const takeOff = (i) => { onPlace(i, null, null); setPicked(null); };
@@ -121,7 +162,7 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
     setMaking(true);
     setMadeNote("");
     try {
-      const doc = stagePlotPdf({ actName, members, getInstruments });
+      const doc = stagePlotPdf({ actName, members, getInstruments, colors });
       const name = `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
       // One made plot at a time: a new one replaces the last.
       files.map((f, i) => [f, i]).filter(([f]) => String(f.name || "").startsWith(MADE_PREFIX)).map(([, i]) => i).reverse().forEach((i) => onRemoveFile(i));
@@ -151,14 +192,15 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onClick={(e) => { if (e.target === stage.current) setPicked(null); }}
-        className="relative w-full rounded-[14px] border border-[#333] bg-[#0b0b0b] select-none"
-        style={{ aspectRatio: "4 / 3", touchAction: "none", backgroundImage: "linear-gradient(#161616 1px, transparent 1px), linear-gradient(90deg, #161616 1px, transparent 1px)", backgroundSize: "25% 25%" }}
+        className="relative w-full rounded-[14px] border border-[#3a3a3a] bg-black select-none"
+        style={{ aspectRatio: "4 / 3", touchAction: "none" }}
         aria-label="Stage. Drag each member to where they stand."
       >
         <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>UPSTAGE</span>
         <span className="absolute bottom-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>DOWNSTAGE</span>
         {named.filter(({ m }) => placed(m)).map(({ m, i }) => {
           const inst = (getInstruments(m) || []).map((x) => x.name).filter(Boolean).join(", ");
+          const pc = positionColor(positionOfMember(m, getInstruments), colors);
           return (
             <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: drag === i ? 3 : 2 }}>
               <button
@@ -166,12 +208,12 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
                 onPointerDown={startDrag(i)}
                 aria-label={`${m.name || `Member ${i + 1}`}: drag to move`}
                 className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold cursor-grab active:cursor-grabbing"
-                style={{ background: picked === i ? G : "#1d1d1d", color: picked === i ? "#0d0d0d" : G, border: `2px solid ${G}`, touchAction: "none", boxShadow: drag === i ? `0 0 16px ${G}88` : "none" }}
+                style={{ background: pc, color: inkOn(pc), border: `2px solid ${picked === i ? "#ffffff" : pc}`, touchAction: "none", boxShadow: drag === i || picked === i ? `0 0 16px ${pc}aa` : "none" }}
               >
                 {initials(m.name, i)}
               </button>
               <span className="mt-1 max-w-[96px] text-center text-[11px] font-semibold text-white leading-tight truncate pointer-events-none">{m.name || `Member ${i + 1}`}</span>
-              {inst && <span className="max-w-[96px] text-center text-[10px] text-white/50 leading-tight truncate pointer-events-none">{inst}</span>}
+              {inst && <span className="max-w-[96px] text-center text-[10px] leading-tight truncate pointer-events-none" style={{ color: pc }}>{inst}</span>}
             </div>
           );
         })}
@@ -187,7 +229,7 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
           <span className="text-[12px] text-white/50">Tap to put on stage, then drag into place:</span>
           <div className="flex flex-wrap gap-1.5">
             {off.map(({ m, i }) => (
-              <button key={i} type="button" onClick={() => putOn(i)} className="min-h-[38px] px-3 rounded-full border text-[13px] font-semibold" style={{ borderColor: G + "66", color: G }}>
+              <button key={i} type="button" onClick={() => putOn(i)} className="min-h-[38px] px-3 rounded-full border text-[13px] font-semibold" style={{ borderColor: positionColor(positionOfMember(m, getInstruments), colors) + "88", color: positionColor(positionOfMember(m, getInstruments), colors) }}>
                 + {m.name || `Member ${i + 1}`}
               </button>
             ))}

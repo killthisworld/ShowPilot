@@ -116,7 +116,7 @@ function MembersBody({ h }) {
 }
 
 function StagePlotBody({ h }) {
-  const { form, handleStagePlotUpload, removeStagePlotFile, update, getInstruments } = h;
+  const { form, handleStagePlotUpload, removeStagePlotFile, update, getInstruments, stageColors } = h;
   // No stage plot? Make one from the members (job 249).
   const [building, setBuilding] = useState(false);
   const placeMember = (i, x, y) => {
@@ -150,6 +150,7 @@ function StagePlotBody({ h }) {
             files={form.stage_plot_files || []}
             onRemoveFile={removeStagePlotFile}
             onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
+            colors={stageColors}
           />
         </div>
       )}

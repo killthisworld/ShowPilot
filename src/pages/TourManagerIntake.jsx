@@ -133,7 +133,7 @@ export default function TourManagerIntake({ link } = {}) {
     if (!engineerUserId) return;
     supabase
       .from("user_preferences")
-      .select("display_name, job_title, profile_photo_url, card_bg_color, card_bg_image_url, card_text_color, card_share_token")
+      .select("display_name, job_title, profile_photo_url, card_bg_color, card_bg_image_url, card_text_color, card_share_token, stage_plot_colors")
       .eq("user_id", engineerUserId)
       .maybeSingle()
       .then(({ data }) => setEngineerCard(data));
@@ -452,6 +452,7 @@ export default function TourManagerIntake({ link } = {}) {
     form, update, genreInput, setGenreInput, removeGenreTag,
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
+    stageColors: ec?.stage_plot_colors || null, // the engineer's stage plot colors (job 249)
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
     fillFromProfile: !isEngineer ? { onClick: handleLoadTemplate, loading: loadingTemplate } : null,
     formatPhone: formatPhoneNumber,

@@ -6,6 +6,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import EventTypeColors from "@/components/showpilot/EventTypeColors";
 import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
 import GenreColors from "@/components/showpilot/GenreColors";
+import StagePlotColors from "@/components/showpilot/StagePlotColors";
 
 // The body of the Settings drawer, in the same console language as the
 // homes: a profile readout card, mono field labels, bank-style navigation
@@ -242,6 +243,7 @@ export default function SettingsPanel({
         <div className="space-y-3.5">
           <EventTypeColors preferences={prefs} onSaved={onColorsSaved} />
           <GenreColors preferences={prefs} onSaved={onColorsSaved} />
+          {(prefs?.account_type === "engineer" || prefs?.account_type === "lighting") && <StagePlotColors preferences={prefs} onSaved={onColorsSaved} />}
           <div className="h-[52px] rounded-xl border border-dashed border-[#2e2e2e] flex items-center justify-center text-[13px] text-white/50" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
             More ways to customize are on the way
           </div>
