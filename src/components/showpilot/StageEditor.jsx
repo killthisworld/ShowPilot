@@ -318,7 +318,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       ) : (
         <>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={startAdd} className="flex-1 min-h-[46px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
+            <button type="button" onClick={startAdd} className="flex-1 min-h-[46px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: "#60A5FA", color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
           </div>
           {onCount === 0 && <p className="text-center text-[12.5px] text-white/50">Add each member, then tap where they stand.</p>}
         </>
