@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import jsPDF from "jspdf";
-import { ChevronsDown, FileDown, Loader2, X } from "lucide-react";
+import { ChevronsDown, Download, FileDown, Loader2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg, stageIconPng } from "@/lib/stageIcons";
@@ -140,6 +140,7 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
   const [picked, setPicked] = useState(null); // tapped token: shows "Take off stage"
   const [making, setMaking] = useState(false);
   const [madeNote, setMadeNote] = useState("");
+  const [made, setMade] = useState(null); // the last made PDF, to save to their device
 
   const posFrom = (e) => {
     const r = stage.current.getBoundingClientRect();
@@ -160,6 +161,25 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
   };
   const takeOff = (i) => { onPlace(i, null, null); setPicked(null); };
 
+  // Save the made PDF to their phone or computer: the share sheet on phones
+  // that have one (Save to Files / Photos / AirDrop...), else a download.
+  const savePdf = async () => {
+    if (!made) return;
+    try {
+      if (navigator.canShare?.({ files: [made] })) { await navigator.share({ files: [made], title: made.name }); return; }
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+    }
+    const url = URL.createObjectURL(made);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = made.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   const make = async () => {
     setMaking(true);
     setMadeNote("");
@@ -170,6 +190,7 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
       files.map((f, i) => [f, i]).filter(([f]) => String(f.name || "").startsWith(MADE_PREFIX)).map(([, i]) => i).reverse().forEach((i) => onRemoveFile(i));
       const file = new File([doc.output("blob")], name, { type: "application/pdf" });
       await onAddFile(file);
+      setMade(file);
       setMadeNote("Added to your stage plot files.");
     } catch (err) {
       console.error(err);
@@ -252,9 +273,14 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
         style={{ background: G, color: "#0d0d0d" }}
       >
         {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-        {making ? "Making it…" : "Make my stage plot"}
+        {making ? "Making it…" : made ? "Make it again" : "Make my stage plot"}
       </button>
       {madeNote && <span className="text-center text-[12.5px]" style={{ color: madeNote.startsWith("Added") ? G : "#f87171" }}>{madeNote}</span>}
+      {made && (
+        <button type="button" onClick={savePdf} className="min-h-[46px] rounded-xl border font-semibold text-[14.5px] flex items-center justify-center gap-2" style={{ borderColor: G + "66", color: G, background: G + "12" }}>
+          <Download className="w-4 h-4" /> Save PDF to my device
+        </button>
+      )}
     </div>
   );
 }
