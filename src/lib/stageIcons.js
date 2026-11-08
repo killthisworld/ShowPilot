@@ -106,13 +106,13 @@ const SHAPES = {
   // comes down to the band - then the band and the tapered handle, about
   // 20% head to 80% body.
   vocals: (c) => `
-    <path d="M21.3 18.5 C20.3 16 20.1 12.4 20.7 10 C21.6 6.9 25.8 5.6 32 5.6 C38.2 5.6 42.4 6.9 43.3 10 C43.9 12.4 43.7 16 42.7 18.5 Z" fill="${c}"/>
-    ${[15, 17.5, 20, 22.5, 25, 27.5, 30, 32.5, 35, 37.5, 40, 42.5, 45].map((x) => `<path d="M${x} 6.5 L${x + 11} 17.5 M${x + 11} 6.5 L${x} 17.5" stroke="#000" stroke-opacity="0.22" stroke-width="0.9"/>`).join("")}
-    <path d="M21.3 18.5 C20.3 16 20.1 12.4 20.7 10 C21.6 6.9 25.8 5.6 32 5.6 C38.2 5.6 42.4 6.9 43.3 10 C43.9 12.4 43.7 16 42.7 18.5 Z" fill="none" stroke="${c}" stroke-width="1.8"/>
-    <rect x="21.5" y="18" width="21" height="4" rx="1.5" fill="${c}"/>
-    <rect x="21.5" y="19.3" width="21" height="1.3" ${K(0.45)}/>
-    <path d="M25 22 H39 L35.6 59.5 Q32 62.5 28.4 59.5 Z" fill="${c}"/>
-    <rect x="29" y="28" width="6" height="2.6" rx="1" ${K(0.45)}/>`,
+    <path d="M21.4 19.5 C20.2 16.6 20 12.6 20.8 9.6 C22 5.6 26.2 3.6 32 3.6 C37.8 3.6 42 5.6 43.2 9.6 C44 12.6 43.8 16.6 42.6 19.5 Z" fill="${c}"/>
+    ${[15, 17.5, 20, 22.5, 25, 27.5, 30, 32.5, 35, 37.5, 40, 42.5, 45].map((x) => `<path d="M${x} 4.5 L${x + 14} 18.5 M${x + 14} 4.5 L${x} 18.5" stroke="#000" stroke-opacity="0.22" stroke-width="0.9"/>`).join("")}
+    <path d="M21.4 19.5 C20.2 16.6 20 12.6 20.8 9.6 C22 5.6 26.2 3.6 32 3.6 C37.8 3.6 42 5.6 43.2 9.6 C44 12.6 43.8 16.6 42.6 19.5 Z" fill="none" stroke="${c}" stroke-width="1.8"/>
+    <rect x="21.5" y="19" width="21" height="4" rx="1.5" fill="${c}"/>
+    <rect x="21.5" y="20.3" width="21" height="1.3" ${K(0.45)}/>
+    <path d="M25 23 H39 L35.6 59.5 Q32 62.5 28.4 59.5 Z" fill="${c}"/>
+    <rect x="29" y="29" width="6" height="2.6" rx="1" ${K(0.45)}/>`,
   // Studio mic: large-diaphragm condenser in its shock mount, on a stand.
   mic: (c) => `
     <rect x="23" y="3" width="18" height="38" rx="9" fill="${c}"/>
