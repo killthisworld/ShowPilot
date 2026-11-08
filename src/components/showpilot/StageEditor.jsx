@@ -303,13 +303,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <button type="button" onClick={drop} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
         </div>
       ) : step === "lift" && sel !== null && members[sel] ? (
-        <div className="flex flex-col gap-2 rounded-[14px] border border-dashed p-3" style={{ borderColor: G + "88", background: G + "0D" }}>
-          <p className="text-[14px] leading-snug" style={{ color: G }}>Drag {members[sel].name || "them"} where they stand, or tap a spot. Tap them again to set them down.</p>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => edit(sel)} className="flex-1 min-h-[42px] rounded-xl border border-[#3a3a3a] text-white/80 font-semibold text-[14px]">Edit details</button>
-            <button type="button" onClick={drop} className="flex-1 min-h-[42px] rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Set down</button>
-          </div>
-        </div>
+        // Picked up: the dashed outline says it; tap them again to set them down.
+        <button type="button" onClick={() => edit(sel)} className="min-h-[46px] rounded-xl border border-[#3a3a3a] text-white/85 font-semibold text-[15px]">View details</button>
       ) : step === "pick" ? (
         <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
