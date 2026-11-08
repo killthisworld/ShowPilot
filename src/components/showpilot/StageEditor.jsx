@@ -159,13 +159,15 @@ function PositionGrid({ colors, value, onPick, onCustom, customs = [], onPickCus
 // a name, a color and an icon - and Save adds them to the list above.
 const COLOR_CHOICES = [...EVENT_COLOR_CHOICES, "#8CFF3D", "#FBBF24", "#FB923C", "#F472B6", "#22D3EE", "#A78BFA", "#F87171", "#E5E7EB"].filter((c, i, a) => a.indexOf(c) === i);
 function CustomPositionEditor({ customs, onSave, onDone }) {
-  const blank = { id: null, label: "", color: "#22D3EE", icon: "mic" };
+  // No color picked yet: the icons are white; picking one colors them all (job 275).
+  const blank = { id: null, label: "", color: "", icon: "mic" };
   const [f, setF] = useState(blank);
+  const shown = f.color || "#FFFFFF";
   const [state, setState] = useState("idle");
   const save = async () => {
     const label = f.label.trim();
     if (!label) return;
-    const item = { id: f.id || `c${Date.now().toString(36)}`, label: label.slice(0, 40), color: f.color, icon: f.icon };
+    const item = { id: f.id || `c${Date.now().toString(36)}`, label: label.slice(0, 40), color: shown, icon: f.icon };
     const next = f.id ? customs.map((p) => (p.id === f.id ? item : p)) : [...customs, item];
     setState("saving");
     try { await onSave(next); setState("idle"); onDone(); } catch (e) { console.error(e); setState("error"); }
@@ -192,12 +194,12 @@ function CustomPositionEditor({ customs, onSave, onDone }) {
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Color">
         {COLOR_CHOICES.map((c) => (
           <button key={c} type="button" onClick={() => setF({ ...f, color: c })} aria-label={`Use ${c}`} className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: c, boxShadow: f.color.toLowerCase() === c.toLowerCase() ? "0 0 0 2px #0d0d0d, 0 0 0 3px #fff" : "none" }}>
-            {f.color.toLowerCase() === c.toLowerCase() && <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />}
+            {f.color && f.color.toLowerCase() === c.toLowerCase() && <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />}
           </button>
         ))}
         <label className="relative h-7 px-2 rounded-md border border-[#2a2a2a] flex items-center gap-1.5 cursor-pointer text-[10px] tracking-[0.08em] text-white/70" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
-          <span className="w-4 h-4 rounded-sm" style={{ background: f.color }} /><Pipette className="w-3 h-3" /> CUSTOM
-          <input type="color" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Custom color" />
+          <span className="w-4 h-4 rounded-sm" style={{ background: shown }} /><Pipette className="w-3 h-3" /> CUSTOM
+          <input type="color" value={shown.length === 7 ? shown.toLowerCase() : "#ffffff"} onChange={(e) => setF({ ...f, color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Custom color" />
         </label>
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(52px,1fr))] gap-1.5 max-h-[220px] overflow-y-auto pr-0.5" role="radiogroup" aria-label="Icon">
@@ -205,8 +207,8 @@ function CustomPositionEditor({ customs, onSave, onDone }) {
           const on = f.icon === ic.id;
           return (
             <button key={ic.id} type="button" role="radio" aria-checked={on} aria-label={ic.label} title={ic.label} onClick={() => setF({ ...f, icon: ic.id })}
-              className="aspect-square rounded-lg border flex items-center justify-center" style={{ borderColor: on ? f.color : "#262626", background: on ? f.color + "1A" : "#0b0b0b" }}>
-              <Icon pos={ic.id} color={on ? f.color : "rgba(255,255,255,0.55)"} size={28} />
+              className="aspect-square rounded-lg border flex items-center justify-center" style={{ borderColor: on ? shown : "#262626", background: on ? shown + "1A" : "#0b0b0b" }}>
+              <Icon pos={ic.id} color={shown} size={28} />
             </button>
           );
         })}
