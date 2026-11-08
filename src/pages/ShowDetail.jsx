@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
+import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -179,6 +180,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   // Tracks each act sent for this event, by its set time (job 219).
   const { tracksFor } = useEventTracks(id);
   const [tracksAct, setTracksAct] = useState(null);
+  const [plotAt, setPlotAt] = useState(null); // stage plot open on this act (job 251)
   const [showGenreSettings, setShowGenreSettings] = useState(false);
   const [showBusSettings, setShowBusSettings] = useState(false);
   const [genreDraft, setGenreDraft] = useState([]);
@@ -990,6 +992,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           </button>
         )}
         {banner && underBanner}
+        {/* The stage plot, the engineer's show-night reference (job 251). */}
+        {banner && underBanner && <StagePlotCard acts={bands} />}
         {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
@@ -1200,6 +1204,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
               <div className="flex items-center gap-2">
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
+                <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />
               </div>
             }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
@@ -1228,6 +1233,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
+      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

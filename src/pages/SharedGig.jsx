@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
+import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
 import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
@@ -726,6 +727,7 @@ export default function SharedGig() {
   // Tracks each act sent for this event, by its set time (job 219).
   const { tracksFor } = useEventTracks(gig?.id);
   const [tracksAct, setTracksAct] = useState(null);
+  const [plotAt, setPlotAt] = useState(null); // stage plot open on this act (job 251)
   const [fxDirty, setFxDirty] = useState({ acts: false, show: false });
   const [fxSaving, setFxSaving] = useState(false);
   const [fxSaved, setFxSaved] = useState(false);
@@ -1299,6 +1301,8 @@ export default function SharedGig() {
             }}
           />
         )}
+        {/* The stage plot, the engineer's show-night reference (job 251). */}
+        {techPhone && <StagePlotCard acts={gig?.bands || []} />}
 
         {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
@@ -1514,6 +1518,7 @@ export default function SharedGig() {
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
                         <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
+                        <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
                         </span>
@@ -1562,6 +1567,7 @@ export default function SharedGig() {
                     />
                     <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
+                        <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                   </div>
                   {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>
@@ -1634,6 +1640,7 @@ export default function SharedGig() {
       </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
+      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}
