@@ -7,6 +7,7 @@ import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePosit
 import { stageIconSvg } from "@/lib/stageIcons";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 import { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
+import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -210,11 +211,15 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           ) : (
             <div className="flex flex-col items-center gap-2 mt-1">
               <p className="text-center text-white/40 text-[13px]">Tap anyone for their inputs, vocals and monitor.</p>
-              {canMove && (
-                <button type="button" onClick={() => { setSwap(true); setSel(null); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl border font-semibold text-[14px] flex items-center gap-1.5" style={{ borderColor: G + "66", color: G }}>
-                  <ArrowLeftRight className="w-4 h-4" />Move / swap
-                </button>
-              )}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {canMove && (
+                  <button type="button" onClick={() => { setSwap(true); setSel(null); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl border font-semibold text-[14px] flex items-center gap-1.5" style={{ borderColor: G + "66", color: G }}>
+                    <ArrowLeftRight className="w-4 h-4" />Move / swap
+                  </button>
+                )}
+                {/* Keep this act's stage in My Templates (job 254). */}
+                {token && <SaveStageTemplateButton key={cur} act={act} className="!min-h-[42px]" />}
+              </div>
             </div>
           )}
           {moveErr && <p className="text-center text-[12.5px] text-[#f87171]">{moveErr}</p>}

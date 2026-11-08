@@ -180,7 +180,7 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
   };
 
   if (onCount === 0) {
-    return <p className="text-[13.5px] text-white/50 text-center py-2">No stage plot? Build your stage in "Members and inputs" and ShowPilot makes one for you here.</p>;
+    return <p className="text-[13px] text-white/45 text-center py-1">No stage plot? Put everyone on the stage above and ShowPilot makes one for you.</p>;
   }
   return (
     <div className="flex flex-col gap-2">

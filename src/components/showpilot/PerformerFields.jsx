@@ -38,6 +38,8 @@ export default function PerformerFields({
   onBusSettings,         // gear beside IEM / Monitor
   onStagePlotUpload,     // (event) => parent uploads and adds the files
   showNotes = false,     // the notes block (on a show these live in FX / Artist Notes)
+  membersSlot = null,    // shown instead of the member list (My Templates: the stage editor, job 254)
+  stagePlotExtra = null, // under the Stage Plot uploads (My Templates: make / save the PDF, job 254)
 }) {
   const b = band || {};
   const members = b.band_members || [];
@@ -147,6 +149,7 @@ export default function PerformerFields({
         </div>
       </div>
 
+      {membersSlot ? <div className="border-t border-[#222] pt-3">{membersSlot}</div> : <>
       {members.map((m, i) => (
         <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
           <div className="flex items-center justify-between">
@@ -248,6 +251,7 @@ export default function PerformerFields({
       <Button type="button" variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
         <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
       </Button>
+      </>}
 
       <div className="border-t border-[#222] pt-3">
         <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
@@ -274,6 +278,7 @@ export default function PerformerFields({
           <span className="text-sm text-white/40">Upload images or files</span>
           <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg" multiple className="hidden" onChange={onStagePlotUpload} />
         </label>
+        {stagePlotExtra && <div className="mt-3">{stagePlotExtra}</div>}
       </div>
 
       {showNotes && (

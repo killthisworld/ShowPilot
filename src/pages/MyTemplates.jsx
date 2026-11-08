@@ -9,6 +9,9 @@ import { usePreferences } from "@/hooks/usePreferences";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import VenueInfoFields from "@/components/showpilot/VenueInfoFields";
 import PerformerFields from "@/components/showpilot/PerformerFields";
+import StageEditor from "@/components/showpilot/StageEditor";
+import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
+import { instrumentsOf } from "@/components/showpilot/StagePlotView";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { emptyVenueTemplate, emptyArtistTemplate, normalizeVenueTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
 import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubtitle } from "@/lib/roleTemplates";
@@ -403,6 +406,28 @@ export default function MyTemplates() {
                       iemMonitorColors={iemMonitorColors}
                       onStagePlotUpload={(e) => handleStagePlotUpload(t.key, e)}
                       showNotes
+                      // The stage (job 254): who stands where and what they play,
+                      // saved with the template and loaded into intake forms.
+                      membersSlot={(
+                        <StageEditor
+                          members={t.data.band_members || []}
+                          setMembers={(list) => setData(t.key, "band_members", list)}
+                          getInstruments={instrumentsOf}
+                          colors={preferences?.stage_plot_colors || null}
+                          onRemoveMember={(i) => setData(t.key, "band_members", (t.data.band_members || []).filter((_, k) => k !== i))}
+                        />
+                      )}
+                      stagePlotExtra={(
+                        <StagePlotPdfActions
+                          members={t.data.band_members || []}
+                          getInstruments={instrumentsOf}
+                          actName={t.name}
+                          files={t.data.stage_plot_files || []}
+                          onRemoveFile={(i) => setTemplate(t.key, (cur) => ({ ...cur, data: { ...cur.data, stage_plot_files: (cur.data.stage_plot_files || []).filter((_, k) => k !== i) } }))}
+                          onAddFile={(file) => handleStagePlotUpload(t.key, { target: { files: [file], value: "" } })}
+                          colors={preferences?.stage_plot_colors || null}
+                        />
+                      )}
                     />
                   )}
                   <div className="flex items-center gap-2 pt-1">

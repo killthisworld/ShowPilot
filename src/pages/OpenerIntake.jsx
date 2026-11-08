@@ -269,6 +269,7 @@ export default function OpenerIntake({ link } = {}) {
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
     stageColors: ec?.stage_plot_colors || null, // the engineer's stage plot colors (job 249)
+    canSaveTemplate: !!currentUser, // signed-in artists / managers can save their stage to My Templates (job 254)
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
     fillFromProfile: { onClick: handleLoadTemplate, loading: loadingTemplate },
   };
