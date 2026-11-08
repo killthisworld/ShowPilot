@@ -103,15 +103,16 @@ const SHAPES = {
     ${[5.5, 10, 14.5, 19, 23.5, 28, 32.5, 37, 41.5, 46, 50.5, 55, 59.5].map((x) => `<rect x="${x}" y="25" width="0.9" height="20" ${D}/>`).join("")}
     ${[3.8, 8.3, 17.3, 21.8, 26.3, 35.3, 39.8, 48.8, 53.3, 57.8].map((x) => `<rect x="${x}" y="25" width="2.8" height="11.5" rx="0.5" fill="#000" fill-opacity="0.78"/>`).join("")}`,
   // Shure SM58-style vocal mic (job 277): the 58's mesh grille - a dome that
-  // comes down to the band - then the band and the tapered handle.
+  // comes down to the band - then the band and the tapered handle, about
+  // 20% head to 80% body.
   vocals: (c) => `
-    <path d="M22.5 25 C20.5 21.5 20 17.5 20.6 14 C21.8 7.2 26.2 4 32 4 C37.8 4 42.2 7.2 43.4 14 C44 17.5 43.5 21.5 41.5 25 Z" fill="${c}"/>
-    ${[12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42].map((x) => `<path d="M${x} 5 L${x + 19} 24 M${x + 19} 5 L${x} 24" stroke="#000" stroke-opacity="0.22" stroke-width="1"/>`).join("")}
-    <path d="M22.5 25 C20.5 21.5 20 17.5 20.6 14 C21.8 7.2 26.2 4 32 4 C37.8 4 42.2 7.2 43.4 14 C44 17.5 43.5 21.5 41.5 25 Z" fill="none" stroke="${c}" stroke-width="2.2"/>
-    <rect x="21" y="24" width="22" height="5" rx="2" fill="${c}"/>
-    <rect x="21" y="25.6" width="22" height="1.6" ${K(0.45)}/>
-    <path d="M23.5 29 H40.5 L36.5 59 Q32 62 27.5 59 Z" fill="${c}"/>
-    <rect x="28.5" y="35" width="7" height="3" rx="1" ${K(0.45)}/>`,
+    <path d="M23.8 18.5 C22.5 16.5 22.2 13.8 22.7 11.6 C23.7 7.7 27.3 5.5 32 5.5 C36.7 5.5 40.3 7.7 41.3 11.6 C41.8 13.8 41.5 16.5 40.2 18.5 Z" fill="${c}"/>
+    ${[17, 19.5, 22, 24.5, 27, 29.5, 32, 34.5, 37, 39.5, 42].map((x) => `<path d="M${x} 6.5 L${x + 11} 17.5 M${x + 11} 6.5 L${x} 17.5" stroke="#000" stroke-opacity="0.22" stroke-width="0.9"/>`).join("")}
+    <path d="M23.8 18.5 C22.5 16.5 22.2 13.8 22.7 11.6 C23.7 7.7 27.3 5.5 32 5.5 C36.7 5.5 40.3 7.7 41.3 11.6 C41.8 13.8 41.5 16.5 40.2 18.5 Z" fill="none" stroke="${c}" stroke-width="1.8"/>
+    <rect x="22.5" y="18" width="19" height="4" rx="1.5" fill="${c}"/>
+    <rect x="22.5" y="19.3" width="19" height="1.3" ${K(0.45)}/>
+    <path d="M24.2 22 H39.8 L36 59.5 Q32 62.5 28 59.5 Z" fill="${c}"/>
+    <rect x="29" y="28" width="6" height="2.6" rx="1" ${K(0.45)}/>`,
   // Studio mic: large-diaphragm condenser in its shock mount, on a stand.
   mic: (c) => `
     <rect x="23" y="3" width="18" height="38" rx="9" fill="${c}"/>
