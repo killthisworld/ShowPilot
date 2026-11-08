@@ -436,11 +436,12 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   useEffect(() => { if (saveAfter) handleSave(); }, [saveAfter]); // eslint-disable-line react-hooks/exhaustive-deps
   // A new show isn't saved yet (job 285): the stage still builds here and
   // saves with the show.
-  const editStage = stageRole ? async (i, list) => {
+  // Anyone on their own show's Performer tab can build the stage (job 286).
+  const editStage = async (i, list) => {
     setBands((prev) => prev.map((b, k) => (k === i ? { ...b, band_members: list } : b)));
     if (!isNew) setSaveAfter((n) => n + 1);
     return null;
-  } : null;
+  };
 
   const handleSave = async () => {
     const headliner = bands[headlinerIndex] || bands[0];
@@ -1238,7 +1239,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
                 <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
-                <ActStagePlotButton act={activeBand} always={!!editStage} onClick={() => setPlotAt(activeBandIndex)} />
+                {/* Always here, empty stage or not: open it to build one (job 286). */}
+                <ActStagePlotButton act={activeBand} always onClick={() => setPlotAt(activeBandIndex)} />
               </div>
             }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}

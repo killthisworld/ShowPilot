@@ -1223,7 +1223,7 @@ export default function SharedGig() {
   // Stage plot on the event (job 255): artist / mgmt and audio profiles see it on
   // desktop; whoever can edit the lineup can build / edit the stage from it.
   const stageRole = ["engineer", "manager", "band"].includes(myAccountType || "engineer");
-  const editStage = canEditLineup && stageRole ? async (i, list) => {
+  const editStage = canEditLineup ? async (i, list) => {
     const bands = (gig?.bands || []).map((b, k) => (k === i ? { ...b, band_members: list } : b));
     const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: { bands } });
     if (error) { console.error(error); return "Couldn't save the stage. Try again."; }
