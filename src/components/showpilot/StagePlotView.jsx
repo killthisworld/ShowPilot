@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronsDown, Loader2, Theater, X } from "lucide-react";
+import { ChevronLeft, ChevronsDown, Loader2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
@@ -230,9 +230,17 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   );
 }
 
-// A stage (job 273): lucide's Theater (curtains over a stage, seats in front).
+// The stage plot icon (job 273): the ShowPilot logo's stage - the arches over
+// the stage floor - as a line icon in the button's color.
 export function StageIcon({ className = "", style }) {
-  return <Theater className={className} style={style} aria-hidden="true" />;
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" className={className} style={style} aria-hidden="true">
+      <path d="M5.06 14.27V11.98a6.94 6.94 0 0 1 13.88 0v2.29" />
+      <path d="M8.13 14.27V11.98a3.86 3.86 0 0 1 7.72 0v2.29" />
+      <path d="M10.5 14.27v-2.3a1.5 1.5 0 0 1 3 0v2.3z" fill="currentColor" stroke="none" />
+      <path d="M4.64 14.27h14.7l1.94 2.26v2.41H2.72v-2.41z" />
+    </svg>
+  );
 }
 
 // The event page card: a preview of the first act's plot; tap to open. On the
@@ -268,8 +276,8 @@ export function ActStagePlotButton({ act, onClick, size = "md" }) {
   const box = size === "sm" ? "w-8 h-8" : "w-10 h-10";
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} aria-label={`${actName(act)}'s stage plot`} title="Stage plot"
-      className={`${box} shrink-0 rounded-[10px] border bg-[#141414] flex items-center justify-center`} style={{ borderColor: G + "55", color: G }}>
-      <StageIcon className={size === "sm" ? "w-[18px] h-[18px]" : "w-5 h-5"} />
+      className={`${box} shrink-0 rounded-[10px] border bg-black flex items-center justify-center`} style={{ borderColor: G + "55", color: G }}>
+      <StageIcon className={size === "sm" ? "w-5 h-5" : "w-6 h-6"} />
     </button>
   );
 }
