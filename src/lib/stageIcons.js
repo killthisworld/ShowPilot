@@ -254,16 +254,118 @@ const SHAPES = {
     ${[17, 24, 31, 38, 45].map((y) => `<circle cx="9.5" cy="${y}" r="1.8" ${D}/>`).join("")}`,
 };
 
+// Jay's picks (job 277): these replace the redrawn ones above. Horns on the
+// stage is a trumpet again; kick ... wedge stay only for instruments already
+// made with them.
+Object.assign(SHAPES, {
+  // Drums: the kit as before (job 249).
+  drums: (c) => `
+    <circle cx="32" cy="42" r="15" fill="${c}"/>
+    <circle cx="32" cy="42" r="10" fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="2"/>
+    <ellipse cx="19" cy="22" rx="8" ry="5.5" fill="${c}"/>
+    <ellipse cx="45" cy="22" rx="8" ry="5.5" fill="${c}"/>
+    <ellipse cx="9" cy="11" rx="8" ry="2.2" fill="${c}"/>
+    <ellipse cx="55" cy="11" rx="8" ry="2.2" fill="${c}"/>
+    <rect x="8" y="12" width="2" height="16" fill="${c}"/>
+    <rect x="54" y="12" width="2" height="16" fill="${c}"/>`,
+  // Vocal mic: a handheld dynamic - round mesh ball, band, long tapered handle.
+  vocals: (c) => `
+    <circle cx="32" cy="14" r="11.5" fill="${c}"/>
+    <g stroke="#000" stroke-opacity="0.38" stroke-width="1.3">
+      <path d="M22 9 h20 M21 14 h22 M22 19 h20"/>
+      <path d="M27 3.5 v21 M32 2.5 v23 M37 3.5 v21"/>
+    </g>
+    <rect x="22.5" y="24" width="19" height="5" rx="2" fill="${c}"/>
+    <rect x="22.5" y="26" width="19" height="1.4" ${D}/>
+    <path d="M24 29 h16 l-3 31 q-5 3 -10 0 z" fill="${c}"/>
+    <rect x="28" y="56" width="8" height="2" rx="1" ${D}/>`,
+  // Studio mic: a large-diaphragm condenser in its shock mount, on a stand.
+  mic: (c) => `
+    <rect x="23" y="3" width="18" height="36" rx="9" fill="${c}"/>
+    ${[8, 12, 16, 20].map((y) => `<rect x="25" y="${y}" width="14" height="1.6" ${D}/>`).join("")}
+    <rect x="23" y="25" width="18" height="2" ${K(0.35)}/>
+    <path d="M17 18 Q17 34 32 34 Q47 34 47 18" fill="none" stroke="${c}" stroke-width="3"/>
+    <rect x="30.5" y="34" width="3" height="21" fill="${c}"/>
+    <ellipse cx="32" cy="58" rx="13" ry="3.5" fill="${c}"/>`,
+  // Perc: bongos - two small drums joined by a bracket.
+  percussion: (c) => `
+    <path d="M5 22 L27 22 L24 48 L8 48 Z" fill="${c}"/>
+    <path d="M35 18 L61 18 L57 50 L39 50 Z" fill="${c}"/>
+    <ellipse cx="16" cy="22" rx="11" ry="3.5" fill="#fff" fill-opacity="0.45"/>
+    <ellipse cx="48" cy="18" rx="13" ry="4" fill="#fff" fill-opacity="0.45"/>
+    <rect x="25" y="30" width="12" height="5" rx="1.5" fill="${c}"/>
+    <rect x="6" y="28" width="20" height="2.2" ${D}/><rect x="36" y="25" width="24" height="2.2" ${D}/>`,
+  // Guitar: a slimmer Strat-style body.
+  guitar: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="30" y="1" width="4" height="31" rx="1" fill="${c}"/>
+    <path d="M29 0 h6 l1 6 h-8 z" fill="${c}"/>
+    <path d="M32 28 C28 28 28 24 25 25 C21 26 22 32 24 35 C21 40 21 49 24 55 C27 61 37 61 40 55 C43 49 43 40 40 35 C42 32 43 26 39 25 C36 24 36 28 32 28 Z" fill="${c}"/>
+    <rect x="27.5" y="39" width="9" height="2" rx="1" ${D}/><rect x="27.5" y="44" width="9" height="2" rx="1" ${D}/>
+    <rect x="28" y="52" width="8" height="2.4" rx="1" ${D}/></g>`,
+  // Acoustic: wider dreadnought body - narrow upper bout, wide lower bout.
+  acoustic: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="30" y="1" width="4" height="25" rx="1" fill="${c}"/>
+    <path d="M28.5 0 h7 l1 6 h-9 z" fill="${c}"/>
+    <path d="M32 22 C21 22 20 31 24 35 C14 39 13 62 32 62 C51 62 50 39 40 35 C44 31 43 22 32 22 Z" fill="${c}"/>
+    <circle cx="32" cy="38" r="5" fill="#000" fill-opacity="0.65"/>
+    <rect x="26" y="51" width="12" height="2.8" rx="1" ${D}/></g>`,
+  // Electric: a pointed, sharp-horned body.
+  electric: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="30" y="1" width="4" height="30" rx="1" fill="${c}"/>
+    <path d="M29 0 L36 0 L35 7 L29 6 Z" fill="${c}"/>
+    <path d="M32 29 L25 18 L23 31 L18 40 L22 52 L19 62 L32 56 L45 62 L42 52 L46 40 L41 31 L39 18 Z" fill="${c}"/>
+    <rect x="27.5" y="38" width="9" height="3.2" rx="1" ${D}/><rect x="27.5" y="45" width="9" height="3.2" rx="1" ${D}/></g>`,
+  // Bass: smaller body, long neck, a bass headstock with 4 tuners on one side.
+  bass: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="30.2" y="8" width="3.6" height="34" rx="1" fill="${c}"/>
+    <path d="M30 9 L30 -2 Q30 -5 33 -5 L36 -5 L36 1 Q34 3 34 9 Z" fill="${c}"/>
+    ${[-3, 0.5, 4].map((y) => `<circle cx="38" cy="${y}" r="1.5" fill="${c}"/>`).join("")}<circle cx="38" cy="7.5" r="1.5" fill="${c}"/>
+    <path d="M32 40 C28.5 40 28.5 36.5 26 37.5 C23 38.5 24 43 25.5 45 C23 48 23.5 54 26 57 C28.5 60 35.5 60 38 57 C40.5 54 41 48 38.5 45 C40 43 41 38.5 38 37.5 C35.5 36.5 35.5 40 32 40 Z" fill="${c}"/>
+    <rect x="28" y="47" width="4" height="2.4" rx="1" ${D}/><rect x="32" y="49.5" width="4" height="2.4" rx="1" ${D}/>
+    <rect x="28.5" y="54" width="7" height="2" rx="1" ${D}/></g>`,
+  // Keys: a long, low keyboard.
+  keys: (c) => `
+    <rect x="1" y="23" width="62" height="19" rx="2.5" fill="${c}"/>
+    <rect x="1" y="23" width="62" height="4.5" rx="2" ${K(0.3)}/>
+    ${[6, 10.5, 15, 19.5, 24, 28.5, 33, 37.5, 42, 46.5, 51, 55.5, 60].map((x) => `<rect x="${x}" y="27.5" width="0.9" height="14.5" ${D}/>`).join("")}
+    ${[4.6, 9.1, 18.1, 22.6, 27.1, 36.1, 40.6, 49.6, 54.1, 58.6].map((x) => `<rect x="${x}" y="27.5" width="2.8" height="8.5" rx="0.5" fill="#000" fill-opacity="0.78"/>`).join("")}`,
+  // Sax: mouthpiece and crook, straight body, U-bend, flared bell up.
+  sax: (c) => `
+    <path d="M25 14 L33 14 L33 46 Q33 52 38.5 52 Q44 52 44 46 L44 34 L41 27 L57 23 L53 33 L53 46 Q53 61 38.5 61 Q25 61 25 46 Z" fill="${c}"/>
+    <ellipse cx="49" cy="25" rx="8.5" ry="3" transform="rotate(-14 49 25)" fill="${c}"/>
+    <ellipse cx="49" cy="25" rx="6" ry="1.7" transform="rotate(-14 49 25)" fill="#000" fill-opacity="0.6"/>
+    <path d="M29 15 Q29 6 20 6" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
+    <path d="M21 3.5 L11 6.5 L12 9.5 L21 8.5 Z" fill="${c}"/>
+    ${[20, 26, 32, 38].map((y) => `<circle cx="29" cy="${y}" r="2.1" fill="#000" fill-opacity="0.55"/>`).join("")}
+    ${[40, 46].map((y) => `<circle cx="48.5" cy="${y}" r="2.1" fill="#000" fill-opacity="0.55"/>`).join("")}`,
+  // Upright bass: tall body, sloped shoulders, long neck, scroll, endpin.
+  upright: (c) => `
+    <path d="M32 22 C27 22 25 25 24 28 C21 29 19 32 20 36 C21 38 22 39 22 40 C18 42 16 47 17 52 C18 59 25 62 32 62 C39 62 46 59 47 52 C48 47 46 42 42 40 C42 39 43 38 44 36 C45 32 43 29 40 28 C39 25 37 22 32 22 Z" fill="${c}"/>
+    <rect x="30.4" y="3" width="3.2" height="21" fill="${c}"/>
+    <path d="M30 0.5 Q33 -0.5 34.5 1.5 Q35.5 4 33.5 5 L30 5 Z" fill="${c}"/>
+    <path d="M26 41 q-2 4 0 9 M38 41 q2 4 0 9" stroke="#000" stroke-opacity="0.6" stroke-width="1.6" fill="none"/>
+    <rect x="29.5" y="44" width="5" height="2" rx="1" ${D}/>
+    <rect x="31" y="61" width="2" height="3" fill="${c}"/>`,
+  // Strings: a violin - narrow upper bout, waist, wider lower bout, scroll - and its bow.
+  strings: (c) => `
+    <rect x="9" y="31" width="52" height="2" rx="1" transform="rotate(-58 35 32)" fill="${c}"/>
+    <g transform="rotate(-25 30 34)">
+    <path d="M30 18 C24 18 21 20 21 25 C21 29 24 30 25 32 C25 34 24 35 24 36 C20 37 19 41 19 45 C19 51 24 55 30 55 C36 55 41 51 41 45 C41 41 40 37 36 36 C36 35 35 34 35 32 C36 30 39 29 39 25 C39 20 36 18 30 18 Z" fill="${c}"/>
+    <rect x="28.6" y="5" width="2.8" height="15" fill="${c}"/>
+    <circle cx="30" cy="4" r="2.6" fill="${c}"/>
+    <path d="M26 38 q-1.5 3.5 0 7 M34 38 q1.5 3.5 0 7" stroke="#000" stroke-opacity="0.6" stroke-width="1.5" fill="none"/>
+    <path d="M28.5 47 L31.5 47 L31 54 L29 54 Z" ${D}/></g>`,
+});
+SHAPES.horns = SHAPES.trumpet;
+
 // Every icon you can give your own instrument (job 274), with names.
 export const ICON_CHOICES = [
-  ["vocals", "Vocal mic"], ["mic", "Mic"], ["headset", "Headset"],
-  ["drums", "Drum kit"], ["kick", "Kick"], ["snare", "Snare"], ["tom", "Tom"], ["hihat", "Hi-hat"], ["cymbal", "Cymbal"],
-  ["percussion", "Percussion"], ["conga", "Congas"],
-  ["guitar", "Guitar"], ["acoustic", "Acoustic"], ["electric", "Electric"], ["bass", "Bass"],
+  ["vocals", "Vocal mic"], ["mic", "Studio mic"], ["headset", "Headset"],
+  ["drums", "Drums"], ["percussion", "Perc"],
+  ["guitar", "Guitar"], ["acoustic", "Acoustic"], ["electric", "Electric"], ["bass", "Bass"], ["upright", "Upright bass"],
   ["keys", "Keys"], ["piano", "Piano"], ["organ", "Organ"], ["synth", "Synth"],
-  ["horns", "Horns"], ["sax", "Sax"], ["trumpet", "Trumpet"], ["trombone", "Trombone"],
-  ["strings", "Cello"], ["violin", "Violin"], ["harmonica", "Harmonica"], ["accordion", "Accordion"],
-  ["dj", "DJ"], ["laptop", "Laptop"], ["di", "DI box"], ["amp", "Amp"], ["speaker", "Speaker"], ["wedge", "Wedge"], ["other", "Other"],
+  ["sax", "Sax"], ["trumpet", "Trumpet"], ["strings", "Strings"], ["harmonica", "Harmonica"],
+  ["dj", "DJ"], ["laptop", "Laptop"], ["other", "Other"],
 ].map(([id, label]) => ({ id, label }));
 
 export const stageIconSvg = (pos, color, size = 64) =>
