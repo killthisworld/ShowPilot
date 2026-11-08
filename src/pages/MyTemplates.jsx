@@ -406,6 +406,20 @@ export default function MyTemplates() {
                       iemMonitorColors={iemMonitorColors}
                       onStagePlotUpload={(e) => handleStagePlotUpload(t.key, e)}
                       showNotes
+                      // Contact info (job 282), filled into intake forms.
+                      afterName={(
+                        <div className="space-y-1.5">
+                          <span className="block text-white/40 text-[10px] uppercase tracking-widest font-medium">Contact</span>
+                          <input value={t.data.contact_name || ""} onChange={(e) => setData(t.key, "contact_name", e.target.value)} placeholder="Name" aria-label="Contact name" autoComplete="name"
+                            className="w-full min-h-[44px] rounded-lg bg-[#111] border border-[#262626] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-white/30" />
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input value={t.data.contact_phone || ""} onChange={(e) => setData(t.key, "contact_phone", e.target.value)} placeholder="Phone" aria-label="Contact phone" type="tel" inputMode="tel" autoComplete="tel"
+                              className="w-full min-h-[44px] rounded-lg bg-[#111] border border-[#262626] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-white/30" />
+                            <input value={t.data.contact_email || ""} onChange={(e) => setData(t.key, "contact_email", e.target.value)} placeholder="Email" aria-label="Contact email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email"
+                              className="w-full min-h-[44px] rounded-lg bg-[#111] border border-[#262626] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-white/30" />
+                          </div>
+                        </div>
+                      )}
                       // The stage (job 254): who stands where and what they play,
                       // saved with the template and loaded into intake forms.
                       membersSlot={(

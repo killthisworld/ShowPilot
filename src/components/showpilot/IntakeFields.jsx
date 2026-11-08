@@ -1,8 +1,8 @@
 import React from "react";
-import { X, Paperclip, User, Music } from "lucide-react";
+import { X, Paperclip, User } from "lucide-react";
 import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
 import StageEditor from "@/components/showpilot/StageEditor";
-import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
+import UploadTemplateButton from "@/components/showpilot/UploadTemplate";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
 // Info) as circles on the act's web (job 195). `h` is the form's state and
@@ -39,14 +39,10 @@ function ArtistBody({ h }) {
     if (t && !form.genre_tags.includes(t)) update("genre_tags", [...form.genre_tags, t]);
     setGenreInput("");
   };
-  const fill = h.fillFromProfile;
   return (
     <div className="flex flex-col gap-3">
-      {fill && (
-        <button type="button" onClick={fill.onClick} disabled={fill.loading} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#8CFF3D]/40 text-[13.5px] font-semibold text-[#8CFF3D] flex items-center gap-1.5">
-          <Music className="w-4 h-4" />{fill.loading ? "Loading…" : "Fill it from my artist profile"}
-        </button>
-      )}
+      {/* Upload template (job 282): fill the form from one of their templates. */}
+      {h.applyTemplate && <UploadTemplateButton onApply={h.applyTemplate} />}
       <label><span className={label}>ARTIST / GROUP NAME *</span>
         <input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} placeholder="Artist" className={inputCls} /></label>
       <label><span className={label}>SET LENGTH (MINUTES)</span>
@@ -95,7 +91,7 @@ function MembersBody({ h }) {
 }
 
 function StagePlotBody({ h }) {
-  const { form, handleStagePlotUpload, removeStagePlotFile, getInstruments, stageColors, canSaveTemplate } = h;
+  const { form, handleStagePlotUpload, removeStagePlotFile, getInstruments, stageColors } = h;
   return (
     <div className="flex flex-col gap-2">
       {/* Upload their own / download the one they built: one row (job 259). */}
@@ -125,9 +121,6 @@ function StagePlotBody({ h }) {
           <button type="button" onClick={() => removeStagePlotFile(i)} aria-label="Remove file" className="min-h-[36px] w-[36px] flex items-center justify-center text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
         </div>
       ))}
-      {/* Save to template (job 257): their stage in My Templates; not on
-          ShowPilot yet -> sign up / log in, then it saves. */}
-      {canSaveTemplate && <SaveStageTemplateButton act={form} primary />}
     </div>
   );
 }

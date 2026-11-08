@@ -3,7 +3,6 @@ import { setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
 import { useResumeStageSave } from "@/components/showpilot/SaveStageTemplate";
-import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
@@ -44,42 +43,16 @@ export default function OpenerIntake({ link } = {}) {
   const [engineerCard, setEngineerCard] = useState(null);
   const [shareMyCard, setShareMyCard] = useState(false);
   const [genreInput, setGenreInput] = useState("");
-  const [loadingTemplate, setLoadingTemplate] = useState(false);
   // Which circles the act has saved on their web (job 195).
   const [seen, setSeen] = usePersistedState(`opener_intake_seen_${token}`, {});
   const { toast } = useToast();
   // Saved their stage to a template before signing up / logging in (job 257).
   useResumeStageSave(form, (r) => toast(r === "error" ? { title: "Couldn't save your template", description: "Tap Save to template to try again.", variant: "destructive" } : { title: r === "updated" ? "Updated your template" : "Saved your stage to My Templates" }));
 
-  const handleLoadTemplate = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      const path = window.location.pathname + window.location.search;
-      try { sessionStorage.setItem("post_auth_redirect", path); } catch {}
-      window.location.href = "/login?redirect=" + encodeURIComponent(path);
-      return;
-    }
-    setLoadingTemplate(true);
-    try {
-      const t = await fetchMyArtistProfile(supabase, user.id);
-      if (!t || (!t.band_name && (!t.band_members || t.band_members.length === 0))) {
-        toast({ title: "No saved artist profile yet", description: "Set one up in Settings > My Templates." });
-      } else {
-        setForm((prev) => ({
-          ...prev,
-          band_name: t.band_name || "",
-          genre_tags: t.genre_tags || [],
-          band_members: t.band_members || [],
-          stage_plot_url: t.stage_plot_url || "",
-          stage_plot_files: t.stage_plot_files || [],
-          general_notes: t.general_notes || "",
-        }));
-        toast({ title: "Loaded your artist profile" });
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setLoadingTemplate(false);
+  // Upload template (job 282): one of their artist templates fills the form.
+  const applyTemplate = (fields, name) => {
+    setForm((prev) => ({ ...prev, ...fields }));
+    toast({ title: `Loaded ${name || "your template"}` });
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -272,9 +245,8 @@ export default function OpenerIntake({ link } = {}) {
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
     stageColors: ec?.stage_plot_colors || null, // the engineer's stage plot colors (job 249)
-    canSaveTemplate: true, // Save to template; not signed in -> sign up / log in first (jobs 254, 257)
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
-    fillFromProfile: { onClick: handleLoadTemplate, loading: loadingTemplate },
+    applyTemplate: applyTemplate,
   };
   const onCard = () => {
     if (!currentUser) {

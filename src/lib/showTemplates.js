@@ -18,6 +18,8 @@ export const emptyArtistTemplate = () => ({
   set_length_minutes: null, genre_tags: [], genre_tag: "", genre_color: "",
   band_members: [], stage_plot_url: "", stage_plot_files: [], general_notes: "", artist_fx_notes: [],
   photo_url: "",
+  // Who to contact about the act (job 282): fills the intake form's contact.
+  contact_name: "", contact_phone: "", contact_email: "",
 });
 
 // Older artist templates kept each member's notes on the member
@@ -72,5 +74,9 @@ export function artistFromTemplate(name, data = {}) {
     artist_fx_notes: d.artist_fx_notes,
     // The artist's photo, only when the template has one (keeps the act's own otherwise).
     ...(d.photo_url ? { photo_url: d.photo_url } : {}),
+    // Its contact, only when the template has one (job 282).
+    ...(d.contact_name ? { submitter_name: d.contact_name } : {}),
+    ...(d.contact_phone ? { submitter_phone: d.contact_phone } : {}),
+    ...(d.contact_email ? { submitter_email: d.contact_email } : {}),
   };
 }
