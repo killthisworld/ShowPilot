@@ -257,11 +257,11 @@ export default function BandProfile() {
                           />
                           <div className="flex items-center gap-1 shrink-0">
                             {["Mic", "DI"].map((type) => {
-                              const active = (inst.mic_di || "Mic") === type;
+                              const active = (inst.mic_di ?? "Mic") === type;
                               return (
                                 <button
                                   key={type}
-                                  onClick={() => updateInstrument(i, ii, "mic_di", type)}
+                                  onClick={() => updateInstrument(i, ii, "mic_di", active ? "" : type)}
                                   className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
                                 >
                                   {type}

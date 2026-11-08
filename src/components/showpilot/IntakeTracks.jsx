@@ -26,7 +26,8 @@ export function useAsksTracks(token, kind) {
 
 export function TracksQuestion({ value, onChange }) {
   return (
-    <div className="rounded-2xl p-4" style={{ background: "#1c1a0e", border: `1px solid ${DJ_COLOR}55` }}>
+    // Plain box, like Additional services (job 264).
+    <div className="bg-[#111] rounded-2xl p-4">
       <p className="text-white text-sm font-semibold">Do you have tracks to send?</p>
       <p className="text-white/45 text-xs mt-1">Backing tracks or a DJ set. You'll add them right after you send this form.</p>
       <div className="grid grid-cols-2 gap-2 mt-3" role="radiogroup" aria-label="Tracks to send">
@@ -34,8 +35,7 @@ export function TracksQuestion({ value, onChange }) {
           const on = value === v;
           return (
             <button key={text} type="button" role="radio" aria-checked={on} onClick={() => onChange(on ? null : v)}
-              className="h-11 rounded-xl border text-sm font-semibold transition-colors"
-              style={on ? { borderColor: DJ_COLOR, background: DJ_COLOR + "1a", color: DJ_COLOR } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.6)" }}>
+              className={`h-11 rounded-xl border text-sm font-semibold transition-colors ${on ? "border-[#8CFF3D]/60 bg-[#8CFF3D]/10 text-[#8CFF3D]" : "border-[#2a2a2a] text-white/60 hover:text-white"}`}>
               {text}
             </button>
           );

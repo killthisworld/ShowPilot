@@ -168,6 +168,12 @@ export function SenderCircle({ center, color, desktop }) {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [cardOpen]);
+  // Back from their logbook (opened from this card): show the card again (job 264).
+  useEffect(() => {
+    let again = false;
+    try { again = !!cardToken && sessionStorage.getItem("sp_reopen_card") === cardToken; if (again) sessionStorage.removeItem("sp_reopen_card"); } catch {}
+    if (again) setCardOpen(true);
+  }, [cardToken]);
   const openCard = () => { try { window.history.pushState({ ...(window.history.state || {}), spCard: 1 }, ""); } catch {} setCardOpen(true); };
   const closeCard = () => { if (window.history.state?.spCard) window.history.back(); else setCardOpen(false); };
   if (!cardToken) return <div className={cls} style={style}>{inner}</div>;
@@ -193,7 +199,12 @@ export default function IntakeKeyWeb({
   useSendOff(sent, onSentOff);
   const off = !!sent;
   // startOpen: no key first (the sender's own web, e.g. a booking package; job 246).
-  const [phase, setPhase] = useState(startOpen ? "open" : "idle"); // idle | unlocking | open
+  // Back from the sender's logbook (job 264): straight to the web, where their card reopens.
+  const [phase, setPhase] = useState(() => {
+    let back = false;
+    try { back = !!sessionStorage.getItem("sp_reopen_card"); } catch {}
+    return startOpen || back ? "open" : "idle";
+  }); // idle | unlocking | open
   const [pane, setPane] = useState("start"); // start | show | corner | cornerBL | <circle key>
   const opening = phase === "unlocking";
   const N = circles.length;

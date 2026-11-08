@@ -191,12 +191,13 @@ export default function PerformerFields({
                     <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="e.g. Guitar" className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
                     <div className="flex items-center gap-1 shrink-0">
                       {["Mic", "DI"].map((type) => {
-                        const active = (inst.mic_di || "Mic") === type;
+                        // Tap again to turn it off: neither Mic nor DI (job 264).
+                        const active = (inst.mic_di ?? "Mic") === type;
                         return (
                           <button
                             key={type}
                             type="button"
-                            onClick={() => updateInstrument(i, ii, "mic_di", type)}
+                            onClick={() => updateInstrument(i, ii, "mic_di", active ? "" : type)}
                             className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
                           >
                             {type}

@@ -93,7 +93,7 @@ function PersonCard({ m, i, colors, onClose }) {
           <div key={k} className={row}>
             <span className="text-white text-[15px] font-semibold min-w-0 truncate">{x.name}</span>
             <span className="flex items-center gap-1.5 shrink-0">
-              {tag(x.mic_di || "Mic", x.mic_di === "DI" ? "#93C5FD" : "#E5E7EB")}
+              {(x.mic_di ?? "Mic") && tag(x.mic_di ?? "Mic", x.mic_di === "DI" ? "#93C5FD" : "#E5E7EB")}
               {x.phantom_power && tag("+48V", "#FBBF24")}
             </span>
           </div>

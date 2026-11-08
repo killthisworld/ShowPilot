@@ -213,7 +213,13 @@ export default function PilotCardView({ token: tokenProp, onClose } = {}) {
 
       {showBack ? (
         <div
-          onClick={() => (modal ? window.open(`/logbook/public?token=${token}`, "_blank", "noopener") : navigate(`/logbook/public?token=${token}`))}
+          onClick={() => {
+            // Over a form (the intake): open the logbook in this tab and come
+            // back to this card with Back (job 264), not a new tab whose
+            // Back goes to ShowPilot home.
+            if (modal) { try { sessionStorage.setItem("sp_reopen_card", token); } catch {} }
+            navigate(`/logbook/public?token=${token}`);
+          }}
           className="w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-[#222] aspect-[16/10] flex items-center justify-center cursor-pointer p-8"
           style={{ backgroundColor: template.bg }}
           title="View Logbook"

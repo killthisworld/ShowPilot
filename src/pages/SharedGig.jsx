@@ -617,12 +617,13 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
                 <div key={ii} className="flex items-center gap-1.5 pl-2">
                   <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
                   <select
-                    value={inst.mic_di || "Mic"}
+                    value={inst.mic_di ?? "Mic"}
                     onChange={(e) => updateInstrument(i, ii, "mic_di", e.target.value)}
                     className="h-8 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1.5"
                   >
                     <option value="Mic">Mic</option>
                     <option value="DI">DI</option>
+                    <option value="">None</option>
                   </select>
                   <button
                     onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}

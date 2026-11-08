@@ -183,8 +183,9 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
         <div key={ii} className="flex items-center gap-1.5">
           <input value={inst.name || ""} onChange={(e) => upd(ii, "name", e.target.value)} placeholder="e.g. Guitar" aria-label="Instrument" className={`${inputCls} !min-h-[40px]`} />
           {["Mic", "DI"].map((type) => {
-            const on = (inst.mic_di || "Mic") === type;
-            return <button key={type} type="button" onClick={() => upd(ii, "mic_di", type)} aria-pressed={on} className="min-h-[40px] px-2.5 rounded-lg text-[12.5px] font-semibold border shrink-0" style={toggle(on, "#93C5FD")}>{type}</button>;
+            // Tap again to turn it off: neither Mic nor DI (job 264).
+            const on = (inst.mic_di ?? "Mic") === type;
+            return <button key={type} type="button" onClick={() => upd(ii, "mic_di", on ? "" : type)} aria-pressed={on} className="min-h-[40px] px-2.5 rounded-lg text-[12.5px] font-semibold border shrink-0" style={toggle(on, "#93C5FD")}>{type}</button>;
           })}
           <button type="button" onClick={() => upd(ii, "phantom_power", !inst.phantom_power)} aria-pressed={!!inst.phantom_power} className="min-h-[40px] px-2.5 rounded-lg text-[12px] font-bold border shrink-0" style={toggle(!!inst.phantom_power, "#FBBF24")}>+48V</button>
           <button type="button" onClick={() => setInsts(insts.filter((_, k) => k !== ii))} aria-label="Remove instrument" className="min-h-[40px] w-[32px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><X className="w-4 h-4" /></button>
