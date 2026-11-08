@@ -83,6 +83,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   // event name + picture are optional, tucked in at the top of Venue Info
   // (the banner falls back to the headliner and their / the venue's photo).
   const techPhone = isTechProductionAccount && !isDesktop;
+  // Stage plot editing on the event (job 255): artist / mgmt and audio profiles.
+  const stageRole = ["engineer", "manager", "band"].includes(preferences?.account_type || "engineer");
   const [identityOpen, setIdentityOpen] = useState(false);
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
@@ -410,6 +412,16 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   };
 
   const headlinerIndex = bands.findIndex((b) => b.role === "Headliner");
+
+  // "Save the stage" on the event (job 255): put the act's new members in and
+  // save the event the usual way, once the page has the new lineup.
+  const [saveAfter, setSaveAfter] = useState(0);
+  useEffect(() => { if (saveAfter) handleSave(); }, [saveAfter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editStage = stageRole && !isNew ? async (i, list) => {
+    setBands((prev) => prev.map((b, k) => (k === i ? { ...b, band_members: list } : b)));
+    setSaveAfter((n) => n + 1);
+    return null;
+  } : null;
 
   const handleSave = async () => {
     const headliner = bands[headlinerIndex] || bands[0];
@@ -993,7 +1005,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         )}
         {banner && underBanner}
         {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {banner && underBanner && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} />}
+        {banner && underBanner && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
         {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
@@ -1128,6 +1140,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             return namedCount > 0 ? namedCount : undefined;
           })()}>
           <div className="space-y-3 pt-3">
+          {/* The stage plot on the desktop event page (job 255). */}
+          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
@@ -1233,7 +1247,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} />}
+      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, ChevronsDown, LayoutGrid, Loader2, X } from "lucide-react";
+import { ArrowLeftRight, ChevronsDown, LayoutGrid, Loader2, Pencil, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
-import { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
+import StageEditor, { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
@@ -116,11 +116,26 @@ function PersonCard({ m, i, colors, onClose }) {
 // setter), tap one person then another to swap them, or an empty spot to move
 // them; saved straight away with set_stage_positions (owner, Manager / Artist,
 // or the Audio / Lighting crew; only the positions change).
-export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null }) {
+// Build the stage from the event (job 255): with `onEditMembers(actIndex,
+// list)` (async, returns an error message or null) people who can edit the
+// lineup get "Edit the stage" - add people, set who stands where, their inputs.
+// Every act gets a tab then, even ones with no stage yet. `startEditing` opens
+// straight into it.
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false }) {
   const colors = useMyStageColors();
-  const withPlot = acts.map((a, i) => ({ a, i })).filter(({ a }) => hasStagePlot(a));
+  const withPlot = acts.map((a, i) => ({ a, i })).filter(({ a }) => onEditMembers || hasStagePlot(a));
   const [cur, setCur] = useState(withPlot.some(({ i }) => i === start) ? start : withPlot[0]?.i ?? 0);
   const [picked, setPicked] = useState(null);
+  const [draft, setDraft] = useState(startEditing && onEditMembers ? (acts[start]?.band_members || []) : null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editErr, setEditErr] = useState("");
+  const saveDraft = async () => {
+    setEditSaving(true);
+    setEditErr("");
+    const err = await onEditMembers(cur, draft);
+    setEditSaving(false);
+    if (err) setEditErr(err); else setDraft(null);
+  };
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -181,7 +196,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
       {withPlot.length > 1 && (
         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto shrink-0">
           {withPlot.map(({ a, i }) => (
-            <button key={i} type="button" onClick={() => { setCur(i); setPicked(null); }} aria-pressed={cur === i}
+            <button key={i} type="button" onClick={() => { setCur(i); setPicked(null); setSel(null); if (draft) setDraft(a.band_members || []); setEditErr(""); }} aria-pressed={cur === i}
               className="shrink-0 min-h-[36px] px-3 rounded-full border text-[13px] font-semibold"
               style={cur === i ? { borderColor: G, color: "#0d0d0d", background: G } : { borderColor: "#333", color: "rgba(255,255,255,0.7)" }}>
               {actName(a)}
@@ -191,6 +206,24 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
       )}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
         <div className="max-w-[760px] mx-auto flex flex-col gap-2">
+          {draft ? (
+            <>
+              <StageEditor
+                members={draft}
+                setMembers={setDraft}
+                getInstruments={instrumentsOf}
+                colors={colors}
+                onRemoveMember={(i) => setDraft((d) => d.filter((_, k) => k !== i))}
+              />
+              <div className="flex items-center gap-2 mt-2 pt-3 border-t border-[#222]">
+                <button type="button" onClick={() => { setDraft(null); setEditErr(""); }} className="min-h-[44px] px-4 rounded-xl border border-[#3a3a3a] text-white/70 font-semibold text-[14px]">Cancel</button>
+                <button type="button" onClick={saveDraft} disabled={editSaving} className="flex-1 min-h-[44px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+                  {editSaving && <Loader2 className="w-4 h-4 animate-spin" />}Save the stage
+                </button>
+              </div>
+              {editErr && <p className="text-center text-[12.5px] text-[#f87171]">{editErr}</p>}
+            </>
+          ) : (<>
           <StageFloor
             members={members}
             getInstruments={instrumentsOf}
@@ -210,15 +243,20 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
             <PersonCard m={members[picked]} i={picked} colors={colors} onClose={() => setPicked(null)} />
           ) : (
             <div className="flex flex-col items-center gap-2 mt-1">
-              <p className="text-center text-white/40 text-[13px]">Tap anyone for their inputs, vocals and monitor.</p>
+              <p className="text-center text-white/40 text-[13px]">{members.some(placed) ? "Tap anyone for their inputs, vocals and monitor." : "No one is on this stage yet."}</p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 {canMove && (
                   <button type="button" onClick={() => { setSwap(true); setSel(null); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl border font-semibold text-[14px] flex items-center gap-1.5" style={{ borderColor: G + "66", color: G }}>
                     <ArrowLeftRight className="w-4 h-4" />Move / swap
                   </button>
                 )}
+                {onEditMembers && (
+                  <button type="button" onClick={() => { setDraft(members); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl font-semibold text-[14px] flex items-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}>
+                    <Pencil className="w-4 h-4" />{members.some(placed) ? "Edit the stage" : "Build the stage"}
+                  </button>
+                )}
                 {/* Keep this act's stage in My Templates (job 254). */}
-                {token && <SaveStageTemplateButton key={cur} act={act} className="!min-h-[42px]" />}
+                {token && members.some(placed) && <SaveStageTemplateButton key={cur} act={act} className="!min-h-[42px]" />}
               </div>
             </div>
           )}
@@ -233,6 +271,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
               </div>
             </div>
           )}
+          </>)}
         </div>
       </div>
     </div>,
@@ -240,24 +279,29 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   );
 }
 
-// The event page card (tech phone): a preview of the first act's plot; tap to open.
-export function StagePlotCard({ acts = [], token = null, onActs = null }) {
+// The event page card: a preview of the first act's plot; tap to open. On the
+// desktop event page (job 255) it's also how people who can edit the lineup
+// build a stage: with `onEditMembers` and no stage yet, it says "Build the
+// stage" and opens straight into it.
+export function StagePlotCard({ acts = [], token = null, onActs = null, onEditMembers = null }) {
   const colors = useMyStageColors();
   const [open, setOpen] = useState(false);
-  const first = acts.findIndex(hasStagePlot);
-  if (first < 0) return null;
+  const plotAt = acts.findIndex(hasStagePlot);
+  const build = plotAt < 0;
+  if (build && !(onEditMembers && acts.length)) return null;
+  const first = build ? 0 : plotAt;
   const count = acts.filter(hasStagePlot).length;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="w-full text-left rounded-2xl border border-[#242424] bg-[#111] p-3 flex items-center gap-3" aria-label="Open the stage plot">
-        <div className="w-[38%] shrink-0 pointer-events-none"><Stage members={acts[first].band_members || []} colors={colors} small /></div>
+      <button type="button" onClick={() => setOpen(true)} className="w-full text-left rounded-2xl border border-[#242424] bg-[#111] p-3 flex items-center gap-3" aria-label={build ? "Build the stage" : "Open the stage plot"}>
+        <div className="w-[38%] max-w-[180px] shrink-0 pointer-events-none"><Stage members={acts[first].band_members || []} colors={colors} small /></div>
         <div className="flex-1 min-w-0">
           <div className="text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>STAGE PLOT</div>
-          <div className="text-white text-[16px] font-semibold leading-tight truncate">{actName(acts[first])}{count > 1 ? ` +${count - 1}` : ""}</div>
-          <div className="text-[12.5px] mt-1" style={{ color: G }}>Tap to open</div>
+          <div className="text-white text-[16px] font-semibold leading-tight truncate">{build ? "No stage yet" : `${actName(acts[first])}${count > 1 ? ` +${count - 1}` : ""}`}</div>
+          <div className="text-[12.5px] mt-1" style={{ color: G }}>{build ? "Build the stage: who stands where and what they play" : onEditMembers ? "Open to view or edit" : "Tap to open"}</div>
         </div>
       </button>
-      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} token={token} onActs={onActs} />}
+      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} token={token} onActs={onActs} onEditMembers={onEditMembers} startEditing={build} />}
     </>
   );
 }

@@ -1185,6 +1185,16 @@ export default function SharedGig() {
   // Only the event owner or the Manager / Artist can change the lineup (the
   // server refuses anyone else); everyone else sees it read-only, in order.
   const canEditLineup = canEdit && (!!permissions?.is_owner || canEditSection("manager"));
+  // Stage plot on the event (job 255): artist / mgmt and audio profiles see it on
+  // desktop; whoever can edit the lineup can build / edit the stage from it.
+  const stageRole = ["engineer", "manager", "band"].includes(myAccountType || "engineer");
+  const editStage = canEditLineup && stageRole ? async (i, list) => {
+    const bands = (gig?.bands || []).map((b, k) => (k === i ? { ...b, band_members: list } : b));
+    const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: { bands } });
+    if (error) { console.error(error); return "Couldn't save the stage. Try again."; }
+    setGig((g) => ({ ...g, bands }));
+    return null;
+  } : null;
   const location = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const managerInfo = gig.manager_info || {};
 
@@ -1302,7 +1312,7 @@ export default function SharedGig() {
           />
         )}
         {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {techPhone && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} />}
+        {(techPhone || (isDesktop && stageRole)) && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} onEditMembers={editStage} />}
 
         {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
@@ -1640,7 +1650,7 @@ export default function SharedGig() {
       </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} />}
+      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} onEditMembers={editStage} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}
