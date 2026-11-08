@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronsDown, LayoutGrid, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronsDown, Loader2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
@@ -219,6 +219,21 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   );
 }
 
+// A stage (job 273): curtains, a mic stand, the stage floor and its front edge,
+// drawn like the lucide icons (currentColor strokes).
+export function StageIcon({ className = "", style }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} aria-hidden="true">
+      <path d="M2 3h20" />
+      <path d="M3 3v8c2.2 0 3.5-3.5 3.5-8" />
+      <path d="M21 3v8c-2.2 0-3.5-3.5-3.5-8" />
+      <circle cx="12" cy="8.5" r="1.3" />
+      <path d="M12 10v4.5M10.5 14.5h3" />
+      <path d="M5 16.5h14l3 4.5H2z" />
+    </svg>
+  );
+}
+
 // The event page card: a preview of the first act's plot; tap to open. On the
 // desktop event page (job 255) it's also how people who can edit the lineup
 // build a stage: with `onEditMembers` and no stage yet, it says "Build the
@@ -253,7 +268,7 @@ export function ActStagePlotButton({ act, onClick, size = "md" }) {
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} aria-label={`${actName(act)}'s stage plot`} title="Stage plot"
       className={`${box} shrink-0 rounded-[10px] border bg-[#141414] flex items-center justify-center`} style={{ borderColor: G + "55", color: G }}>
-      <LayoutGrid className={size === "sm" ? "w-4 h-4" : "w-[18px] h-[18px]"} />
+      <StageIcon className={size === "sm" ? "w-[18px] h-[18px]" : "w-5 h-5"} />
     </button>
   );
 }

@@ -376,7 +376,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       </div>
 
       {showAllLines ? (
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2" style={{ overscrollBehavior: "contain" }}>
+        // Scrolls without a scroll bar (job 273).
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ overscrollBehavior: "contain" }}>
           {step === "pick" ? (
             <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
