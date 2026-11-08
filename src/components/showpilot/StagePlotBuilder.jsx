@@ -4,6 +4,7 @@ import { Download, FileDown, Loader2 } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg, stageIconPng } from "@/lib/stageIcons";
+import { memberLook } from "@/lib/customPositions";
 
 // Make a stage plot right on the intake form (job 249): every member from
 // "Members and inputs" is a token the act drags onto the stage (audience at
@@ -63,19 +64,21 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
   doc.setFontSize(12);
   doc.text("AUDIENCE", sx + sw / 2, sy + sh + 30, { align: "center" });
 
+  // Their own instruments keep their color and icon (job 274).
   const list = members.map((m, i) => {
-    const pos = positionOfMember(m, getInstruments);
-    return { m, i, pos, color: positionColor(pos, colors), inst: (getInstruments(m) || []).map((x) => x.name).filter(Boolean) };
+    const { pos, color, icon } = memberLook(m, getInstruments, colors);
+    const label = pos === "other" && m.position_label ? m.position_label : positionLabel(pos);
+    return { m, i, pos, color, icon, label, inst: (getInstruments(m) || []).map((x) => x.name).filter(Boolean) };
   });
-  // Each position's icon as an image, once.
+  // Each icon as an image, once.
   const icons = {};
-  for (const { pos, color } of list) {
-    const k = pos + color;
-    if (!icons[k]) icons[k] = await stageIconPng(pos, color);
+  for (const { icon, color } of list) {
+    const k = icon + color;
+    if (!icons[k]) icons[k] = await stageIconPng(icon, color);
   }
-  list.filter(({ m }) => placed(m)).forEach(({ m, i, pos, color, inst }) => {
+  list.filter(({ m }) => placed(m)).forEach(({ m, i, icon, color, inst }) => {
     const cx = sx + m.stage_x * sw, cy = sy + m.stage_y * sh;
-    doc.addImage(icons[pos + color], "PNG", cx - 20, cy - 20, 40, 40, pos + color, "FAST");
+    doc.addImage(icons[icon + color], "PNG", cx - 20, cy - 20, 40, 40, icon + color, "FAST");
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9.5);
@@ -96,8 +99,8 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
   doc.setTextColor(255, 255, 255);
   doc.text("WHO PLAYS WHAT", lx, y);
   y += 18;
-  list.forEach(({ m, i, pos, color }) => {
-    doc.addImage(icons[pos + color], "PNG", lx - 1, y - 10, 12, 12, pos + color, "FAST");
+  list.forEach(({ m, i, icon, color }) => {
+    doc.addImage(icons[icon + color], "PNG", lx - 1, y - 10, 12, 12, icon + color, "FAST");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10.5);
     doc.setTextColor(255, 255, 255);
@@ -114,7 +117,7 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
   });
 
   // Color key: just the positions on this plot.
-  const used = [...new Set(list.map((l) => l.pos))];
+  const used = list.filter((l, k) => list.findIndex((o) => o.label === l.label && o.icon === l.icon && o.color === l.color) === k);
   if (used.length) {
     y += 8;
     doc.setFont("helvetica", "bold");
@@ -123,10 +126,10 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
     doc.text("KEY", lx, y);
     y += 14;
     doc.setFont("helvetica", "normal");
-    used.forEach((k) => {
-      doc.addImage(icons[k + positionColor(k, colors)], "PNG", lx - 1, y - 10, 12, 12, k + positionColor(k, colors), "FAST");
+    used.forEach(({ icon, color, label }) => {
+      doc.addImage(icons[icon + color], "PNG", lx - 1, y - 10, 12, 12, icon + color, "FAST");
       doc.setTextColor(220);
-      doc.text(positionLabel(k), lx + 16, y);
+      doc.text(label, lx + 16, y);
       y += 14;
     });
   }

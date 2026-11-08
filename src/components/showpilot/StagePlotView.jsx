@@ -5,6 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
+import { memberLook } from "@/lib/customPositions";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 import StageEditor, { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
@@ -60,10 +61,9 @@ function Stage({ members, colors, picked, onPick, small = false }) {
       <span className={`absolute left-0 right-0 text-center font-bold tracking-[0.18em] text-white ${small ? "bottom-1 text-[8px]" : "bottom-1.5 text-[10.5px]"}`} style={{ fontFamily: SCENE_MONO }}>STAGE FRONT</span>
       {members.map((m, i) => {
         if (!placed(m)) return null;
-        const pos = positionOfMember(m, instrumentsOf);
-        const pc = positionColor(pos, colors);
+        const { pos, color: pc, icon: ic } = memberLook(m, instrumentsOf, colors);
         const on = picked === i;
-        const icon = <span className={`block ${small ? "w-7 h-7" : "w-12 h-12"} [&>svg]:w-full [&>svg]:h-full`} style={{ filter: on ? `drop-shadow(0 0 9px ${pc})` : "none" }} dangerouslySetInnerHTML={{ __html: stageIconSvg(pos, pc, 48) }} />;
+        const icon = <span className={`block ${small ? "w-7 h-7" : "w-12 h-12"} [&>svg]:w-full [&>svg]:h-full`} style={{ filter: on ? `drop-shadow(0 0 9px ${pc})` : "none" }} dangerouslySetInnerHTML={{ __html: stageIconSvg(ic, pc, 48) }} />;
         return (
           <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: on ? 3 : 2 }}>
             {small ? icon : (
@@ -81,8 +81,7 @@ function Stage({ members, colors, picked, onPick, small = false }) {
 
 // One person's card: inputs, vocals, monitor / IEM.
 function PersonCard({ m, i, colors, onClose }) {
-  const pos = positionOfMember(m, instrumentsOf);
-  const pc = positionColor(pos, colors);
+  const { pos, color: pc, icon: ic } = memberLook(m, instrumentsOf, colors);
   const inst = instrumentsOf(m);
   const inputs = inst.filter((x) => x.name && !isVocalInput(x));
   const sings = memberSings(m, inst);
@@ -92,7 +91,7 @@ function PersonCard({ m, i, colors, onClose }) {
   return (
     <div className="rounded-2xl border bg-[#121212] p-4" style={{ borderColor: pc + "66" }} role="dialog" aria-label={`${m.name || `Member ${i + 1}`}`}>
       <div className="flex items-center gap-3">
-        <span className="w-10 h-10 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: stageIconSvg(pos, pc, 40) }} />
+        <span className="w-10 h-10 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: stageIconSvg(ic, pc, 40) }} />
         <div className="flex-1 min-w-0">
           <div className="text-white text-[18px] font-bold leading-tight truncate">{m.name || `Member ${i + 1}`}</div>
           <div className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: pc }}>{memberPositionLabel(m, pos).toUpperCase()}</div>

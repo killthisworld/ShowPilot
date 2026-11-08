@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, ChevronDown, ChevronsDown, Mic, Plus, Settings, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, Check, ChevronDown, ChevronsDown, Mic, Pipette, Plus, Settings, Trash2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument } from "@/lib/stagePositions";
-import { stageIconSvg } from "@/lib/stageIcons";
+import { stageIconSvg, ICON_CHOICES } from "@/lib/stageIcons";
+import { useCustomPositions, memberLook, withCustomPosition } from "@/lib/customPositions";
+import { EVENT_COLOR_CHOICES } from "@/lib/eventTypes";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 
 // "Build your stage" (job 252): the intake's Members and inputs as a stage.
@@ -86,8 +88,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
       <span className="absolute bottom-1.5 left-0 right-0 text-center text-[10.5px] font-bold tracking-[0.18em] text-white pointer-events-none" style={{ fontFamily: SCENE_MONO }}>STAGE FRONT</span>
       {members.map((m, i) => {
         if (!placed(m)) return null;
-        const pos = positionOfMember(m, getInstruments);
-        const pc = positionColor(pos, colors);
+        const { pos, color: pc, icon } = memberLook(m, getInstruments, colors);
         const on = picked === i;
         const inst = (getInstruments(m) || []).filter((x) => x.name && !isVocalInput(x)).map((x) => x.name).join(", ") || (memberSings(m, getInstruments(m) || []) ? "Vocals" : "");
         return (
@@ -95,7 +96,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
             <button type="button" onPointerDown={down(i)} aria-label={`${m.name || `Member ${i + 1}`}, ${memberPositionLabel(m, pos)}`} aria-pressed={on}
               onContextMenu={(e) => e.preventDefault()}
               className="flex flex-col items-center rounded-lg select-none" style={{ touchAction: canDrag(i) ? "none" : "manipulation", cursor: canDrag(i) ? "grab" : "pointer", outline: on ? `2px dashed ${pc}` : "none", outlineOffset: 4, WebkitTouchCallout: "none", WebkitUserSelect: "none" }}>
-              <Icon pos={pos} color={pc} size={46} glow={on} />
+              <Icon pos={icon} color={pc} size={46} glow={on} />
               {labels && <span className="mt-0.5 max-w-[96px] text-center text-[11px] font-semibold text-white leading-tight truncate">{m.name || `Member ${i + 1}`}</span>}
               {labels && inst && <span className="max-w-[96px] text-center text-[10px] leading-tight truncate" style={{ color: pc }}>{inst}</span>}
             </button>
@@ -116,26 +117,32 @@ export function AudienceLine() {
   );
 }
 
-// Pick a position: the instrument icons in their colors. "Other" opens a box
-// to add their own (harmonica, sitar...) when onCustom is given.
-function PositionGrid({ colors, value, onPick, onCustom }) {
+// Pick a position: the instrument icons in their colors, then your own
+// instruments (job 274). "+ Add" (was Other) opens a box to type one in
+// (harmonica, sitar...) when onCustom is given.
+function PositionGrid({ colors, value, onPick, onCustom, customs = [], onPickCustom, valueCustom = null }) {
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState("");
   const addOther = () => { const t = otherText.trim(); if (t) onCustom(t); };
+  const tile = (key, label, color, icon, on, onClick) => (
+    <button key={key} type="button" onClick={onClick} aria-pressed={on} aria-label={label}
+      className="flex flex-col items-center gap-1 rounded-xl border py-2 px-1 min-w-0" style={{ borderColor: on ? color : "#262626", background: on ? color + "1A" : "#0b0b0b" }}>
+      <Icon pos={icon} color={color} size={30} />
+      <span className="text-[10.5px] leading-tight text-center truncate max-w-full" style={{ color: on ? color : "rgba(255,255,255,0.7)" }}>{label}</span>
+    </button>
+  );
   return (
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-5 gap-1.5">
-        {STAGE_POSITIONS.map((p) => {
-          const c = positionColor(p.key, colors);
-          const on = value === p.key || (p.key === "other" && otherOpen);
-          return (
-            <button key={p.key} type="button" onClick={() => (p.key === "other" && onCustom ? setOtherOpen((o) => !o) : onPick(p.key))} aria-pressed={on} aria-label={p.label}
-              className="flex flex-col items-center gap-1 rounded-xl border py-2 px-1" style={{ borderColor: on ? c : "#262626", background: on ? c + "1A" : "#0b0b0b" }}>
-              <Icon pos={p.key} color={c} size={30} />
-              <span className="text-[10.5px] leading-tight text-center" style={{ color: on ? c : "rgba(255,255,255,0.7)" }}>{p.label}</span>
-            </button>
-          );
-        })}
+        {STAGE_POSITIONS.filter((p) => p.key !== "other").map((p) => { const c = positionColor(p.key, colors); return tile(p.key, p.label, c, p.key, value === p.key && !valueCustom, () => onPick(p.key)); })}
+        {customs.map((p) => tile(p.id, p.label, p.color, p.icon, valueCustom === p.label, () => onPickCustom?.(p)))}
+        {onCustom && (
+          <button type="button" onClick={() => setOtherOpen((o) => !o)} aria-pressed={otherOpen} aria-label="Add your own"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed py-2 px-1" style={{ borderColor: otherOpen ? G : "#3a3a3a", background: otherOpen ? G + "1A" : "#0b0b0b", color: otherOpen ? G : "rgba(255,255,255,0.7)" }}>
+            <Plus className="w-[30px] h-[30px] p-1" />
+            <span className="text-[10.5px] leading-tight">+ Add</span>
+          </button>
+        )}
       </div>
       {otherOpen && onCustom && (
         <div className="flex items-center gap-1.5">
@@ -144,6 +151,91 @@ function PositionGrid({ colors, value, onPick, onCustom }) {
           <button type="button" onClick={addOther} disabled={!otherText.trim()} className="min-h-[42px] px-3.5 rounded-lg font-semibold text-[14px] flex items-center gap-1 shrink-0 disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// The gear in "What do they play?" (job 274): make your own instruments -
+// a name, a color and an icon - and Save adds them to the list above.
+const COLOR_CHOICES = [...EVENT_COLOR_CHOICES, "#8CFF3D", "#FBBF24", "#FB923C", "#F472B6", "#22D3EE", "#A78BFA", "#F87171", "#E5E7EB"].filter((c, i, a) => a.indexOf(c) === i);
+function CustomPositionEditor({ customs, onSave, onDone }) {
+  const blank = { id: null, label: "", color: "#22D3EE", icon: "mic" };
+  const [f, setF] = useState(blank);
+  const [state, setState] = useState("idle");
+  const save = async () => {
+    const label = f.label.trim();
+    if (!label) return;
+    const item = { id: f.id || `c${Date.now().toString(36)}`, label: label.slice(0, 40), color: f.color, icon: f.icon };
+    const next = f.id ? customs.map((p) => (p.id === f.id ? item : p)) : [...customs, item];
+    setState("saving");
+    try { await onSave(next); setState("idle"); onDone(); } catch (e) { console.error(e); setState("error"); }
+  };
+  const del = async (id) => { try { await onSave(customs.filter((p) => p.id !== id)); if (f.id === id) setF(blank); } catch (e) { console.error(e); setState("error"); } };
+  return (
+    <div className="flex flex-col gap-3">
+      {customs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>YOUR INSTRUMENTS</span>
+          <div className="flex flex-wrap gap-1.5">
+            {customs.map((p) => (
+              <span key={p.id} className="flex items-center rounded-full border pl-1 pr-0.5" style={{ borderColor: f.id === p.id ? p.color : "#2a2a2a" }}>
+                <button type="button" onClick={() => setF({ ...p })} className="flex items-center gap-1 py-1 pr-1 text-[13px]" style={{ color: p.color }} aria-label={`Edit ${p.label}`}>
+                  <Icon pos={p.icon} color={p.color} size={22} />{p.label}
+                </button>
+                <button type="button" onClick={() => del(p.id)} aria-label={`Delete ${p.label}`} className="w-7 h-7 flex items-center justify-center text-white/35 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Name, e.g. Pedal steel" aria-label="Instrument name" maxLength={40} className={inputCls} />
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Color">
+        {COLOR_CHOICES.map((c) => (
+          <button key={c} type="button" onClick={() => setF({ ...f, color: c })} aria-label={`Use ${c}`} className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: c, boxShadow: f.color.toLowerCase() === c.toLowerCase() ? "0 0 0 2px #0d0d0d, 0 0 0 3px #fff" : "none" }}>
+            {f.color.toLowerCase() === c.toLowerCase() && <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />}
+          </button>
+        ))}
+        <label className="relative h-7 px-2 rounded-md border border-[#2a2a2a] flex items-center gap-1.5 cursor-pointer text-[10px] tracking-[0.08em] text-white/70" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
+          <span className="w-4 h-4 rounded-sm" style={{ background: f.color }} /><Pipette className="w-3 h-3" /> CUSTOM
+          <input type="color" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Custom color" />
+        </label>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(52px,1fr))] gap-1.5 max-h-[220px] overflow-y-auto pr-0.5" role="radiogroup" aria-label="Icon">
+        {ICON_CHOICES.map((ic) => {
+          const on = f.icon === ic.id;
+          return (
+            <button key={ic.id} type="button" role="radio" aria-checked={on} aria-label={ic.label} title={ic.label} onClick={() => setF({ ...f, icon: ic.id })}
+              className="aspect-square rounded-lg border flex items-center justify-center" style={{ borderColor: on ? f.color : "#262626", background: on ? f.color + "1A" : "#0b0b0b" }}>
+              <Icon pos={ic.id} color={on ? f.color : "rgba(255,255,255,0.55)"} size={28} />
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onDone} className="min-h-[44px] px-4 rounded-xl border border-[#333] text-[14px] text-white/70">Back</button>
+        <button type="button" onClick={save} disabled={!f.label.trim() || state === "saving"} className="flex-1 min-h-[44px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}>
+          <Icon pos={f.icon} color="#0d0d0d" size={22} />{state === "saving" ? "Saving…" : f.id ? "Save changes" : "Save"}
+        </button>
+      </div>
+      {state === "error" && <p className="text-[12px] text-[#f87171]">Couldn't save. Try again.</p>}
+    </div>
+  );
+}
+
+// "What do they play?": the grid, with the gear for your own instruments.
+function PickPanel({ colors, onPick, onCustom, onPickCustom, onClose }) {
+  const [customs, saveCustoms] = useCustomPositions();
+  const [manage, setManage] = useState(false);
+  return (
+    <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
+      <div className="flex items-center gap-1">
+        <span className="flex-1 text-[14px] font-semibold text-white">{manage ? "Your own instruments" : "What do they play?"}</span>
+        <button type="button" onClick={() => setManage((m) => !m)} aria-pressed={manage} aria-label="Your own instruments" title="Make your own instruments" className="w-9 h-9 flex items-center justify-center" style={{ color: manage ? G : "rgba(255,255,255,0.45)" }}><Settings className="w-[18px] h-[18px]" /></button>
+        <button type="button" onClick={onClose} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
+      </div>
+      {manage
+        ? <CustomPositionEditor customs={customs} onSave={saveCustoms} onDone={() => setManage(false)} />
+        : <PositionGrid colors={colors} onPick={onPick} onCustom={onCustom} customs={customs} onPickCustom={onPickCustom} />}
     </div>
   );
 }
@@ -178,8 +270,8 @@ function MemberLine({ member, insts, busColors }) {
 // color gear (onBusSettings), instead of the "Hears" toggle.
 function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove, extra = null, busColors = null, onBusSettings = null }) {
   const [repick, setRepick] = useState(false);
-  const pos = positionOfMember(draft, getInstruments);
-  const pc = positionColor(pos, colors);
+  const { pos, color: pc, icon } = memberLook(draft, getInstruments, colors);
+  const [customs] = useCustomPositions();
   const insts = getInstruments(draft);
   const setInsts = (list) => setDraft({ ...draft, instruments: list });
   const upd = (ii, f, v) => { const l = [...insts]; l[ii] = { ...l[ii], [f]: v }; setInsts(l); };
@@ -194,14 +286,17 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
         </button>
       )}
       <div className="flex items-center gap-2.5">
-        <Icon pos={pos} color={pc} size={34} />
+        <Icon pos={icon} color={pc} size={34} />
         <div className="flex-1 min-w-0">
           <div className="text-[10px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{isNew ? "NEW ON STAGE" : "ON STAGE"}</div>
           <div className="text-[15px] font-semibold" style={{ color: pc }}>{memberPositionLabel(draft, pos)}</div>
         </div>
         <button type="button" onClick={() => setRepick((r) => !r)} className="min-h-[34px] px-2.5 rounded-lg border border-[#333] text-[12px] text-white/65">{repick ? "Done" : "Change"}</button>
       </div>
-      {repick && <PositionGrid colors={colors} value={pos} onPick={(k) => { setDraft({ ...draft, position: k, position_label: undefined }); setRepick(false); }} onCustom={(t) => { setDraft({ ...draft, position: "other", position_label: t }); setRepick(false); }} />}
+      {repick && <PositionGrid colors={colors} value={pos} valueCustom={draft.position_color ? draft.position_label : null} customs={customs}
+        onPick={(k) => { setDraft({ ...draft, position: k, position_label: undefined, position_color: undefined, position_icon: undefined }); setRepick(false); }}
+        onCustom={(t) => { setDraft({ ...draft, position: "other", position_label: t, position_color: undefined, position_icon: undefined }); setRepick(false); }}
+        onPickCustom={(p) => { setDraft(withCustomPosition(draft, p)); setRepick(false); }} />}
       <input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} autoFocus={isNew} />
       <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
         <VocalsQuestion compact value={memberSings(draft, insts)} onChange={(yes) => setDraft(setMemberVocals(draft, insts, yes))} />
@@ -281,6 +376,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     setDraft(d);
     setStep("form");
   };
+  const pickCustom = (p) => { setDraft(withCustomPosition({ ...draft, instruments: [{ name: p.label, mic_di: "", phantom_power: false }] }, p)); setStep("form"); };
   const edit = (i) => { setSwap(false); setSel(null); setEditing(i); setDraft({ ...members[i] }); setStep("form"); };
   const close = () => { setStep(null); setDraft(null); setEditing(null); };
   const save = () => {
@@ -379,13 +475,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         // Scrolls without a scroll bar (job 273).
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ overscrollBehavior: "contain" }}>
           {step === "pick" ? (
-            <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-semibold text-white">What do they play?</span>
-                <button type="button" onClick={close} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
-              </div>
-              <PositionGrid colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} />
-            </div>
+            <PickPanel colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} onPickCustom={pickCustom} onClose={close} />
           ) : step === "form" && editing === null && draft ? (
             <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew onSave={save} onCancel={close} onRemove={remove} busColors={busColors} onBusSettings={onBusSettings} />
           ) : step === "place" && sel !== null && members[sel] ? (
@@ -400,6 +490,9 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           {members.length === 0 && step !== "pick" && step !== "form" && <p className="text-center text-[12.5px] text-white/50">{canEdit ? "Add each member, then tap where they stand." : "No one is on this stage yet."}</p>}
           {step !== "pick" && !(step === "form" && editing === null) && members.map((m, i) => {
             const open = step === "form" && editing === i;
+            // Someone picked or open: only their line shows (job 274).
+            const focus = step === "form" && editing !== null ? editing : sel;
+            if (focus !== null && focus !== i) return null;
             if (open && canEdit && draft) {
               return (
                 <MemberForm key={i} draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={false} onSave={save} onCancel={collapse} onRemove={remove}
@@ -408,7 +501,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             }
             if (open && !canEdit && renderMemberCard) return <div key={i}>{renderMemberCard(m, i, collapse)}</div>;
             const on = sel === i;
-            const pc = positionColor(positionOfMember(m, getInstruments), colors);
+            const pc = memberLook(m, getInstruments, colors).color;
             return (
               <button key={i} type="button" onClick={() => (on || !canMove || step === "form" ? openDetails(i) : lift(i))} aria-label={`${m.name || `Member ${i + 1}`}: ${on ? "details" : "pick"}`} aria-expanded={false} aria-pressed={on}
                 className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444]"
@@ -439,13 +532,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
         </button>
       ) : step === "pick" ? (
-        <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[14px] font-semibold text-white">What do they play?</span>
-            <button type="button" onClick={close} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
-          </div>
-          <PositionGrid colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} />
-        </div>
+        <PickPanel colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} onPickCustom={pickCustom} onClose={close} />
       ) : step === "form" && draft ? (
         <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={editing === null} onSave={save} onCancel={close} onRemove={remove}
           extra={editing !== null && renderMemberExtra ? renderMemberExtra(members[editing], editing) : null}
@@ -464,7 +551,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <span className="text-[12px] text-white/50">Not on the stage yet. Tap to place them:</span>
           <div className="flex flex-wrap gap-1.5">
             {offStage.map(({ m, i }) => {
-              const c = positionColor(positionOfMember(m, getInstruments), colors);
+              const c = memberLook(m, getInstruments, colors).color;
               return <button key={i} type="button" onClick={() => edit(i)} className="min-h-[38px] px-3 rounded-full border text-[13px] font-semibold" style={{ borderColor: c + "88", color: c }}>+ {m.name || `Member ${i + 1}`}</button>;
             })}
           </div>
