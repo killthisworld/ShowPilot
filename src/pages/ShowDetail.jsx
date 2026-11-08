@@ -899,7 +899,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
       )}
 
       {showBusSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={() => setShowBusSettings(false)}>
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/70 px-4" onClick={() => setShowBusSettings(false)}>
           <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-base">Mix Bus Colors</h3>
@@ -1156,7 +1156,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           })()}>
           <div className="space-y-3 pt-3">
           {/* The stage plot on the desktop event page (job 255). */}
-          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
+          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setShowFxModal(true); }} />}
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
@@ -1264,7 +1264,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
+      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

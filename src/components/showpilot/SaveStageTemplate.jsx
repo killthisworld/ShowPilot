@@ -59,7 +59,8 @@ export function useResumeStageSave(act, onDone) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export default function SaveStageTemplateButton({ act, className = "", primary = false }) {
+// iconOnly (the stage plot page's top right; job 272): just the icon.
+export default function SaveStageTemplateButton({ act, className = "", primary = false, iconOnly = false }) {
   const [state, setState] = useState("idle"); // idle | saving | saved | updated | error
   const [askAuth, setAskAuth] = useState(false);
   const save = async () => {
@@ -81,14 +82,22 @@ export default function SaveStageTemplateButton({ act, className = "", primary =
   const look = primary && !done && state !== "error"
     ? { background: G, borderColor: G, color: "#0d0d0d" }
     : { borderColor: done ? G : "#3a3a3a", color: state === "error" ? "#f87171" : done ? G : "rgba(255,255,255,0.8)" };
+  const icon = state === "saving" ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : done ? <Check className="w-[18px] h-[18px]" /> : <BookmarkPlus className="w-[18px] h-[18px]" />;
   return (
     <>
+      {iconOnly ? (
+        <button type="button" onClick={onClick} disabled={state === "saving" || !(act?.band_members || []).length} aria-label={label} title={label}
+          className={`disabled:opacity-40 ${className}`} style={{ color: state === "error" ? "#f87171" : done ? G : "rgba(140,255,61,0.75)" }}>
+          {icon}
+        </button>
+      ) : (
       <button type="button" onClick={onClick} disabled={state === "saving" || !(act?.band_members || []).length}
         className={`${primary ? "min-h-[46px] text-[14.5px]" : "min-h-[44px] text-[14px]"} px-4 rounded-xl border font-semibold flex items-center justify-center gap-2 disabled:opacity-40 ${className}`}
         style={look}>
         {state === "saving" ? <Loader2 className="w-4 h-4 animate-spin" /> : done ? <Check className="w-4 h-4" /> : <BookmarkPlus className="w-4 h-4" />}
         {label}
       </button>
+      )}
       {askAuth && createPortal(
         <div className="fixed inset-0 z-[90] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setAskAuth(false)}>
           <div className="w-full max-w-[400px] rounded-2xl border border-[#2a2a2a] bg-[#111] p-5 flex flex-col gap-3" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Save to template">

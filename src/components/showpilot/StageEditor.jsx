@@ -260,7 +260,13 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
 // `renderMemberExtra(member, i)`: more for a saved member's details (e.g. their
 // notes on a shared event; job 267), shown above Save.
 // busColors / onBusSettings: the engineer's IEM / Monitor colors (job 270).
-export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null, renderMemberExtra = null, busColors = null, onBusSettings = null }) {
+// The full stage page (job 272): `showAllLines` lists every member's line under
+// the stage (tap one to pick them, tap again for their details) with + Add
+// above them; `stageMaxWidth` keeps the stage small enough for a still page.
+// `canEdit` false: no Add or details form; `renderMemberCard(member, i, close)`
+// shows their read-only card instead. `canMove` false: nobody can be moved.
+export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null, renderMemberExtra = null, busColors = null, onBusSettings = null,
+  showAllLines = false, canEdit = true, canMove = true, renderMemberCard = null, stageMaxWidth = null }) {
   const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
   const [draft, setDraft] = useState(null);
   const [editing, setEditing] = useState(null); // member index, null = new
@@ -300,6 +306,22 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     setStep(null);
     onCommit?.(list);
   };
+  // Their details are open and another member is tapped (job 272): keep what
+  // was typed, then open the other member's details. Tapping the same member
+  // again closes the details (they stay picked up when they can move).
+  const keepDraft = () => {
+    if (!canEdit || editing === null || !draft) return members;
+    const list = [...members];
+    const m = { ...draft, instruments: (getInstruments(draft) || []).filter((x) => x.name || isVocalInput(x)) };
+    if (JSON.stringify(m) === JSON.stringify(members[editing])) return members;
+    list[editing] = m;
+    setMembers(list);
+    onCommit?.(list);
+    return list;
+  };
+  const switchTo = (i) => { const list = keepDraft(); setEditing(i); setDraft({ ...list[i] }); setSel(null); setStep("form"); };
+  const collapse = () => { const i = editing; keepDraft(); close(); if (canMove && i !== null) { setSel(i); setStep("lift"); } };
+  const openDetails = (i) => (step === "form" && editing !== null ? (editing === i ? collapse() : switchTo(i)) : edit(i));
   // Picked up (job 256): drag them or tap a spot; tap them again to set them down.
   const lift = (i) => { setSwap(false); setSel(i); setStep("lift"); };
   const drop = () => { setSel(null); setStep(null); onCommit?.(members); };
@@ -336,20 +358,68 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
   const onCount = members.filter(placed).length;
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className={`flex flex-col gap-2.5 ${showAllLines ? "h-full min-h-0" : ""}`}>
+      <div className="w-full mx-auto shrink-0 flex flex-col gap-2.5" style={stageMaxWidth ? { maxWidth: stageMaxWidth } : undefined}>
       <StageFloor
         members={members}
         getInstruments={getInstruments}
         colors={colors}
         picked={swap || step === "place" || step === "lift" ? sel : step === "form" ? editing : null}
-        onTapMember={(i) => (swap ? tapInSwap(i) : step === "place" ? (i === sel ? drop() : setSel(i)) : step === "lift" ? (i === sel ? drop() : setSel(i)) : step ? null : lift(i))}
+        onTapMember={(i) => (swap ? tapInSwap(i) : step === "place" ? (i === sel ? drop() : setSel(i)) : step === "lift" ? (i === sel ? drop() : setSel(i))
+          : step === "form" && editing !== null ? (editing === i ? collapse() : switchTo(i))
+          : step ? null : canMove ? lift(i) : edit(i))}
         onTapEmpty={swap ? moveTo : step === "place" ? placeAt : step === "lift" ? (x, y) => drag(sel, x, y) : null}
         onDrag={(step === "place" || step === "lift") && sel !== null ? drag : null}
         dragOnly={sel}
       />
       <AudienceLine />
+      </div>
 
-      {swap ? (
+      {showAllLines ? (
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2" style={{ overscrollBehavior: "contain" }}>
+          {step === "pick" ? (
+            <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-semibold text-white">What do they play?</span>
+                <button type="button" onClick={close} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
+              </div>
+              <PositionGrid colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} />
+            </div>
+          ) : step === "form" && editing === null && draft ? (
+            <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew onSave={save} onCancel={close} onRemove={remove} busColors={busColors} onBusSettings={onBusSettings} />
+          ) : step === "place" && sel !== null && members[sel] ? (
+            <div className="flex items-center gap-2 rounded-[14px] border p-3" style={{ borderColor: G + "55", background: G + "0D" }}>
+              <p className="flex-1 text-[14px] leading-snug" style={{ color: G }}>Tap where {members[sel].name || "they"} stand{members[sel].name ? "s" : ""} on the stage, or drag them there.</p>
+              <button type="button" onClick={drop} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
+            </div>
+          ) : canEdit && sel === null && !(step === "form" && editing !== null) ? (
+            // + Add sits above the lines and goes away while someone is picked.
+            <button type="button" onClick={startAdd} className="w-full min-h-[46px] shrink-0 rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: "#60A5FA", color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
+          ) : null}
+          {members.length === 0 && step !== "pick" && step !== "form" && <p className="text-center text-[12.5px] text-white/50">{canEdit ? "Add each member, then tap where they stand." : "No one is on this stage yet."}</p>}
+          {step !== "pick" && !(step === "form" && editing === null) && members.map((m, i) => {
+            const open = step === "form" && editing === i;
+            if (open && canEdit && draft) {
+              return (
+                <MemberForm key={i} draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={false} onSave={save} onCancel={collapse} onRemove={remove}
+                  extra={renderMemberExtra ? renderMemberExtra(members[i], i) : null} busColors={busColors} onBusSettings={onBusSettings} />
+              );
+            }
+            if (open && !canEdit && renderMemberCard) return <div key={i}>{renderMemberCard(m, i, collapse)}</div>;
+            const on = sel === i;
+            const pc = positionColor(positionOfMember(m, getInstruments), colors);
+            return (
+              <button key={i} type="button" onClick={() => (on || !canMove || step === "form" ? openDetails(i) : lift(i))} aria-label={`${m.name || `Member ${i + 1}`}: ${on ? "details" : "pick"}`} aria-expanded={false} aria-pressed={on}
+                className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444]"
+                style={{ borderColor: on ? pc : "#2a2a2a", borderStyle: on ? "dashed" : "solid" }}>
+                <span className="flex-1 min-w-0"><MemberLine member={m} insts={getInstruments(m)} busColors={busColors} /></span>
+                {!placed(m) && <span className="text-[10px] tracking-[0.1em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>OFF STAGE</span>}
+                <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
+              </button>
+            );
+          })}
+        </div>
+      ) : swap ? (
         <div className="flex items-center gap-2">
           <p className="flex-1 text-[13px] leading-snug" style={{ color: G }}>{sel === null ? "Tap someone to move or swap." : `Now tap someone to swap with ${members[sel]?.name || "them"}, or an empty spot to move them.`}</p>
           <button type="button" onClick={() => { setSwap(false); setSel(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
@@ -388,7 +458,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         </>
       )}
 
-      {offStage.length > 0 && !step && !swap && (
+      {!showAllLines && offStage.length > 0 && !step && !swap && (
         <div className="flex flex-col gap-1.5 mt-1">
           <span className="text-[12px] text-white/50">Not on the stage yet. Tap to place them:</span>
           <div className="flex flex-wrap gap-1.5">

@@ -31,7 +31,8 @@ export default function FxNotesWindow({ acts = [], target, onTarget, showNotes =
   const chip = (on) => `px-3 py-1.5 rounded-full text-[13px] border transition-all flex items-center gap-1.5 ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] text-white/55 hover:text-white/80"}`;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-3" style={{ height: "100dvh" }} onClick={onClose}>
+    // Above the stage plot page (z-80), which opens it too (job 272).
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-3" style={{ height: "100dvh" }} onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label="FX / Artist Notes" className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-bold text-lg flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, ChevronsDown, LayoutGrid, Loader2, Pencil, X } from "lucide-react";
+import { ChevronLeft, ChevronsDown, LayoutGrid, Loader2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
@@ -8,6 +8,7 @@ import { stageIconSvg } from "@/lib/stageIcons";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 import StageEditor, { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
+import { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -111,103 +112,76 @@ function PersonCard({ m, i, colors, onClose }) {
   );
 }
 
-// Full screen: the act's stage, act chips, and the tapped person's card.
-// Move / swap (job 252): with the event's `token` and `onActs` (the page's
-// setter), tap one person then another to swap them, or an empty spot to move
-// them; saved straight away with set_stage_positions (owner, Manager / Artist,
-// or the Audio / Lighting crew; only the positions change).
-// Build the stage from the event (job 255): with `onEditMembers(actIndex,
-// list)` (async, returns an error message or null) people who can edit the
-// lineup get "Edit the stage" - add people, set who stands where, their inputs.
-// Every act gets a tab then, even ones with no stage yet. `startEditing` opens
-// straight into it.
-export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false }) {
+// Full screen stage page (job 272): the act's stage on a still page, with every
+// member's "Name -> Instrument -> IEM / Monitor" line under it. Tap someone on
+// the stage or their line to pick them (drag them or tap a spot; tap them
+// again to set them down); tap the picked line for their details. < goes back.
+// Top right: the act's notes (`onOpenNotes(actIndex)`, the page's FX / Artist
+// Notes) and Save to my templates.
+//   onEditMembers(actIndex, list): can edit the lineup - + Add and details,
+//     every change saved straight away (async, returns an error or null).
+//   token + onActs only: can move people (set_stage_positions; job 252).
+//   neither: look only; a member's line opens their card.
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null }) {
   const colors = useMyStageColors();
-  const withPlot = acts.map((a, i) => ({ a, i })).filter(({ a }) => onEditMembers || hasStagePlot(a));
-  const [cur, setCur] = useState(withPlot.some(({ i }) => i === start) ? start : withPlot[0]?.i ?? 0);
-  const [picked, setPicked] = useState(null);
-  const [draft, setDraft] = useState(startEditing && onEditMembers ? (acts[start]?.band_members || []) : null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editErr, setEditErr] = useState("");
-  // No Save button (job 258): each finished change (someone set down, placed,
-  // swapped, saved, removed) saves straight away, one at a time, in order.
-  const [editSaved, setEditSaved] = useState(false);
+  const tabs = acts.map((a, i) => ({ a, i })).filter(({ a }) => onEditMembers || hasStagePlot(a));
+  const [cur, setCur] = useState(tabs.some(({ i }) => i === start) ? start : tabs[0]?.i ?? 0);
+  const act = acts[cur];
+  const canEdit = !!onEditMembers;
+  const canPos = !!(token && onActs && act && (act.id || typeof act.sort_order === "number"));
+  // The members as shown; follows the act, and moves / edits land here first.
+  const [list, setList] = useState(act?.band_members || []);
+  useEffect(() => { setList(act?.band_members || []); }, [cur, act?.band_members]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [status, setStatus] = useState({ saving: false, err: "", saved: false });
   const queue = React.useRef(Promise.resolve());
-  const commit = (list) => {
+  // Each finished change saves straight away, one at a time, in order.
+  const commit = (next) => {
     const actIndex = cur;
-    setEditSaving(true);
-    setEditSaved(false);
-    setEditErr("");
+    setStatus({ saving: true, err: "", saved: false });
     queue.current = queue.current.then(async () => {
-      const err = await onEditMembers(actIndex, list);
-      setEditSaving(false);
-      if (err) setEditErr(err); else setEditSaved(true);
+      const err = await onEditMembers(actIndex, next);
+      setStatus({ saving: false, err: err || "", saved: !err });
     });
+  };
+  // Only positions (Audio / Lighting crew on someone else's event).
+  const savePositions = async (next) => {
+    const before = acts;
+    onActs(acts.map((a, k) => (k === cur ? { ...a, band_members: next } : a)));
+    setStatus({ saving: true, err: "", saved: false });
+    const positions = next.map((m, i) => ({ i, x: placed(m) ? m.stage_x : null, y: placed(m) ? m.stage_y : null }));
+    const { error } = await supabase.rpc("set_stage_positions", { p_token: token, p_band: act.id ? { id: act.id } : { sort_order: act.sort_order, band_name: act.band_name || "" }, p_positions: positions });
+    if (error) {
+      console.error(error);
+      onActs(before);
+      setStatus({ saving: false, saved: false, err: /Only the owner/.test(error.message || "") ? "You can't move people on this act's stage." : "Couldn't save that move. Try again." });
+    } else setStatus({ saving: false, err: "", saved: true });
   };
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // A still page: nothing behind it scrolls while it's open.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [onClose]);
-  const act = acts[cur];
-  // While dragging someone in Move / swap (job 256), their spot lives here
-  // until they let go; then it's saved.
-  const [dragList, setDragList] = useState(null);
-  const members = dragList || act?.band_members || [];
-  const canMove = !!(token && onActs && act && (act.id || typeof act.sort_order === "number"));
-  const [swap, setSwap] = useState(false);
-  const [sel, setSel] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [moveErr, setMoveErr] = useState("");
 
-  // Save the new spots: the page updates straight away, the server after.
-  const savePositions = async (list) => {
-    const before = acts;
-    onActs(acts.map((a, k) => (k === cur ? { ...a, band_members: list } : a)));
-    setSaving(true);
-    setMoveErr("");
-    const positions = list.map((m, i) => ({ i, x: placed(m) ? m.stage_x : null, y: placed(m) ? m.stage_y : null }));
-    const { error } = await supabase.rpc("set_stage_positions", { p_token: token, p_band: act.id ? { id: act.id } : { sort_order: act.sort_order, band_name: act.band_name || "" }, p_positions: positions });
-    setSaving(false);
-    if (error) {
-      console.error(error);
-      onActs(before);
-      setMoveErr(/Only the owner/.test(error.message || "") ? "You can't move people on this act's stage." : "Couldn't save that move. Try again.");
-    }
-  };
-  const tapInSwap = (i) => {
-    if (sel === null) { setSel(i); return; }
-    if (sel === i) { setSel(null); return; }
-    const list = [...members];
-    const a = list[sel], b = list[i];
-    if (placed(a)) list[i] = { ...b, stage_x: a.stage_x, stage_y: a.stage_y }; else { const { stage_x, stage_y, ...rest } = b; list[i] = rest; }
-    if (placed(b)) list[sel] = { ...a, stage_x: b.stage_x, stage_y: b.stage_y }; else { const { stage_x, stage_y, ...rest } = a; list[sel] = rest; }
-    setSel(null);
-    savePositions(list);
-  };
-  const moveTo = (x, y) => {
-    if (sel === null) return;
-    const list = [...members];
-    list[sel] = { ...list[sel], stage_x: x, stage_y: y };
-    setSel(null);
-    savePositions(list);
-  };
-  const notPlaced = members.map((m, i) => ({ m, i })).filter(({ m }) => !placed(m) && (m.name || instrumentsOf(m).some((x) => x.name)));
-
+  const iconBtn = "w-10 h-10 shrink-0 rounded-[10px] border border-[#2a2a2a] bg-[#141414] flex items-center justify-center";
   return createPortal(
-    <div className="fixed inset-0 z-[80] bg-black text-white flex flex-col" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex items-center gap-3 px-4 pt-3 pb-2 shrink-0">
-        <LayoutGrid className="w-5 h-5 shrink-0" style={{ color: G }} />
+    <div className="fixed inset-0 z-[80] bg-black text-white flex flex-col overflow-hidden" style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", overscrollBehavior: "none" }}>
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
+        <button type="button" onClick={onClose} aria-label="Back" className="w-10 h-10 -ml-1 shrink-0 flex items-center justify-center text-white/75 hover:text-white"><ChevronLeft className="w-7 h-7" /></button>
         <div className="flex-1 min-w-0">
           <div className="text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>STAGE PLOT</div>
           <div className="text-[19px] font-bold leading-tight truncate">{actName(act)}</div>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close stage plot" className="w-11 h-11 -mr-2 flex items-center justify-center text-white/60 hover:text-white"><X className="w-6 h-6" /></button>
+        {onOpenNotes && act && <ActNotesButton act={act} onClick={() => onOpenNotes(cur)} />}
+        {/* Keep this act's stage in My Templates (job 254). */}
+        {token && act && list.some(placed) && <SaveStageTemplateButton key={cur} act={{ ...act, band_members: list }} iconOnly className={iconBtn} />}
       </div>
-      {withPlot.length > 1 && (
+      {tabs.length > 1 && (
         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto shrink-0">
-          {withPlot.map(({ a, i }) => (
-            <button key={i} type="button" onClick={() => { setCur(i); setPicked(null); setSel(null); if (draft) setDraft(a.band_members || []); setEditErr(""); }} aria-pressed={cur === i}
+          {tabs.map(({ a, i }) => (
+            <button key={i} type="button" onClick={() => setCur(i)} aria-pressed={cur === i}
               className="shrink-0 min-h-[36px] px-3 rounded-full border text-[13px] font-semibold"
               style={cur === i ? { borderColor: G, color: "#0d0d0d", background: G } : { borderColor: "#333", color: "rgba(255,255,255,0.7)" }}>
               {actName(a)}
@@ -215,77 +189,29 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           ))}
         </div>
       )}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-        <div className="max-w-[760px] mx-auto flex flex-col gap-2">
-          {draft ? (
-            <>
-              <StageEditor
-                members={draft}
-                setMembers={setDraft}
-                getInstruments={instrumentsOf}
-                colors={colors}
-                onRemoveMember={(i) => setDraft((d) => d.filter((_, k) => k !== i))}
-                onCommit={commit}
-              />
-              <div className="flex items-center gap-3 mt-2 pt-3 border-t border-[#222]">
-                <span className="flex-1 flex items-center gap-1.5 text-[13px]" style={{ color: editErr ? "#f87171" : editSaving ? "rgba(255,255,255,0.5)" : G }}>
-                  {editSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : editErr ? editErr : editSaved ? "Saved ✓ Changes save as you go" : "Changes save as you go"}
-                </span>
-                <button type="button" onClick={() => { setDraft(null); setEditErr(""); setEditSaved(false); }} className="min-h-[44px] px-5 rounded-xl font-semibold text-[15px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
-              </div>
-            </>
-          ) : (<>
-          <StageFloor
-            members={members}
+      <div className="flex-1 min-h-0 px-4 pb-3 flex flex-col">
+        <div className="w-full max-w-[760px] mx-auto flex-1 min-h-0 flex flex-col">
+          <StageEditor
+            key={cur}
+            members={list}
+            setMembers={setList}
             getInstruments={instrumentsOf}
             colors={colors}
-            picked={swap ? sel : picked}
-            onTapMember={(i) => (swap ? tapInSwap(i) : setPicked(picked === i ? null : i))}
-            onTapEmpty={swap ? moveTo : null}
-            onDrag={swap && sel !== null ? (i, x, y) => setDragList((d) => (d || members).map((m, k) => (k === i ? { ...m, stage_x: x, stage_y: y } : m))) : null}
-            onDragEnd={() => { if (dragList) { const list = dragList; setDragList(null); savePositions(list); } }}
-            dragOnly={sel}
+            onRemoveMember={(i) => setList((l) => l.filter((_, k) => k !== i))}
+            onCommit={canEdit ? commit : canPos ? savePositions : null}
+            showAllLines
+            canEdit={canEdit}
+            canMove={canEdit || canPos}
+            renderMemberCard={(m, i, close) => <PersonCard m={m} i={i} colors={colors} onClose={close} />}
+            stageMaxWidth="min(760px, calc((100dvh - 330px) * 4 / 3))"
+            busColors={busColors}
+            onBusSettings={onBusSettings}
           />
-          <div className="flex items-center justify-center gap-3 text-white"><ChevronsDown className="w-4 h-4" /><span className="text-[12px] font-bold tracking-[0.18em]" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</span><ChevronsDown className="w-4 h-4" /></div>
-          {swap ? (
-            <div className="flex items-center gap-2">
-              <p className="flex-1 text-[13px] leading-snug" style={{ color: G }}>{sel === null ? "Tap someone to move or swap." : `Drag ${members[sel]?.name || "them"} or tap a spot to move them, or tap someone to swap. Tap them again to set them down.`}</p>
-              {saving && <Loader2 className="w-4 h-4 animate-spin text-white/50" />}
-              <button type="button" onClick={() => { setSwap(false); setSel(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
-            </div>
-          ) : picked !== null && members[picked] ? (
-            <PersonCard m={members[picked]} i={picked} colors={colors} onClose={() => setPicked(null)} />
-          ) : (
-            <div className="flex flex-col items-center gap-2 mt-1">
-              <p className="text-center text-white/40 text-[13px]">{members.some(placed) ? "Tap anyone for their inputs, vocals and monitor." : "No one is on this stage yet."}</p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {canMove && (
-                  <button type="button" onClick={() => { setSwap(true); setSel(null); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl border font-semibold text-[14px] flex items-center gap-1.5" style={{ borderColor: G + "66", color: G }}>
-                    <ArrowLeftRight className="w-4 h-4" />Move / swap
-                  </button>
-                )}
-                {onEditMembers && (
-                  <button type="button" onClick={() => { setDraft(members); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl font-semibold text-[14px] flex items-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}>
-                    <Pencil className="w-4 h-4" />{members.some(placed) ? "Edit the stage" : "Build the stage"}
-                  </button>
-                )}
-                {/* Keep this act's stage in My Templates (job 254). */}
-                {token && members.some(placed) && <SaveStageTemplateButton key={cur} act={act} className="!min-h-[42px]" />}
-              </div>
-            </div>
+          {(status.saving || status.err || status.saved) && (
+            <p className="shrink-0 pt-1 text-center text-[12.5px] flex items-center justify-center gap-1.5" style={{ color: status.err ? "#f87171" : status.saving ? "rgba(255,255,255,0.5)" : G }}>
+              {status.saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : status.err || "Saved ✓"}
+            </p>
           )}
-          {moveErr && <p className="text-center text-[12.5px] text-[#f87171]">{moveErr}</p>}
-          {notPlaced.length > 0 && (
-            <div className="mt-2">
-              <div className="text-[10px] tracking-[0.14em] text-white/40 mb-1.5" style={{ fontFamily: SCENE_MONO }}>NOT ON THE PLOT{swap ? " · TAP ONE, THEN A SPOT" : ""}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {notPlaced.map(({ m, i }) => (
-                  <button key={i} type="button" onClick={() => (swap ? setSel(i) : setPicked(i))} aria-pressed={swap && sel === i} className="min-h-[36px] px-3 rounded-full border text-[13px]" style={swap && sel === i ? { borderColor: G, color: G } : { borderColor: "#333", color: "rgba(255,255,255,0.75)" }}>{m.name || `Member ${i + 1}`}</button>
-                ))}
-              </div>
-            </div>
-          )}
-          </>)}
         </div>
       </div>
     </div>,
@@ -297,7 +223,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
 // desktop event page (job 255) it's also how people who can edit the lineup
 // build a stage: with `onEditMembers` and no stage yet, it says "Build the
 // stage" and opens straight into it.
-export function StagePlotCard({ acts = [], token = null, onActs = null, onEditMembers = null }) {
+export function StagePlotCard({ acts = [], token = null, onActs = null, onEditMembers = null, onOpenNotes = null, busColors = null, onBusSettings = null }) {
   const colors = useMyStageColors();
   const [open, setOpen] = useState(false);
   const plotAt = acts.findIndex(hasStagePlot);
@@ -315,7 +241,7 @@ export function StagePlotCard({ acts = [], token = null, onActs = null, onEditMe
           <div className="text-[12.5px] mt-1" style={{ color: G }}>{build ? "Build the stage: who stands where and what they play" : onEditMembers ? "Open to view or edit" : "Tap to open"}</div>
         </div>
       </button>
-      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} token={token} onActs={onActs} onEditMembers={onEditMembers} startEditing={build} />}
+      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} token={token} onActs={onActs} onEditMembers={onEditMembers} startEditing={build} onOpenNotes={onOpenNotes} busColors={busColors} onBusSettings={onBusSettings} />}
     </>
   );
 }
