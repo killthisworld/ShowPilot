@@ -16,8 +16,8 @@ import DocumentsUploader from "@/components/showpilot/DocumentsUploader";
 import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
-import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
-import { StagePlotView, ActStagePlotButton, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
+import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
+import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness, saveDeal, dealSummary } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
@@ -219,10 +219,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const [fxActsDirty, setFxActsDirty] = useState(false);
   const [fxSaving, setFxSaving] = useState(false);
   const [fxSaved, setFxSaved] = useState(false);
-  // Performers (job 278): the act whose stage shows under the lineup, and the
-  // full stage plot page (from an act's stage icon or the engineer's
-  // Stage plot feature).
-  const [perfAt, setPerfAt] = useState(0);
+  // The full stage plot page (job 278), from an act's Stage Plot button or
+  // the Audio web's stage icon.
   const [stageAt, setStageAt] = useState(null);
   const stageEditable = !template && !!p.token && !!(p.permissions?.is_owner || p.canEditSection?.("manager"));
   const syncMembers = (i, list) => (onActMembers ? onActMembers(i, list) : p.setActMembers ? p.setActMembers(i, list) : p.updateBand(i, "band_members", list));
@@ -658,9 +656,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
                 // order + name on top, billing / length / start time underneath.
-                // Tap an act to show its stage under the lineup (job 278).
-                <div key={i} onClick={() => setPerfAt(i)} className="grid grid-cols-[52px_minmax(0,1fr)_36px] gap-x-2 gap-y-2 px-3 py-3 items-center cursor-pointer"
-                  style={i === Math.min(perfAt, (gig.bands || []).length - 1) && (gig.bands || []).length > 1 ? { background: color + "10", boxShadow: `inset 3px 0 0 ${color}` } : undefined}>
+                <div key={i} className="grid grid-cols-[52px_minmax(0,1fr)_36px] gap-x-2 gap-y-2 px-3 py-3 items-center">
                   <div className="flex items-center gap-0.5 row-span-2 self-start pt-1.5">
                     <span className="w-6 text-right text-[18px] font-bold tabular-nums" style={{ color }}>{i + 1}</span>
                     {p.canEdit && (
@@ -698,49 +694,28 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <span className="text-[10px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>ON AT</span>
                       <TimeSelect value={setTimes[b.band_name]} onChange={(v) => setMi("set_times", { ...setTimes, [b.band_name]: v })} disabled={off || !b.band_name} color={color} label={b.band_name ? `${b.band_name} set time` : "Set time"} />
                     </div>
-                    {/* This act's FX / Artist Notes, next to its set time (job 205). */}
+                  </div>
+                  {/* Notes and the act's stage plot (job 280): the whole stage
+                      lives on its own page, opened from Stage Plot. */}
+                  <div className="col-start-2 col-span-2 flex items-center gap-2 flex-wrap">
                     <ActNotesButton act={b} onClick={() => { setFxAct(i); setFxTarget(i); }} />
-                    <ActStagePlotButton act={b} onClick={() => setStageAt(i)} />
+                    {(stageEditable || hasStagePlot(b)) && (
+                      <button type="button" onClick={() => setStageAt(i)} aria-label={`${b.band_name || "This act"}'s stage plot`}
+                        className="h-10 px-3 rounded-[10px] border bg-black flex items-center gap-2 text-[13px] font-semibold" style={{ borderColor: G + "55", color: G }}>
+                        <StageIcon className="w-5 h-5" />Stage Plot
+                      </button>
+                    )}
+                    {(b.band_members || []).length > 0 && (
+                      <span className="text-[11px] tracking-[0.08em] text-white/40" style={{ fontFamily: SCENE_MONO }}>
+                        {b.band_members.length} MEMBER{b.band_members.length === 1 ? "" : "S"}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
             </TableBox>
             <AddButton color={color} disabled={!p.canEdit} onClick={p.addBand}>Add an act</AddButton>
-            {/* The picked act's stage, like the phone's Performer tab laid out
-                for desktop (job 278): the stage with everyone's line on one
-                side, stage plot files and notes on the other. Saved with
-                the section's Save; the full page saves as you go. */}
-            {(() => {
-              const bands = gig.bands || [];
-              if (!bands.length) return null;
-              const at = Math.min(perfAt, bands.length - 1);
-              const b = bands[at];
-              return (
-                <div className="rounded-[12px] border bg-[#0f0f0f] p-3 flex flex-col gap-3" style={{ borderColor: color + "44" }}>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10.5px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>STAGE</span>
-                    {bands.length > 1 ? bands.map((x, k) => (
-                      <button key={k} type="button" onClick={() => setPerfAt(k)} aria-pressed={k === at}
-                        className="min-h-[32px] px-3 rounded-full border text-[13px] font-semibold"
-                        style={k === at ? { borderColor: color, background: color, color: "#0d0d0d" } : { borderColor: "#333", color: "rgba(255,255,255,0.7)" }}>
-                        {x.band_name || `Act ${k + 1}`}
-                      </button>
-                    )) : <span className="text-[15px] font-semibold text-white">{b.band_name || "Act 1"}</span>}
-                    <span className="ml-auto flex items-center gap-2">
-                      <ActNotesButton act={b} onClick={() => { setFxAct(at); setFxTarget(at); }} />
-                      {(stageEditable || hasStagePlot(b)) && (
-                        <button type="button" onClick={() => setStageAt(at)} title="Full stage plot page"
-                          className="min-h-[40px] px-3 rounded-[10px] border bg-black flex items-center gap-2 text-[13px] font-semibold" style={{ borderColor: G + "55", color: G }}>
-                          <StageIcon className="w-5 h-5" />Full page
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                  <BandDetails key={at} wide band={b} editable={ed} onUpdate={(field, val) => p.updateBand(at, field, val)} iemMonitorColors={p.iemMonitorColors || {}} />
-                </div>
-              );
-            })()}
           </>
         ),
       },
@@ -962,7 +937,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // The pages' render() reads p (e.g. which acts are expanded), so the
     // list is rebuilt when those change too (job 148: the Members dropdown).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors, advRows, advKey, perfAt]
+    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors, advRows, advKey, stageEditable]
   );
   const [active, setActive] = useState(initialTab || null);
   // "pages" layout (the event's main space): this profile is one dropdown, its

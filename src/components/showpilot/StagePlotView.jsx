@@ -134,6 +134,9 @@ function PersonCard({ m, i, colors, onClose }) {
 //   neither: look only; a member's line opens their card.
 export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null }) {
   const colors = useMyStageColors();
+  // Desktop (job 280): everyone's line beside the stage, not under it.
+  const [wideView, setWideView] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1024);
+  useEffect(() => { const on = () => setWideView(window.innerWidth >= 1024); window.addEventListener("resize", on); return () => window.removeEventListener("resize", on); }, []);
   const tabs = acts.map((a, i) => ({ a, i })).filter(({ a }) => onEditMembers || hasStagePlot(a));
   const [cur, setCur] = useState(tabs.some(({ i }) => i === start) ? start : tabs[0]?.i ?? 0);
   const act = acts[cur];
@@ -200,7 +203,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
         </div>
       )}
       <div className="flex-1 min-h-0 px-4 pb-3 flex flex-col">
-        <div className="w-full max-w-[760px] mx-auto flex-1 min-h-0 flex flex-col">
+        <div className={`w-full ${wideView ? "max-w-[1320px]" : "max-w-[760px]"} mx-auto flex-1 min-h-0 flex flex-col`}>
           <StageEditor
             key={cur}
             members={list}
@@ -213,7 +216,8 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
             canEdit={canEdit}
             canMove={canEdit || canPos}
             renderMemberCard={(m, i, close) => <PersonCard m={m} i={i} colors={colors} onClose={close} />}
-            stageMaxWidth="min(760px, calc((100dvh - 330px) * 4 / 3))"
+            stageMaxWidth={wideView ? "min(860px, calc((100dvh - 190px) * 4 / 3))" : "min(760px, calc((100dvh - 330px) * 4 / 3))"}
+            side={wideView}
             busColors={busColors}
             onBusSettings={onBusSettings}
           />

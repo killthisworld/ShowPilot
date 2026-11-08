@@ -394,7 +394,9 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
 // `canEdit` false: no Add or details form; `renderMemberCard(member, i, close)`
 // shows their read-only card instead. `canMove` false: nobody can be moved.
 export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null, renderMemberExtra = null, busColors = null, onBusSettings = null,
-  showAllLines = false, canEdit = true, canMove = true, renderMemberCard = null, stageMaxWidth = null }) {
+  showAllLines = false, canEdit = true, canMove = true, renderMemberCard = null, stageMaxWidth = null, side = false }) {
+  // side (desktop stage page, job 280): the lines sit beside the stage.
+  side = side && showAllLines;
   const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
   const [draft, setDraft] = useState(null);
   const [editing, setEditing] = useState(null); // member index, null = new
@@ -487,7 +489,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
   const onCount = members.filter(placed).length;
 
   return (
-    <div className={`flex flex-col gap-2.5 ${showAllLines ? "h-full min-h-0" : ""}`}>
+    <div className={side ? "flex flex-row gap-5 h-full min-h-0 items-start" : `flex flex-col gap-2.5 ${showAllLines ? "h-full min-h-0" : ""}`}>
+      <div className={side ? "flex-1 min-w-0 flex justify-center" : "contents"}>
       <div className="w-full mx-auto shrink-0 flex flex-col gap-2.5" style={stageMaxWidth ? { maxWidth: stageMaxWidth } : undefined}>
       <StageFloor
         members={members}
@@ -503,10 +506,11 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       />
       <AudienceLine />
       </div>
+      </div>
 
       {showAllLines ? (
         // Scrolls without a scroll bar (job 273).
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ overscrollBehavior: "contain" }}>
+        <div className={`${side ? "w-[400px] shrink-0 self-stretch" : "flex-1"} min-h-0 overflow-y-auto flex flex-col gap-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`} style={{ overscrollBehavior: "contain" }}>
           {step === "pick" ? (
             <PickPanel colors={colors} onPick={pickPos} onPickCustom={pickCustom} onClose={close} />
           ) : step === "form" && editing === null && draft ? (
