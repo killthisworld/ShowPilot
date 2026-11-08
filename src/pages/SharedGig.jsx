@@ -1561,7 +1561,7 @@ export default function SharedGig() {
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
-                        <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(null); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
@@ -1610,7 +1610,7 @@ export default function SharedGig() {
                       placeholder="Set (min)"
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(null); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                    <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                   </div>

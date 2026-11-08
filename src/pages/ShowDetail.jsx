@@ -1234,7 +1234,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
               <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
                 <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
-                <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(null); setShowFxModal(true); }} />
+                <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />
               </div>

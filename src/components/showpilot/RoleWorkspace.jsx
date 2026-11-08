@@ -699,7 +699,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <TimeSelect value={setTimes[b.band_name]} onChange={(v) => setMi("set_times", { ...setTimes, [b.band_name]: v })} disabled={off || !b.band_name} color={color} label={b.band_name ? `${b.band_name} set time` : "Set time"} />
                     </div>
                     {/* This act's FX / Artist Notes, next to its set time (job 205). */}
-                    <ActNotesButton act={b} onClick={() => { setFxAct(null); setFxTarget(i); }} />
+                    <ActNotesButton act={b} onClick={() => { setFxAct(i); setFxTarget(i); }} />
                     <ActStagePlotButton act={b} onClick={() => setStageAt(i)} />
                   </div>
                 </div>
