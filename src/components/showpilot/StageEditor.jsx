@@ -324,7 +324,6 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         <>
           <div className="flex items-center gap-2">
             <button type="button" onClick={startAdd} className="flex-1 min-h-[46px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
-            <button type="button" onClick={() => { setSwap(true); setSel(null); }} disabled={onCount < 1} className="flex-1 min-h-[46px] rounded-xl border font-semibold text-[15px] flex items-center justify-center gap-1.5 disabled:opacity-35" style={{ borderColor: G + "66", color: G }}><ArrowLeftRight className="w-4 h-4" />Tap to move / edit</button>
           </div>
           {onCount === 0 && <p className="text-center text-[12.5px] text-white/50">Add each member, then tap where they stand.</p>}
         </>
