@@ -4,6 +4,7 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { EVENT_COLOR_CHOICES } from "@/lib/eventTypes";
 import { STAGE_POSITIONS, positionColor, inkOn } from "@/lib/stagePositions";
+import { rememberStageColors } from "@/components/showpilot/StagePlotView";
 
 // "Stage plot colors" in Settings > Customize (job 249), for audio / lighting
 // engineers: a color per position (drums, keys, guitar...). Stage plots that
@@ -30,6 +31,7 @@ export default function StagePlotColors({ preferences, onSaved }) {
       const { error: e } = await supabase.from("user_preferences").upsert({ user_id: user.id, stage_plot_colors: next }, { onConflict: "user_id" });
       if (e) throw e;
       setMine(next);
+      rememberStageColors(next);
       setEditing(null);
       setSavedKey(key);
       setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1500);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronsDown, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronsDown, Loader2, Theater, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
@@ -25,18 +25,29 @@ export const instrumentsOf = (m) => {
 export const hasStagePlot = (act) => (act?.band_members || []).some(placed);
 const actName = (a) => a?.band_name || a?.role || "Act";
 
-// The viewer's own stage plot colors (Settings > Customize).
+// The viewer's own stage plot colors (Settings > Customize). Kept once loaded
+// (job 273) so a stage opens in your colors right away instead of starting in
+// the default ones; Settings updates it when you change a color.
+let myColors; // undefined = not loaded yet
+const COLORS_EVENT = "sp-stage-colors";
+export function rememberStageColors(colors) {
+  myColors = colors || null;
+  try { window.dispatchEvent(new CustomEvent(COLORS_EVENT)); } catch {}
+}
 export function useMyStageColors() {
-  const [colors, setColors] = useState(null);
+  const [colors, setColors] = useState(myColors ?? null);
   useEffect(() => {
     let off = false;
+    const sync = () => { if (!off) setColors(myColors ?? null); };
+    window.addEventListener(COLORS_EVENT, sync);
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("user_preferences").select("stage_plot_colors").eq("user_id", user.id).maybeSingle();
-      if (!off) setColors(data?.stage_plot_colors || null);
+      myColors = data?.stage_plot_colors || null;
+      sync();
     })().catch(() => {});
-    return () => { off = true; };
+    return () => { off = true; window.removeEventListener(COLORS_EVENT, sync); };
   }, []);
   return colors;
 }
@@ -219,19 +230,9 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   );
 }
 
-// A stage (job 273): curtains, a mic stand, the stage floor and its front edge,
-// drawn like the lucide icons (currentColor strokes).
+// A stage (job 273): lucide's Theater (curtains over a stage, seats in front).
 export function StageIcon({ className = "", style }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} aria-hidden="true">
-      <path d="M2 3h20" />
-      <path d="M3 3v8c2.2 0 3.5-3.5 3.5-8" />
-      <path d="M21 3v8c-2.2 0-3.5-3.5-3.5-8" />
-      <circle cx="12" cy="8.5" r="1.3" />
-      <path d="M12 10v4.5M10.5 14.5h3" />
-      <path d="M5 16.5h14l3 4.5H2z" />
-    </svg>
-  );
+  return <Theater className={className} style={style} aria-hidden="true" />;
 }
 
 // The event page card: a preview of the first act's plot; tap to open. On the
