@@ -3,192 +3,255 @@
 // builder and turned into PNGs for the PDF. viewBox 0 0 64 64.
 const D = 'fill="#000" fill-opacity="0.55"';
 
+// Redrawn (job 276) so each reads as its instrument at a glance: kit pieces
+// from the side, guitars by body shape, keys / horns / strings as clear
+// silhouettes. Drawn for ShowPilot.
+const K = (op = 0.55) => `fill="#000" fill-opacity="${op}"`;
 const SHAPES = {
-  guitar: (c) => `<g transform="rotate(-35 32 32)">
-    <rect x="29.5" y="6" width="5" height="27" rx="1" fill="${c}"/>
-    <rect x="27.5" y="2" width="9" height="7" rx="2" fill="${c}"/>
-    <circle cx="32" cy="38" r="8.5" fill="${c}"/>
-    <circle cx="32" cy="49" r="10.5" fill="${c}"/>
-    <circle cx="32" cy="42" r="3.2" ${D}/>
-    <rect x="27" y="50" width="10" height="2.4" ${D}/></g>`,
-  bass: (c) => `<g transform="rotate(-35 32 32)">
-    <rect x="30" y="3" width="4" height="33" rx="1" fill="${c}"/>
-    <rect x="28.5" y="0.5" width="7" height="5" rx="1.5" fill="${c}"/>
-    <ellipse cx="32" cy="48" rx="10" ry="12" fill="${c}"/>
-    <ellipse cx="25" cy="38" rx="3.5" ry="6" fill="${c}"/>
-    <ellipse cx="39.5" cy="39" rx="3" ry="5" fill="${c}"/>
-    <rect x="26" y="44" width="12" height="2.4" ${D}/>
-    <rect x="26" y="51" width="12" height="2.4" ${D}/></g>`,
+  // Electric guitar (Strat-style), neck up-right.
+  guitar: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="29.6" y="1" width="4.8" height="31" rx="1" fill="${c}"/>
+    <path d="M28.5 0 h7 l1 6 h-9 z" fill="${c}"/>
+    <path d="M32 27 C27 27 26 22 22 23 C17 24 18 31 21 35 C16 40 16 49 20 55 C24 61 40 61 44 55 C48 49 48 40 43 35 C46 31 47 24 42 23 C38 22 37 27 32 27 Z" fill="${c}"/>
+    <path d="M24.5 37 Q32 33 40 37 L40 48 Q32 52 24.5 48 Z" ${K(0.25)}/>
+    <rect x="26" y="38.5" width="12" height="2" rx="1" ${D}/><rect x="26" y="43" width="12" height="2" rx="1" ${D}/>
+    <rect x="27" y="51" width="10" height="2.6" rx="1" ${D}/></g>`,
+  // Bass: longer neck, P-bass body, 4 tuners.
+  bass: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="30" y="0" width="4" height="36" rx="1" fill="${c}"/>
+    <rect x="26" y="1" width="3" height="3" rx="1" fill="${c}"/><rect x="26" y="6" width="3" height="3" rx="1" fill="${c}"/>
+    <rect x="35" y="1" width="3" height="3" rx="1" fill="${c}"/><rect x="35" y="6" width="3" height="3" rx="1" fill="${c}"/>
+    <path d="M32 32 C27 32 27 27 23 28 C18 29 19 36 22 39 C17 44 18 52 22 57 C26 62 38 62 42 57 C46 52 47 44 42 39 C45 36 46 29 41 28 C37 27 37 32 32 32 Z" fill="${c}"/>
+    <rect x="26.5" y="42" width="5" height="3" rx="1" ${D}/><rect x="32.5" y="45" width="5" height="3" rx="1" ${D}/>
+    <rect x="27" y="53" width="10" height="2.6" rx="1" ${D}/></g>`,
+  // Drum kit from the front.
   drums: (c) => `
-    <circle cx="32" cy="42" r="15" fill="${c}"/>
-    <circle cx="32" cy="42" r="10" fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="2"/>
-    <ellipse cx="19" cy="22" rx="8" ry="5.5" fill="${c}"/>
-    <ellipse cx="45" cy="22" rx="8" ry="5.5" fill="${c}"/>
-    <ellipse cx="9" cy="11" rx="8" ry="2.2" fill="${c}"/>
-    <ellipse cx="55" cy="11" rx="8" ry="2.2" fill="${c}"/>
-    <rect x="8" y="12" width="2" height="16" fill="${c}"/>
-    <rect x="54" y="12" width="2" height="16" fill="${c}"/>`,
+    <circle cx="32" cy="45" r="14" fill="${c}"/>
+    <circle cx="32" cy="45" r="9.5" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="2"/>
+    <ellipse cx="21.5" cy="25" rx="7.5" ry="6" fill="${c}"/><ellipse cx="42.5" cy="25" rx="7.5" ry="6" fill="${c}"/>
+    <ellipse cx="21.5" cy="25" rx="5" ry="3.8" ${K(0.3)}/><ellipse cx="42.5" cy="25" rx="5" ry="3.8" ${K(0.3)}/>
+    <path d="M1 14 Q8 10 15 14 Z" fill="${c}"/><path d="M49 12 Q56 8 63 12 Z" fill="${c}"/>
+    <rect x="7" y="13" width="2" height="47" fill="${c}"/><rect x="55" y="11" width="2" height="49" fill="${c}"/>
+    <path d="M10 49 h9 v8 q-4.5 3 -9 0 z" fill="${c}"/>`,
+  // Keyboard from above.
   keys: (c) => `
-    <rect x="3" y="18" width="58" height="28" rx="3" fill="${c}"/>
-    ${[11, 19, 27, 35, 43, 51].map((x) => `<rect x="${x}" y="30" width="1.2" height="16" ${D}/>`).join("")}
-    ${[8.5, 16.5, 32.5, 40.5, 48.5].map((x) => `<rect x="${x}" y="18" width="5" height="14" rx="0.8" fill="#000" fill-opacity="0.75"/>`).join("")}`,
+    <rect x="2" y="17" width="60" height="30" rx="3" fill="${c}"/>
+    <rect x="2" y="17" width="60" height="7" rx="3" ${K(0.3)}/>
+    ${[9.5, 17, 24.5, 32, 39.5, 47, 54.5].map((x) => `<rect x="${x}" y="24" width="1.3" height="23" ${D}/>`).join("")}
+    ${[7, 14.5, 29.5, 37, 44.5].map((x) => `<rect x="${x}" y="24" width="5" height="13" rx="0.8" fill="#000" fill-opacity="0.75"/>`).join("")}`,
+  // Handheld vocal mic.
   vocals: (c) => `
-    <rect x="23" y="3" width="18" height="24" rx="9" fill="${c}"/>
-    <rect x="23" y="11" width="18" height="2" ${D}/>
-    <rect x="23" y="17" width="18" height="2" ${D}/>
-    <path d="M27 27 L37 27 L35.5 44 L28.5 44 Z" fill="${c}"/>
-    <rect x="30.5" y="44" width="3" height="13" fill="${c}"/>
-    <rect x="20" y="56" width="24" height="5" rx="2.5" fill="${c}"/>`,
+    <circle cx="32" cy="14" r="11" fill="${c}"/>
+    <path d="M23 14 h18 M32 3.5 v21 M25 7 l14 14 M39 7 l-14 14" stroke="#000" stroke-opacity="0.35" stroke-width="1.6"/>
+    <rect x="23" y="23" width="18" height="4" rx="1.5" fill="${c}"/>
+    <path d="M24.5 27 h15 l-3.5 30 q-4 3.5 -8 0 z" fill="${c}"/>
+    <rect x="27" y="33" width="10" height="1.8" ${D}/>`,
+  // Horns: French horn bell and coil.
   horns: (c) => `
-    <path d="M42 22 L61 10 L61 42 L42 30 Z" fill="${c}"/>
-    <rect x="5" y="22.5" width="40" height="7" rx="3.5" fill="${c}"/>
-    <rect x="1" y="23.5" width="7" height="5" rx="1.5" fill="${c}"/>
-    <rect x="17" y="12" width="4.5" height="11" rx="1" fill="${c}"/>
-    <rect x="24" y="12" width="4.5" height="11" rx="1" fill="${c}"/>
-    <rect x="31" y="12" width="4.5" height="11" rx="1" fill="${c}"/>
-    <rect x="13" y="30" width="28" height="11" rx="5.5" fill="none" stroke="${c}" stroke-width="4"/>`,
+    <circle cx="28" cy="32" r="17" fill="none" stroke="${c}" stroke-width="5"/>
+    <circle cx="28" cy="32" r="8" fill="none" stroke="${c}" stroke-width="3.5"/>
+    <path d="M38 40 Q50 44 52 56 L62 58 Q60 40 44 34 Z" fill="${c}"/>
+    <rect x="24" y="12" width="4" height="9" rx="1.5" fill="${c}"/><rect x="31" y="12" width="4" height="9" rx="1.5" fill="${c}"/>
+    <path d="M8 22 L2 14" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/>`,
+  // Cello upright with its bow.
   strings: (c) => `
-    <ellipse cx="30" cy="35" rx="10.5" ry="8.5" fill="${c}"/>
-    <ellipse cx="30" cy="51" rx="12.5" ry="10" fill="${c}"/>
-    <rect x="21" y="40" width="18" height="6" fill="${c}"/>
-    <rect x="28" y="6" width="4" height="27" rx="1" fill="${c}"/>
-    <circle cx="30" cy="5" r="3.5" fill="${c}"/>
-    <rect x="25" y="41" width="1.8" height="9" rx="0.9" ${D}/>
-    <rect x="33.2" y="41" width="1.8" height="9" rx="0.9" ${D}/>
-    <rect x="47" y="4" width="2.2" height="58" rx="1.1" transform="rotate(22 48 33)" fill="${c}"/>`,
+    <path d="M30 18 C22 18 21 25 24 29 C18 32 18 41 23 43 C17 47 18 60 30 60 C42 60 43 47 37 43 C42 41 42 32 36 29 C39 25 38 18 30 18 Z" fill="${c}"/>
+    <rect x="28.3" y="2" width="3.4" height="18" fill="${c}"/><circle cx="30" cy="2.5" r="2.6" fill="${c}"/>
+    <rect x="29" y="59" width="2" height="5" fill="${c}"/>
+    <path d="M24.5 34 q-2 4 0 8 M35.5 34 q2 4 0 8" stroke="#000" stroke-opacity="0.55" stroke-width="1.6" fill="none"/>
+    <rect x="26" y="47" width="8" height="2" rx="1" ${D}/>
+    <rect x="47" y="5" width="2.2" height="56" rx="1.1" transform="rotate(24 48 33)" fill="${c}"/>`,
+  // Percussion: tambourine.
   percussion: (c) => `
-    <path d="M19 14 Q14 36 21 60 L43 60 Q50 36 45 14 Z" fill="${c}"/>
-    <ellipse cx="32" cy="14" rx="13" ry="4.5" fill="${c}"/>
-    <ellipse cx="32" cy="14" rx="10" ry="2.8" fill="#fff" fill-opacity="0.45"/>
-    <rect x="17.5" y="26" width="29" height="2.2" ${D}/>
-    <rect x="18.5" y="48" width="27" height="2.2" ${D}/>`,
+    <circle cx="32" cy="32" r="24" fill="none" stroke="${c}" stroke-width="8"/>
+    <circle cx="32" cy="32" r="18" ${K(0.0)}/>
+    ${[0, 72, 144, 216, 288].map((a) => { const r = (a * Math.PI) / 180; return `<ellipse cx="${32 + 24 * Math.cos(r)}" cy="${32 + 24 * Math.sin(r)}" rx="4.5" ry="2.2" transform="rotate(${a + 90} ${32 + 24 * Math.cos(r)} ${32 + 24 * Math.sin(r)})" fill="#000" fill-opacity="0.6"/>`; }).join("")}`,
+  // DJ: turntable from above.
   dj: (c) => `
     <rect x="3" y="9" width="58" height="46" rx="5" fill="${c}"/>
     <circle cx="27" cy="32" r="17" fill="#000" fill-opacity="0.6"/>
-    <circle cx="27" cy="32" r="5" fill="${c}"/>
+    <circle cx="27" cy="32" r="11" fill="none" stroke="${c}" stroke-opacity="0.35" stroke-width="1"/>
+    <circle cx="27" cy="32" r="4.5" fill="${c}"/>
     <circle cx="52" cy="16" r="3.5" fill="#000" fill-opacity="0.6"/>
-    <path d="M52 16 L50 38 L41 44" fill="none" stroke="#000" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>`,
+    <path d="M52 16 L50 38 L41 44" fill="none" stroke="#000" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>
+    <rect x="47" y="46" width="9" height="4" rx="1" fill="#000" fill-opacity="0.5"/>`,
+  // Other: a music note.
   other: (c) => `
-    <circle cx="22" cy="49" r="10" fill="${c}"/>
-    <rect x="28" y="8" width="4.5" height="42" fill="${c}"/>
-    <path d="M32.5 8 Q46 12 50 26 Q42 19 32.5 20 Z" fill="${c}"/>`,
-  // More icons to pick from for your own instruments (job 274), the kinds a
-  // mixer's channel icons cover. Drawn for ShowPilot.
+    <ellipse cx="20" cy="50" rx="10" ry="8" transform="rotate(-20 20 50)" fill="${c}"/>
+    <rect x="26" y="8" width="4.5" height="43" fill="${c}"/>
+    <path d="M30.5 8 Q46 12 49 28 Q42 21 30.5 21 Z" fill="${c}"/>`,
+  // Kick drum from the side, on its spurs, with the pedal.
   kick: (c) => `
-    <circle cx="32" cy="34" r="22" fill="${c}"/>
-    <circle cx="32" cy="34" r="15" fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="2.5"/>
-    <circle cx="32" cy="34" r="4" ${D}/>
-    <rect x="12" y="54" width="4" height="8" fill="${c}"/><rect x="48" y="54" width="4" height="8" fill="${c}"/>`,
+    <ellipse cx="14" cy="32" rx="7" ry="22" fill="${c}"/>
+    <rect x="14" y="10" width="34" height="44" fill="${c}"/>
+    <ellipse cx="48" cy="32" rx="7" ry="22" fill="${c}"/>
+    <ellipse cx="48" cy="32" rx="4.5" ry="18" ${K(0.35)}/>
+    ${[19, 27, 35, 43].map((x) => `<rect x="${x}" y="10" width="2" height="44" ${D}/>`).join("")}
+    <path d="M18 52 L10 62 M44 52 L52 62" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <path d="M56 46 L62 60 H54 Z" fill="${c}"/>`,
+  // Snare on its stand, from the side.
   snare: (c) => `
-    <ellipse cx="32" cy="22" rx="24" ry="7" fill="${c}"/>
-    <path d="M8 22 V40 Q32 52 56 40 V22 Q32 34 8 22 Z" fill="${c}"/>
-    ${[14, 22, 30, 38, 46].map((x) => `<rect x="${x}" y="${x === 30 ? 30 : 28}" width="2" height="14" ${D}/>`).join("")}
-    <rect x="40" y="2" width="2.5" height="20" rx="1" transform="rotate(35 41 12)" fill="${c}"/>`,
+    <ellipse cx="32" cy="18" rx="24" ry="6" fill="${c}"/>
+    <rect x="8" y="18" width="48" height="16" fill="${c}"/>
+    <ellipse cx="32" cy="34" rx="24" ry="6" fill="${c}"/>
+    <ellipse cx="32" cy="18" rx="20" ry="4" fill="#fff" fill-opacity="0.35"/>
+    ${[13, 22, 32, 42, 51].map((x) => `<rect x="${x - 1}" y="${x === 32 ? 22 : 21}" width="2.4" height="11" rx="1" ${D}/>`).join("")}
+    <rect x="30.5" y="38" width="3" height="16" fill="${c}"/>
+    <path d="M18 63 L32 52 L46 63" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // Hi-hat: two cymbals on the stand, pedal at the bottom.
   hihat: (c) => `
-    <ellipse cx="32" cy="18" rx="26" ry="4.5" fill="${c}"/>
-    <ellipse cx="32" cy="25" rx="26" ry="4.5" fill="${c}"/>
-    <rect x="30.5" y="8" width="3" height="50" fill="${c}"/>
-    <path d="M18 60 L32 46 L46 60" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
-  tom: (c) => `
-    <ellipse cx="32" cy="18" rx="20" ry="7" fill="${c}"/>
-    <path d="M12 18 V46 Q32 58 52 46 V18 Q32 30 12 18 Z" fill="${c}"/>
-    <ellipse cx="32" cy="18" rx="15" ry="4.5" fill="#fff" fill-opacity="0.35"/>
-    <rect x="12" y="32" width="40" height="2" ${D}/>`,
+    <path d="M4 15 Q32 7 60 15 Q32 19 4 15 Z" fill="${c}"/>
+    <path d="M4 21 Q32 29 60 21 Q32 17 4 21 Z" fill="${c}"/>
+    <rect x="30.5" y="6" width="3" height="50" fill="${c}"/>
+    <path d="M16 60 L32 46 L48 60" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M26 62 h12 l-2 -4 h-8 z" fill="${c}"/>`,
+  // Rack tom, tilted, on its mount.
+  tom: (c) => `<g transform="rotate(-12 32 30)">
+    <ellipse cx="32" cy="14" rx="20" ry="6" fill="${c}"/>
+    <rect x="12" y="14" width="40" height="26" fill="${c}"/>
+    <ellipse cx="32" cy="40" rx="20" ry="6" fill="${c}"/>
+    <ellipse cx="32" cy="14" rx="16" ry="3.8" fill="#fff" fill-opacity="0.35"/>
+    ${[17, 25, 39, 47].map((x) => `<rect x="${x - 1}" y="18" width="2.4" height="18" rx="1" ${D}/>`).join("")}</g>
+    <rect x="30.5" y="44" width="3" height="16" fill="${c}"/>`,
+  // Ride cymbal, tilted on its stand.
   cymbal: (c) => `
-    <ellipse cx="32" cy="22" rx="28" ry="7" fill="${c}"/>
-    <ellipse cx="32" cy="20" rx="5" ry="2.5" fill="#000" fill-opacity="0.45"/>
-    <rect x="30.5" y="22" width="3" height="34" fill="${c}"/>
-    <path d="M18 61 L32 52 L46 61" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
+    <path d="M3 22 Q32 8 61 18 Q34 26 3 22 Z" fill="${c}"/>
+    <ellipse cx="32" cy="17" rx="5" ry="2.5" ${K(0.5)}/>
+    <rect x="30.5" y="18" width="3" height="38" fill="${c}"/>
+    <path d="M16 62 L32 50 L48 62" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+  // Congas: two tall barrel drums.
   conga: (c) => `
-    <path d="M14 10 Q8 36 18 60 L30 60 Q34 36 28 10 Z" fill="${c}"/>
-    <path d="M36 14 Q30 38 39 60 L51 60 Q58 38 52 14 Z" fill="${c}"/>
-    <ellipse cx="21" cy="10" rx="7.5" ry="2.8" fill="#fff" fill-opacity="0.45"/>
-    <ellipse cx="44" cy="14" rx="8" ry="2.8" fill="#fff" fill-opacity="0.45"/>`,
-  acoustic: (c) => `<g transform="rotate(-35 32 32)">
-    <rect x="29.5" y="2" width="5" height="26" rx="1" fill="${c}"/>
-    <path d="M32 26 C22 26 22 34 25 38 C18 42 19 60 32 60 C45 60 46 42 39 38 C42 34 42 26 32 26 Z" fill="${c}"/>
-    <circle cx="32" cy="42" r="4.5" fill="#000" fill-opacity="0.65"/>
-    <rect x="27" y="51" width="10" height="2.4" ${D}/></g>`,
-  electric: (c) => `<g transform="rotate(-35 32 32)">
-    <rect x="29.5" y="2" width="5" height="30" rx="1" fill="${c}"/>
-    <path d="M24 30 L40 30 L44 24 L47 30 Q50 46 40 58 L24 58 Q14 46 18 34 L20 26 Z" fill="${c}"/>
-    <rect x="26" y="38" width="12" height="2.4" ${D}/><rect x="26" y="44" width="12" height="2.4" ${D}/>
-    <circle cx="40" cy="51" r="1.8" ${D}/></g>`,
+    <path d="M9 12 Q4 34 12 60 L28 60 Q34 34 29 12 Z" fill="${c}"/>
+    <path d="M36 16 Q31 38 38 60 L54 60 Q60 38 55 16 Z" fill="${c}"/>
+    <ellipse cx="19" cy="12" rx="10" ry="3.2" fill="#fff" fill-opacity="0.45"/>
+    <ellipse cx="45.5" cy="16" rx="9.5" ry="3.2" fill="#fff" fill-opacity="0.45"/>
+    <rect x="7.5" y="24" width="23" height="2" ${D}/><rect x="34" y="28" width="22" height="2" ${D}/>`,
+  // Acoustic guitar: round body, soundhole.
+  acoustic: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="29.6" y="1" width="4.8" height="27" rx="1" fill="${c}"/>
+    <path d="M28.5 0 h7 l1 6 h-9 z" fill="${c}"/>
+    <path d="M32 24 C23 24 22 32 25 36 C17 40 17 61 32 61 C47 61 47 40 39 36 C42 32 41 24 32 24 Z" fill="${c}"/>
+    <circle cx="32" cy="39" r="4.6" fill="#000" fill-opacity="0.65"/>
+    <rect x="27" y="51" width="10" height="2.6" rx="1" ${D}/></g>`,
+  // Electric guitar (single cutaway, Les Paul-style).
+  electric: (c) => `<g transform="rotate(40 32 32)">
+    <rect x="29.6" y="1" width="4.8" height="29" rx="1" fill="${c}"/>
+    <path d="M28.5 0 h7 l1 6 h-9 z" fill="${c}"/>
+    <path d="M32 27 C27 27 23 25 22 29 C21 33 23 35 21 39 C17 46 19 59 32 60 C45 59 47 46 43 39 C41 35 43 31 42 27 C40 24 37 27 32 27 Z" fill="${c}"/>
+    <rect x="26.5" y="36" width="11" height="4" rx="1.4" ${D}/><rect x="26.5" y="44" width="11" height="4" rx="1.4" ${D}/>
+    <circle cx="39" cy="53" r="1.8" ${D}/><circle cx="35" cy="56" r="1.8" ${D}/></g>`,
+  // Grand piano from the side, lid up.
   piano: (c) => `
-    <path d="M6 10 H34 Q58 10 58 34 Q58 56 46 56 H6 Z" fill="${c}"/>
-    <rect x="6" y="48" width="40" height="8" fill="#fff" fill-opacity="0.5"/>
-    ${[10, 15, 20, 25, 30, 35, 40].map((x) => `<rect x="${x}" y="48" width="1" height="8" ${D}/>`).join("")}`,
+    <path d="M6 30 H44 Q60 30 60 38 V42 H6 Z" fill="${c}"/>
+    <path d="M10 29 L52 10 L54 13 L14 30 Z" fill="${c}"/>
+    <rect x="6" y="42" width="54" height="5" fill="${c}"/>
+    <rect x="9" y="47" width="4" height="14" fill="${c}"/><rect x="52" y="47" width="4" height="14" fill="${c}"/>
+    <rect x="6" y="38" width="13" height="4" fill="#fff" fill-opacity="0.55"/>`,
+  // Organ: two keyboards, drawbars, legs.
   organ: (c) => `
-    <rect x="6" y="6" width="52" height="30" rx="3" fill="${c}"/>
-    ${[12, 18, 24, 30, 36, 42, 48].map((x, i) => `<rect x="${x}" y="11" width="3" height="${10 + (i % 3) * 5}" rx="1.5" ${D}/>`).join("")}
-    <rect x="4" y="38" width="56" height="10" rx="2" fill="${c}"/>
-    <rect x="4" y="50" width="56" height="10" rx="2" fill="${c}"/>`,
+    <rect x="5" y="6" width="54" height="16" rx="2" fill="${c}"/>
+    ${[11, 16, 21, 26, 31, 36, 41, 46, 51].map((x, i) => `<rect x="${x}" y="9" width="2.6" height="${4 + (i % 4) * 2.5}" rx="1.2" ${D}/>`).join("")}
+    <rect x="3" y="24" width="58" height="7" rx="1" fill="${c}"/><rect x="3" y="33" width="58" height="7" rx="1" fill="${c}"/>
+    ${[10, 18, 26, 34, 42, 50].map((x) => `<rect x="${x}" y="24" width="1" height="16" ${D}/>`).join("")}
+    <rect x="5" y="42" width="54" height="6" fill="${c}"/>
+    <rect x="7" y="48" width="4" height="13" fill="${c}"/><rect x="53" y="48" width="4" height="13" fill="${c}"/>`,
+  // Synth: keyboard with knobs and a screen.
   synth: (c) => `
-    <rect x="3" y="14" width="58" height="36" rx="3" fill="${c}"/>
-    ${[9, 17, 25, 33].map((x) => `<circle cx="${x}" cy="22" r="2.6" ${D}/>`).join("")}
-    <rect x="42" y="18" width="14" height="8" rx="1" ${D}/>
-    ${[8.5, 16.5, 32.5, 40.5, 48.5].map((x) => `<rect x="${x}" y="32" width="5" height="10" rx="0.8" fill="#000" fill-opacity="0.75"/>`).join("")}`,
+    <rect x="2" y="12" width="60" height="40" rx="3" fill="${c}"/>
+    ${[8, 15, 22, 29].map((x) => `<circle cx="${x}" cy="20" r="2.8" ${D}/>`).join("")}
+    <rect x="36" y="16" width="21" height="9" rx="1.2" ${K(0.7)}/>
+    ${[10, 17.5, 25, 32.5, 40, 47.5, 55].map((x) => `<rect x="${x}" y="30" width="1.1" height="22" ${D}/>`).join("")}
+    ${[7.5, 15, 30, 37.5, 45].map((x) => `<rect x="${x}" y="30" width="4.6" height="12" rx="0.8" fill="#000" fill-opacity="0.75"/>`).join("")}`,
+  // Alto sax: neck and mouthpiece, body, curved bow, bell opening up.
   sax: (c) => `
-    <path d="M30 4 L36 4 L36 40 Q36 58 24 58 Q12 58 12 48 L12 42 L20 42 L20 47 Q20 50 24 50 Q28 50 28 40 Z" fill="${c}"/>
-    <path d="M4 40 L22 34 L22 48 Z" fill="${c}"/>
-    ${[12, 19, 26].map((y) => `<circle cx="32" cy="${y}" r="2" ${D}/>`).join("")}
-    <rect x="34" y="2" width="12" height="4" rx="2" transform="rotate(25 34 4)" fill="${c}"/>`,
+    <path d="M31 9 L39 9 L39 46 Q39 61 25 61 Q12 61 12 49 L11 40 L25 40 L23 48 Q23 53 27 53 Q31 53 31 46 Z" fill="${c}"/>
+    <ellipse cx="18" cy="39" rx="9.5" ry="3.2" fill="${c}"/>
+    <ellipse cx="18" cy="39" rx="6.5" ry="1.8" fill="#000" fill-opacity="0.55"/>
+    <path d="M35 10 Q34 3 24 4" fill="none" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/>
+    <rect x="17" y="2" width="8" height="4" rx="2" fill="${c}"/>
+    ${[16, 22, 28, 34].map((y) => `<circle cx="35" cy="${y}" r="2" fill="#000" fill-opacity="0.55"/>`).join("")}
+`,
+  // Trumpet from the side: bell right, valves up.
   trumpet: (c) => `
-    <path d="M44 22 L62 12 L62 40 L44 30 Z" fill="${c}"/>
-    <rect x="4" y="23" width="42" height="6" rx="3" fill="${c}"/>
-    <rect x="16" y="13" width="4" height="11" rx="1" fill="${c}"/><rect x="23" y="13" width="4" height="11" rx="1" fill="${c}"/><rect x="30" y="13" width="4" height="11" rx="1" fill="${c}"/>
-    <rect x="12" y="29" width="30" height="10" rx="5" fill="none" stroke="${c}" stroke-width="3.5"/>`,
+    <path d="M42 24 L62 13 L62 41 L42 30 Z" fill="${c}"/>
+    <rect x="6" y="24" width="38" height="6" rx="3" fill="${c}"/>
+    <rect x="1" y="24.5" width="7" height="5" rx="2" fill="${c}"/>
+    <rect x="17" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="24" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="31" y="14" width="4.4" height="12" rx="1" fill="${c}"/>
+    <rect x="16" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="23" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="30" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/>
+    <path d="M14 30 v6 q0 6 6 6 h16 q6 0 6 -6 v-6" fill="none" stroke="${c}" stroke-width="3.5"/>`,
+  // Trombone: bell left-up, long slide.
   trombone: (c) => `
-    <path d="M46 20 L62 10 L62 36 L46 28 Z" fill="${c}"/>
-    <rect x="6" y="21" width="42" height="5" rx="2.5" fill="${c}"/>
-    <rect x="6" y="34" width="34" height="5" rx="2.5" fill="${c}"/>
-    <path d="M8 23.5 Q2 23.5 2 30 Q2 36.5 8 36.5" fill="none" stroke="${c}" stroke-width="5"/>
-    <rect x="22" y="22" width="3" height="16" ${D}/>`,
-  violin: (c) => `<g transform="rotate(-30 32 32)">
-    <path d="M32 22 C24 22 23 28 26 32 C20 34 20 44 25 46 C21 50 23 60 32 60 C41 60 43 50 39 46 C44 44 44 34 38 32 C41 28 40 22 32 22 Z" fill="${c}"/>
-    <rect x="30.5" y="3" width="3" height="21" fill="${c}"/>
-    <circle cx="32" cy="3" r="2.6" fill="${c}"/>
-    <rect x="27" y="34" width="1.6" height="9" rx="0.8" ${D}/><rect x="35.4" y="34" width="1.6" height="9" rx="0.8" ${D}/></g>`,
+    <path d="M44 18 L62 8 L62 34 L44 26 Z" fill="${c}"/>
+    <rect x="12" y="19" width="34" height="5" rx="2.5" fill="${c}"/>
+    <rect x="4" y="35" width="40" height="5" rx="2.5" fill="${c}"/>
+    <path d="M14 21.5 Q4 21.5 4 30 Q4 37.5 8 37.5" fill="none" stroke="${c}" stroke-width="5"/>
+    <rect x="22" y="22" width="3" height="16" ${D}/><rect x="36" y="22" width="3" height="16" fill="${c}"/>`,
+  // Violin with its bow.
+  violin: (c) => `<g transform="rotate(35 32 32)">
+    <path d="M32 24 C25 24 24 29 27 33 C21 35 21 44 26 46 C22 50 24 60 32 60 C40 60 42 50 38 46 C43 44 43 35 37 33 C40 29 39 24 32 24 Z" fill="${c}"/>
+    <rect x="30.5" y="5" width="3" height="21" fill="${c}"/>
+    <path d="M30 1 q2 -1 4 0 l0 5 h-4 z" fill="${c}"/>
+    <path d="M27 37 q-1.5 3.5 0 7 M37 37 q1.5 3.5 0 7" stroke="#000" stroke-opacity="0.55" stroke-width="1.5" fill="none"/>
+    <rect x="28" y="50" width="8" height="2" rx="1" ${D}/></g>
+    <rect x="8" y="30" width="54" height="2" rx="1" transform="rotate(-50 35 31)" fill="${c}"/>`,
+  // Mic on a boom stand.
   mic: (c) => `
-    <circle cx="32" cy="16" r="12" fill="${c}"/>
-    <path d="M24 16 H40 M32 6 V26" stroke="#000" stroke-opacity="0.5" stroke-width="2"/>
-    <rect x="28.5" y="27" width="7" height="20" rx="2.5" fill="${c}"/>
-    <rect x="31" y="47" width="2" height="10" fill="${c}"/>
-    <rect x="22" y="56" width="20" height="4" rx="2" fill="${c}"/>`,
+    <rect x="30" y="20" width="3" height="36" fill="${c}"/>
+    <path d="M18 62 L31.5 52 L45 62" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M31.5 22 L10 12" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="2" y="5" width="14" height="7" rx="3.5" transform="rotate(25 9 8.5)" fill="${c}"/>
+    <circle cx="31.5" cy="21" r="2.6" fill="${c}"/>`,
+  // Headphones with a boom mic.
   headset: (c) => `
-    <path d="M12 34 V30 Q12 10 32 10 Q52 10 52 30 V34" fill="none" stroke="${c}" stroke-width="5"/>
-    <rect x="6" y="30" width="12" height="18" rx="5" fill="${c}"/>
-    <rect x="46" y="30" width="12" height="18" rx="5" fill="${c}"/>
-    <path d="M12 46 Q14 58 30 56" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
-    <circle cx="31" cy="56" r="4" fill="${c}"/>`,
+    <path d="M12 36 V30 Q12 9 32 9 Q52 9 52 30 V36" fill="none" stroke="${c}" stroke-width="5"/>
+    <rect x="6" y="30" width="12" height="19" rx="5" fill="${c}"/>
+    <rect x="46" y="30" width="12" height="19" rx="5" fill="${c}"/>
+    <path d="M12 47 Q14 58 28 57" fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"/>
+    <rect x="27" y="53" width="9" height="7" rx="3.5" fill="${c}"/>`,
+  // Laptop, open.
   laptop: (c) => `
-    <rect x="10" y="12" width="44" height="30" rx="3" fill="${c}"/>
-    <rect x="14" y="16" width="36" height="22" rx="1" fill="#000" fill-opacity="0.6"/>
-    <path d="M4 46 H60 L56 52 H8 Z" fill="${c}"/>`,
+    <rect x="10" y="10" width="44" height="31" rx="3" fill="${c}"/>
+    <rect x="14" y="14" width="36" height="23" rx="1" fill="#000" fill-opacity="0.6"/>
+    <path d="M3 44 H61 L57 52 H7 Z" fill="${c}"/>
+    <rect x="26" y="46" width="12" height="2.5" rx="1" ${D}/>`,
+  // DI box: an XLR out and a 1/4" in.
   di: (c) => `
-    <rect x="10" y="16" width="44" height="34" rx="4" fill="${c}"/>
-    <circle cx="22" cy="33" r="6" ${D}/><circle cx="42" cy="33" r="6" ${D}/>
-    <rect x="28" y="22" width="8" height="5" rx="1" fill="#000" fill-opacity="0.4"/>`,
+    <rect x="8" y="14" width="48" height="36" rx="4" fill="${c}"/>
+    <circle cx="22" cy="34" r="8" ${K(0.6)}/>
+    <circle cx="19" cy="32" r="1.5" fill="${c}"/><circle cx="25" cy="32" r="1.5" fill="${c}"/><circle cx="22" cy="37.5" r="1.5" fill="${c}"/>
+    <circle cx="43" cy="34" r="6" ${K(0.6)}/><circle cx="43" cy="34" r="2" fill="${c}"/>
+    <rect x="16" y="19" width="10" height="4" rx="2" ${D}/><rect x="38" y="19" width="10" height="4" rx="2" ${D}/>`,
+  // Guitar amp: handle, control strip, grille.
   amp: (c) => `
-    <rect x="6" y="8" width="52" height="50" rx="4" fill="${c}"/>
-    <rect x="10" y="12" width="44" height="7" rx="1" fill="#000" fill-opacity="0.4"/>
-    <rect x="10" y="22" width="44" height="32" rx="2" fill="#000" fill-opacity="0.6"/>
-    <circle cx="32" cy="38" r="11" fill="${c}" fill-opacity="0.35"/>`,
+    <rect x="22" y="3" width="20" height="5" rx="2.5" fill="${c}"/>
+    <rect x="5" y="8" width="54" height="52" rx="4" fill="${c}"/>
+    ${[13, 21, 29, 37, 45].map((x) => `<circle cx="${x}" cy="15" r="2.4" ${D}/>`).join("")}
+    <rect x="9" y="22" width="46" height="34" rx="2" fill="#000" fill-opacity="0.6"/>
+    <circle cx="32" cy="39" r="12" fill="${c}" fill-opacity="0.3"/>`,
+  // PA speaker: horn and woofer.
   speaker: (c) => `
-    <path d="M10 6 H54 V58 H10 Z" fill="${c}"/>
-    <circle cx="32" cy="18" r="6" fill="#000" fill-opacity="0.55"/>
-    <circle cx="32" cy="40" r="13" fill="#000" fill-opacity="0.55"/>
-    <circle cx="32" cy="40" r="4" fill="${c}"/>`,
+    <path d="M12 4 H52 L50 60 H14 Z" fill="${c}"/>
+    <path d="M22 10 H42 L38 22 H26 Z" fill="#000" fill-opacity="0.6"/>
+    <circle cx="32" cy="41" r="13" fill="#000" fill-opacity="0.6"/>
+    <circle cx="32" cy="41" r="5" fill="${c}"/>`,
+  // Floor wedge from the side, facing up at the player.
   wedge: (c) => `
-    <path d="M4 50 L14 18 L60 34 L60 50 Z" fill="${c}"/>
-    <path d="M17 22 L56 35.5 L56 46 L10 46 Z" fill="#000" fill-opacity="0.55"/>`,
+    <path d="M4 52 L12 22 L60 38 L60 52 Z" fill="${c}"/>
+    <path d="M15 27 L56 41 L56 48 L10 48 Z" fill="#000" fill-opacity="0.55"/>
+    <circle cx="30" cy="40" r="5" fill="${c}" fill-opacity="0.45"/>
+    <rect x="8" y="52" width="6" height="4" fill="${c}"/><rect x="52" y="52" width="6" height="4" fill="${c}"/>`,
+  // Harmonica: covers and the row of holes.
   harmonica: (c) => `
-    <rect x="4" y="22" width="56" height="20" rx="4" fill="${c}"/>
-    ${[9, 15, 21, 27, 33, 39, 45, 51].map((x) => `<rect x="${x}" y="28" width="4" height="8" rx="1" fill="#000" fill-opacity="0.6"/>`).join("")}`,
+    <rect x="3" y="22" width="58" height="20" rx="3" fill="${c}"/>
+    <rect x="3" y="22" width="58" height="5" rx="2" ${K(0.3)}/><rect x="3" y="37" width="58" height="5" rx="2" ${K(0.3)}/>
+    ${[7, 12.5, 18, 23.5, 29, 34.5, 40, 45.5, 51, 56.5].map((x) => `<rect x="${x - 1.6}" y="29" width="3.2" height="6" rx="1" fill="#000" fill-opacity="0.7"/>`).join("")}`,
+  // Accordion: ends, bellows, keys.
   accordion: (c) => `
-    <rect x="4" y="12" width="12" height="40" rx="2" fill="${c}"/>
-    <rect x="48" y="12" width="12" height="40" rx="2" fill="${c}"/>
-    <path d="M16 14 L22 52 L28 14 L34 52 L40 14 L46 52 L48 52 L48 12 L16 12 Z" fill="${c}" fill-opacity="0.7"/>`,
+    <rect x="3" y="10" width="13" height="44" rx="2" fill="${c}"/>
+    <path d="M16 12 L22 14 L22 50 L16 52 Z M24 12 L30 14 L30 50 L24 52 Z M32 12 L38 14 L38 50 L32 52 Z" fill="${c}"/>
+    <rect x="40" y="10" width="21" height="44" rx="2" fill="${c}"/>
+    ${[15, 22, 29, 36, 43].map((y) => `<rect x="50" y="${y}" width="9" height="5" rx="1" fill="#fff" fill-opacity="0.5"/>`).join("")}
+    ${[17, 24, 31, 38, 45].map((y) => `<circle cx="9.5" cy="${y}" r="1.8" ${D}/>`).join("")}`,
 };
 
 // Every icon you can give your own instrument (job 274), with names.
