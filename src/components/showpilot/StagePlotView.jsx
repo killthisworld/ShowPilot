@@ -217,11 +217,8 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
             busColors={busColors}
             onBusSettings={onBusSettings}
           />
-          {(status.saving || status.err || status.saved) && (
-            <p className="shrink-0 pt-1 text-center text-[12.5px] flex items-center justify-center gap-1.5" style={{ color: status.err ? "#f87171" : status.saving ? "rgba(255,255,255,0.5)" : G }}>
-              {status.saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : status.err || "Saved ✓"}
-            </p>
-          )}
+          {/* Only a problem shows here (job 275: no "Saved"). */}
+          {status.err && <p className="shrink-0 pt-1 text-center text-[12.5px] text-[#f87171]">{status.err}</p>}
         </div>
       </div>
     </div>,

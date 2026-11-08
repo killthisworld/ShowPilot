@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeftRight, Check, ChevronDown, ChevronsDown, Mic, Pipette, Plus, Settings, Trash2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument } from "@/lib/stagePositions";
 import { stageIconSvg, ICON_CHOICES } from "@/lib/stageIcons";
 import { useCustomPositions, memberLook, withCustomPosition } from "@/lib/customPositions";
-import { EVENT_COLOR_CHOICES } from "@/lib/eventTypes";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 
 // "Build your stage" (job 252): the intake's Members and inputs as a stage.
@@ -155,29 +155,48 @@ function PositionGrid({ colors, value, onPick, onCustom, customs = [], onPickCus
   );
 }
 
-// The gear in "What do they play?" (job 274): make your own instruments -
-// a name, a color and an icon - and Save adds them to the list above.
-const COLOR_CHOICES = [...EVENT_COLOR_CHOICES, "#8CFF3D", "#FBBF24", "#FB923C", "#F472B6", "#22D3EE", "#A78BFA", "#F87171", "#E5E7EB"].filter((c, i, a) => a.indexOf(c) === i);
-function CustomPositionEditor({ customs, onSave, onDone }) {
-  // No color picked yet: the icons are white; picking one colors them all (job 275).
-  const blank = { id: null, label: "", color: "", icon: "mic" };
+// The gear in "What do they play?" (jobs 274 / 275): your own instruments, in a
+// window over the screen - a name, then an icon, then a color for that icon -
+// and Save adds it to the list. Colors: your 5 most recent, plus Custom.
+const RECENT = "sp_recent_stage_colors";
+const DEFAULT_COLORS = ["#22D3EE", "#F472B6", "#FBBF24", "#A78BFA", "#8CFF3D"];
+const recentColors = (customs) => {
+  let r = [];
+  try { r = JSON.parse(localStorage.getItem(RECENT) || "[]"); } catch {}
+  const all = [...r, ...[...customs].reverse().map((p) => p.color), ...DEFAULT_COLORS].filter((c) => /^#[0-9a-f]{6}$/i.test(c || "")).map((c) => c.toUpperCase());
+  return all.filter((c, i) => all.indexOf(c) === i).slice(0, 5);
+};
+const rememberColor = (c) => {
+  try {
+    const r = JSON.parse(localStorage.getItem(RECENT) || "[]");
+    localStorage.setItem(RECENT, JSON.stringify([c.toUpperCase(), ...r.filter((x) => x.toUpperCase() !== c.toUpperCase())].slice(0, 10)));
+  } catch {}
+};
+function CustomPositionEditor({ customs, onSave, onClose }) {
+  const blank = { id: null, label: "", color: "", icon: "" };
   const [f, setF] = useState(blank);
-  const shown = f.color || "#FFFFFF";
   const [state, setState] = useState("idle");
+  const [swatches] = useState(() => recentColors(customs));
+  const shown = f.color || "#FFFFFF";
+  const ready = f.label.trim() && f.icon;
   const save = async () => {
-    const label = f.label.trim();
-    if (!label) return;
-    const item = { id: f.id || `c${Date.now().toString(36)}`, label: label.slice(0, 40), color: shown, icon: f.icon };
+    if (!ready) return;
+    const item = { id: f.id || `c${Date.now().toString(36)}`, label: f.label.trim().slice(0, 40), color: shown, icon: f.icon };
     const next = f.id ? customs.map((p) => (p.id === f.id ? item : p)) : [...customs, item];
     setState("saving");
-    try { await onSave(next); setState("idle"); onDone(); } catch (e) { console.error(e); setState("error"); }
+    try { if (f.color) rememberColor(f.color); await onSave(next); setState("idle"); onClose(); } catch (e) { console.error(e); setState("error"); }
   };
   const del = async (id) => { try { await onSave(customs.filter((p) => p.id !== id)); if (f.id === id) setF(blank); } catch (e) { console.error(e); setState("error"); } };
-  return (
-    <div className="flex flex-col gap-3">
-      {customs.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>YOUR INSTRUMENTS</span>
+  const head = (n, t) => <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{n}. {t}</span>;
+  return createPortal(
+    <div className="fixed inset-0 z-[95] bg-black/75 flex items-center justify-center p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Your own instruments" onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[460px] max-h-[92dvh] overflow-y-auto rounded-2xl border border-[#2a2a2a] bg-[#141414] p-4 flex flex-col gap-3.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center">
+          <span className="flex-1 text-white text-[16px] font-bold">{f.id ? "Edit your instrument" : "New instrument"}</span>
+          <button type="button" onClick={onClose} aria-label="Close" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        {customs.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {customs.map((p) => (
               <span key={p.id} className="flex items-center rounded-full border pl-1 pr-0.5" style={{ borderColor: f.id === p.id ? p.color : "#2a2a2a" }}>
@@ -188,56 +207,67 @@ function CustomPositionEditor({ customs, onSave, onDone }) {
               </span>
             ))}
           </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          {head(1, "NAME")}
+          <input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="e.g. Pedal steel" aria-label="Instrument name" maxLength={40} autoFocus className={inputCls} />
         </div>
-      )}
-      <input value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} placeholder="Name, e.g. Pedal steel" aria-label="Instrument name" maxLength={40} className={inputCls} />
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Color">
-        {COLOR_CHOICES.map((c) => (
-          <button key={c} type="button" onClick={() => setF({ ...f, color: c })} aria-label={`Use ${c}`} className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: c, boxShadow: f.color.toLowerCase() === c.toLowerCase() ? "0 0 0 2px #0d0d0d, 0 0 0 3px #fff" : "none" }}>
-            {f.color && f.color.toLowerCase() === c.toLowerCase() && <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />}
-          </button>
-        ))}
-        <label className="relative h-7 px-2 rounded-md border border-[#2a2a2a] flex items-center gap-1.5 cursor-pointer text-[10px] tracking-[0.08em] text-white/70" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
-          <span className="w-4 h-4 rounded-sm" style={{ background: shown }} /><Pipette className="w-3 h-3" /> CUSTOM
-          <input type="color" value={shown.length === 7 ? shown.toLowerCase() : "#ffffff"} onChange={(e) => setF({ ...f, color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Custom color" />
-        </label>
-      </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(52px,1fr))] gap-1.5 max-h-[220px] overflow-y-auto pr-0.5" role="radiogroup" aria-label="Icon">
-        {ICON_CHOICES.map((ic) => {
-          const on = f.icon === ic.id;
-          return (
-            <button key={ic.id} type="button" role="radio" aria-checked={on} aria-label={ic.label} title={ic.label} onClick={() => setF({ ...f, icon: ic.id })}
-              className="aspect-square rounded-lg border flex items-center justify-center" style={{ borderColor: on ? shown : "#262626", background: on ? shown + "1A" : "#0b0b0b" }}>
-              <Icon pos={ic.id} color={shown} size={28} />
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={onDone} className="min-h-[44px] px-4 rounded-xl border border-[#333] text-[14px] text-white/70">Back</button>
-        <button type="button" onClick={save} disabled={!f.label.trim() || state === "saving"} className="flex-1 min-h-[44px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}>
-          <Icon pos={f.icon} color="#0d0d0d" size={22} />{state === "saving" ? "Saving…" : f.id ? "Save changes" : "Save"}
+        <div className="flex flex-col gap-1.5">
+          {head(2, "ICON")}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(50px,1fr))] gap-1.5 max-h-[232px] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="radiogroup" aria-label="Icon">
+            {ICON_CHOICES.map((ic) => {
+              const on = f.icon === ic.id;
+              return (
+                <button key={ic.id} type="button" role="radio" aria-checked={on} aria-label={ic.label} title={ic.label} onClick={() => setF({ ...f, icon: ic.id })}
+                  className="aspect-square rounded-lg border flex items-center justify-center" style={{ borderColor: on ? shown : "#262626", background: on ? shown + "1A" : "#0b0b0b" }}>
+                  {/* Only the chosen icon takes the color (job 275). */}
+                  <Icon pos={ic.id} color={on ? shown : "#FFFFFF"} size={28} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {head(3, "COLOR")}
+          <div className="flex items-center gap-2" role="group" aria-label="Color">
+            {swatches.map((c) => {
+              const on = f.color && f.color.toUpperCase() === c;
+              return (
+                <button key={c} type="button" onClick={() => setF({ ...f, color: c })} aria-label={`Use ${c}`} aria-pressed={!!on} className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: c, boxShadow: on ? "0 0 0 2px #141414, 0 0 0 4px #fff" : "none" }}>
+                  {on && <Check className="w-4 h-4 text-black" strokeWidth={3} />}
+                </button>
+              );
+            })}
+            <label className="relative flex-1 min-w-[96px] h-10 px-3 rounded-lg border border-[#3a3a3a] flex items-center justify-center gap-2 cursor-pointer text-[12px] font-bold tracking-[0.08em] text-white/80 hover:border-white/40" style={{ fontFamily: SCENE_MONO }} title="Pick any color">
+              <span className="w-5 h-5 rounded-md" style={{ background: shown }} /><Pipette className="w-4 h-4" /> CUSTOM
+              <input type="color" value={shown.length === 7 ? shown.toLowerCase() : "#ffffff"} onChange={(e) => setF({ ...f, color: e.target.value })} className="absolute inset-0 opacity-0 cursor-pointer" aria-label="Custom color" />
+            </label>
+          </div>
+        </div>
+        <button type="button" onClick={save} disabled={!ready || state === "saving"} className="min-h-[48px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}>
+          {f.icon && <Icon pos={f.icon} color="#0d0d0d" size={22} />}{state === "saving" ? "Saving…" : f.id ? "Save changes" : "Save"}
         </button>
+        {state === "error" && <p className="text-[12px] text-[#f87171]">Couldn't save. Try again.</p>}
       </div>
-      {state === "error" && <p className="text-[12px] text-[#f87171]">Couldn't save. Try again.</p>}
-    </div>
+    </div>,
+    document.body
   );
 }
 
-// "What do they play?": the grid, with the gear for your own instruments.
-function PickPanel({ colors, onPick, onCustom, onPickCustom, onClose }) {
+// "What do they play?": the grid (with your own instruments), and the gear
+// that opens the window to make more (job 275: it replaces + Add).
+function PickPanel({ colors, onPick, onPickCustom, onClose }) {
   const [customs, saveCustoms] = useCustomPositions();
   const [manage, setManage] = useState(false);
   return (
     <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
       <div className="flex items-center gap-1">
-        <span className="flex-1 text-[14px] font-semibold text-white">{manage ? "Your own instruments" : "What do they play?"}</span>
-        <button type="button" onClick={() => setManage((m) => !m)} aria-pressed={manage} aria-label="Your own instruments" title="Make your own instruments" className="w-9 h-9 flex items-center justify-center" style={{ color: manage ? G : "rgba(255,255,255,0.45)" }}><Settings className="w-[18px] h-[18px]" /></button>
+        <span className="flex-1 text-[14px] font-semibold text-white">What do they play?</span>
+        <button type="button" onClick={() => setManage(true)} aria-label="Your own instruments" title="Make your own instruments" className="w-9 h-9 flex items-center justify-center text-white/55 hover:text-[#8CFF3D]"><Settings className="w-[18px] h-[18px]" /></button>
         <button type="button" onClick={onClose} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
       </div>
-      {manage
-        ? <CustomPositionEditor customs={customs} onSave={saveCustoms} onDone={() => setManage(false)} />
-        : <PositionGrid colors={colors} onPick={onPick} onCustom={onCustom} customs={customs} onPickCustom={onPickCustom} />}
+      <PositionGrid colors={colors} onPick={onPick} customs={customs} onPickCustom={onPickCustom} />
+      {manage && <CustomPositionEditor customs={customs} onSave={saveCustoms} onClose={() => setManage(false)} />}
     </div>
   );
 }
@@ -297,7 +327,6 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
       </div>
       {repick && <PositionGrid colors={colors} value={pos} valueCustom={draft.position_color ? draft.position_label : null} customs={customs}
         onPick={(k) => { setDraft({ ...draft, position: k, position_label: undefined, position_color: undefined, position_icon: undefined }); setRepick(false); }}
-        onCustom={(t) => { setDraft({ ...draft, position: "other", position_label: t, position_color: undefined, position_icon: undefined }); setRepick(false); }}
         onPickCustom={(p) => { setDraft(withCustomPosition(draft, p)); setRepick(false); }} />}
       <input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} autoFocus={isNew} />
       <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
@@ -477,7 +506,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         // Scrolls without a scroll bar (job 273).
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ overscrollBehavior: "contain" }}>
           {step === "pick" ? (
-            <PickPanel colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} onPickCustom={pickCustom} onClose={close} />
+            <PickPanel colors={colors} onPick={pickPos} onPickCustom={pickCustom} onClose={close} />
           ) : step === "form" && editing === null && draft ? (
             <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew onSave={save} onCancel={close} onRemove={remove} busColors={busColors} onBusSettings={onBusSettings} />
           ) : step === "place" && sel !== null && members[sel] ? (
@@ -534,7 +563,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
         </button>
       ) : step === "pick" ? (
-        <PickPanel colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} onPickCustom={pickCustom} onClose={close} />
+        <PickPanel colors={colors} onPick={pickPos} onPickCustom={pickCustom} onClose={close} />
       ) : step === "form" && draft ? (
         <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={editing === null} onSave={save} onCancel={close} onRemove={remove}
           extra={editing !== null && renderMemberExtra ? renderMemberExtra(members[editing], editing) : null}
