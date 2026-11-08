@@ -117,7 +117,14 @@ export default function PerformerFields({
       </div>
       {/* Genre / Tag is a dropdown (job 270): closed, it shows what's picked. */}
       <div className="rounded-xl border border-[#222] bg-[#111]">
-        <button type="button" onClick={() => setGenreOpen((o) => !o)} aria-expanded={genreOpen} className="w-full min-h-[44px] px-3 py-2 flex items-center gap-2 text-left">
+        <div className="flex items-center">
+        {/* The gear adds a genre to their list (job 271). */}
+        {onAddGenre && (
+          <button type="button" onClick={onAddGenre} className="w-10 min-h-[44px] pl-2 shrink-0 flex items-center justify-center text-white/40 hover:text-[#8CFF3D]" aria-label="Add a genre">
+            <Settings className="w-4 h-4" />
+          </button>
+        )}
+        <button type="button" onClick={() => setGenreOpen((o) => !o)} aria-expanded={genreOpen} className={`flex-1 min-w-0 min-h-[44px] ${onAddGenre ? "pl-1.5" : "pl-3"} pr-3 py-2 flex items-center gap-2 text-left`}>
           <span className="text-white/50 text-xs shrink-0">Genre / Tag</span>
           <span className="flex-1 min-w-0 flex flex-wrap gap-1.5">
             {selectedGenres.map((name) => {
@@ -127,15 +134,9 @@ export default function PerformerFields({
           </span>
           <ChevronDown className={`w-4 h-4 shrink-0 text-white/40 transition-transform ${genreOpen ? "rotate-180" : ""}`} />
         </button>
+        </div>
         {genreOpen && (
         <div className="px-3 pb-3">
-        {onAddGenre && (
-          <div className="flex justify-end mb-1">
-            <button type="button" onClick={onAddGenre} className="text-white/40 hover:text-[#8CFF3D] text-xs flex items-center gap-1 p-1" aria-label="Add a genre">
-              <Plus className="w-3.5 h-3.5" />Add a genre
-            </button>
-          </div>
-        )}
         <div className="flex flex-wrap gap-2">
           {genreTags.map((tag) => {
             const isSelected = selectedGenres.includes(tag.name);
