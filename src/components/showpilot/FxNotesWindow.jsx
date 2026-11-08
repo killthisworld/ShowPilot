@@ -25,6 +25,9 @@ export const actNotesText = (b) => {
 };
 export const actHasNotes = (b) => !!(b?.general_notes || (b?.artist_fx_notes || []).some((n) => n.notes));
 
+// The General chip is plain white in every notes window (job 281).
+const whiteChip = (on) => `px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-all flex items-center gap-1.5 ${on ? "border-white bg-white text-[#0d0d0d]" : "border-white/60 text-white hover:border-white"}`;
+
 // One act's notes (jobs 278 / 279), from any of its notes buttons: General is
 // that act's general notes, then a chip per member (in their instrument's
 // color) for their own notes.
@@ -71,7 +74,7 @@ function ActNotes({ act, onPatch, onSave, saving, saved, onClose }) {
           />
           {!editable && <p className="text-white/40 text-xs -mt-1">Only the owner or the Manager / Artist can change an act's notes.</p>}
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <button type="button" onClick={() => setWho(null)} className={chip(!cur)}>
+            <button type="button" onClick={() => setWho(null)} aria-pressed={!cur} className={whiteChip(!cur)}>
               General {act?.general_notes ? <span aria-label="has notes">●</span> : null}
             </button>
             {members.map((m, i) => (
@@ -133,7 +136,7 @@ export default function FxNotesWindow({ acts = [], target, onTarget, showNotes =
           )}
 
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <button type="button" onClick={() => onTarget("__show__")} className={chip(isShow)}>
+            <button type="button" onClick={() => onTarget("__show__")} aria-pressed={isShow} className={whiteChip(isShow)}>
               General {showNotes ? <span aria-label="has notes">●</span> : null}
             </button>
             {acts.map((b, i) => (
