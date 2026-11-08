@@ -4,7 +4,7 @@ import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowLeft, Copy, Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
+import { MultitrackChip, ServiceChips } from "@/components/showpilot/MultitrackQuestion";
 import { TracksChip } from "@/components/showpilot/IntakeTracks";
 
 export default function ManagerLinksPage() {
@@ -313,7 +313,7 @@ export default function ManagerLinksPage() {
                       ? new Date(r.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                       : `Sent ${new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
                   </p>
-                  {r.include_services && r.status === "submitted" && <div className="mt-1.5"><MultitrackChip value={r.multitrack_interest} /></div>}
+                  {r.include_services && r.status === "submitted" && <div className="mt-1.5 flex flex-wrap gap-1"><MultitrackChip value={r.multitrack_interest} /><ServiceChips answers={r.service_answers} /></div>}
                   {r.ask_tracks && r.status === "submitted" && <TracksChip value={r.has_tracks} />}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -333,7 +333,7 @@ export default function ManagerLinksPage() {
                       <div className="flex-1 flex items-center justify-between min-w-0">
                         <div className="min-w-0">
                           <span className="block text-white/70 text-xs truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
-                          {o.include_services && o.status === "submitted" && <div className="mt-1"><MultitrackChip value={o.multitrack_interest} small /></div>}
+                          {o.include_services && o.status === "submitted" && <div className="mt-1 flex flex-wrap gap-1"><MultitrackChip value={o.multitrack_interest} small /><ServiceChips answers={o.service_answers} small /></div>}
                           {o.ask_tracks && o.status === "submitted" && <TracksChip value={o.has_tracks} small />}
                         </div>
                         <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ml-2 ${o.status === "submitted" ? "bg-[#8CFF3D]/15 text-[#8CFF3D]" : "bg-white/10 text-white/40"}`}>

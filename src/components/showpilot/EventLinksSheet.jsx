@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Check, Copy, ExternalLink, Plus, Trash2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
+import { MultitrackChip, ServiceChips } from "@/components/showpilot/MultitrackQuestion";
 import { TracksChip } from "@/components/showpilot/IntakeTracks";
 
 // This event's intake links (job 74, Oct 26): the Links feature on the Audio /
@@ -161,7 +161,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                     MADE {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}
                     {r.submitter_name && r.band_name ? ` · FROM ${r.submitter_name.toUpperCase()}` : ""}
                   </div>
-                  {r.include_services && r.status === "submitted" && <div className="mt-1.5"><MultitrackChip value={r.multitrack_interest} /></div>}
+                  {r.include_services && r.status === "submitted" && <div className="mt-1.5 flex flex-wrap gap-1"><MultitrackChip value={r.multitrack_interest} /><ServiceChips answers={r.service_answers} /></div>}
                   {r.ask_tracks && r.status === "submitted" && <TracksChip value={r.has_tracks} />}
                 </div>
                 <Status submitted={r.status === "submitted"} />
@@ -173,7 +173,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                 <div key={o.id} className="flex items-center gap-2 bg-[#111] rounded-lg pl-3 pr-1.5 py-2">
                   <div className="min-w-0 flex-1">
                     <span className="block text-[13px] text-white/75 truncate">Opener {o.order_index}{o.band_name ? ` — ${o.band_name}` : ""}</span>
-                    {o.include_services && o.status === "submitted" && <div className="mt-1"><MultitrackChip value={o.multitrack_interest} small /></div>}
+                    {o.include_services && o.status === "submitted" && <div className="mt-1 flex flex-wrap gap-1"><MultitrackChip value={o.multitrack_interest} small /><ServiceChips answers={o.service_answers} small /></div>}
                     {o.ask_tracks && o.status === "submitted" && <TracksChip value={o.has_tracks} small />}
                   </div>
                   <Status submitted={o.status === "submitted"} small />

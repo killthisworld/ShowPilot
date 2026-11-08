@@ -301,7 +301,7 @@ export default function OpenerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      {...intakeCorners({ services: !!context.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !!context.include_services, extraServices: context.extra_services || [], asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={showTitle === parent?.venue ? "" : parent?.venue} color="#8CFF3D" />

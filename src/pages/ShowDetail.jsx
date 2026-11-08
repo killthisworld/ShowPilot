@@ -33,7 +33,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEventType } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
-import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
+import { MultitrackChip, ServiceChips } from "@/components/showpilot/MultitrackQuestion";
 
 
 
@@ -187,10 +187,16 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [actServices, setActServices] = useState({});
   useEffect(() => {
     if (!id || id === "new") return;
-    supabase.from("show_act_services").select("band_name, multitrack_interest, created_at").eq("show_id", id).order("created_at", { ascending: true })
-      .then(({ data }) => setActServices(Object.fromEntries((data || []).map((r) => [String(r.band_name || "").trim().toLowerCase(), r.multitrack_interest]))));
+    supabase.from("show_act_services").select("band_name, multitrack_interest, services, created_at").eq("show_id", id).order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        // Before the job 265 migration there's no services column: ask again without it.
+        if (error) return supabase.from("show_act_services").select("band_name, multitrack_interest, created_at").eq("show_id", id).order("created_at", { ascending: true })
+          .then(({ data: d2 }) => setActServices(Object.fromEntries((d2 || []).map((r) => [String(r.band_name || "").trim().toLowerCase(), r]))));
+        setActServices(Object.fromEntries((data || []).map((r) => [String(r.band_name || "").trim().toLowerCase(), r])));
+      });
   }, [id]);
-  const multitrackFor = (name) => actServices[String(name || "").trim().toLowerCase()];
+  const servicesFor = (name) => actServices[String(name || "").trim().toLowerCase()];
+  const multitrackFor = (name) => { const r = servicesFor(name); return r && typeof r.multitrack_interest === "boolean" ? r.multitrack_interest : undefined; };
   const [tracksAct, setTracksAct] = useState(null);
   const [plotAt, setPlotAt] = useState(null); // stage plot open on this act (job 251)
   const [showGenreSettings, setShowGenreSettings] = useState(false);
@@ -1225,8 +1231,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             band={activeBand}
             withPhoto={sectionPhotos}
             setLengthAction={
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
+                <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />

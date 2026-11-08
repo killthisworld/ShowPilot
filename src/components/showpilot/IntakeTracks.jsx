@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { DJ_COLOR } from "@/lib/djTools";
-import MultitrackQuestion from "@/components/showpilot/MultitrackQuestion";
+import MultitrackQuestion, { ServiceQuestions } from "@/components/showpilot/MultitrackQuestion";
 import DjSetUpload from "@/pages/DjSetUpload";
 
 // Tracks on the intake form (job 74, Nov 5; supabase/intake_tracks_migration.sql).
@@ -47,12 +47,18 @@ export function TracksQuestion({ value, onChange }) {
 
 // The intake web's optional boxes (job 224): Additional services in the top
 // right, Tracks in the bottom left, each only when the link asks for it.
-export function intakeCorners({ services, asksTracks, form, update, icons }) {
+// extraServices: the engineer's own services (job 265), asked after multi-track.
+export function intakeCorners({ services, extraServices = [], asksTracks, form, update, icons }) {
   const mtDone = form.multitrack_interest === true || form.multitrack_interest === false;
   const trDone = form.has_tracks === true || form.has_tracks === false;
   return {
     corner: services ? { label: "Additional services", icon: icons.services, done: mtDone,
-      body: () => <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} /> } : null,
+      body: () => (
+        <>
+          <MultitrackQuestion value={form.multitrack_interest ?? null} onChange={(v) => update("multitrack_interest", v)} />
+          <ServiceQuestions services={extraServices} answers={form.service_answers || []} onChange={(v) => update("service_answers", v)} />
+        </>
+      ) } : null,
     cornerBL: asksTracks ? { label: "Tracks", icon: icons.tracks, done: trDone,
       body: () => <TracksQuestion value={form.has_tracks ?? null} onChange={(v) => update("has_tracks", v)} /> } : null,
   };

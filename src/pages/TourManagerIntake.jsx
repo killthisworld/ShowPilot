@@ -366,6 +366,12 @@ export default function TourManagerIntake({ link } = {}) {
                 </span>
               </p>
             )}
+            {(tmRequest.service_answers || []).map((a, i) => (
+              <p key={i} className="text-sm text-white/70">
+                {a.label}:{" "}
+                <span className={a.answer ? "text-[#8CFF3D] font-semibold" : "text-white/45"}>{a.answer ? "Yes, interested" : "No"}</span>
+              </p>
+            ))}
             {tmRequest.band_members?.length > 0 && (
               <div className="mt-2 space-y-1">
                 {tmRequest.band_members.filter(m => m.name).map((m, i) => (
@@ -486,7 +492,7 @@ export default function TourManagerIntake({ link } = {}) {
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      {...intakeCorners({ services: !!tmRequest?.include_services, asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !!tmRequest?.include_services, extraServices: tmRequest?.extra_services || [], asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={showTitle === tmRequest?.venue ? "" : tmRequest?.venue} color="#8CFF3D" />
