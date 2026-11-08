@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import jsPDF from "jspdf";
-import { FileDown, Loader2, X } from "lucide-react";
+import { ChevronsDown, FileDown, Loader2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg, stageIconPng } from "@/lib/stageIcons";
@@ -47,15 +47,22 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
   doc.roundedRect(sx, sy, sw, sh, 8, 8);
   doc.setFontSize(9);
   doc.setTextColor(140);
-  doc.text("UPSTAGE", sx + sw / 2, sy + 16, { align: "center" });
-  doc.text("DOWNSTAGE", sx + sw / 2, sy + sh - 10, { align: "center" });
+  doc.text("BACK OF STAGE", sx + sw / 2, sy + 16, { align: "center" });
+  // The front (job 249): a thick bright edge, "STAGE FRONT", arrows down to the audience.
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(4);
+  doc.line(sx + 2, sy + sh, sx + sw - 2, sy + sh);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
-  doc.text("AUDIENCE", sx + sw / 2, sy + sh + 24, { align: "center" });
-  doc.setDrawColor(200);
-  doc.setLineWidth(0.8);
-  doc.line(sx + 40, sy + sh + 32, sx + sw - 40, sy + sh + 32);
+  doc.text("STAGE FRONT", sx + sw / 2, sy + sh - 9, { align: "center" });
+  doc.setFillColor(255, 255, 255);
+  [0.15, 0.32, 0.68, 0.85].forEach((f) => {
+    const ax = sx + sw * f, ay = sy + sh + 8;
+    doc.triangle(ax - 6, ay, ax + 6, ay, ax, ay + 9, "F");
+  });
+  doc.setFontSize(12);
+  doc.text("AUDIENCE", sx + sw / 2, sy + sh + 30, { align: "center" });
 
   const list = members.map((m, i) => {
     const pos = positionOfMember(m, getInstruments);
@@ -187,12 +194,13 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         onClick={(e) => { if (e.target === stage.current) setPicked(null); }}
-        className="relative w-full rounded-[14px] border border-[#3a3a3a] bg-black select-none"
+        className="relative w-full rounded-[14px] border border-[#3a3a3a] border-b-4 border-b-white bg-black select-none"
         style={{ aspectRatio: "4 / 3", touchAction: "none" }}
         aria-label="Stage. Drag each member to where they stand."
       >
-        <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>UPSTAGE</span>
-        <span className="absolute bottom-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>DOWNSTAGE</span>
+        <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>BACK OF STAGE</span>
+        {/* The front: a thick bright edge with its name on it (job 249). */}
+        <span className="absolute bottom-1.5 left-0 right-0 text-center text-[10.5px] font-bold tracking-[0.18em] text-white pointer-events-none" style={{ fontFamily: SCENE_MONO }}>STAGE FRONT</span>
         {named.filter(({ m }) => placed(m)).map(({ m, i }) => {
           const inst = (getInstruments(m) || []).map((x) => x.name).filter(Boolean).join(", ");
           const pos = positionOfMember(m, getInstruments);
@@ -213,7 +221,11 @@ export default function StagePlotBuilder({ members = [], getInstruments, onPlace
           );
         })}
       </div>
-      <div className="text-center text-[11px] tracking-[0.16em] text-white/45 -mt-1" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</div>
+      <div className="-mt-1 flex items-center justify-center gap-3 text-white" aria-label="The audience is this way">
+        <ChevronsDown className="w-4 h-4" />
+        <span className="text-[12px] font-bold tracking-[0.18em]" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</span>
+        <ChevronsDown className="w-4 h-4" />
+      </div>
 
       {picked !== null && placed(members[picked] || {}) && (
         <button type="button" onClick={() => takeOff(picked)} className="self-center min-h-[36px] px-3 rounded-full border border-[#3a3a3a] text-[12.5px] text-white/60 flex items-center gap-1.5"><X className="w-3.5 h-3.5" />Take {members[picked]?.name || "them"} off stage</button>
