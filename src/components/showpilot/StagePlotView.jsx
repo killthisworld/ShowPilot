@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronsDown, LayoutGrid, X } from "lucide-react";
+import { ArrowLeftRight, ChevronsDown, LayoutGrid, Loader2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
+import { StageFloor } from "@/components/showpilot/StageEditor";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -110,7 +111,11 @@ function PersonCard({ m, i, colors, onClose }) {
 }
 
 // Full screen: the act's stage, act chips, and the tapped person's card.
-export function StagePlotView({ acts = [], start = 0, onClose }) {
+// Move / swap (job 252): with the event's `token` and `onActs` (the page's
+// setter), tap one person then another to swap them, or an empty spot to move
+// them; saved straight away with set_stage_positions (owner, Manager / Artist,
+// or the Audio / Lighting crew; only the positions change).
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null }) {
   const colors = useMyStageColors();
   const withPlot = acts.map((a, i) => ({ a, i })).filter(({ a }) => hasStagePlot(a));
   const [cur, setCur] = useState(withPlot.some(({ i }) => i === start) ? start : withPlot[0]?.i ?? 0);
@@ -122,6 +127,44 @@ export function StagePlotView({ acts = [], start = 0, onClose }) {
   }, [onClose]);
   const act = acts[cur];
   const members = act?.band_members || [];
+  const canMove = !!(token && onActs && act && (act.id || typeof act.sort_order === "number"));
+  const [swap, setSwap] = useState(false);
+  const [sel, setSel] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [moveErr, setMoveErr] = useState("");
+
+  // Save the new spots: the page updates straight away, the server after.
+  const savePositions = async (list) => {
+    const before = acts;
+    onActs(acts.map((a, k) => (k === cur ? { ...a, band_members: list } : a)));
+    setSaving(true);
+    setMoveErr("");
+    const positions = list.map((m, i) => ({ i, x: placed(m) ? m.stage_x : null, y: placed(m) ? m.stage_y : null }));
+    const { error } = await supabase.rpc("set_stage_positions", { p_token: token, p_band: act.id ? { id: act.id } : { sort_order: act.sort_order, band_name: act.band_name || "" }, p_positions: positions });
+    setSaving(false);
+    if (error) {
+      console.error(error);
+      onActs(before);
+      setMoveErr(/Only the owner/.test(error.message || "") ? "You can't move people on this act's stage." : "Couldn't save that move. Try again.");
+    }
+  };
+  const tapInSwap = (i) => {
+    if (sel === null) { setSel(i); return; }
+    if (sel === i) { setSel(null); return; }
+    const list = [...members];
+    const a = list[sel], b = list[i];
+    if (placed(a)) list[i] = { ...b, stage_x: a.stage_x, stage_y: a.stage_y }; else { const { stage_x, stage_y, ...rest } = b; list[i] = rest; }
+    if (placed(b)) list[sel] = { ...a, stage_x: b.stage_x, stage_y: b.stage_y }; else { const { stage_x, stage_y, ...rest } = a; list[sel] = rest; }
+    setSel(null);
+    savePositions(list);
+  };
+  const moveTo = (x, y) => {
+    if (sel === null) return;
+    const list = [...members];
+    list[sel] = { ...list[sel], stage_x: x, stage_y: y };
+    setSel(null);
+    savePositions(list);
+  };
   const notPlaced = members.map((m, i) => ({ m, i })).filter(({ m }) => !placed(m) && (m.name || instrumentsOf(m).some((x) => x.name)));
 
   return createPortal(
@@ -147,19 +190,40 @@ export function StagePlotView({ acts = [], start = 0, onClose }) {
       )}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
         <div className="max-w-[760px] mx-auto flex flex-col gap-2">
-          <Stage members={members} colors={colors} picked={picked} onPick={setPicked} />
+          <StageFloor
+            members={members}
+            getInstruments={instrumentsOf}
+            colors={colors}
+            picked={swap ? sel : picked}
+            onTapMember={(i) => (swap ? tapInSwap(i) : setPicked(picked === i ? null : i))}
+            onTapEmpty={swap ? moveTo : null}
+          />
           <div className="flex items-center justify-center gap-3 text-white"><ChevronsDown className="w-4 h-4" /><span className="text-[12px] font-bold tracking-[0.18em]" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</span><ChevronsDown className="w-4 h-4" /></div>
-          {picked !== null && members[picked] ? (
+          {swap ? (
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-[13px] leading-snug" style={{ color: G }}>{sel === null ? "Tap someone to move or swap." : `Now tap someone to swap with ${members[sel]?.name || "them"}, or an empty spot to move them.`}</p>
+              {saving && <Loader2 className="w-4 h-4 animate-spin text-white/50" />}
+              <button type="button" onClick={() => { setSwap(false); setSel(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
+            </div>
+          ) : picked !== null && members[picked] ? (
             <PersonCard m={members[picked]} i={picked} colors={colors} onClose={() => setPicked(null)} />
           ) : (
-            <p className="text-center text-white/40 text-[13px] mt-1">Tap anyone for their inputs, vocals and monitor.</p>
+            <div className="flex flex-col items-center gap-2 mt-1">
+              <p className="text-center text-white/40 text-[13px]">Tap anyone for their inputs, vocals and monitor.</p>
+              {canMove && (
+                <button type="button" onClick={() => { setSwap(true); setSel(null); setPicked(null); }} className="min-h-[42px] px-4 rounded-xl border font-semibold text-[14px] flex items-center gap-1.5" style={{ borderColor: G + "66", color: G }}>
+                  <ArrowLeftRight className="w-4 h-4" />Move / swap
+                </button>
+              )}
+            </div>
           )}
+          {moveErr && <p className="text-center text-[12.5px] text-[#f87171]">{moveErr}</p>}
           {notPlaced.length > 0 && (
             <div className="mt-2">
-              <div className="text-[10px] tracking-[0.14em] text-white/40 mb-1.5" style={{ fontFamily: SCENE_MONO }}>NOT ON THE PLOT</div>
+              <div className="text-[10px] tracking-[0.14em] text-white/40 mb-1.5" style={{ fontFamily: SCENE_MONO }}>NOT ON THE PLOT{swap ? " · TAP ONE, THEN A SPOT" : ""}</div>
               <div className="flex flex-wrap gap-1.5">
                 {notPlaced.map(({ m, i }) => (
-                  <button key={i} type="button" onClick={() => setPicked(i)} className="min-h-[36px] px-3 rounded-full border border-[#333] text-[13px] text-white/75">{m.name || `Member ${i + 1}`}</button>
+                  <button key={i} type="button" onClick={() => (swap ? setSel(i) : setPicked(i))} aria-pressed={swap && sel === i} className="min-h-[36px] px-3 rounded-full border text-[13px]" style={swap && sel === i ? { borderColor: G, color: G } : { borderColor: "#333", color: "rgba(255,255,255,0.75)" }}>{m.name || `Member ${i + 1}`}</button>
                 ))}
               </div>
             </div>
@@ -172,7 +236,7 @@ export function StagePlotView({ acts = [], start = 0, onClose }) {
 }
 
 // The event page card (tech phone): a preview of the first act's plot; tap to open.
-export function StagePlotCard({ acts = [] }) {
+export function StagePlotCard({ acts = [], token = null, onActs = null }) {
   const colors = useMyStageColors();
   const [open, setOpen] = useState(false);
   const first = acts.findIndex(hasStagePlot);
@@ -188,7 +252,7 @@ export function StagePlotCard({ acts = [] }) {
           <div className="text-[12.5px] mt-1" style={{ color: G }}>Tap to open</div>
         </div>
       </button>
-      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} />}
+      {open && <StagePlotView acts={acts} start={first} onClose={() => setOpen(false)} token={token} onActs={onActs} />}
     </>
   );
 }

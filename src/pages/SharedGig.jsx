@@ -1302,7 +1302,7 @@ export default function SharedGig() {
           />
         )}
         {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {techPhone && <StagePlotCard acts={gig?.bands || []} />}
+        {techPhone && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} />}
 
         {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
@@ -1640,7 +1640,7 @@ export default function SharedGig() {
       </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} />}
+      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}

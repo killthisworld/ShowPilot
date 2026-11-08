@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Plus, Trash2, X, Paperclip, User, Music, LayoutGrid } from "lucide-react";
-import StagePlotBuilder from "@/components/showpilot/StagePlotBuilder";
-import VocalsQuestion, { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
+import React from "react";
+import { X, Paperclip, User, Music } from "lucide-react";
+import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
+import StageEditor from "@/components/showpilot/StageEditor";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
 // Info) as circles on the act's web (job 195). `h` is the form's state and
@@ -71,59 +71,23 @@ function ArtistBody({ h }) {
   );
 }
 
+// Members and inputs = "Build your stage" (job 252): add each member on the
+// stage with their position, inputs, vocals and monitor; move / swap them.
 function MembersBody({ h }) {
-  const { form, getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals } = h;
-  const inputs = form.band_members.reduce((n, m) => n + getInstruments(m).length, 0);
+  const { form, update, getInstruments, removeMember, stageColors } = h;
   return (
-    <div className="flex flex-col gap-3">
-      {form.band_members.map((m, i) => (
-        <div key={i} className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <input value={m.name || ""} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} />
-            <button type="button" onClick={() => removeMember(i)} aria-label="Remove member" className="min-h-[44px] w-[40px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-          </div>
-          {/* Vocals on the left, what they hear on the right, same size (job 201). */}
-          <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
-            <VocalsQuestion compact value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
-            <div className="flex items-center gap-1.5" role="group" aria-label="Hears">
-              <span className="text-white/60 text-[13px] mr-0.5">Hears</span>
-              {["IEM", "Monitor"].map((type) => {
-                const on = m.bus_type === type;
-                return <button key={type} type="button" onClick={() => updateMember(i, "bus_type", on ? "" : type)} aria-pressed={on} className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#333] text-white/40 hover:text-white/60"}`}>{type}</button>;
-              })}
-            </div>
-          </div>
-          {getInstruments(m).map((inst, ii) => (isVocalInput(inst) ? null : (
-            <div key={ii} className="flex items-center gap-1.5">
-              <input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="e.g. Guitar" aria-label="Instrument" className={`${inputCls} !min-h-[40px]`} />
-              {["Mic", "DI"].map((type) => {
-                const on = (inst.mic_di || "Mic") === type;
-                return <button key={type} type="button" onClick={() => updateInstrument(i, ii, "mic_di", type)} aria-pressed={on} className="min-h-[40px] px-2.5 rounded-lg text-[12.5px] font-semibold border shrink-0" style={on ? { color: "#93C5FD", borderColor: "rgba(96,165,250,0.5)", background: "rgba(96,165,250,0.12)" } : { color: "rgba(255,255,255,0.45)", borderColor: "#333" }}>{type}</button>;
-              })}
-              <button type="button" onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)} aria-pressed={!!inst.phantom_power} className="min-h-[40px] px-2.5 rounded-lg text-[12px] font-bold border shrink-0" style={inst.phantom_power ? { color: "#FBBF24", borderColor: "rgba(251,191,36,0.5)", background: "rgba(251,191,36,0.12)" } : { color: "rgba(255,255,255,0.45)", borderColor: "#333" }}>+48V</button>
-              <button type="button" onClick={() => removeInstrument(i, ii)} aria-label="Remove instrument" className="min-h-[40px] w-[32px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><X className="w-4 h-4" /></button>
-            </div>
-          )))}
-          <div className="flex items-center gap-2 flex-wrap">
-            <button type="button" onClick={() => addInstrument(i)} className="min-h-[38px] px-3 rounded-full border border-dashed border-[#444] text-[13px] font-semibold flex items-center gap-1" style={{ color: GREEN }}><Plus className="w-3.5 h-3.5" />Instrument</button>
-          </div>
-        </div>
-      ))}
-      <button type="button" onClick={addMember} className="self-center min-h-[44px] px-4 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: GREEN }}><Plus className="w-4 h-4" />Add a member</button>
-      {inputs > 0 && <span className="text-center text-[12.5px] text-white/55">{inputs} input{inputs === 1 ? "" : "s"} so far</span>}
-    </div>
+    <StageEditor
+      members={form.band_members || []}
+      setMembers={(list) => update("band_members", list)}
+      getInstruments={getInstruments}
+      colors={stageColors}
+      onRemoveMember={removeMember}
+    />
   );
 }
 
 function StagePlotBody({ h }) {
-  const { form, handleStagePlotUpload, removeStagePlotFile, update, getInstruments, stageColors } = h;
-  // No stage plot? Make one from the members (job 249).
-  const [building, setBuilding] = useState(false);
-  const placeMember = (i, x, y) => {
-    const members = [...(form.band_members || [])];
-    members[i] = { ...members[i], stage_x: x, stage_y: y };
-    update("band_members", members);
-  };
+  const { form, handleStagePlotUpload, removeStagePlotFile, getInstruments, stageColors } = h;
   return (
     <div className="flex flex-col gap-2">
       <label className="min-h-[110px] flex flex-col items-center justify-center gap-2 border-[1.5px] border-dashed border-[#3a3a3a] rounded-[14px] text-white/65 text-[14.5px] cursor-pointer hover:border-white/40">
@@ -136,24 +100,18 @@ function StagePlotBody({ h }) {
           <button type="button" onClick={() => removeStagePlotFile(i)} aria-label="Remove file" className="min-h-[36px] w-[36px] flex items-center justify-center text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
         </div>
       ))}
-      {!building ? (
-        <button type="button" onClick={() => setBuilding(true)} className="mt-1 min-h-[44px] rounded-[12px] border border-[#2c2c2c] text-[14px] font-semibold flex items-center justify-center gap-2" style={{ color: GREEN }}>
-          <LayoutGrid className="w-4 h-4" />No stage plot? Make one here
-        </button>
-      ) : (
-        <div className="mt-2 pt-3 border-t border-[#222]">
-          <StagePlotBuilder
-            members={form.band_members || []}
-            getInstruments={getInstruments}
-            onPlace={placeMember}
-            actName={form.band_name}
-            files={form.stage_plot_files || []}
-            onRemoveFile={removeStagePlotFile}
-            onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
-            colors={stageColors}
-          />
-        </div>
-      )}
+      {/* No stage plot? Made from the stage they built in Members (job 252). */}
+      <div className="mt-2 pt-3 border-t border-[#222]">
+        <StagePlotPdfActions
+          members={form.band_members || []}
+          getInstruments={getInstruments}
+          actName={form.band_name}
+          files={form.stage_plot_files || []}
+          onRemoveFile={removeStagePlotFile}
+          onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
+          colors={stageColors}
+        />
+      </div>
     </div>
   );
 }
@@ -207,7 +165,7 @@ export function intakeCircles(h, { seen = {}, card = null } = {}) {
       has(form.role), false, () => <RoleBody h={h} />),
     c("artist", "Artist and set", "Artist & set", "Name, set length, genre", true,
       has(form.band_name), has(form.band_name), () => <ArtistBody h={h} />),
-    c("members", "Members and inputs", "Members & inputs", "Who plays what, and what the engineer plugs in", true,
+    c("members", "Members and inputs", "Members & inputs", "Build your stage: who stands where and what they play", true,
       members.some((m) => has(m.name) || getInstruments(m).some((x) => has(x.name))),
       members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <MembersBody h={h} />),
     c("plot", "Stage plot", "Stage plot", "Upload one, or make it here", false,

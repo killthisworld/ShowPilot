@@ -23,8 +23,10 @@ export const positionOfInstrument = (name) => {
   return STAGE_POSITIONS.find((p) => p.re && p.re.test(n))?.key || "other";
 };
 
-// A member's position: their first instrument that isn't vocals, else vocals.
+// A member's position: the one picked for them on the stage (member.position,
+// job 252), else their first instrument that isn't vocals, else vocals.
 export const positionOfMember = (member, getInstruments) => {
+  if (member?.position && STAGE_POSITIONS.some((p) => p.key === member.position)) return member.position;
   const keys = (getInstruments(member) || []).map((x) => x.name).filter(Boolean).map(positionOfInstrument);
   return keys.find((k) => k !== "vocals") || keys[0] || "other";
 };
@@ -43,3 +45,16 @@ export const inkOn = (hex) => {
   const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
   return lum > 140 ? "#0d0d0d" : "#ffffff";
 };
+
+// Starting instrument for a new member in a position (Add on the stage, job 252).
+export const starterInstrument = (key) => ({
+  drums: { name: "Drums", mic_di: "Mic" },
+  percussion: { name: "Percussion", mic_di: "Mic" },
+  bass: { name: "Bass", mic_di: "DI" },
+  guitar: { name: "Guitar", mic_di: "Mic" },
+  keys: { name: "Keys", mic_di: "DI" },
+  horns: { name: "Horns", mic_di: "Mic" },
+  strings: { name: "Strings", mic_di: "Mic" },
+  dj: { name: "Tracks", mic_di: "DI" },
+  other: { name: "", mic_di: "Mic" },
+}[key] || null);

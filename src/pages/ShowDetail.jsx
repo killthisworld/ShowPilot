@@ -993,7 +993,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         )}
         {banner && underBanner}
         {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {banner && underBanner && <StagePlotCard acts={bands} />}
+        {banner && underBanner && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} />}
         {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
@@ -1233,7 +1233,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} />}
+      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}
