@@ -130,9 +130,12 @@ function NotesBody({ h }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-1.5 flex-wrap justify-center">
-        {[["__general__", "Whole band"], ...form.band_members.map((m, i) => [i, m.name || `Member ${i + 1}`])].map(([k, text]) => {
+        {/* General is the whole act's notes, plain white like every notes window (job 283). */}
+        {[["__general__", "General"], ...form.band_members.map((m, i) => [i, m.name || `Member ${i + 1}`])].map(([k, text]) => {
           const on = notesTarget === k;
-          return <button key={String(k)} type="button" onClick={() => setNotesTarget(k)} aria-pressed={on} className={chip(on)} style={on ? { background: GREEN, borderColor: GREEN } : undefined}>{text}</button>;
+          const gen = k === "__general__";
+          return <button key={String(k)} type="button" onClick={() => setNotesTarget(k)} aria-pressed={on} className={chip(on)}
+            style={gen ? (on ? { background: "#fff", borderColor: "#fff" } : { borderColor: "rgba(255,255,255,0.6)", color: "#fff" }) : on ? { background: GREEN, borderColor: GREEN } : undefined}>{text}</button>;
         })}
       </div>
       <textarea value={getActiveNotes() || ""} onChange={(e) => setActiveNotes(e.target.value)} rows={6} placeholder="Anything else the engineer should know…" aria-label="Notes" className={`${inputCls} py-2 leading-relaxed`} />
