@@ -129,12 +129,20 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   const [draft, setDraft] = useState(startEditing && onEditMembers ? (acts[start]?.band_members || []) : null);
   const [editSaving, setEditSaving] = useState(false);
   const [editErr, setEditErr] = useState("");
-  const saveDraft = async () => {
+  // No Save button (job 258): each finished change (someone set down, placed,
+  // swapped, saved, removed) saves straight away, one at a time, in order.
+  const [editSaved, setEditSaved] = useState(false);
+  const queue = React.useRef(Promise.resolve());
+  const commit = (list) => {
+    const actIndex = cur;
     setEditSaving(true);
+    setEditSaved(false);
     setEditErr("");
-    const err = await onEditMembers(cur, draft);
-    setEditSaving(false);
-    if (err) setEditErr(err); else setDraft(null);
+    queue.current = queue.current.then(async () => {
+      const err = await onEditMembers(actIndex, list);
+      setEditSaving(false);
+      if (err) setEditErr(err); else setEditSaved(true);
+    });
   };
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -217,14 +225,14 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
                 getInstruments={instrumentsOf}
                 colors={colors}
                 onRemoveMember={(i) => setDraft((d) => d.filter((_, k) => k !== i))}
+                onCommit={commit}
               />
-              <div className="flex items-center gap-2 mt-2 pt-3 border-t border-[#222]">
-                <button type="button" onClick={() => { setDraft(null); setEditErr(""); }} className="min-h-[44px] px-4 rounded-xl border border-[#3a3a3a] text-white/70 font-semibold text-[14px]">Cancel</button>
-                <button type="button" onClick={saveDraft} disabled={editSaving} className="flex-1 min-h-[44px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
-                  {editSaving && <Loader2 className="w-4 h-4 animate-spin" />}Save the stage
-                </button>
+              <div className="flex items-center gap-3 mt-2 pt-3 border-t border-[#222]">
+                <span className="flex-1 flex items-center gap-1.5 text-[13px]" style={{ color: editErr ? "#f87171" : editSaving ? "rgba(255,255,255,0.5)" : G }}>
+                  {editSaving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Saving…</> : editErr ? editErr : editSaved ? "Saved ✓ Changes save as you go" : "Changes save as you go"}
+                </span>
+                <button type="button" onClick={() => { setDraft(null); setEditErr(""); setEditSaved(false); }} className="min-h-[44px] px-5 rounded-xl font-semibold text-[15px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
               </div>
-              {editErr && <p className="text-center text-[12.5px] text-[#f87171]">{editErr}</p>}
             </>
           ) : (<>
           <StageFloor

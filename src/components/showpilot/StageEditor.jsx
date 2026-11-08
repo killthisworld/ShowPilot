@@ -200,7 +200,10 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
   );
 }
 
-export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember }) {
+// `onCommit(list)` (job 258): called when a change is finished - someone set
+// down, placed, swapped, saved or removed - so the event can save it right
+// away with no Save button. Not called while dragging.
+export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null }) {
   const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
   const [draft, setDraft] = useState(null);
   const [editing, setEditing] = useState(null); // member index, null = new
@@ -227,8 +230,9 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     if (editing === null) list.push(m); else list[editing] = m;
     setMembers(list);
     close();
-    // New on the stage: they place them next (tap where they stand, or drag).
-    if (!wasPlaced) { setSel(idx); setStep("place"); }
+    // New on the stage: they place them next (tap where they stand, or drag);
+    // that's when it's committed.
+    if (!wasPlaced) { setSel(idx); setStep("place"); } else onCommit?.(list);
   };
   const placeAt = (x, y) => {
     if (sel === null) return;
@@ -237,11 +241,17 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     setMembers(list);
     setSel(null);
     setStep(null);
+    onCommit?.(list);
   };
   // Picked up (job 256): drag them or tap a spot; tap them again to set them down.
   const lift = (i) => { setSwap(false); setSel(i); setStep("lift"); };
-  const drop = () => { setSel(null); setStep(null); };
-  const remove = () => { onRemoveMember ? onRemoveMember(editing) : setMembers(members.filter((_, k) => k !== editing)); close(); };
+  const drop = () => { setSel(null); setStep(null); onCommit?.(members); };
+  const remove = () => {
+    const list = members.filter((_, k) => k !== editing);
+    onRemoveMember ? onRemoveMember(editing) : setMembers(list);
+    close();
+    onCommit?.(list);
+  };
 
   // Move / swap: tap one, then another (swap) or an empty spot (move).
   const tapInSwap = (i) => {
@@ -253,6 +263,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     list[i] = { ...b, stage_x: a.stage_x, stage_y: a.stage_y };
     setMembers(list);
     setSel(null);
+    onCommit?.(list);
   };
   const moveTo = (x, y) => {
     if (sel === null) return;
@@ -260,6 +271,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     list[sel] = { ...list[sel], stage_x: x, stage_y: y };
     setMembers(list);
     setSel(null);
+    onCommit?.(list);
   };
   const drag = (i, x, y) => { const list = [...members]; list[i] = { ...list[i], stage_x: x, stage_y: y }; setMembers(list); };
 
@@ -289,7 +301,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       ) : step === "place" && sel !== null && members[sel] ? (
         <div className="flex items-center gap-2 rounded-[14px] border p-3" style={{ borderColor: G + "55", background: G + "0D" }}>
           <p className="flex-1 text-[14px] leading-snug" style={{ color: G }}>Tap where {members[sel].name || "they"} stand{members[sel].name ? "s" : ""} on the stage, or drag them there.</p>
-          <button type="button" onClick={() => { setSel(null); setStep(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
+          <button type="button" onClick={drop} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
         </div>
       ) : step === "lift" && sel !== null && members[sel] ? (
         <div className="flex flex-col gap-2 rounded-[14px] border border-dashed p-3" style={{ borderColor: G + "88", background: G + "0D" }}>
