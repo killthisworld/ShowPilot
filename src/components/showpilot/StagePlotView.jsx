@@ -188,8 +188,9 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           <div className="text-[19px] font-bold leading-tight truncate">{actName(act)}</div>
         </div>
         {onOpenNotes && act && <ActNotesButton act={act} onClick={() => onOpenNotes(cur)} />}
-        {/* Keep this act's stage in My Templates (job 254). */}
-        {token && act && list.some(placed) && <SaveStageTemplateButton key={cur} act={{ ...act, band_members: list }} iconOnly className={iconBtn} />}
+        {/* Keep this act's stage in My Templates (job 254), right of notes;
+            always there (job 287), ready once someone is on the stage. */}
+        {act && <SaveStageTemplateButton key={cur} act={{ ...act, band_members: list }} iconOnly className={iconBtn} />}
       </div>
       {tabs.length > 1 && (
         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto shrink-0">
