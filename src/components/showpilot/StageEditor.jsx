@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, ChevronsDown, Mic, Plus, Settings, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, ChevronDown, ChevronsDown, Mic, Plus, Settings, Trash2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -186,7 +186,13 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
   const toggle = (on, color) => (on ? { color, borderColor: color + "80", background: color + "1F" } : { color: "rgba(255,255,255,0.45)", borderColor: "#333" });
   return (
     <div className="rounded-[14px] border bg-[#101010] p-3 flex flex-col gap-3" style={{ borderColor: pc + "55" }}>
-      {!isNew && <MemberLine member={draft} insts={insts} busColors={busColors} />}
+      {!isNew && (
+        // Tap the line to close the details again (job 271).
+        <button type="button" onClick={onCancel} aria-expanded={true} aria-label="Close details" className="w-full flex items-center gap-2 text-left">
+          <span className="flex-1 min-w-0"><MemberLine member={draft} insts={insts} busColors={busColors} /></span>
+          <ChevronDown className="w-5 h-5 shrink-0 text-white/40 rotate-180" />
+        </button>
+      )}
       <div className="flex items-center gap-2.5">
         <Icon pos={pos} color={pc} size={34} />
         <div className="flex-1 min-w-0">
@@ -355,7 +361,12 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         </div>
       ) : step === "lift" && sel !== null && members[sel] ? (
         // Picked up: the dashed outline says it; tap them again to set them down.
-        <button type="button" onClick={() => edit(sel)} className="min-h-[46px] rounded-xl border border-[#3a3a3a] text-white/85 font-semibold text-[15px]">View details</button>
+        // Their line, like the old member rows; tap to open their details (job 271).
+        <button type="button" onClick={() => edit(sel)} aria-label={`${members[sel].name || "Member"}: details`} aria-expanded={false}
+          className="w-full min-h-[48px] rounded-xl border border-[#2a2a2a] bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444]">
+          <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} /></span>
+          <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
+        </button>
       ) : step === "pick" ? (
         <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
