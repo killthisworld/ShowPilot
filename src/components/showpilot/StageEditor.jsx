@@ -7,9 +7,10 @@ import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/co
 
 // "Build your stage" (job 252): the intake's Members and inputs as a stage.
 // + Add -> pick their position -> name, instruments (Mic / DI, +48V), vocals,
-// Monitor / IEM -> Save puts them on the stage. Tap someone to edit them, drag
-// to fine-tune, or Move / swap: tap one, then another to swap them, or an
-// empty spot to move them there. Positions live on each member (stage_x /
+// Monitor / IEM -> Save puts them on the stage, then a tap places them. Tap
+// someone on the stage to pick them up (dashed outline): drag them, or tap a
+// spot, then tap them again to set them down (job 256). Edit details from
+// there. Move / swap: tap one, then another to swap them. Positions live on each member (stage_x /
 // stage_y, 0-1; position = the picked key), with the rest of the member.
 const G = "#8CFF3D";
 const placed = (m) => typeof m?.stage_x === "number" && typeof m?.stage_y === "number";
@@ -28,7 +29,10 @@ function Icon({ pos, color, size = 48, glow = false }) {
 }
 
 // The black stage with everyone on it. Shared with the engineer's view.
-export function StageFloor({ members, getInstruments, colors, picked = null, onTapMember, onTapEmpty, onDrag, labels = true }) {
+// `onDrag(i, x, y)` with `dragOnly` = only that member can be dragged (the one
+// picked up); `onDragEnd(i)` when they let go after a drag.
+export function StageFloor({ members, getInstruments, colors, picked = null, onTapMember, onTapEmpty, onDrag, onDragEnd, dragOnly = null, labels = true }) {
+  const canDrag = (i) => !!onDrag && (dragOnly === null || dragOnly === i);
   const ref = useRef(null);
   const press = useRef(null); // { i, x, y, moved }
   const at = (e) => {
@@ -38,11 +42,11 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
   const down = (i) => (e) => {
     e.stopPropagation();
     press.current = { i, x: e.clientX, y: e.clientY, moved: false };
-    if (onDrag) e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (canDrag(i)) e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const move = (e) => {
     const p = press.current;
-    if (!p || !onDrag) return;
+    if (!p || !canDrag(p.i)) return;
     if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return;
     p.moved = true;
     const [x, y] = at(e);
@@ -52,6 +56,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
     const p = press.current;
     press.current = null;
     if (p && !p.moved) onTapMember?.(p.i);
+    else if (p && p.moved) onDragEnd?.(p.i);
   };
   return (
     <div
@@ -61,7 +66,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
       onPointerCancel={() => { press.current = null; }}
       onClick={(e) => { if (e.target === ref.current && onTapEmpty) onTapEmpty(...at(e)); }}
       className="relative w-full rounded-[14px] border border-[#3a3a3a] border-b-4 border-b-white bg-black select-none"
-      style={{ aspectRatio: "4 / 3", touchAction: onDrag ? "none" : "manipulation" }}
+      style={{ aspectRatio: "4 / 3", touchAction: onDrag && dragOnly === null ? "none" : "manipulation" }}
       aria-label="Stage"
     >
       <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>BACK OF STAGE</span>
@@ -76,7 +81,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
           <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: on ? 3 : 2 }}>
             <button type="button" onPointerDown={down(i)} aria-label={`${m.name || `Member ${i + 1}`}, ${memberPositionLabel(m, pos)}`} aria-pressed={on}
               onContextMenu={(e) => e.preventDefault()}
-              className="flex flex-col items-center rounded-lg select-none" style={{ touchAction: onDrag ? "none" : "manipulation", outline: on ? `2px dashed ${pc}` : "none", outlineOffset: 4, WebkitTouchCallout: "none", WebkitUserSelect: "none" }}>
+              className="flex flex-col items-center rounded-lg select-none" style={{ touchAction: canDrag(i) ? "none" : "manipulation", cursor: canDrag(i) ? "grab" : "pointer", outline: on ? `2px dashed ${pc}` : "none", outlineOffset: 4, WebkitTouchCallout: "none", WebkitUserSelect: "none" }}>
               <Icon pos={pos} color={pc} size={46} glow={on} />
               {labels && <span className="mt-0.5 max-w-[96px] text-center text-[11px] font-semibold text-white leading-tight truncate">{m.name || `Member ${i + 1}`}</span>}
               {labels && inst && <span className="max-w-[96px] text-center text-[10px] leading-tight truncate" style={{ color: pc }}>{inst}</span>}
@@ -183,7 +188,7 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
 }
 
 export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember }) {
-  const [step, setStep] = useState(null); // null | "pick" | "form" | "place"
+  const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
   const [draft, setDraft] = useState(null);
   const [editing, setEditing] = useState(null); // member index, null = new
   const [swap, setSwap] = useState(false);
@@ -220,6 +225,9 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     setSel(null);
     setStep(null);
   };
+  // Picked up (job 256): drag them or tap a spot; tap them again to set them down.
+  const lift = (i) => { setSwap(false); setSel(i); setStep("lift"); };
+  const drop = () => { setSel(null); setStep(null); };
   const remove = () => { onRemoveMember ? onRemoveMember(editing) : setMembers(members.filter((_, k) => k !== editing)); close(); };
 
   // Move / swap: tap one, then another (swap) or an empty spot (move).
@@ -252,10 +260,11 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         members={members}
         getInstruments={getInstruments}
         colors={colors}
-        picked={swap || step === "place" ? sel : step === "form" ? editing : null}
-        onTapMember={(i) => (swap ? tapInSwap(i) : step === "place" ? (i === sel ? null : setSel(i)) : edit(i))}
-        onTapEmpty={swap ? moveTo : step === "place" ? placeAt : null}
-        onDrag={swap || (step && step !== "place") ? null : drag}
+        picked={swap || step === "place" || step === "lift" ? sel : step === "form" ? editing : null}
+        onTapMember={(i) => (swap ? tapInSwap(i) : step === "place" ? (i === sel ? drop() : setSel(i)) : step === "lift" ? (i === sel ? drop() : setSel(i)) : step ? null : lift(i))}
+        onTapEmpty={swap ? moveTo : step === "place" ? placeAt : step === "lift" ? (x, y) => drag(sel, x, y) : null}
+        onDrag={(step === "place" || step === "lift") && sel !== null ? drag : null}
+        dragOnly={sel}
       />
       <AudienceLine />
 
@@ -268,6 +277,14 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         <div className="flex items-center gap-2 rounded-[14px] border p-3" style={{ borderColor: G + "55", background: G + "0D" }}>
           <p className="flex-1 text-[14px] leading-snug" style={{ color: G }}>Tap where {members[sel].name || "they"} stand{members[sel].name ? "s" : ""} on the stage, or drag them there.</p>
           <button type="button" onClick={() => { setSel(null); setStep(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
+        </div>
+      ) : step === "lift" && sel !== null && members[sel] ? (
+        <div className="flex flex-col gap-2 rounded-[14px] border border-dashed p-3" style={{ borderColor: G + "88", background: G + "0D" }}>
+          <p className="text-[14px] leading-snug" style={{ color: G }}>Drag {members[sel].name || "them"} where they stand, or tap a spot. Tap them again to set them down.</p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => edit(sel)} className="flex-1 min-h-[42px] rounded-xl border border-[#3a3a3a] text-white/80 font-semibold text-[14px]">Edit details</button>
+            <button type="button" onClick={drop} className="flex-1 min-h-[42px] rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Set down</button>
+          </div>
         </div>
       ) : step === "pick" ? (
         <div className="rounded-[14px] border border-[#262626] bg-[#101010] p-3 flex flex-col gap-2.5">
@@ -285,7 +302,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             <button type="button" onClick={startAdd} className="flex-1 min-h-[46px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
             <button type="button" onClick={() => { setSwap(true); setSel(null); }} disabled={onCount < 1} className="flex-1 min-h-[46px] rounded-xl border font-semibold text-[15px] flex items-center justify-center gap-1.5 disabled:opacity-35" style={{ borderColor: G + "66", color: G }}><ArrowLeftRight className="w-4 h-4" />Move / swap</button>
           </div>
-          <p className="text-center text-[12.5px] text-white/50">{onCount === 0 ? "Add each member, then tap where they stand. Tap anyone to edit them." : `Drag anyone to move them · tap to edit${inputs ? ` · ${inputs} input${inputs === 1 ? "" : "s"}` : ""}`}</p>
+          <p className="text-center text-[12.5px] text-white/50">{onCount === 0 ? "Add each member, then tap where they stand." : `Tap anyone to move or edit them${inputs ? ` · ${inputs} input${inputs === 1 ? "" : "s"}` : ""}`}</p>
         </>
       )}
 

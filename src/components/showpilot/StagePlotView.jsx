@@ -142,7 +142,10 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const act = acts[cur];
-  const members = act?.band_members || [];
+  // While dragging someone in Move / swap (job 256), their spot lives here
+  // until they let go; then it's saved.
+  const [dragList, setDragList] = useState(null);
+  const members = dragList || act?.band_members || [];
   const canMove = !!(token && onActs && act && (act.id || typeof act.sort_order === "number"));
   const [swap, setSwap] = useState(false);
   const [sel, setSel] = useState(null);
@@ -231,11 +234,14 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
             picked={swap ? sel : picked}
             onTapMember={(i) => (swap ? tapInSwap(i) : setPicked(picked === i ? null : i))}
             onTapEmpty={swap ? moveTo : null}
+            onDrag={swap && sel !== null ? (i, x, y) => setDragList((d) => (d || members).map((m, k) => (k === i ? { ...m, stage_x: x, stage_y: y } : m))) : null}
+            onDragEnd={() => { if (dragList) { const list = dragList; setDragList(null); savePositions(list); } }}
+            dragOnly={sel}
           />
           <div className="flex items-center justify-center gap-3 text-white"><ChevronsDown className="w-4 h-4" /><span className="text-[12px] font-bold tracking-[0.18em]" style={{ fontFamily: SCENE_MONO }}>AUDIENCE</span><ChevronsDown className="w-4 h-4" /></div>
           {swap ? (
             <div className="flex items-center gap-2">
-              <p className="flex-1 text-[13px] leading-snug" style={{ color: G }}>{sel === null ? "Tap someone to move or swap." : `Now tap someone to swap with ${members[sel]?.name || "them"}, or an empty spot to move them.`}</p>
+              <p className="flex-1 text-[13px] leading-snug" style={{ color: G }}>{sel === null ? "Tap someone to move or swap." : `Drag ${members[sel]?.name || "them"} or tap a spot to move them, or tap someone to swap. Tap them again to set them down.`}</p>
               {saving && <Loader2 className="w-4 h-4 animate-spin text-white/50" />}
               <button type="button" onClick={() => { setSwap(false); setSel(null); }} className="min-h-[40px] px-4 rounded-xl font-semibold text-[14px]" style={{ background: G, color: "#0d0d0d" }}>Done</button>
             </div>
