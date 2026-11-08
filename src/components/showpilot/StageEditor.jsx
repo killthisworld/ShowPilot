@@ -276,7 +276,6 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
   const drag = (i, x, y) => { const list = [...members]; list[i] = { ...list[i], stage_x: x, stage_y: y }; setMembers(list); };
 
   const offStage = members.map((m, i) => ({ m, i })).filter(({ m }) => !placed(m) && (m.name || (getInstruments(m) || []).some((x) => x.name)));
-  const inputs = members.reduce((n, m) => n + (getInstruments(m) || []).filter((x) => x.name).length, 0);
   const onCount = members.filter(placed).length;
 
   return (
@@ -325,9 +324,9 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         <>
           <div className="flex items-center gap-2">
             <button type="button" onClick={startAdd} className="flex-1 min-h-[46px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-1.5" style={{ background: G, color: "#0d0d0d" }}><Plus className="w-4 h-4" />Add</button>
-            <button type="button" onClick={() => { setSwap(true); setSel(null); }} disabled={onCount < 1} className="flex-1 min-h-[46px] rounded-xl border font-semibold text-[15px] flex items-center justify-center gap-1.5 disabled:opacity-35" style={{ borderColor: G + "66", color: G }}><ArrowLeftRight className="w-4 h-4" />Move / swap</button>
+            <button type="button" onClick={() => { setSwap(true); setSel(null); }} disabled={onCount < 1} className="flex-1 min-h-[46px] rounded-xl border font-semibold text-[15px] flex items-center justify-center gap-1.5 disabled:opacity-35" style={{ borderColor: G + "66", color: G }}><ArrowLeftRight className="w-4 h-4" />Tap to move / edit</button>
           </div>
-          <p className="text-center text-[12.5px] text-white/50">{onCount === 0 ? "Add each member, then tap where they stand." : `Tap anyone to move or edit them${inputs ? ` · ${inputs} input${inputs === 1 ? "" : "s"}` : ""}`}</p>
+          {onCount === 0 && <p className="text-center text-[12.5px] text-white/50">Add each member, then tap where they stand.</p>}
         </>
       )}
 

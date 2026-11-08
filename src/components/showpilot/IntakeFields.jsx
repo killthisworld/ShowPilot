@@ -88,7 +88,6 @@ function MembersBody({ h }) {
         onRemoveMember={removeMember}
       />
       <div className="pt-3 border-t border-[#222] flex flex-col gap-2">
-        <span className="text-[11px] tracking-[0.14em] text-white/45 text-center" style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>STAGE PLOT</span>
         <StagePlotBody h={h} />
       </div>
     </div>
@@ -99,10 +98,27 @@ function StagePlotBody({ h }) {
   const { form, handleStagePlotUpload, removeStagePlotFile, getInstruments, stageColors, canSaveTemplate } = h;
   return (
     <div className="flex flex-col gap-2">
-      <label className="min-h-[52px] flex items-center justify-center gap-2 border-[1.5px] border-dashed border-[#3a3a3a] rounded-[12px] text-white/65 text-[14px] cursor-pointer hover:border-white/40">
-        <Paperclip className="w-4 h-4" />Have your own stage plot? Upload it
-        <input type="file" accept="image/*,.pdf" multiple onChange={handleStagePlotUpload} className="hidden" />
-      </label>
+      {/* Upload their own / download the one they built: one row (job 259). */}
+      <div className="flex gap-2">
+        <label className="flex-1 min-w-0 min-h-[52px] px-3 flex items-center justify-center gap-2 text-center border-[1.5px] border-dashed border-[#3a3a3a] rounded-[12px] text-white/65 text-[14px] leading-tight cursor-pointer hover:border-white/40">
+          <Paperclip className="w-4 h-4 shrink-0" />Have your own stage plot? Upload it
+          <input type="file" accept="image/*,.pdf" multiple onChange={handleStagePlotUpload} className="hidden" />
+        </label>
+        {(form.band_members || []).some((m) => typeof m?.stage_x === "number") && (
+          <div className="flex-1 min-w-0 flex">
+            <StagePlotPdfActions
+              downloadOnly
+              members={form.band_members || []}
+              getInstruments={getInstruments}
+              actName={form.band_name}
+              files={form.stage_plot_files || []}
+              onRemoveFile={removeStagePlotFile}
+              onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
+              colors={stageColors}
+            />
+          </div>
+        )}
+      </div>
       {(form.stage_plot_files || []).map((f, i) => (
         <div key={i} className="flex items-center justify-between rounded-lg border border-[#262626] bg-[#0b0b0b] px-3 py-2">
           <a href={f.url} target="_blank" rel="noreferrer" className="text-[13.5px] underline truncate" style={{ color: GREEN }}>{f.name}</a>
@@ -112,19 +128,6 @@ function StagePlotBody({ h }) {
       {/* Save to template (job 257): their stage in My Templates; not on
           ShowPilot yet -> sign up / log in, then it saves. */}
       {canSaveTemplate && <SaveStageTemplateButton act={form} primary />}
-      {/* The stage they built as a PDF on their device (job 257). */}
-      <div className="flex justify-center">
-        <StagePlotPdfActions
-          downloadOnly
-          members={form.band_members || []}
-          getInstruments={getInstruments}
-          actName={form.band_name}
-          files={form.stage_plot_files || []}
-          onRemoveFile={removeStagePlotFile}
-          onAddFile={(file) => handleStagePlotUpload({ target: { files: [file], value: "" } })}
-          colors={stageColors}
-        />
-      </div>
     </div>
   );
 }

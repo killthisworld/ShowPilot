@@ -193,8 +193,8 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
   if (downloadOnly) {
     if (onCount === 0) return null;
     return (
-      <button type="button" onClick={download} disabled={making} className="self-center min-h-[40px] px-3 text-[13.5px] text-white/60 underline underline-offset-2 flex items-center gap-1.5 disabled:opacity-50">
-        {making ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}Download as PDF
+      <button type="button" onClick={download} disabled={making} className="w-full h-full min-h-[52px] px-3 rounded-[12px] border-[1.5px] border-[#3a3a3a] text-white/75 text-[14px] flex items-center justify-center gap-2 hover:border-white/40 disabled:opacity-50">
+        {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Download PDF
       </button>
     );
   }
