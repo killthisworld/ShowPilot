@@ -33,6 +33,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEventType } from "@/lib/eventTypes";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
+import { MultitrackChip } from "@/components/showpilot/MultitrackQuestion";
 
 
 
@@ -181,6 +182,15 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [fxTarget, setFxTarget] = useState("__show__");
   // Tracks each act sent for this event, by its set time (job 219).
   const { tracksFor } = useEventTracks(id);
+  // Each act's multi-track answer from the intake form, kept with the event
+  // even after Manage Links is cleared (job 263). Latest answer per act name.
+  const [actServices, setActServices] = useState({});
+  useEffect(() => {
+    if (!id || id === "new") return;
+    supabase.from("show_act_services").select("band_name, multitrack_interest, created_at").eq("show_id", id).order("created_at", { ascending: true })
+      .then(({ data }) => setActServices(Object.fromEntries((data || []).map((r) => [String(r.band_name || "").trim().toLowerCase(), r.multitrack_interest]))));
+  }, [id]);
+  const multitrackFor = (name) => actServices[String(name || "").trim().toLowerCase()];
   const [tracksAct, setTracksAct] = useState(null);
   const [plotAt, setPlotAt] = useState(null); // stage plot open on this act (job 251)
   const [showGenreSettings, setShowGenreSettings] = useState(false);
@@ -1216,6 +1226,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             withPhoto={sectionPhotos}
             setLengthAction={
               <div className="flex items-center gap-2">
+                {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />
