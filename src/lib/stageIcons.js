@@ -360,7 +360,7 @@ SHAPES.horns = SHAPES.trumpet;
 
 // Every icon you can give your own instrument (job 274), with names.
 export const ICON_CHOICES = [
-  ["vocals", "Vocal mic"], ["mic", "Studio mic"], ["headset", "Headset"],
+  ["vocals", "Vocal mic"], ["mic", "Studio mic"],
   ["drums", "Drums"], ["percussion", "Perc"],
   ["guitar", "Guitar"], ["acoustic", "Acoustic"], ["electric", "Electric"], ["bass", "Bass"], ["upright", "Upright bass"],
   ["keys", "Keys"], ["piano", "Piano"], ["organ", "Organ"], ["synth", "Synth"],
