@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
-import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
+import { StagePlotView, StagePlotCard, ActStagePlotButton, useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
+import StageEditor from "@/components/showpilot/StageEditor";
 import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
@@ -391,6 +392,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
   const [collapsedMembers, setCollapsedMembers] = useState({}); // memberIndex -> bool
 
   const members = band.band_members || [];
+  const stageColors = useMyStageColors();
   const fxNotes = band.artist_fx_notes || [];
   const stagePlotFiles = band.stage_plot_files || [];
 
@@ -572,86 +574,25 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
 
   return (
     <div className="px-3 pb-3 pt-1 space-y-3 border-t border-[#222] mt-1">
+      {/* Members are built on the stage (job 267): who stands where and what
+          they play, instead of the old list of member rows. */}
       <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold">
-            <Users className="w-3 h-3" /> Members
-          </p>
-          <button onClick={addMember} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg">+ Add Member</button>
-        </div>
-        <div className="space-y-2">
-          {members.map((m, i) => {
-            const collapsed = collapsedMembers[i];
-            const instrumentNames = (m.instruments || []).map((inst) => inst.name).filter(Boolean).join(", ");
-            const busType = m.bus_type || "IEM";
-            return (
-            <div key={i} className="bg-[#111] rounded-lg p-2 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setCollapsedMembers((prev) => ({ ...prev, [i]: !prev[i] }))} className="p-1.5 -ml-1 text-white/30 hover:text-white/60 shrink-0">
-                  <ChevronDown className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-                </button>
-                <Input value={m.name || ""} onChange={(e) => updateMemberName(i, e.target.value)} placeholder="Member name" className="h-9 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
-                <select
-                  value={m.bus_type || "IEM"}
-                  onChange={(e) => updateMemberBusType(i, e.target.value)}
-                  className="h-9 bg-[#1a1a1a] border text-xs rounded px-1.5 shrink-0"
-                  style={{ borderColor: iemMonitorColors[busType] + "60", color: iemMonitorColors[busType] }}
-                >
-                  <option value="IEM">IEM</option>
-                  <option value="Monitor">Monitor</option>
-                </select>
-                <button onClick={() => removeMember(i)} className="text-white/30 hover:text-red-400 shrink-0 p-2 -m-1"><Trash2 className="w-5 h-5" /></button>
-              </div>
-              {collapsed ? (
-                <p className="text-xs pl-8 truncate">
-                  <span className="text-[#8CFF3D] font-semibold">{m.name || "Unnamed"}</span>
-                  {instrumentNames && <span className="text-white/30"> → </span>}
-                  {instrumentNames && <span className="text-[#8CFF3D]/80">{instrumentNames}</span>}
-                  <span className="text-white/30"> → </span>
-                  <span className="font-bold" style={{ color: iemMonitorColors[busType] }}>{busType}</span>
-                </p>
-              ) : (
-                <>
-              <div className="pl-2"><VocalsQuestion value={memberSings(m, m.instruments || [])} onChange={(yes) => setVocals(i, yes)} /></div>
-              {(m.instruments || []).map((inst, ii) => isVocalInput(inst) ? null : (
-                <div key={ii} className="flex items-center gap-1.5 pl-2">
-                  <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="Instrument" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-xs flex-1" />
-                  <select
-                    value={inst.mic_di ?? "Mic"}
-                    onChange={(e) => updateInstrument(i, ii, "mic_di", e.target.value)}
-                    className="h-8 bg-[#1a1a1a] border border-[#222] text-white text-xs rounded px-1.5"
-                  >
-                    <option value="Mic">Mic</option>
-                    <option value="DI">DI</option>
-                    <option value="">None</option>
-                  </select>
-                  <button
-                    onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
-                    className={`text-xs font-medium px-3 py-2 rounded shrink-0 ${inst.phantom_power ? "bg-[#8CFF3D]/20 text-[#8CFF3D]" : "text-white/30 border border-[#333]"}`}
-                  >
-                    +48V
-                  </button>
-                  <button onClick={() => removeInstrument(i, ii)} className="text-white/20 hover:text-red-400 shrink-0 p-2 -m-1"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              ))}
-              <button onClick={() => addInstrument(i)} className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg ml-1">+ Instrument</button>
-              <button
-                onClick={() => setNoteModal({
-                  label: `${m.name || "Member"} — Notes`,
-                  value: getMemberNote(fxNotes, m.name),
-                  onChange: (v) => updateMemberNote(m.name, v),
-                })}
-                className="w-full text-left text-white/40 text-xs bg-[#1a1a1a] border border-[#222] rounded-lg px-3 py-2.5 hover:border-[#8CFF3D]/40 hover:text-white/60 truncate ml-2"
-                style={{ width: "calc(100% - 0.5rem)" }}
-              >
-                {getMemberNote(fxNotes, m.name) || "Add notes for this member (FX, monitor mix, etc.)"}
-              </button>
-                </>
-              )}
-            </div>
-            );
-          })}
-        </div>
+        <p className="flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5">
+          <Users className="w-3 h-3" /> Members
+        </p>
+        <StageEditor
+          members={members}
+          setMembers={updateMembers}
+          getInstruments={instrumentsOf}
+          colors={stageColors}
+          onRemoveMember={removeMember}
+          renderMemberExtra={(m) => (m?.name ? (
+            <button type="button" onClick={() => setNoteModal({ label: `${m.name} — Notes`, value: getMemberNote(fxNotes, m.name), onChange: (v) => updateMemberNote(m.name, v) })}
+              className="w-full text-left rounded-lg border border-[#222] bg-[#111] px-3 py-2.5 text-sm text-white/55 hover:border-[#8CFF3D]/40 hover:text-white/75 truncate">
+              {getMemberNote(fxNotes, m.name) || "Add notes for this member (FX, monitor mix, etc.)"}
+            </button>
+          ) : null)}
+        />
       </div>
 
       <div>

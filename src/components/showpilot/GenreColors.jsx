@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
@@ -12,6 +12,7 @@ const CHOICES = ["#EF4444", "#FF6A00", "#EAB308", "#8CFF3D", "#14B8A6", "#3B82F6
 export default function GenreColors({ preferences, onSaved }) {
   const [tags, setTags] = useState(preferences?.genre_tags || []);
   const [editing, setEditing] = useState(null);
+  const [open, setOpen] = useState(false); // a dropdown like the other Customize sections (job 267)
   const [error, setError] = useState("");
   useEffect(() => { setTags(preferences?.genre_tags || []); }, [preferences?.genre_tags]);
 
@@ -49,8 +50,18 @@ export default function GenreColors({ preferences, onSaved }) {
   };
 
   return (
-    <div className="rounded-xl bg-[#151515] border border-[#262626] p-3.5">
-      <p className="text-white text-[15px] font-semibold mb-2.5" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>Genre colors</p>
+    <div className="mb-4 rounded-lg border border-[#1f1f1f] bg-[#111]">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
+        <span className="text-[12px] font-semibold tracking-[0.1em] text-white/80" style={{ fontFamily: SCENE_MONO }}>GENRE COLORS</span>
+        <span className="ml-auto flex -space-x-1">
+          {tags.slice(0, 6).map((t) => (
+            <span key={t.name} className="w-3 h-3 rounded-full border border-[#111]" style={{ background: t.color || "#9CA3AF" }} />
+          ))}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-white/40 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+      <div className="px-3 pb-3">
       <div className="flex flex-wrap gap-1.5">
         {tags.map((t) => (
           <button
@@ -77,6 +88,8 @@ export default function GenreColors({ preferences, onSaved }) {
         </div>
       )}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      </div>
+      )}
     </div>
   );
 }

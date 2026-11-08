@@ -149,7 +149,7 @@ function PositionGrid({ colors, value, onPick, onCustom }) {
 }
 
 // Name, instruments, vocals, what they hear.
-function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove }) {
+function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove, extra = null }) {
   const [repick, setRepick] = useState(false);
   const pos = positionOfMember(draft, getInstruments);
   const pc = positionColor(pos, colors);
@@ -192,6 +192,7 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
         </div>
       )))}
       <button type="button" onClick={() => setInsts([...insts, { name: "", phantom_power: false, mic_di: "Mic" }])} className="self-start min-h-[38px] px-3 rounded-full border border-dashed border-[#444] text-[13px] font-semibold flex items-center gap-1" style={{ color: G }}><Plus className="w-3.5 h-3.5" />Instrument</button>
+      {extra}
       <div className="flex items-center gap-2 pt-1">
         {!isNew && <button type="button" onClick={onRemove} aria-label="Remove from the stage" className="min-h-[44px] w-[44px] rounded-xl border border-[#333] flex items-center justify-center text-white/45 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
         <button type="button" onClick={onCancel} className="min-h-[44px] px-4 rounded-xl border border-[#333] text-[14px] text-white/70">Cancel</button>
@@ -204,7 +205,9 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
 // `onCommit(list)` (job 258): called when a change is finished - someone set
 // down, placed, swapped, saved or removed - so the event can save it right
 // away with no Save button. Not called while dragging.
-export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null }) {
+// `renderMemberExtra(member, i)`: more for a saved member's details (e.g. their
+// notes on a shared event; job 267), shown above Save.
+export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null, renderMemberExtra = null }) {
   const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
   const [draft, setDraft] = useState(null);
   const [editing, setEditing] = useState(null); // member index, null = new
@@ -315,7 +318,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <PositionGrid colors={colors} onPick={pickPos} onCustom={(t) => pickPos("other", t)} />
         </div>
       ) : step === "form" && draft ? (
-        <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={editing === null} onSave={save} onCancel={close} onRemove={remove} />
+        <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={editing === null} onSave={save} onCancel={close} onRemove={remove}
+          extra={editing !== null && renderMemberExtra ? renderMemberExtra(members[editing], editing) : null} />
       ) : (
         <>
           <div className="flex items-center gap-2">

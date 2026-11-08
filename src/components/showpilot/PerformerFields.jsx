@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import VenuePhoto from "@/components/showpilot/VenuePhoto";
+import StageEditor from "@/components/showpilot/StageEditor";
+import { useMyStageColors } from "@/components/showpilot/StagePlotView";
 
 // The Performer (artist) fields, shared by a show's act (ShowDetail) and a
 // saved artist template (My Templates) so both ask for exactly the same
@@ -38,11 +40,12 @@ export default function PerformerFields({
   onBusSettings,         // gear beside IEM / Monitor
   onStagePlotUpload,     // (event) => parent uploads and adds the files
   showNotes = false,     // the notes block (on a show these live in FX / Artist Notes)
-  membersSlot = null,    // shown instead of the member list (My Templates: the stage editor, job 254)
+  membersSlot = null,    // shown instead of the stage editor (My Templates passes its own, job 254)
   stagePlotExtra = null, // under the Stage Plot uploads (My Templates: make / save the PDF, job 254)
 }) {
   const b = band || {};
   const members = b.band_members || [];
+  const stageColors = useMyStageColors();
   const [collapsed, setCollapsed] = useState({}); // index -> false when open
   const [notesTarget, setNotesTarget] = useState("__general__");
 
@@ -149,110 +152,19 @@ export default function PerformerFields({
         </div>
       </div>
 
-      {membersSlot ? <div className="border-t border-[#222] pt-3">{membersSlot}</div> : <>
-      {members.map((m, i) => (
-        <div key={i} className="bg-[#111] rounded-xl p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-              <span className="text-white font-semibold text-sm">{m.name || <span className="text-white/25 italic">Name</span>}</span>
-              <span className="text-white/30 text-sm">→</span>
-              <span className="text-white/60 text-sm">
-                {(() => {
-                  const names = getInstruments(m).filter((inst) => inst.name).map((inst) => inst.name);
-                  if (names.length === 0) return <span className="text-white/25 italic">Role</span>;
-                  if (names.length === 1) return names[0];
-                  return "Multi Track";
-                })()}
-              </span>
-              {m.bus_type && (
-                <>
-                  <span className="text-white/30 text-sm">→</span>
-                  <span className="text-sm font-bold" style={{ color: iemMonitorColors[m.bus_type] }}>{m.bus_type}</span>
-                </>
-              )}
-            </div>
-            <button type="button" onClick={() => setCollapsed((p) => ({ ...p, [i]: p[i] === false }))} className="p-2.5 shrink-0 text-white/30 hover:text-[#8CFF3D]" aria-label="Show member details">
-              <ChevronDown className={`w-6 h-6 transition-transform ${collapsed[i] === false ? "rotate-180" : ""}`} />
-            </button>
-            <button type="button" onClick={() => removeMember(i)} className="p-1.5 ml-1 shrink-0 text-white/30 hover:text-red-400" aria-label="Remove member">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {collapsed[i] === false && (
-            <>
-              <Input value={m.name || ""} onChange={(e) => updateMember(i, "name", e.target.value)} placeholder="Name" className="h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
-              <VocalsQuestion value={memberSings(m, getInstruments(m))} onChange={(yes) => setVocals(i, yes)} />
-              <div className="space-y-2">
-                <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium">Instruments / Roles</Label>
-                {/* The vocal line is the Vocals? answer above, not a row here. */}
-                {getInstruments(m).map((inst, ii) => isVocalInput(inst) ? null : (
-                  <div key={ii} className="flex items-center gap-1.5">
-                    <Input value={inst.name || ""} onChange={(e) => updateInstrument(i, ii, "name", e.target.value)} placeholder="e.g. Guitar" className="flex-1 h-8 bg-[#1a1a1a] border-[#222] text-white text-sm" />
-                    <div className="flex items-center gap-1 shrink-0">
-                      {["Mic", "DI"].map((type) => {
-                        // Tap again to turn it off: neither Mic nor DI (job 264).
-                        const active = (inst.mic_di ?? "Mic") === type;
-                        return (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => updateInstrument(i, ii, "mic_di", active ? "" : type)}
-                            className={`h-8 px-2.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-blue-400/50 text-blue-400 bg-blue-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                          >
-                            {type}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => updateInstrument(i, ii, "phantom_power", !inst.phantom_power)}
-                      className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${inst.phantom_power ? "border-amber-400/50 text-amber-400 bg-amber-500/10" : "border-[#333] text-white/40 hover:text-white/60"}`}
-                    >
-                      +48V
-                    </button>
-                    <button type="button" onClick={() => removeInstrument(i, ii)} className="p-1.5 text-white/30 hover:text-red-400 shrink-0" aria-label="Remove instrument">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-                <Button type="button" variant="ghost" size="sm" onClick={() => addInstrument(i)} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full h-8 text-xs">
-                  <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Instrument
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {["IEM", "Monitor"].map((type, ti) => {
-                  const color = iemMonitorColors[type];
-                  const active = m.bus_type === type;
-                  return (
-                    <React.Fragment key={type}>
-                      <button
-                        type="button"
-                        onClick={() => updateMember(i, "bus_type", type)}
-                        className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? "border-white/40" : "border-transparent opacity-60 hover:opacity-100"}`}
-                        style={{ backgroundColor: color + "22", color }}
-                      >
-                        {type}
-                      </button>
-                      {ti === 0 && onBusSettings && (
-                        <button type="button" onClick={onBusSettings} className="text-white/30 hover:text-[#8CFF3D] p-1.5 shrink-0" aria-label="IEM / Monitor colors">
-                          <Settings className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-      <Button type="button" variant="ghost" size="sm" onClick={addMember} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 w-full">
-        <Plus className="w-3.5 h-3.5 mr-1.5" /> Add Member
-      </Button>
-      </>}
+      {/* Members are built on the stage (job 267): who stands where and what
+          they play, instead of the old list of member rows. */}
+      <div className="border-t border-[#222] pt-3">
+        {membersSlot || (
+          <StageEditor
+            members={members}
+            setMembers={setMembers}
+            getInstruments={getInstruments}
+            colors={stageColors}
+            onRemoveMember={(i) => setMembers(members.filter((_, k) => k !== i))}
+          />
+        )}
+      </div>
 
       <div className="border-t border-[#222] pt-3">
         <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
