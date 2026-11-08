@@ -47,14 +47,15 @@ export const inkOn = (hex) => {
 };
 
 // Starting instrument for a new member in a position (Add on the stage, job 252).
+// Mic / DI start unpicked (job 270).
 export const starterInstrument = (key) => ({
-  drums: { name: "Drums", mic_di: "Mic" },
-  percussion: { name: "Percussion", mic_di: "Mic" },
-  bass: { name: "Bass", mic_di: "DI" },
-  guitar: { name: "Guitar", mic_di: "Mic" },
-  keys: { name: "Keys", mic_di: "DI" },
-  horns: { name: "Horns", mic_di: "Mic" },
-  strings: { name: "Strings", mic_di: "Mic" },
-  dj: { name: "Tracks", mic_di: "DI" },
-  other: { name: "", mic_di: "Mic" },
+  drums: { name: "Drums", mic_di: "" },
+  percussion: { name: "Percussion", mic_di: "" },
+  bass: { name: "Bass", mic_di: "" },
+  guitar: { name: "Guitar", mic_di: "" },
+  keys: { name: "Keys", mic_di: "" },
+  horns: { name: "Horns", mic_di: "" },
+  strings: { name: "Strings", mic_di: "" },
+  dj: { name: "Tracks", mic_di: "" },
+  other: { name: "", mic_di: "" },
 }[key] || null);

@@ -1019,9 +1019,6 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             </span>
           </button>
         )}
-        {banner && underBanner}
-        {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {banner && underBanner && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} onEditMembers={editStage} />}
         {(!banner || infoOpen) && (<>
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2">
@@ -1135,6 +1132,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             <Input type="date" value={show.date} onChange={(e) => update("date", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white [color-scheme:dark] w-44" />
           </div>
         </div>
+        {/* Engineers on call live in the event dropdown (job 270). */}
+        {banner && underBanner}
         </>)}
         </div>
 

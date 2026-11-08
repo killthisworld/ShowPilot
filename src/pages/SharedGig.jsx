@@ -413,7 +413,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
 
   const addInstrument = (i) => {
     const next = [...members];
-    next[i] = { ...next[i], instruments: [...(next[i].instruments || []), { name: "", mic_di: "Mic", phantom_power: false }] };
+    next[i] = { ...next[i], instruments: [...(next[i].instruments || []), { name: "", mic_di: "", phantom_power: false }] };
     updateMembers(next);
   };
   const updateInstrument = (i, ii, field, val) => {
@@ -586,6 +586,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
           getInstruments={instrumentsOf}
           colors={stageColors}
           onRemoveMember={removeMember}
+          busColors={iemMonitorColors || { IEM: "#EAB308", Monitor: "#F97316" }}
           renderMemberExtra={(m) => (m?.name ? (
             <button type="button" onClick={() => setNoteModal({ label: `${m.name} — Notes`, value: getMemberNote(fxNotes, m.name), onChange: (v) => updateMemberNote(m.name, v) })}
               className="w-full text-left rounded-lg border border-[#222] bg-[#111] px-3 py-2.5 text-sm text-white/55 hover:border-[#8CFF3D]/40 hover:text-white/75 truncate">

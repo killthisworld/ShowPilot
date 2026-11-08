@@ -59,7 +59,7 @@ export default function PerformerFields({
     onPatch(patch);
     if (notesTarget !== "__general__") setNotesTarget("__general__");
   };
-  const addInstrument = (i) => { const m = [...members]; m[i] = { ...m[i], instruments: [...getInstruments(m[i]), { name: "", phantom_power: false, mic_di: "Mic" }] }; setMembers(m); };
+  const addInstrument = (i) => { const m = [...members]; m[i] = { ...m[i], instruments: [...getInstruments(m[i]), { name: "", phantom_power: false, mic_di: "" }] }; setMembers(m); };
   const updateInstrument = (i, ii, f, v) => {
     const m = [...members];
     const inst = [...getInstruments(m[i])];
@@ -72,6 +72,7 @@ export default function PerformerFields({
   const removeInstrument = (i, ii) => { const m = [...members]; m[i] = { ...m[i], instruments: getInstruments(m[i]).filter((_, idx) => idx !== ii) }; setMembers(m); };
 
   const selectedGenres = b.genre_tags || (b.genre_tag ? [b.genre_tag] : []);
+  const [genreOpen, setGenreOpen] = useState(false);
   const toggleGenre = (tag) => {
     const on = selectedGenres.includes(tag.name);
     const next = on ? selectedGenres.filter((t) => t !== tag.name) : [...selectedGenres, tag.name];
@@ -114,15 +115,27 @@ export default function PerformerFields({
           {setLengthAction}
         </div>
       </div>
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-white/50 text-xs">Genre / Tag</Label>
-          {onAddGenre && (
-            <button type="button" onClick={onAddGenre} className="text-white/30 hover:text-[#8CFF3D] p-1 -m-1" aria-label="Add a genre">
-              <Plus className="w-3.5 h-3.5" />
+      {/* Genre / Tag is a dropdown (job 270): closed, it shows what's picked. */}
+      <div className="rounded-xl border border-[#222] bg-[#111]">
+        <button type="button" onClick={() => setGenreOpen((o) => !o)} aria-expanded={genreOpen} className="w-full min-h-[44px] px-3 py-2 flex items-center gap-2 text-left">
+          <span className="text-white/50 text-xs shrink-0">Genre / Tag</span>
+          <span className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+            {selectedGenres.map((name) => {
+              const c = genreTags.find((t) => t.name === name)?.color || "#9CA3AF";
+              return <span key={name} className="px-2.5 py-1 rounded-full text-xs font-medium border border-white/25" style={{ backgroundColor: c + "22", color: c }}>{name}</span>;
+            })}
+          </span>
+          <ChevronDown className={`w-4 h-4 shrink-0 text-white/40 transition-transform ${genreOpen ? "rotate-180" : ""}`} />
+        </button>
+        {genreOpen && (
+        <div className="px-3 pb-3">
+        {onAddGenre && (
+          <div className="flex justify-end mb-1">
+            <button type="button" onClick={onAddGenre} className="text-white/40 hover:text-[#8CFF3D] text-xs flex items-center gap-1 p-1" aria-label="Add a genre">
+              <Plus className="w-3.5 h-3.5" />Add a genre
             </button>
-          )}
-        </div>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {genreTags.map((tag) => {
             const isSelected = selectedGenres.includes(tag.name);
@@ -150,6 +163,8 @@ export default function PerformerFields({
             </button>
           ))}
         </div>
+        </div>
+        )}
       </div>
 
       {/* Members are built on the stage (job 267): who stands where and what
@@ -162,6 +177,8 @@ export default function PerformerFields({
             getInstruments={getInstruments}
             colors={stageColors}
             onRemoveMember={(i) => setMembers(members.filter((_, k) => k !== i))}
+            busColors={iemMonitorColors}
+            onBusSettings={onBusSettings}
           />
         )}
       </div>

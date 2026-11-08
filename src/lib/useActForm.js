@@ -25,7 +25,7 @@ export function useActForm(form, setForm, uploadPrefix) {
   const removeMember = (i) => { setMembers(members.filter((_, idx) => idx !== i)); setNotesTarget("__general__"); };
   const addInstrument = (i) => {
     const m = [...members];
-    m[i] = { ...m[i], instruments: [...getInstruments(m[i]), { name: "", phantom_power: false, mic_di: "Mic" }] };
+    m[i] = { ...m[i], instruments: [...getInstruments(m[i]), { name: "", phantom_power: false, mic_di: "" }] };
     setMembers(m);
   };
   const updateInstrument = (i, ii, f, v) => {

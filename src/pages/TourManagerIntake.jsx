@@ -247,7 +247,7 @@ export default function TourManagerIntake({ link } = {}) {
   const addInstrument = (i) => {
     const members = [...form.band_members];
     const current = getInstruments(members[i]);
-    members[i] = { ...members[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "Mic" }] };
+    members[i] = { ...members[i], instruments: [...current, { name: "", phantom_power: false, mic_di: "" }] };
     update("band_members", members);
   };
   const updateInstrument = (i, ii, f, v) => {
