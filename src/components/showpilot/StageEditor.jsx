@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, ChevronsDown, Plus, Trash2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument } from "@/lib/stagePositions";
@@ -14,7 +14,9 @@ import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/co
 // stage_y, 0-1; position = the picked key), with the rest of the member.
 const G = "#8CFF3D";
 const placed = (m) => typeof m?.stage_x === "number" && typeof m?.stage_y === "number";
-const clamp = (v) => Math.min(0.95, Math.max(0.05, v));
+// Keep the icon and its name on the stage (job 257: not over the stage front).
+const clampX = (v) => Math.min(0.92, Math.max(0.08, v));
+const clampY = (v) => Math.min(0.82, Math.max(0.12, v));
 const SPOTS = [0.2, 0.4, 0.6, 0.8].map((x) => [x, 0.66]).concat([0.2, 0.4, 0.6, 0.8].map((x) => [x, 0.3]), [0.3, 0.5, 0.7].map((x) => [x, 0.48]));
 export const freeSpot = (members, skip = -1) => {
   const taken = members.filter((m, i) => i !== skip && placed(m));
@@ -35,9 +37,20 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
   const canDrag = (i) => !!onDrag && (dragOnly === null || dragOnly === i);
   const ref = useRef(null);
   const press = useRef(null); // { i, x, y, moved }
+  const canDragRef = useRef(canDrag);
+  canDragRef.current = canDrag;
+  // Phones scroll the page under a drag unless the touch is stopped here
+  // (job 257): React's touch listeners can't, so this one isn't passive.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const stop = (e) => { const p = press.current; if (p && canDragRef.current(p.i) && e.cancelable) e.preventDefault(); };
+    el.addEventListener("touchmove", stop, { passive: false });
+    return () => el.removeEventListener("touchmove", stop);
+  }, []);
   const at = (e) => {
     const r = ref.current.getBoundingClientRect();
-    return [clamp((e.clientX - r.left) / r.width), clamp((e.clientY - r.top) / r.height)];
+    return [clampX((e.clientX - r.left) / r.width), clampY((e.clientY - r.top) / r.height)];
   };
   const down = (i) => (e) => {
     e.stopPropagation();

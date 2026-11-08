@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { supabase } from "@/api/supabaseClient";
+import { useResumeStageSave } from "@/components/showpilot/SaveStageTemplate";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,8 @@ export default function TourManagerIntake({ link } = {}) {
   // Which circles the act has saved on their web (job 195).
   const [seen, setSeen] = usePersistedState(`tm_intake_seen_${token}`, {});
   const { toast } = useToast();
+  // Saved their stage to a template before signing up / logging in (job 257).
+  useResumeStageSave(form, (r) => toast(r === "error" ? { title: "Couldn't save your template", description: "Tap Save to template to try again.", variant: "destructive" } : { title: r === "updated" ? "Updated your template" : "Saved your stage to My Templates" }));
 
   const handleLoadTemplate = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -453,7 +456,7 @@ export default function TourManagerIntake({ link } = {}) {
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
     handleStagePlotUpload, removeStagePlotFile,
     stageColors: ec?.stage_plot_colors || null, // the engineer's stage plot colors (job 249)
-    canSaveTemplate: !!currentUser && !isEngineer, // signed-in artists / managers can save their stage to My Templates (job 254)
+    canSaveTemplate: !isEngineer, // Save to template; not signed in -> sign up / log in first (jobs 254, 257)
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
     fillFromProfile: !isEngineer ? { onClick: handleLoadTemplate, loading: loadingTemplate } : null,
     formatPhone: formatPhoneNumber,

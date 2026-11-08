@@ -136,7 +136,9 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors })
 // The Stage plot circle's buttons (job 252): the PDF is made from the stage the
 // act built in "Build your stage" (Members and inputs), added to their stage
 // plot files like an upload, and can be saved to their phone or computer.
-export default function StagePlotPdfActions({ members = [], getInstruments, actName, files = [], onRemoveFile, onAddFile, colors = null }) {
+// `downloadOnly` (intake, job 257): just a small "Download as PDF" link that
+// makes the PDF and saves it to their device; nothing is added to the files.
+export default function StagePlotPdfActions({ members = [], getInstruments, actName, files = [], onRemoveFile, onAddFile, colors = null, downloadOnly = false }) {
   const [making, setMaking] = useState(false);
   const [madeNote, setMadeNote] = useState("");
   const [made, setMade] = useState(null);
@@ -162,22 +164,40 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
   };
 
   // Save to their phone or computer: the share sheet where there is one, else a download.
-  const savePdf = async () => {
-    if (!made) return;
+  const savePdf = async (f = made) => {
+    if (!f?.name) return;
     try {
-      if (navigator.canShare?.({ files: [made] })) { await navigator.share({ files: [made], title: made.name }); return; }
+      if (navigator.canShare?.({ files: [f] })) { await navigator.share({ files: [f], title: f.name }); return; }
     } catch (e) {
       if (e?.name === "AbortError") return;
     }
-    const url = URL.createObjectURL(made);
+    const url = URL.createObjectURL(f);
     const a = document.createElement("a");
     a.href = url;
-    a.download = made.name;
+    a.download = f.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
+
+  const download = async () => {
+    setMaking(true);
+    try {
+      const doc = await stagePlotPdf({ actName, members, getInstruments, colors });
+      const name = `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
+      await savePdf(new File([doc.output("blob")], name, { type: "application/pdf" }));
+    } catch (err) { console.error(err); }
+    setMaking(false);
+  };
+  if (downloadOnly) {
+    if (onCount === 0) return null;
+    return (
+      <button type="button" onClick={download} disabled={making} className="self-center min-h-[40px] px-3 text-[13.5px] text-white/60 underline underline-offset-2 flex items-center gap-1.5 disabled:opacity-50">
+        {making ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}Download as PDF
+      </button>
+    );
+  }
 
   if (onCount === 0) {
     return <p className="text-[13px] text-white/45 text-center py-1">No stage plot? Put everyone on the stage above and ShowPilot makes one for you.</p>;
