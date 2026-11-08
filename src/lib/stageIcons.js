@@ -15,31 +15,28 @@ const trumpet = (c) => `
     <rect x="17" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="24" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="31" y="14" width="4.4" height="12" rx="1" fill="${c}"/>
     <rect x="16" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="23" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="30" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/>
     <path d="M14 30 v6 q0 6 6 6 h16 q6 0 6 -6 v-6" fill="none" stroke="${c}" stroke-width="3.5"/>`;
-// Percs: four bongos in a line, two sets side by side, each joined by its
-// center block, big drum and small drum (job 277).
+// Percs: four small bongos in a line on a rack bar - two sets, each joined by
+// its center block (job 277).
 const bongos = (c) => `
-    <path d="M1.0 22 H16.0 L14.0 46 H3.0 Z" fill="${c}"/>
-    <ellipse cx="8.5" cy="22" rx="7.5" ry="2.6" fill="${c}"/>
-    <ellipse cx="8.5" cy="22" rx="5.9" ry="1.6" fill="#fff" fill-opacity="0.5"/>
-    <rect x="1.7" y="25.5" width="13.6" height="1.4" ${D}/>
-    <rect x="2.6" y="42" width="11.8" height="1.2" ${D}/>
-    <path d="M17.0 25 H29.0 L27.0 46 H19.0 Z" fill="${c}"/>
-    <ellipse cx="23" cy="25" rx="6.0" ry="2.6" fill="${c}"/>
-    <ellipse cx="23" cy="25" rx="4.4" ry="1.6" fill="#fff" fill-opacity="0.5"/>
-    <rect x="17.7" y="28.5" width="10.6" height="1.4" ${D}/>
-    <rect x="18.6" y="42" width="8.8" height="1.2" ${D}/>
-    <path d="M33.5 22 H48.5 L46.5 46 H35.5 Z" fill="${c}"/>
-    <ellipse cx="41" cy="22" rx="7.5" ry="2.6" fill="${c}"/>
-    <ellipse cx="41" cy="22" rx="5.9" ry="1.6" fill="#fff" fill-opacity="0.5"/>
-    <rect x="34.2" y="25.5" width="13.6" height="1.4" ${D}/>
-    <rect x="35.1" y="42" width="11.8" height="1.2" ${D}/>
-    <path d="M49.5 25 H61.5 L59.5 46 H51.5 Z" fill="${c}"/>
-    <ellipse cx="55.5" cy="25" rx="6.0" ry="2.6" fill="${c}"/>
-    <ellipse cx="55.5" cy="25" rx="4.4" ry="1.6" fill="#fff" fill-opacity="0.5"/>
-    <rect x="50.2" y="28.5" width="10.6" height="1.4" ${D}/>
-    <rect x="51.1" y="42" width="8.8" height="1.2" ${D}/>
-    <rect x="15" y="31" width="3.5" height="5" rx="1" fill="${c}"/>
-    <rect x="47.5" y="31" width="3.5" height="5" rx="1" fill="${c}"/>`;
+    <path d="M3.0 22 H15.0 L13.4 37 H4.6 Z" fill="${c}"/>
+    <ellipse cx="9" cy="22" rx="6.0" ry="2.1" fill="${c}"/>
+    <ellipse cx="9" cy="22" rx="4.7" ry="1.2" fill="#fff" fill-opacity="0.5"/>
+    <rect x="3.6" y="24.8" width="10.8" height="1.2" ${D}/>
+    <path d="M16.5 24 H26.5 L24.9 37 H18.1 Z" fill="${c}"/>
+    <ellipse cx="21.5" cy="24" rx="5.0" ry="2.1" fill="${c}"/>
+    <ellipse cx="21.5" cy="24" rx="3.7" ry="1.2" fill="#fff" fill-opacity="0.5"/>
+    <rect x="17.1" y="26.8" width="8.8" height="1.2" ${D}/>
+    <path d="M36.5 22 H48.5 L46.9 37 H38.1 Z" fill="${c}"/>
+    <ellipse cx="42.5" cy="22" rx="6.0" ry="2.1" fill="${c}"/>
+    <ellipse cx="42.5" cy="22" rx="4.7" ry="1.2" fill="#fff" fill-opacity="0.5"/>
+    <rect x="37.1" y="24.8" width="10.8" height="1.2" ${D}/>
+    <path d="M50.0 24 H60.0 L58.4 37 H51.6 Z" fill="${c}"/>
+    <ellipse cx="55" cy="24" rx="5.0" ry="2.1" fill="${c}"/>
+    <ellipse cx="55" cy="24" rx="3.7" ry="1.2" fill="#fff" fill-opacity="0.5"/>
+    <rect x="50.6" y="26.8" width="8.8" height="1.2" ${D}/>
+    <rect x="14.6" y="28" width="2.4" height="4" rx="0.8" fill="${c}"/><rect x="48.1" y="28" width="2.4" height="4" rx="0.8" fill="${c}"/>
+    ${[9, 21.5, 42.5, 55].map((x) => `<rect x="${x - 0.9}" y="36" width="1.8" height="4" fill="${c}"/>`).join("")}
+    <rect x="3" y="39" width="58" height="3" rx="1.5" fill="${c}"/>`;
 const violin = (c) => `<g transform="rotate(-38 32 32)">
     <path d="M32 26 C27.5 26 25.8 28.5 26.5 31.5 C27 33.5 27.6 34.3 27 35.3 C23.5 36 22.6 39.6 24.6 41.6 C21.6 43.8 21.4 51.6 25.4 54.6 C27.8 56.4 36.2 56.4 38.6 54.6 C42.6 51.6 42.4 43.8 39.4 41.6 C41.4 39.6 40.5 36 37 35.3 C36.4 34.3 37 33.5 37.5 31.5 C38.2 28.5 36.5 26 32 26 Z" fill="${c}"/>
     <rect x="30.7" y="11" width="2.6" height="17" fill="${c}"/>
@@ -145,14 +142,18 @@ const SHAPES = {
     <rect x="36" y="16" width="21" height="9" rx="1.2" ${K(0.7)}/>
     ${[10, 17.5, 25, 32.5, 40, 47.5, 55].map((x) => `<rect x="${x}" y="30" width="1.1" height="22" ${D}/>`).join("")}
     ${[7.5, 15, 30, 37.5, 45].map((x) => `<rect x="${x}" y="30" width="4.6" height="12" rx="0.8" fill="#000" fill-opacity="0.75"/>`).join("")}`,
-  // Sax: mouthpiece and neck top left, body down, the bow, bell flaring up and out.
+  // Alto sax (job 277): mouthpiece and neck at the top, the body widening down
+  // to the bow, the bell rising on the right with its flared rim, key cups.
   sax: (c) => `
-    <path d="M14 7 Q24 3 27 12" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/>
-    <rect x="7" y="4.5" width="9" height="4.5" rx="2" transform="rotate(-15 11 7)" fill="${c}"/>
-    <path d="M23.5 11 L31.5 9.5 L38 44 Q40 52 45 50 L50 47 L55 51 L46 58 Q34 62 30.5 48 Z" fill="${c}"/>
-    <path d="M44 51 L53 30 Q58 29 62 33 L55 52 Z" fill="${c}"/>
-    <ellipse cx="57.5" cy="31.5" rx="5" ry="2.4" transform="rotate(20 57.5 31.5)" fill="#000" fill-opacity="0.5"/>
-    ${[[28.5, 18], [30, 25], [31.5, 32], [33, 39]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2" ${D}/>`).join("")}`,
+    <path d="M20.5 9 L26.5 8.5 L32.5 44 Q33.5 50.5 37.5 50 Q41 49.5 42 44.5 L44.5 33 L50.5 34.5 L47.5 48 Q44.5 61 34 61 Q24.5 61 23.5 50 Z" fill="${c}"/>
+    <path d="M43 34.5 Q41 28 44 23 L60 27.5 Q55 31 52 37.5 Z" fill="${c}"/>
+    <ellipse cx="52" cy="25.2" rx="8.6" ry="2.6" transform="rotate(15 52 25.2)" fill="${c}"/>
+    <ellipse cx="52" cy="25.2" rx="6.6" ry="1.5" transform="rotate(15 52 25.2)" fill="#000" fill-opacity="0.55"/>
+    <path d="M23.5 10 Q22 3.5 15 4.5 L9 6" fill="none" stroke="${c}" stroke-width="3.6" stroke-linecap="round"/>
+    <rect x="3" y="4.2" width="8" height="3.8" rx="1.9" transform="rotate(-12 7 6)" fill="${c}"/>
+    ${[[24.6, 17, 1.7], [25.9, 23.5, 1.9], [27.3, 30, 2.1], [28.7, 36.5, 2.2], [30.2, 43, 2.3]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" ${D}/>`).join("")}
+    <circle cx="45.5" cy="41" r="1.8" ${D}/><circle cx="47" cy="35.5" r="1.6" ${D}/>
+    <path d="M19.5 14 Q17.5 24 21 33" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>`,
   // Trumpet from the side.
   trumpet,
   horns: trumpet,
