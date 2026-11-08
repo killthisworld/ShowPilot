@@ -35,7 +35,7 @@ function loadFonts() {
   return fontsReady;
 }
 
-export default function AfterShowFilm({ stars, title, dateLine, date = null, venue = null, imageUrl, show, sun = null, stamp = null, fileName = "stellar-birth", onClose, preview = false }) {
+export default function AfterShowFilm({ stars, title, dateLine, date = null, venue = null, imageUrl, show, sun = null, stamp = null, fileName = "", onClose, preview = false }) {
   const canvasRef = useRef(null);
   const filmRef = useRef(null);
   const imgRef = useRef(undefined);
@@ -117,7 +117,10 @@ export default function AfterShowFilm({ stars, title, dateLine, date = null, ven
     try {
       const { blob, ext } = await recordFilm(canvasRef.current, filmRef.current, setProgress);
       if (!blob.size) throw new Error("empty");
-      const file = new File([blob], `${fileName}-${land ? "horizontal" : "vertical"}.${ext}`, { type: blob.type });
+      // "Invasion of the Things ∕∕ Stellar Birth.mp4" (job 268). A real "/" can't
+      // be in a file name, so the slashes are the look-alike "∕".
+      const base = String(fileName || title || "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Tonight";
+      const file = new File([blob], `${base} ∕∕ Stellar Birth.${ext}`, { type: blob.type });
       setMade(file);
       msg = await deliver(file);
       if (msg === "ready") msg = "Your video is ready. Tap Save video to keep it.";

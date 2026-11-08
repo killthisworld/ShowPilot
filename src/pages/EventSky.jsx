@@ -464,7 +464,7 @@ export default function EventSky() {
       date: film.date, venue: film.venue,
       imageUrl: film.image || null,
       show: { you: true, header: true, name: true, date: true, ...(cfg.show || {}) },
-      fileName: `stellar-birth-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`.replace(/-$/, ""),
+      fileName: sky?.event?.event_name || sky?.event?.band_name || title,
     };
   }, [film, stars, sky?.me?.id, sky?.event]);
   const filmAuto = useRef(false);

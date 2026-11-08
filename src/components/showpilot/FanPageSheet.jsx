@@ -906,7 +906,7 @@ function OwnerSheet({ showId, onClose }) {
       </button>
       {filmPreview && (filmStarsReal || !row?.id) && (
         <AfterShowFilm preview stars={filmStars} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
-          imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} stamp={fm.stamp || null} fileName="stellar-birth-preview" onClose={() => { setFilmPreview(false); setFilmStarsReal(null); }} />
+          imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} stamp={fm.stamp || null} fileName={title} onClose={() => { setFilmPreview(false); setFilmStarsReal(null); }} />
       )}
     </section>
   );
