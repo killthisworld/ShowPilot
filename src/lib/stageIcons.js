@@ -174,6 +174,18 @@ const SHAPES = {
   // Icons that were taken off the list still draw something close (job 277).
   kick: (c) => SHAPES.drums(c), snare: (c) => SHAPES.drums(c), tom: (c) => SHAPES.drums(c), hihat: (c) => SHAPES.drums(c), cymbal: (c) => SHAPES.drums(c),
   headset: (c) => SHAPES.mic(c), trombone: trumpet, cello: (c) => SHAPES.upright(c),
+  // PA speaker: horn and woofer (back on the list; job 277).
+  speaker: (c) => `
+    <path d="M12 4 H52 L50 60 H14 Z" fill="${c}"/>
+    <path d="M22 10 H42 L38 22 H26 Z" fill="#000" fill-opacity="0.6"/>
+    <circle cx="32" cy="41" r="13" fill="#000" fill-opacity="0.6"/>
+    <circle cx="32" cy="41" r="5" fill="${c}"/>`,
+  // Floor wedge from the side, facing up at the player.
+  wedge: (c) => `
+    <path d="M4 52 L12 22 L60 38 L60 52 Z" fill="${c}"/>
+    <path d="M15 27 L56 41 L56 48 L10 48 Z" fill="#000" fill-opacity="0.55"/>
+    <circle cx="30" cy="40" r="5" fill="${c}" fill-opacity="0.45"/>
+    <rect x="8" y="52" width="6" height="4" fill="${c}"/><rect x="52" y="52" width="6" height="4" fill="${c}"/>`,
   // Harmonica: covers and the row of holes.
   harmonica: (c) => `
     <rect x="3" y="22" width="58" height="20" rx="3" fill="${c}"/>
@@ -207,7 +219,7 @@ export const ICON_CHOICES = [
   ["guitar", "Guitar"], ["acoustic", "Acoustic"], ["electric", "Electric"], ["bass", "Bass"],
   ["keys", "Keys"], ["piano", "Piano"], ["organ", "Organ"], ["synth", "Synth"],
   ["sax", "Sax"], ["trumpet", "Trumpet"], ["upright", "Upright bass"], ["strings", "Strings"],
-  ["harmonica", "Harmonica"], ["dj", "DJ"], ["laptop", "Laptop"], ["other", "Other"],
+  ["harmonica", "Harmonica"], ["dj", "DJ"], ["laptop", "Laptop"], ["speaker", "Speaker"], ["wedge", "Wedge"], ["other", "Other"],
 ].map(([id, label]) => ({ id, label }));
 
 export const stageIconSvg = (pos, color, size = 64) =>
