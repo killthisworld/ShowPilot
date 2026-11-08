@@ -61,12 +61,11 @@ const SHAPES = {
     <path d="M32 27 L50 61 L32 54 L14 61 Z" fill="${c}"/>
     <rect x="27.5" y="36" width="9" height="3.2" rx="1.2" ${D}/><rect x="27" y="43" width="10" height="3.2" rx="1.2" ${D}/>
     <circle cx="38" cy="52" r="1.6" ${D}/><circle cx="26" cy="52" r="1.6" ${D}/></g>`,
-  // Bass: long neck, bass headstock (4 tuners on one side), smaller body.
-  // Bass: long neck, a full P-bass body, 4 tuners along the top of the headstock.
-  bass: (c) => `<g transform="translate(32 33) scale(0.84) translate(-32 -32) rotate(45 32 32)">
+  // Bass: long neck, a full P-bass body, a Fender-style headstock, 4 tuners with their keys along the top.
+  bass: (c) => `<g transform="translate(33 34) scale(0.8) translate(-32 -32) rotate(45 32 32)">
     <rect x="30.2" y="-4" width="3.6" height="38" rx="1" fill="${c}"/>
-    <path d="M30 -4 L27 -14 L29 -15 L34 -4 Z" fill="${c}"/>
-    ${[-14, -11.5, -9, -6.5].map((y, i) => `<rect x="${24.5 + i * 0.75}" y="${y}" width="3.2" height="1.7" rx="0.85" fill="${c}"/>`).join("")}
+    <path d="M30.2 -3 L30.2 -17 Q30.4 -20.5 33.2 -20.5 Q36.2 -20.5 36 -16.5 Q35.6 -12 34.2 -9.5 Q33.8 -7 33.8 -3 Z" fill="${c}"/>
+    ${[-6.5, -10, -13.5, -17].map((y) => `<circle cx="32" cy="${y}" r="1" ${D}/><rect x="27" y="${y - 0.6}" width="3.4" height="1.2" fill="${c}"/><ellipse cx="25.8" cy="${y}" rx="1.5" ry="1.6" fill="${c}"/>`).join("")}
     <path d="M32 31 C28.5 31 27.5 26.5 24.5 27.5 C21 28.5 21.5 33.5 23.5 36.5 C18.5 41 17.5 51 21 57 C24.5 63 39.5 63 43 57 C46.5 51 45.5 41 40.5 36.5 C42.5 33.5 43 28.5 39.5 27.5 C36.5 26.5 35.5 31 32 31 Z" fill="${c}"/>
     <rect x="26.5" y="41" width="5" height="2.8" rx="1" ${D}/><rect x="32.5" y="44" width="5" height="2.8" rx="1" ${D}/>
     <rect x="28" y="54" width="8" height="2.4" rx="1" ${D}/></g>`,
