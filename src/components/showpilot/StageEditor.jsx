@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Check, ChevronDown, ChevronsDown, Mic, Pipette, Plus, Settings, Trash2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument } from "@/lib/stagePositions";
+import { STAGE_POSITIONS, positionOfMember, positionColor, positionLabel, starterInstrument, inkOn } from "@/lib/stagePositions";
 import { stageIconSvg, ICON_CHOICES } from "@/lib/stageIcons";
 import { useCustomPositions, memberLook, withCustomPosition } from "@/lib/customPositions";
 import VocalsQuestion, { isVocalInput, memberSings, setMemberVocals } from "@/components/showpilot/VocalsQuestion";
@@ -244,8 +244,9 @@ function CustomPositionEditor({ customs, onSave, onClose }) {
             </label>
           </div>
         </div>
-        <button type="button" onClick={save} disabled={!ready || state === "saving"} className="min-h-[48px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}>
-          {f.icon && <Icon pos={f.icon} color="#0d0d0d" size={22} />}{state === "saving" ? "Saving…" : f.id ? "Save changes" : "Save"}
+        {/* Save is the chosen color, with the chosen icon (job 275). */}
+        <button type="button" onClick={save} disabled={!ready || state === "saving"} className="min-h-[48px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: shown, color: inkOn(shown) }}>
+          {f.icon && <Icon pos={f.icon} color={inkOn(shown)} size={22} />}{state === "saving" ? "Saving…" : f.id ? "Save changes" : "Save"}
         </button>
         {state === "error" && <p className="text-[12px] text-[#f87171]">Couldn't save. Try again.</p>}
       </div>
