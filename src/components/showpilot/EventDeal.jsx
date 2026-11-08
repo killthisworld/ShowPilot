@@ -112,7 +112,7 @@ export default function EventDeal({ gig, biz, onChanged, color = "#60A5FA", comp
             <div className="rounded-[10px] border border-[#242424] divide-y divide-[#1f1f1f]">
               {lineup.map(([n, t]) => <div key={n} className="flex justify-between gap-3 px-3 py-2 text-[15px]"><span>{n}</span><span className="text-white/60">{t}</span></div>)}
             </div>
-          ) : <p className="text-[14px] text-white/40">No acts in the lineup yet. The manager / artist adds them under Lineup & set times.</p>}
+          ) : <p className="text-[14px] text-white/40">No acts in the lineup yet. The manager / artist adds them under Performers.</p>}
         </div>
         </>}
         <In label="Doors" value={terms.doors} onChange={(v) => set("doors", v)} placeholder="7:00 PM" />

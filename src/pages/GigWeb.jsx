@@ -998,6 +998,7 @@ function EventSections({ token, onChanged, selectedRole, selectRole, webSlot, he
           onOpenRole={selectRole}
           onOpenFanPage={onOpenFanPage}
           onOpenDj={onOpenDj}
+          onActMembers={(i, list) => { pm.setActMembers(i, list); pe.setActMembers(i, list); }}
           onInvite={showInvite && byRole[role].editable ? () => invite.openInvite(inviteKeyOf(role), SECTION_LABELS[role]) : null}
         />
       ))}

@@ -99,6 +99,8 @@ export function useRoleProfile({ role, token, onChanged }) {
   };
   const addBand = () => update("bands", [...(gig.bands || []), { role: "N/A", band_name: "", genre_tags: [], set_length_minutes: "", sort_order: (gig.bands || []).length }]);
   const removeBand = (i) => update("bands", (gig.bands || []).filter((_, idx) => idx !== i));
+  // One act's members from elsewhere (the stage plot page saved them; job 278).
+  const setActMembers = (i, list) => setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, band_members: list } : b)) }));
   const toggleExpanded = (i) => setExpandedBands((prev) => {
     const next = new Set(prev);
     if (next.has(i)) next.delete(i); else next.add(i);
@@ -261,7 +263,7 @@ export function useRoleProfile({ role, token, onChanged }) {
     savePhoto, markPage,
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
-    update, updateSection, updateEngineerRole, updateBand, addBand, removeBand,
+    update, updateSection, updateEngineerRole, updateBand, addBand, removeBand, setActMembers,
     handleSave, addRequirement, updateRequirementStatus, deleteRequirement, setTaskDone,
     markTaskDone, claimTask, setTaskDetails, setTaskDueDate,
     // For the task window (TaskSheet): it submits / sets up tasks itself.

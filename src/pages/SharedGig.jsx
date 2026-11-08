@@ -387,7 +387,10 @@ function getMemberNote(fxNotes, name) {
   return (fxNotes || []).find((n) => n.artist_name === name)?.notes || "";
 }
 
-export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
+// `wide` (the desktop event web's Performers page, job 278): the stage with
+// every member's line on one side, the stage plot files and notes on the
+// other, editable or look-only.
+export function BandDetails({ band, editable, onUpdate, iemMonitorColors, wide = false, onBusSettings = null }) {
   const [noteModal, setNoteModal] = useState(null); // { label, value, onChange }
   const [collapsedMembers, setCollapsedMembers] = useState({}); // memberIndex -> bool
 
@@ -445,6 +448,26 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
 
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files || []);
+    // One update for all the files: onUpdate may read the act from before
+    // this upload, so a second call would drop the first (job 278).
+    if (wide) {
+      const added = [];
+      for (const file of files) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          const filePath = `${user.id}/${Date.now()}_${file.name}`;
+          const { error } = await supabase.storage.from("stage-plots").upload(filePath, file);
+          if (error) throw error;
+          const { data: urlData } = supabase.storage.from("stage-plots").getPublicUrl(filePath);
+          added.push({ url: urlData.publicUrl, name: file.name, type: file.type });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      if (added.length) onUpdate("stage_plot_files", [...(band.stage_plot_files || []), ...added]);
+      e.target.value = "";
+      return;
+    }
     for (const file of files) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -478,7 +501,7 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
         <div className="p-4 overflow-y-auto">
           <Textarea
             value={noteModal.value}
-            onChange={noteModal.onChange ? (e) => noteModal.onChange(e.target.value) : undefined}
+            onChange={noteModal.onChange ? (e) => { const v = e.target.value; noteModal.onChange(v); setNoteModal((n) => (n ? { ...n, value: v } : n)); } : undefined}
             readOnly={!noteModal.onChange}
             autoFocus={!!noteModal.onChange}
             className="bg-[#111] border-[#222] text-white text-sm min-h-[220px]"
@@ -487,6 +510,74 @@ export function BandDetails({ band, editable, onUpdate, iemMonitorColors }) {
       </div>
     </div>
   );
+
+  if (wide) {
+    const label = "flex items-center gap-1.5 text-white/40 text-[11px] uppercase tracking-wide font-semibold mb-1.5";
+    return (
+      <div className="grid gap-4 items-start" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+        <div className="min-w-0">
+          <p className={label}><Users className="w-3 h-3" /> Members</p>
+          <StageEditor
+            members={members}
+            setMembers={updateMembers}
+            getInstruments={instrumentsOf}
+            colors={stageColors}
+            onRemoveMember={removeMember}
+            showAllLines
+            canEdit={editable}
+            canMove={editable}
+            busColors={iemMonitorColors || { IEM: "#EAB308", Monitor: "#F97316" }}
+            onBusSettings={editable ? onBusSettings : null}
+            renderMemberExtra={(m) => (m?.name && (editable || getMemberNote(fxNotes, m.name)) ? (
+              <button type="button" onClick={() => setNoteModal({ label: `${m.name} — Notes`, value: getMemberNote(fxNotes, m.name), onChange: editable ? (v) => updateMemberNote(m.name, v) : null })}
+                className="w-full text-left rounded-lg border border-[#222] bg-[#111] px-3 py-2.5 text-sm text-white/55 hover:border-[#8CFF3D]/40 hover:text-white/75 truncate">
+                {getMemberNote(fxNotes, m.name) || "Add notes for this member (FX, monitor mix, etc.)"}
+              </button>
+            ) : null)}
+          />
+          {!members.length && !editable && <p className="text-white/35 text-sm">No members yet.</p>}
+        </div>
+        <div className="min-w-0 flex flex-col gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className={label + " !mb-0"}><ImageIcon className="w-3 h-3" /> Stage Plot</p>
+              {editable && (
+                <label className="text-[#8CFF3D] text-xs font-medium hover:bg-[#8CFF3D]/10 px-3 py-2 rounded-lg cursor-pointer">
+                  + Upload
+                  <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handleUpload} />
+                </label>
+              )}
+            </div>
+            {stagePlotImages.length ? (
+              <div className="flex gap-2 flex-wrap">
+                {stagePlotImages.map((f, i) => {
+                  const own = band.stage_plot_url ? i - 1 : i; // index in stage_plot_files
+                  return (
+                    <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-[#333]">
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                        {f.type?.startsWith("image/") ? <img src={f.url} alt={f.name || "Stage plot"} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center text-white/40 text-[10px] p-1 text-center">{f.name}</div>}
+                      </a>
+                      {editable && own >= 0 && <button type="button" onClick={() => removeFile(own)} aria-label="Remove file" className="absolute top-1 right-1 w-7 h-7 rounded-full bg-black/70 text-white/80 hover:text-white flex items-center justify-center text-sm">✕</button>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : <p className="text-white/35 text-sm">{editable ? "Have your own stage plot? Upload it." : "No files."}</p>}
+          </div>
+          <SubmittedBy name={band.submitter_name} phone={band.submitter_phone} email={band.submitter_email} cardToken={band.submitter_card_share_token} cardName={band.submitter_card_display_name} />
+          {(editable || band.general_notes) && (
+            <button type="button" onClick={() => setNoteModal({ label: "General Notes", value: band.general_notes || "", onChange: editable ? (v) => onUpdate("general_notes", v) : null })} className="w-full text-left">
+              <Label className="text-white/40 text-[11px] uppercase tracking-wide font-semibold cursor-pointer">General Notes</Label>
+              <p className="mt-1 bg-[#111] border border-[#222] rounded-lg px-3 py-2.5 text-white/50 text-sm line-clamp-3 hover:border-[#8CFF3D]/40 hover:text-white/70">
+                {band.general_notes || "Add general notes"}
+              </p>
+            </button>
+          )}
+        </div>
+        {noteModalOverlay}
+      </div>
+    );
+  }
 
   if (!editable) {
     return (
@@ -667,6 +758,7 @@ export default function SharedGig() {
   // FX / Artist Notes window (job 205): opened from each act's row.
   const [fxOpen, setFxOpen] = useState(false);
   const [fxTarget, setFxTarget] = useState("__show__");
+  const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
   // Tracks each act sent for this event, by its set time (job 219).
   const { tracksFor } = useEventTracks(gig?.id);
   const [tracksAct, setTracksAct] = useState(null);
@@ -1255,7 +1347,7 @@ export default function SharedGig() {
           />
         )}
         {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {(techPhone || (isDesktop && stageRole)) && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxOpen(true); }} />}
+        {(techPhone || (isDesktop && stageRole)) && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
 
         {(!techPhone || permissions?.is_owner) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
@@ -1469,7 +1561,7 @@ export default function SharedGig() {
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
-                        <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(null); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
@@ -1518,7 +1610,7 @@ export default function SharedGig() {
                       placeholder="Set (min)"
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                    <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(null); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
                   </div>
@@ -1593,7 +1685,7 @@ export default function SharedGig() {
       </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxOpen(true); }} />}
+      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}
@@ -1602,6 +1694,8 @@ export default function SharedGig() {
           showNotes={(gig.engineer_info || {}).show_notes || ""}
           onShowNotes={canEditEngineerSection() ? (v) => { updateSection("engineer_info", "show_notes", v); setFxDirty((d) => ({ ...d, show: true })); } : null}
           onActNotes={canEditLineup ? (i, v) => { const bands = [...(gig.bands || [])]; bands[i] = { ...bands[i], general_notes: v, artist_fx_notes: [] }; update("bands", bands); setFxDirty((d) => ({ ...d, acts: true })); } : null}
+          actOnly={fxAct}
+          onActPatch={canEditLineup ? (i, patch) => { setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, ...patch } : b)) })); setFxDirty((d) => ({ ...d, acts: true })); } : null}
           onSave={async () => {
             setFxSaving(true);
             if (fxDirty.acts && canEditLineup) await saveManagerSection();

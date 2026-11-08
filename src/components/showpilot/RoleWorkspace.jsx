@@ -17,6 +17,7 @@ import { SECTION_OF } from "@/lib/eventRoles";
 import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS, BandDetails } from "@/pages/SharedGig";
+import { StagePlotView, ActStagePlotButton, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness, saveDeal, dealSummary } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
@@ -202,7 +203,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null, wide = false }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null, wide = false, onActMembers = null }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -213,10 +214,33 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const [openTaskId, setOpenTaskId] = useState(null);
   // FX / Artist Notes window (job 205), opened from an act's row by its set time.
   const [fxTarget, setFxTarget] = useState(null);
+  const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
   const [fxShowDraft, setFxShowDraft] = useState(null); // General notes being edited here
   const [fxActsDirty, setFxActsDirty] = useState(false);
   const [fxSaving, setFxSaving] = useState(false);
   const [fxSaved, setFxSaved] = useState(false);
+  // Performers (job 278): the act whose stage shows under the lineup, and the
+  // full stage plot page (from an act's stage icon or the engineer's
+  // Stage plot feature).
+  const [perfAt, setPerfAt] = useState(0);
+  const [stageAt, setStageAt] = useState(null);
+  const stageEditable = !template && !!p.token && !!(p.permissions?.is_owner || p.canEditSection?.("manager"));
+  const syncMembers = (i, list) => (onActMembers ? onActMembers(i, list) : p.setActMembers ? p.setActMembers(i, list) : p.updateBand(i, "band_members", list));
+  const saveActMembers = async (i, list) => {
+    const mine = (gig.bands || [])[i];
+    const { data: fresh, error: e1 } = await supabase.rpc("get_shared_gig", { p_token: p.token });
+    if (e1 || !fresh) { console.error(e1); return "Couldn't save. Try again."; }
+    const bands = (fresh.bands || []).map((b, k) => ({ ...b, sort_order: k }));
+    let k = bands.findIndex((b) => mine?.id && b.id === mine.id);
+    if (k < 0 && bands[i] && (bands[i].band_name || "") === (mine?.band_name || "")) k = i;
+    if (k < 0) k = bands.findIndex((b) => (b.band_name || "") && b.band_name === mine?.band_name);
+    if (k < 0) return "Save the lineup first, then edit this stage.";
+    bands[k] = { ...bands[k], band_members: list };
+    const { error } = await supabase.rpc("update_shared_gig", { p_token: p.token, p_updates: { bands } });
+    if (error) { console.error(error); return "Couldn't save. Try again."; }
+    syncMembers(i, list);
+    return null;
+  };
   // Load template from the profile web's corner (job 124).
   const [tplOpen, setTplOpen] = useState(false);
   const [tplLoaded, setTplLoaded] = useState("");
@@ -625,53 +649,18 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         ),
       },
       {
-        key: "lineup", label: "Lineup & set times",
+        key: "lineup", label: "Performers",
         summary: (gig.bands || []).length ? `${gig.bands.length} act${gig.bands.length === 1 ? "" : "s"}${Object.values(setTimes).some(has) ? " · set times in" : ""}` : "Acts, order, set times",
         state: (gig.bands || []).filter((b) => b.band_name).length === 0 ? "empty" : (gig.bands || []).every((b) => !b.band_name || has(setTimes[b.band_name])) ? "done" : "partial",
         render: () => (
           <>
-            {fxTarget !== null && (
-              <FxNotesWindow
-                acts={gig.bands || []}
-                target={fxTarget}
-                onTarget={setFxTarget}
-                showNotes={fxShowDraft ?? (ei.show_notes || "")}
-                onShowNotes={p.canEditSection?.("engineer") ? (v) => setFxShowDraft(v) : null}
-                onActNotes={p.canEdit ? (i, v) => { const list = [...(gig.bands || [])]; list[i] = { ...list[i], general_notes: v, artist_fx_notes: [] }; p.update("bands", list); setFxActsDirty(true); } : null}
-                onSave={async () => {
-                  // Desktop pages save one section at a time, so the notes
-                  // window saves its own: General -> Audio / Lighting (from the
-                  // latest engineer_info), act notes -> the lineup.
-                  setFxSaving(true);
-                  try {
-                    if (fxShowDraft !== null) {
-                      const { data: fresh } = await supabase.rpc("get_shared_gig", { p_token: p.token });
-                      const cur = (fresh?.engineer_info && typeof fresh.engineer_info === "object") ? fresh.engineer_info : ei;
-                      const next = { ...cur, show_notes: fxShowDraft };
-                      const { error } = await supabase.rpc("update_gig_section", { p_token: p.token, p_section: "engineer", p_updates: next });
-                      if (error) throw error;
-                      p.update("engineer_info", next);
-                      setFxShowDraft(null);
-                    }
-                    if (fxActsDirty) {
-                      const { error } = await supabase.rpc("update_shared_gig", { p_token: p.token, p_updates: { bands: gig.bands || [] } });
-                      if (error) throw error;
-                      setFxActsDirty(false);
-                    }
-                    setFxSaved(true); setTimeout(() => setFxSaved(false), 1800);
-                  } catch (e) { console.error(e); }
-                  setFxSaving(false);
-                }}
-                saving={fxSaving}
-                saved={fxSaved}
-                onClose={() => { setFxTarget(null); setFxShowDraft(null); }}
-              />
-            )}
             <TableBox>
               {(gig.bands || []).map((b, i) => (
                 // Two lines per act so it fits the workspace column at any width:
                 // order + name on top, billing / length / start time underneath.
-                <div key={i} className="grid grid-cols-[52px_minmax(0,1fr)_36px] gap-x-2 gap-y-2 px-3 py-3 items-center">
+                // Tap an act to show its stage under the lineup (job 278).
+                <div key={i} onClick={() => setPerfAt(i)} className="grid grid-cols-[52px_minmax(0,1fr)_36px] gap-x-2 gap-y-2 px-3 py-3 items-center cursor-pointer"
+                  style={i === Math.min(perfAt, (gig.bands || []).length - 1) && (gig.bands || []).length > 1 ? { background: color + "10", boxShadow: `inset 3px 0 0 ${color}` } : undefined}>
                   <div className="flex items-center gap-0.5 row-span-2 self-start pt-1.5">
                     <span className="w-6 text-right text-[18px] font-bold tabular-nums" style={{ color }}>{i + 1}</span>
                     {p.canEdit && (
@@ -710,43 +699,48 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <TimeSelect value={setTimes[b.band_name]} onChange={(v) => setMi("set_times", { ...setTimes, [b.band_name]: v })} disabled={off || !b.band_name} color={color} label={b.band_name ? `${b.band_name} set time` : "Set time"} />
                     </div>
                     {/* This act's FX / Artist Notes, next to its set time (job 205). */}
-                    <ActNotesButton act={b} onClick={() => setFxTarget(i)} />
+                    <ActNotesButton act={b} onClick={() => { setFxAct(null); setFxTarget(i); }} />
+                    <ActStagePlotButton act={b} onClick={() => setStageAt(i)} />
                   </div>
-                  {/* Members, inputs & stage plot for this act (job 108): the
-                      same editor as the shared event page. Editable by whoever
-                      can edit this section; read-only for everyone else
-                      (e.g. Audio / Lighting). Saved with the section's Save. */}
-                  {(() => {
-                    const open = p.expandedBands?.has(i);
-                    const n = (b.band_members || []).length;
-                    const plot = (b.stage_plot_files || []).length;
-                    const bits = [n ? `${n} member${n === 1 ? "" : "s"}` : null, plot ? "stage plot" : null].filter(Boolean).join(" · ");
-                    return (
-                      <div className="col-start-1 col-span-3 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => p.toggleExpanded?.(i)}
-                          aria-expanded={!!open}
-                          className="w-full h-10 px-3 rounded-[9px] border flex items-center gap-2 text-left text-[13px] font-semibold transition-colors"
-                          style={{ borderColor: open ? color + "88" : "#262626", background: open ? color + "14" : "#111", color: open ? color : "rgba(255,255,255,0.7)" }}
-                        >
-                          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-                          <span className="flex-1 min-w-0 truncate">Members, inputs & stage plot</span>
-                          {bits && <span className="shrink-0 text-[11px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{bits.toUpperCase()}</span>}
-                        </button>
-                        {open && (
-                          <div className="mt-2 rounded-[10px] border border-[#222] bg-[#0f0f0f] p-2.5">
-                            <BandDetails band={b} editable={ed} onUpdate={(field, val) => p.updateBand(i, field, val)} iemMonitorColors={p.iemMonitorColors || {}} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
               ))}
               {(gig.bands || []).length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">No acts yet.</p>}
             </TableBox>
             <AddButton color={color} disabled={!p.canEdit} onClick={p.addBand}>Add an act</AddButton>
+            {/* The picked act's stage, like the phone's Performer tab laid out
+                for desktop (job 278): the stage with everyone's line on one
+                side, stage plot files and notes on the other. Saved with
+                the section's Save; the full page saves as you go. */}
+            {(() => {
+              const bands = gig.bands || [];
+              if (!bands.length) return null;
+              const at = Math.min(perfAt, bands.length - 1);
+              const b = bands[at];
+              return (
+                <div className="rounded-[12px] border bg-[#0f0f0f] p-3 flex flex-col gap-3" style={{ borderColor: color + "44" }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10.5px] tracking-[0.14em] text-white/45" style={{ fontFamily: SCENE_MONO }}>STAGE</span>
+                    {bands.length > 1 ? bands.map((x, k) => (
+                      <button key={k} type="button" onClick={() => setPerfAt(k)} aria-pressed={k === at}
+                        className="min-h-[32px] px-3 rounded-full border text-[13px] font-semibold"
+                        style={k === at ? { borderColor: color, background: color, color: "#0d0d0d" } : { borderColor: "#333", color: "rgba(255,255,255,0.7)" }}>
+                        {x.band_name || `Act ${k + 1}`}
+                      </button>
+                    )) : <span className="text-[15px] font-semibold text-white">{b.band_name || "Act 1"}</span>}
+                    <span className="ml-auto flex items-center gap-2">
+                      <ActNotesButton act={b} onClick={() => { setFxAct(at); setFxTarget(at); }} />
+                      {(stageEditable || hasStagePlot(b)) && (
+                        <button type="button" onClick={() => setStageAt(at)} title="Full stage plot page"
+                          className="min-h-[40px] px-3 rounded-[10px] border bg-black flex items-center gap-2 text-[13px] font-semibold" style={{ borderColor: G + "55", color: G }}>
+                          <StageIcon className="w-5 h-5" />Full page
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                  <BandDetails key={at} wide band={b} editable={ed} onUpdate={(field, val) => p.updateBand(at, field, val)} iemMonitorColors={p.iemMonitorColors || {}} />
+                </div>
+              );
+            })()}
           </>
         ),
       },
@@ -867,7 +861,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               </div>
             )}
             {!run.length && !untimed.length && (
-              <p className="text-[14px] text-white/40">Add acts and set times in Lineup & set times. The venue's schedule and your arrival join them here.</p>
+              <p className="text-[14px] text-white/40">Add acts and set times in Performers. The venue's schedule and your arrival join them here.</p>
             )}
             {(untimed.length > 0 || !run.length) && active !== "lineup" && tabs.some((t) => t.key === "lineup") && (
               <button type="button" onClick={() => setActive("lineup")} className={sideBtn} style={{ color, borderColor: color + "66" }}>
@@ -968,7 +962,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // The pages' render() reads p (e.g. which acts are expanded), so the
     // list is rebuilt when those change too (job 148: the Members dropdown).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors, advRows, advKey]
+    [role, gig, ed, p.canEdit, biz, p.expandedBands, p.iemMonitorColors, advRows, advKey, perfAt]
   );
   const [active, setActive] = useState(initialTab || null);
   // "pages" layout (the event's main space): this profile is one dropdown, its
@@ -1136,6 +1130,61 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const [linksOpen, setLinksOpen] = useState(false);
   const linksOn = !template && isDesktopNow() && !!p.user && !!gig.id && (role === "engineer" || role === "lighting");
   const linksSheet = linksOpen && <EventLinksSheet gig={gig} user={p.user} isOwner={!!p.permissions?.is_owner} color={color} onClose={() => setLinksOpen(false)} />;
+  // FX / Artist Notes (job 205), over the Performers page and the stage page.
+  const fxSheet = fxTarget !== null && (
+<FxNotesWindow
+                acts={gig.bands || []}
+                target={fxTarget}
+                onTarget={setFxTarget}
+                showNotes={fxShowDraft ?? (ei.show_notes || "")}
+                onShowNotes={p.canEditSection?.("engineer") ? (v) => setFxShowDraft(v) : null}
+                onActNotes={p.canEdit ? (i, v) => { const list = [...(gig.bands || [])]; list[i] = { ...list[i], general_notes: v, artist_fx_notes: [] }; p.update("bands", list); setFxActsDirty(true); } : null}
+                onSave={async () => {
+                  // Desktop pages save one section at a time, so the notes
+                  // window saves its own: General -> Audio / Lighting (from the
+                  // latest engineer_info), act notes -> the lineup.
+                  setFxSaving(true);
+                  try {
+                    if (fxShowDraft !== null) {
+                      const { data: fresh } = await supabase.rpc("get_shared_gig", { p_token: p.token });
+                      const cur = (fresh?.engineer_info && typeof fresh.engineer_info === "object") ? fresh.engineer_info : ei;
+                      const next = { ...cur, show_notes: fxShowDraft };
+                      const { error } = await supabase.rpc("update_gig_section", { p_token: p.token, p_section: "engineer", p_updates: next });
+                      if (error) throw error;
+                      p.update("engineer_info", next);
+                      setFxShowDraft(null);
+                    }
+                    if (fxActsDirty) {
+                      const { error } = await supabase.rpc("update_shared_gig", { p_token: p.token, p_updates: { bands: gig.bands || [] } });
+                      if (error) throw error;
+                      setFxActsDirty(false);
+                    }
+                    setFxSaved(true); setTimeout(() => setFxSaved(false), 1800);
+                  } catch (e) { console.error(e); }
+                  setFxSaving(false);
+                }}
+                saving={fxSaving}
+                saved={fxSaved}
+                actOnly={fxAct}
+                onActPatch={p.canEdit ? (i, patch) => { p.update("bands", (gig.bands || []).map((b, k) => (k === i ? { ...b, ...patch } : b))); setFxActsDirty(true); } : null}
+                onClose={() => { setFxTarget(null); setFxAct(null); setFxShowDraft(null); }}
+              />
+  );
+  // The full stage plot page (job 278). Whoever can edit the lineup edits
+  // members there (each change saved straight away, onto the latest lineup
+  // so nobody else's edits are lost); Audio / Lighting crew can move people.
+  const stageSheet = stageAt !== null && !template && (
+    <StagePlotView
+      acts={gig.bands || []}
+      start={stageAt}
+      onClose={() => setStageAt(null)}
+      token={p.token || null}
+      onActs={(bands) => bands.forEach((b, k) => syncMembers(k, b.band_members || []))}
+      onEditMembers={stageEditable ? saveActMembers : null}
+      busColors={p.iemMonitorColors || null}
+      onOpenNotes={(i) => { setFxAct(i); setFxTarget(i); }}
+    />
+  );
   // Pages opened from a feature button stay off the web and the page cards.
   const webTabs = tabs.filter((t) => !t.feature);
   const eventFormOn = tabs.some((t) => t.key === "event_link" && t.feature);
@@ -1149,6 +1198,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // Links (desktop, Audio / Lighting web): this event's intake links, which
     // on desktop live here instead of in Settings (Oct 26).
     linksOn ? { key: "links", label: "Links", color: "#60A5FA", onClick: () => setLinksOpen(true) } : null,
+    // Stage plot (job 278): the Audio web's bottom right corner opens the
+    // acts' full stage plot page.
+    role === "engineer" && !template && (stageEditable || (gig.bands || []).some(hasStagePlot))
+      ? { key: "stage", label: "Stage plot", color: G, corner: 3, icon: <StageIcon className="w-full h-full" />, onClick: () => setStageAt(0) } : null,
   ].filter(Boolean);
 
   // Mark as done (job 148): on every page you can edit. Done pages light up
@@ -1227,7 +1280,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}{linksSheet}
+          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
@@ -1283,7 +1336,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}{linksSheet}
+        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
         <div ref={blockRef} className="rounded-2xl bg-[#111] text-white" style={{ fontFamily: SCENE_FONT, border: `1px solid ${selected ? color + "99" : "#1f1f1f"}`, boxShadow: selected ? `0 0 0 1px ${color}33, 0 0 18px ${color}22` : undefined, scrollMarginTop: 12 }}>
           <div className="flex items-center gap-1 pr-2">
             <button type="button" onClick={() => setBlockOpen((o) => !o)} aria-expanded={blockOpen} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
@@ -1382,7 +1435,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}{linksSheet}
+          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
           <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
             {!p.user && (
               <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
@@ -1432,7 +1485,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}{linksSheet}
+        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
           {tabChips}
           <div className="flex items-center gap-3">
@@ -1589,7 +1642,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   return (
     <Shell modal={modal} onClose={onClose}>
       {header}
-      {taskSheet}{tplPicker}{linksSheet}
+      {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">

@@ -180,6 +180,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [selectedArtistFx, setSelectedArtistFx] = useState("__general__");
   // FX / Artist Notes (job 167): "__show__" = General (whole show), or an act's index.
   const [fxTarget, setFxTarget] = useState("__show__");
+  const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
   // Tracks each act sent for this event, by its set time (job 219).
   const { tracksFor } = useEventTracks(id);
   // Each act's multi-track answer from the intake form, kept with the event
@@ -1156,7 +1157,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           })()}>
           <div className="space-y-3 pt-3">
           {/* The stage plot on the desktop event page (job 255). */}
-          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setShowFxModal(true); }} />}
+          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Act
@@ -1233,7 +1234,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
               <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
                 <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
-                <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setShowFxModal(true); }} />
+                <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(null); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />
               </div>
@@ -1264,7 +1265,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setShowFxModal(true); }} />}
+      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}
@@ -1273,6 +1274,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           showNotes={show.show_notes || ""}
           onShowNotes={(v) => update("show_notes", v)}
           onActNotes={(i, v) => setBands((prev) => { const next = [...prev]; next[i] = { ...next[i], general_notes: v, artist_fx_notes: [] }; return next; })}
+          actOnly={fxAct}
+          onActPatch={(i, patch) => setBands((prev) => prev.map((b, k) => (k === i ? { ...b, ...patch } : b)))}
+          onSave={fxAct !== null && editStage ? () => { setSaveAfter((n) => n + 1); setShowFxModal(false); } : undefined}
           onClose={() => setShowFxModal(false)}
         />
       )}

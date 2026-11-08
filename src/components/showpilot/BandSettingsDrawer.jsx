@@ -131,7 +131,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
         // Venue business records (job 104): agreements, riders, advance, insurance.
         ...(prefs?.account_type === "venue" ? [{ icon: FileArchive, label: "Records", sub: "Agreements, riders, advance and insurance from your events", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/records"); } }] : []),
         // DJ Tools isn't listed here: it lives on the Manager / Artist
-        // profile web (its DJ Tools feature corner -> Lineup & set times).
+        // profile web (its DJ Tools feature corner -> Performers).
       ]}
       onSave={save} saving={saving}
       canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}

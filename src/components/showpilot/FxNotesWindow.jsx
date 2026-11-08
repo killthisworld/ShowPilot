@@ -23,7 +23,72 @@ export const actNotesText = (b) => {
 };
 export const actHasNotes = (b) => !!(b?.general_notes || (b?.artist_fx_notes || []).some((n) => n.notes));
 
-export default function FxNotesWindow({ acts = [], target, onTarget, showNotes = "", onShowNotes = null, onActNotes = null, onSave, saving = false, saved = false, onClose }) {
+// One act's notes (job 278), opened from its stage: General is that act's
+// general notes, then a chip per member for their own notes.
+//   act, onPatch({ general_notes } | { artist_fx_notes }) (null = read only)
+function ActNotes({ act, onPatch, onSave, saving, saved, onClose }) {
+  const [who, setWho] = useState(null); // null = General, else a member's name
+  const members = (act?.band_members || []).filter((m) => String(m?.name || "").trim());
+  const notes = act?.artist_fx_notes || [];
+  const noteOf = (name) => notes.find((n) => n.artist_name === name)?.notes || "";
+  const cur = who && members.some((m) => m.name === who) ? who : null;
+  const editable = !!onPatch;
+  const actLabel = act?.band_name || act?.role || "this act";
+  const chip = (on) => `px-3 py-1.5 rounded-full text-[13px] border transition-all flex items-center gap-1.5 ${on ? "border-[#8CFF3D]/50 text-[#8CFF3D] bg-[#8CFF3D]/10" : "border-[#2a2a2a] text-white/55 hover:text-white/80"}`;
+  const change = (v) => {
+    if (!cur) { onPatch?.({ general_notes: v }); return; }
+    const has = notes.some((n) => n.artist_name === cur);
+    onPatch?.({ artist_fx_notes: has ? notes.map((n) => (n.artist_name === cur ? { ...n, notes: v } : n)) : [...notes, { artist_name: cur, notes: v }] });
+  };
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 px-3" style={{ height: "100dvh" }} onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="FX / Artist Notes" className="bg-[#161616] border border-[#2a2a2a] rounded-2xl p-5 w-full max-w-lg max-h-[92dvh] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-bold text-lg flex items-center gap-2 min-w-0">
+            <StickyNote className="w-5 h-5 shrink-0" style={{ color: G }} /> <span className="truncate">{actLabel} notes</span>
+          </h3>
+          <button onClick={onClose} className="w-10 h-10 -mr-2 flex items-center justify-center text-white/40 hover:text-white" aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <Textarea
+            key={cur || "__general__"}
+            value={cur ? noteOf(cur) : (act?.general_notes || "")}
+            readOnly={!editable}
+            onChange={(e) => change(e.target.value)}
+            className="bg-[#111] border-[#222] text-white text-[15px] leading-relaxed min-h-[48dvh]"
+            placeholder={editable ? (cur ? `Notes for ${cur} (FX, monitor mix, etc.)...` : `General notes for ${actLabel}...`) : "No notes yet."}
+          />
+          {!editable && <p className="text-white/40 text-xs -mt-1">Only the owner or the Manager / Artist can change an act's notes.</p>}
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <button type="button" onClick={() => setWho(null)} className={chip(!cur)}>
+              General {act?.general_notes ? <span aria-label="has notes">●</span> : null}
+            </button>
+            {members.map((m, i) => (
+              <button type="button" key={`${m.name}-${i}`} onClick={() => setWho(m.name)} className={chip(cur === m.name)}>
+                {m.name} {noteOf(m.name) ? <span aria-label="has notes">●</span> : null}
+              </button>
+            ))}
+          </div>
+          {onSave && editable && (
+            <button type="button" onClick={onSave} disabled={saving} className="w-full h-11 rounded-xl text-[#0d0d0d] font-semibold disabled:opacity-60" style={{ background: G }}>
+              {saving ? "Saving..." : saved ? "Saved ✓" : "Save notes"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// `actOnly` (an act index): just that act's notes, General + its members
+// (ActNotes above), edited with onActPatch(i, patch).
+export default function FxNotesWindow({ acts = [], target, onTarget, showNotes = "", onShowNotes = null, onActNotes = null, onSave, saving = false, saved = false, onClose, actOnly = null, onActPatch = null }) {
+  if (actOnly !== null && acts[actOnly]) {
+    return <ActNotes act={acts[actOnly]} onPatch={onActPatch ? (patch) => onActPatch(actOnly, patch) : null} onSave={onSave} saving={saving} saved={saved} onClose={onClose} />;
+  }
   const isShow = target === "__show__" || !acts[target];
   const act = isShow ? null : acts[target];
   const actLabel = (b) => b.band_name || b.role || "Act";

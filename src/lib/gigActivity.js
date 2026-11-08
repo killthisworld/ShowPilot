@@ -22,7 +22,7 @@ const FIELD_LABELS = {
   schedule: "Schedule & curfew",
   hospitality: "Hospitality",
   parking: "Parking",
-  lineup: "Lineup & set times",
+  lineup: "Performers",
   contact_name: "Contact",
   contact_email: "Contact",
   contact_phone: "Contact",

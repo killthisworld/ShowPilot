@@ -257,7 +257,7 @@ function CustomPositionEditor({ customs, onSave, onClose }) {
 
 // "What do they play?": the grid (with your own instruments), and the gear
 // that opens the window to make more (job 275: it replaces + Add).
-function PickPanel({ colors, onPick, onPickCustom, onClose }) {
+function PickPanel({ colors, onPick, onPickCustom, onClose, value = null, valueCustom = null }) {
   const [customs, saveCustoms] = useCustomPositions();
   const [manage, setManage] = useState(false);
   return (
@@ -267,7 +267,7 @@ function PickPanel({ colors, onPick, onPickCustom, onClose }) {
         <button type="button" onClick={() => setManage(true)} aria-label="Your own instruments" title="Make your own instruments" className="w-9 h-9 flex items-center justify-center text-white/55 hover:text-[#8CFF3D]"><Settings className="w-[18px] h-[18px]" /></button>
         <button type="button" onClick={onClose} aria-label="Cancel" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
       </div>
-      <PositionGrid colors={colors} onPick={onPick} customs={customs} onPickCustom={onPickCustom} />
+      <PositionGrid colors={colors} value={value} valueCustom={valueCustom} onPick={onPick} customs={customs} onPickCustom={onPickCustom} />
       {manage && <CustomPositionEditor customs={customs} onSave={saveCustoms} onClose={() => setManage(false)} />}
     </div>
   );
@@ -304,7 +304,6 @@ function MemberLine({ member, insts, busColors }) {
 function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove, extra = null, busColors = null, onBusSettings = null }) {
   const [repick, setRepick] = useState(false);
   const { pos, color: pc, icon } = memberLook(draft, getInstruments, colors);
-  const [customs] = useCustomPositions();
   const insts = getInstruments(draft);
   const setInsts = (list) => setDraft({ ...draft, instruments: list });
   const upd = (ii, f, v) => { const l = [...insts]; l[ii] = { ...l[ii], [f]: v }; setInsts(l); };
@@ -326,9 +325,11 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
         </div>
         <button type="button" onClick={() => setRepick((r) => !r)} className="min-h-[34px] px-2.5 rounded-lg border border-[#333] text-[12px] text-white/65">{repick ? "Done" : "Change"}</button>
       </div>
-      {repick && <PositionGrid colors={colors} value={pos} valueCustom={draft.position_color ? draft.position_label : null} customs={customs}
+      {/* Change = the same "What do they play?" box, gear and all (job 278). */}
+      {repick && <PickPanel colors={colors} value={pos} valueCustom={draft.position_color ? draft.position_label : null}
         onPick={(k) => { setDraft({ ...draft, position: k, position_label: undefined, position_color: undefined, position_icon: undefined }); setRepick(false); }}
-        onPickCustom={(p) => { setDraft(withCustomPosition(draft, p)); setRepick(false); }} />}
+        onPickCustom={(p) => { setDraft(withCustomPosition(draft, p)); setRepick(false); }}
+        onClose={() => setRepick(false)} />}
       <input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} autoFocus={isNew} />
       <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
         <VocalsQuestion compact value={memberSings(draft, insts)} onChange={(yes) => setDraft(setMemberVocals(draft, insts, yes))} />

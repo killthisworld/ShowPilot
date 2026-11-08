@@ -87,7 +87,7 @@ const SHORT = {
   tasks: "Current", requests: "Requests", documents: "Docs", address: "Address", load_in: "Load-in", schedule: "Schedule",
   wifi_power: "Wi-Fi", house_gear: "Gear", hospitality: "Hospo", contact: "Contact", doors: "Doors", tickets: "Tickets",
   marketing: "Marketing", guests: "Guests", settlement: "Settle", deal: "Deal", holds: "Holds", contract: "Contract",
-  deposit: "Payments", lineup: "Lineup", advance: "Advance", travel: "Travel", merch: "Merch",
+  deposit: "Payments", lineup: "Performers", advance: "Advance", travel: "Travel", merch: "Merch",
 };
 export const shortTabLabel = (t) => SHORT[t.key] || String(t.label || "").split(/[\s&]/)[0];
 
@@ -165,12 +165,21 @@ export default function ProfileWeb({
               }}
             >
               <span className="rounded-full" style={{ width: 7, height: 7, background: on ? "#0d0d0d" : DOT[t.state] || DOT.empty }} />
-              <span className="font-bold leading-none tracking-[0.02em] px-0.5 text-center whitespace-nowrap" style={{ fontSize: Math.round((shortTabLabel(t).length > 7 ? 10 : 11.5) * k) }}>{shortTabLabel(t)}</span>
+              <span className="font-bold leading-none tracking-[0.02em] px-0.5 text-center whitespace-nowrap" style={{ fontSize: Math.round((shortTabLabel(t).length > 9 ? 9 : shortTabLabel(t).length > 7 ? 10 : 11.5) * k) }}>{shortTabLabel(t)}</span>
             </button>
           );
         })}
 
-        {CORNERS.map(([cx, cy], i) => {
+        {(() => {
+          // A feature can ask for its own corner (`corner`: 0 top left, 1 top
+          // right, 2 bottom left, 3 bottom right; job 278); the rest fill the
+          // open corners in order.
+          const free = CORNERS.map((_, i) => i).filter((i) => !(home && i === 0));
+          const at = {};
+          dcas.forEach((d) => { if (typeof d.corner === "number" && free.includes(d.corner) && !at[d.corner]) at[d.corner] = d; });
+          const rest = dcas.filter((d) => !Object.values(at).includes(d));
+          free.forEach((i) => { if (!at[i] && rest.length) at[i] = rest.shift(); });
+          return CORNERS.map(([cx, cy], i) => {
           const base = { left: `${cx}%`, top: `${cy}%`, ...m.node(((cx - 50) / 100) * size, ((cy - 50) / 100) * size) };
           if (home && i === 0) {
             const hs = dcaSize + 6;
@@ -195,7 +204,7 @@ export default function ProfileWeb({
               </button>
             );
           }
-          const d = dcas[home ? i - 1 : i];
+          const d = at[i];
           if (!d) {
             return (
               <span
@@ -215,18 +224,23 @@ export default function ProfileWeb({
               key={d.key}
               type="button"
               onClick={d.onClick}
-              aria-label={d.badge ? `${d.label} feature, ${d.badge} yours` : `${d.label} feature`}
+              aria-label={d.badge ? `${d.label} feature, ${d.badge} yours` : `${d.label} feature`} title={d.icon ? d.label : undefined}
               className="absolute rounded-[12px] flex flex-col items-center justify-center gap-1 p-0"
-              style={{ ...base, width: dcaSize + 8, height: dcaSize + 8, background: "#161616", border: `1.5px solid ${d.color}`, boxShadow: `0 0 12px ${d.color}40`, color: "#f2f2f2" }}
+              style={{ ...base, width: dcaSize + 8, height: dcaSize + 8, background: d.icon ? "#000" : "#161616", border: `1.5px solid ${d.color}`, boxShadow: `0 0 12px ${d.color}40`, color: "#f2f2f2" }}
             >
+              {/* An icon feature (the Audio web's Stage plot, job 278) is just
+                  its icon, on black. */}
+              {d.icon ? <span className="flex items-center justify-center" style={{ width: Math.round(46 * k), height: Math.round(46 * k), color: d.color }}>{d.icon}</span> : <>
               <span className="rounded-full" style={{ width: Math.round(34 * k), height: 3, background: d.color, boxShadow: `0 0 8px ${d.color}` }} />
               <span className="font-bold leading-none text-center" style={{ fontSize: Math.round(11.5 * k) }}>{d.label}</span>
+              </>}
               {d.badge > 0 && (
                 <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 rounded-full flex items-center justify-center text-[11px] font-bold text-[#0d0d0d]" style={{ background: d.color, boxShadow: `0 0 8px ${d.color}` }}>{d.badge}</span>
               )}
             </button>
           );
-        })}
+        });
+        })()}
       </div>
 
       <button
