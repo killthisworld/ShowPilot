@@ -15,15 +15,26 @@ const trumpet = (c) => `
     <rect x="17" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="24" y="14" width="4.4" height="12" rx="1" fill="${c}"/><rect x="31" y="14" width="4.4" height="12" rx="1" fill="${c}"/>
     <rect x="16" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="23" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/><rect x="30" y="11" width="6.4" height="3.5" rx="1.7" fill="${c}"/>
     <path d="M14 30 v6 q0 6 6 6 h16 q6 0 6 -6 v-6" fill="none" stroke="${c}" stroke-width="3.5"/>`;
+// Percs: four bongos, two pairs, the back pair a step up (job 277).
 const bongos = (c) => `
-    <path d="M4 22 H30 L27 50 H7 Z" fill="${c}"/>
-    <ellipse cx="17" cy="22" rx="13" ry="4" fill="${c}"/>
-    <ellipse cx="17" cy="22" rx="10.5" ry="2.6" fill="#fff" fill-opacity="0.45"/>
-    <path d="M36 27 H58 L55.5 50 H38.5 Z" fill="${c}"/>
-    <ellipse cx="47" cy="27" rx="11" ry="3.6" fill="${c}"/>
-    <ellipse cx="47" cy="27" rx="8.6" ry="2.3" fill="#fff" fill-opacity="0.45"/>
-    <rect x="28" y="33" width="10" height="7" rx="1.5" fill="${c}"/>
-    <rect x="5.5" y="30" width="23" height="2" ${D}/><rect x="37" y="34" width="20" height="2" ${D}/>`;
+    <path d="M6.0 8 H26.0 L23.8 26 H8.2 Z" fill="${c}"/>
+    <ellipse cx="16" cy="8" rx="10.0" ry="2.857142857142857" fill="${c}"/>
+    <ellipse cx="16" cy="8" rx="7.8" ry="1.8181818181818181" fill="#fff" fill-opacity="0.45"/>
+    <rect x="6.8" y="14.3" width="18.4" height="1.6" ${D}/>
+    <path d="M35.0 10 H53.0 L50.8 26 H37.2 Z" fill="${c}"/>
+    <ellipse cx="44" cy="10" rx="9.0" ry="2.5714285714285716" fill="${c}"/>
+    <ellipse cx="44" cy="10" rx="6.8" ry="1.6363636363636365" fill="#fff" fill-opacity="0.45"/>
+    <rect x="35.8" y="15.6" width="16.4" height="1.6" ${D}/>
+    <rect x="25" y="16" width="11" height="4.5" rx="1.2" fill="${c}"/>
+    <path d="M7.0 34 H29.0 L26.8 56 H9.2 Z" fill="${c}"/>
+    <ellipse cx="18" cy="34" rx="11.0" ry="3.142857142857143" fill="${c}"/>
+    <ellipse cx="18" cy="34" rx="8.8" ry="2.0" fill="#fff" fill-opacity="0.45"/>
+    <rect x="7.8" y="41.7" width="20.4" height="1.6" ${D}/>
+    <path d="M36.0 36 H56.0 L53.8 56 H38.2 Z" fill="${c}"/>
+    <ellipse cx="46" cy="36" rx="10.0" ry="2.857142857142857" fill="${c}"/>
+    <ellipse cx="46" cy="36" rx="7.8" ry="1.8181818181818181" fill="#fff" fill-opacity="0.45"/>
+    <rect x="36.8" y="43.0" width="18.4" height="1.6" ${D}/>
+    <rect x="28" y="43" width="9" height="5" rx="1.2" fill="${c}"/>`;
 const violin = (c) => `<g transform="rotate(-38 32 32)">
     <path d="M32 26 C27.5 26 25.8 28.5 26.5 31.5 C27 33.5 27.6 34.3 27 35.3 C23.5 36 22.6 39.6 24.6 41.6 C21.6 43.8 21.4 51.6 25.4 54.6 C27.8 56.4 36.2 56.4 38.6 54.6 C42.6 51.6 42.4 43.8 39.4 41.6 C41.4 39.6 40.5 36 37 35.3 C36.4 34.3 37 33.5 37.5 31.5 C38.2 28.5 36.5 26 32 26 Z" fill="${c}"/>
     <rect x="30.7" y="11" width="2.6" height="17" fill="${c}"/>
@@ -185,7 +196,7 @@ const SHAPES = {
 
 // Every icon you can give your own instrument (job 274), with names.
 export const ICON_CHOICES = [
-  ["vocals", "Vocal mic"], ["mic", "Mic"], ["drums", "Drums"], ["percussion", "Perc"],
+  ["vocals", "Vocal mic"], ["mic", "Mic"], ["drums", "Drums"], ["percussion", "Percs"],
   ["guitar", "Guitar"], ["acoustic", "Acoustic"], ["electric", "Electric"], ["bass", "Bass"],
   ["keys", "Keys"], ["piano", "Piano"], ["organ", "Organ"], ["synth", "Synth"],
   ["sax", "Sax"], ["trumpet", "Trumpet"], ["upright", "Upright bass"], ["strings", "Strings"],
