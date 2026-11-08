@@ -8,7 +8,6 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
-import SkyPostsList from "@/components/showpilot/SkyPostsList";
 import HostMessagesList from "@/components/showpilot/HostMessagesList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import AfterShowFilm from "@/components/showpilot/AfterShowFilm";
@@ -145,6 +144,8 @@ function OwnerSheet({ showId, onClose }) {
         // The sun's color (job 241); blank = the natural sun. Stars always
         // keep each fan's own sky color.
         sun: /^#[0-9a-f]{6}$/i.test(cfg.film?.sun || "") ? cfg.film.sun : "",
+        // The stamp's ink (job 266); blank = follows the sun (green with the natural sun).
+        stamp: /^#[0-9a-f]{6}$/i.test(cfg.film?.stamp || "") ? cfg.film.stamp : "",
         show: { you: true, header: true, name: true, date: true, ...(cfg.film?.show || {}) },
         title: cfg.film?.title || "",
         image: cfg.film?.image || "",
@@ -288,7 +289,7 @@ function OwnerSheet({ showId, onClose }) {
           capacity,
           discover: draft.discover,
           qr: draft.qr,
-          film: { on: draft.film.on, sun: /^#[0-9a-f]{6}$/i.test(draft.film.sun) ? draft.film.sun : "", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
+          film: { on: draft.film.on, sun: /^#[0-9a-f]{6}$/i.test(draft.film.sun) ? draft.film.sun : "", stamp: /^#[0-9a-f]{6}$/i.test(draft.film.stamp || "") ? draft.film.stamp : "", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
         },
         promoter_info: { ...(row.promoter_info || {}), ticket_link: ticketLink, ticket_price: draft.ticketPrice.trim() },
         fan_countdown: {
@@ -719,7 +720,6 @@ function OwnerSheet({ showId, onClose }) {
     <>
       <HostMessagesList showId={showId} />
       <RsvpList showId={showId} tall={desktop} capacity={savedCap} />
-      <SkyPostsList showId={showId} />
     </>
   ) : (
     <div className="rounded-2xl p-5 text-center" style={{ background: PANEL, border: `1px dashed ${EDGE_LINE}` }}>
@@ -802,7 +802,7 @@ function OwnerSheet({ showId, onClose }) {
   const setFilm = (patch) => set({ film: { ...fm, ...patch } });
   // Update just the film settings (job 244), without publishing anything else
   // that's still being edited on the other tabs.
-  const filmClean = (f) => ({ on: f.on, sun: /^#[0-9a-f]{6}$/i.test(f.sun || "") ? f.sun : "", show: f.show, title: String(f.title || "").trim().slice(0, 60), image: f.image || "" });
+  const filmClean = (f) => ({ on: f.on, sun: /^#[0-9a-f]{6}$/i.test(f.sun || "") ? f.sun : "", stamp: /^#[0-9a-f]{6}$/i.test(f.stamp || "") ? f.stamp : "", show: f.show, title: String(f.title || "").trim().slice(0, 60), image: f.image || "" });
   const filmChanged = !!(fm && saved && JSON.stringify(filmClean(fm)) !== JSON.stringify(filmClean(saved.film)));
   const [filmSaving, setFilmSaving] = useState(false);
   const [filmSaved, setFilmSaved] = useState(false);
@@ -829,6 +829,17 @@ function OwnerSheet({ showId, onClose }) {
     setFilmUploading(false);
   };
   const filmStarsSample = useMemo(() => Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, me: i === 19, color: hashColor(`p${i}x`) })), []);
+  // The preview plays this event's real sky (job 266): every RSVP as a star,
+  // placed and sized as fans see it. Sample stars until someone RSVPs.
+  const [filmStarsReal, setFilmStarsReal] = useState(null);
+  useEffect(() => {
+    if (!filmPreview || !row?.id) return;
+    let off = false;
+    supabase.from("fan_rsvps").select("id, guests, created_at").eq("show_id", row.id).order("created_at", { ascending: true }).limit(400)
+      .then(({ data }) => { if (!off) setFilmStarsReal((data || []).map((r) => ({ id: r.id, at: r.created_at, guests: r.guests, color: hashColor(r.id) }))); });
+    return () => { off = true; };
+  }, [filmPreview, row?.id]);
+  const filmStars = filmStarsReal?.length ? filmStarsReal : filmStarsSample;
   const filmSection = fm && (
     <section className="rounded-2xl p-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
       <div className="text-[12px] tracking-[0.14em]" style={{ fontFamily: SCENE_MONO, color: "#FFB347" }}>AFTER THE SHOW · STELLAR BIRTH</div>
@@ -848,6 +859,16 @@ function OwnerSheet({ showId, onClose }) {
           {[["you", "\"You\" on their star"], ["header", "Event picture"], ["name", "Name"], ["date", "ShowPilot date stamp"]].map(([k, l]) =>
             chip(fm.show[k] !== false, `${fm.show[k] !== false ? "✓ " : ""}${l}`, () => setFilm({ show: { ...fm.show, [k]: fm.show[k] === false } }), k))}
         </div>
+
+        {fm.show.date !== false && (<>
+          {label("STAMP COLOR")}
+          <div className="mt-1.5 flex flex-wrap gap-3 items-center">
+            <ColorPicker value={fm.stamp || fm.sun || "#8CFF3D"} onChange={(c) => setFilm({ stamp: String(c).toUpperCase() })}
+              label={fm.stamp ? "Stamp color" : "Same as the sun"} contentClassName="z-[130]" />
+            {fm.stamp && <button type="button" onClick={() => setFilm({ stamp: "" })} className="text-[13px] text-white/55 hover:text-white">Match the sun</button>}
+          </div>
+          <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>The ink of the ShowPilot stamp on the card. Matching the sun, it's green with the natural sun.</p>
+        </>)}
 
         {fm.show.name !== false && (<>
           {label("TITLE")}
@@ -883,9 +904,9 @@ function OwnerSheet({ showId, onClose }) {
         style={{ color: "#FFB347", borderColor: "rgba(255,179,71,0.55)", background: filmChanged ? "rgba(255,179,71,0.1)" : "transparent" }}>
         {filmSaving ? "Updating…" : filmSaved ? "✓ Stellar Birth updated" : filmChanged ? "Update Stellar Birth" : "Stellar Birth is up to date"}
       </button>
-      {filmPreview && (
-        <AfterShowFilm preview stars={filmStarsSample} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
-          imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} fileName="stellar-birth-preview" onClose={() => setFilmPreview(false)} />
+      {filmPreview && (filmStarsReal || !row?.id) && (
+        <AfterShowFilm preview stars={filmStars} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
+          imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} stamp={fm.stamp || null} fileName="stellar-birth-preview" onClose={() => { setFilmPreview(false); setFilmStarsReal(null); }} />
       )}
     </section>
   );

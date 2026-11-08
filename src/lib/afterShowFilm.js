@@ -6,7 +6,7 @@
 //   const film = createFilm(canvas, { stars, title, date, venue, image, show });
 //   film.play(onEnd); film.stop(); film.still(12);
 //
-// stars:    [{ id, color, me }]   (color "#rrggbb")
+// stars:    [{ id, color, me, at, guests }]   (color "#rrggbb"; at = RSVP time, guests = party size)
 // show:     { you, header, name, date } booleans (all on by default)
 // date, venue: for the ShowPilot stamp slammed onto the card's corner (job 243)
 // sun:      "#rrggbb" to recolor the sun (and its glow and blast); none = natural
@@ -15,6 +15,7 @@
 //
 // Plain JS, no React, so the same file can run outside the app (previews).
 
+import { skyLayout, starCore, crowdScale } from "./skyLayout";
 export const FILM_W = 1080;
 export const FILM_H = 1920;
 export const FILM_SECONDS = 17.2;
@@ -263,7 +264,7 @@ export function createFilm(canvas, opts = {}) {
   const show = { you: true, header: true, name: true, date: true, ...(opts.show || {}) };
   const title = String(opts.title || "Tonight");
   const dateLine = String(opts.dateLine || "");
-  const stampImg = makeStamp(opts.date, opts.venue, hexRgb(opts.sun) ? opts.sun : "#8CFF3D", land ? 118 : 132);
+  const stampImg = makeStamp(opts.date, opts.venue, hexRgb(opts.stamp) ? opts.stamp : hexRgb(opts.sun) ? opts.sun : "#8CFF3D", land ? 118 : 132);
   const header = opts.image || standInHeader();
   const sprites = new Map();
   const sprite = (c) => { if (!sprites.has(c)) sprites.set(c, starSprite(c)); return sprites.get(c); };
@@ -280,16 +281,20 @@ export function createFilm(canvas, opts = {}) {
   const TITLE_Y = land ? CARD.y + CARD.h + 120 : 1745, TITLE_Y_BARE = land ? H / 2 : 1400, TEXT_W = land ? 840 : 940;
   const list = (opts.stars && opts.stars.length ? opts.stars : [{ id: "you", color: "#8CFF3D", me: true }]).slice(0, 400);
   const n = list.length;
+  // The fan's sky, star for star (job 266): the same layout the sky uses
+  // (order of RSVP, seeded by each star's id, the same constellation lines),
+  // sized by party like the sky, scaled to fill the film's frame.
   const cx = W / 2, cy = land ? H / 2 : 820, rx = W * (land ? .46 : .44), ry = land ? H * .42 : 620;
-  const stars = list.map((s, i) => {
-    const frac = Math.min(1, Math.sqrt((i + .6) / Math.max(n, 6)) + (rand() - .5) * .12);
-    const th = i * 2.39996 + (rand() - .5) * .9;
-    return {
-      x: cx + frac * rx * Math.cos(th), y: cy + frac * ry * Math.sin(th),
-      size: (n > 120 ? 5 : n > 60 ? 7 : 9) + rand() * 7, color: s.color || "#ffffff", me: !!s.me,
-      delay: rand() * .9, spin: (rand() > .5 ? 1 : -1) * (1.2 + rand() * 1.6), tw: rand() * 6,
-    };
-  });
+  const boxW = rx / .47, boxH = ry / .44;
+  const lay = skyLayout(list.map((s, i) => ({ ...s, id: String(s.id ?? i), at: s.at ?? String(i).padStart(6, "0") })), boxW, boxH);
+  const crowd = crowdScale(n);
+  const stars = lay.positions.map((p) => ({
+    x: cx - boxW / 2 + p.x, y: cy - boxH / 2 + p.y,
+    size: starCore(p.star.guests) * crowd * 1.4, color: p.star.color || "#ffffff", me: !!p.star.me,
+    delay: rand() * .9, spin: (rand() > .5 ? 1 : -1) * (1.2 + rand() * 1.6), tw: rand() * 6,
+  }));
+  const idx = new Map(lay.positions.map((p, i) => [p, i]));
+  const lines = lay.lines.map(([a, b]) => [stars[idx.get(a)], stars[idx.get(b)]]).filter(([a, b]) => a && b);
   let shooting = [], dust = [];
   // The implosion's blast: glowing plasma flung out in an uneven shell, and
   // a few long light rays. Fixed per film so every play matches.
@@ -338,6 +343,14 @@ export function createFilm(canvas, opts = {}) {
   function drawStars(t) {
     const pull = pullOf(t);
     const fade = 1 - seg(t, 5.0, 5.35);
+    // The sky's constellation lines, faint, until the stars start to fall.
+    const lineA = .16 * seg(t, .5, 1.2) * (1 - seg(t, 1.9, 2.6));
+    if (lineA > 0) {
+      ctx.strokeStyle = `rgba(200,210,255,${lineA})`; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const [a, b] of lines) { const p = starPos(a, t), q = starPos(b, t); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); }
+      ctx.stroke();
+    }
     ctx.globalCompositeOperation = "lighter";
     for (const a of stars) {
       const now = starPos(a, t);

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
-import { hashColor, hashString, seededRandom } from "@/lib/constellation";
+import { hashColor } from "@/lib/constellation";
+import { skyLayout, starCore, crowdScale } from "@/lib/skyLayout";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
@@ -20,54 +21,9 @@ import useFanToken from "@/lib/useFanToken";
 const MIN_VERIFY_MS = 1100; // let the rings spin for a beat even on a fast connection
 const REFRESH_MS = 60_000;
 
-// Sunflower spiral: the earliest RSVPs sit near the middle and each new one
-// lands a little further out, so the sky visibly grows as people join. Seeded
-// jitter keeps it from looking mechanical. Works in pixels (w x h) so the
-// spiral fills the screen's shape; returns positions plus "constellation"
-// lines: the short edges of a minimum spanning tree, so nearby stars link up
-// into small groups instead of one tangled web.
-function skyLayout(stars, w, h) {
-  if (!w || !h || stars.length === 0) return { positions: [], lines: [] };
-  const sorted = [...stars].sort((a, b) => String(a.at).localeCompare(String(b.at)));
-  const n = sorted.length;
-  const rx = w * 0.47, ry = h * 0.44;
-  const positions = sorted.map((s, i) => {
-    const seed = hashString(s.id);
-    const frac = Math.min(1, Math.sqrt((i + 0.6) / Math.max(n, 6)) + (seededRandom(seed) - 0.5) * 0.12);
-    const theta = i * 2.39996 + (seededRandom(seed + 1) - 0.5) * 0.9;
-    const x = w / 2 + frac * rx * Math.cos(theta);
-    const y = h / 2 + frac * ry * Math.sin(theta);
-    return { star: s, x, y, xPct: (x / w) * 100, yPct: (y / h) * 100 };
-  });
-
-  const lines = [];
-  if (n > 1 && n <= 400) {
-    const inTree = new Array(n).fill(false);
-    const best = new Array(n).fill(Infinity);
-    const from = new Array(n).fill(-1);
-    best[0] = 0;
-    const edges = [];
-    for (let k = 0; k < n; k++) {
-      let u = -1;
-      for (let i = 0; i < n; i++) if (!inTree[i] && (u < 0 || best[i] < best[u])) u = i;
-      inTree[u] = true;
-      if (from[u] >= 0) edges.push({ a: from[u], b: u, d: best[u] });
-      for (let v = 0; v < n; v++) {
-        if (inTree[v]) continue;
-        const d = Math.hypot(positions[u].x - positions[v].x, positions[u].y - positions[v].y);
-        if (d < best[v]) { best[v] = d; from[v] = u; }
-      }
-    }
-    const sortedD = edges.map((e) => e.d).sort((a, b) => a - b);
-    const median = sortedD[Math.floor(sortedD.length / 2)] || 0;
-    edges.filter((e) => e.d <= median * 1.25).forEach((e) => lines.push([positions[e.a], positions[e.b]]));
-  }
-  return { positions, lines };
-}
-
 function SkyStar({ star, color, isMe, revealDelay, onSelect, selected, scale = 1 }) {
   // Bigger parties shine a little brighter; a crowded sky shrinks every star.
-  const core = (6 + Math.min(star.guests, 10) * 1.1) * (isMe ? Math.max(scale, 0.85) : scale);
+  const core = starCore(star.guests) * (isMe ? Math.max(scale, 0.85) : scale);
   const glow = core * 4.2;
   return (
     <button
@@ -499,8 +455,10 @@ export default function EventSky() {
     const cfg = film.config || {};
     const title = String(cfg.title || "").trim() || sky?.event?.event_name || sky?.event?.band_name || "Tonight";
     return {
-      stars: stars.map((s0) => ({ id: s0.id, me: s0.id === sky?.me?.id, color: hashColor(s0.id) })),
+      // The same stars as the sky: placed by the same layout, sized by party (job 266).
+      stars: stars.map((s0) => ({ id: s0.id, at: s0.at, guests: s0.guests, me: s0.id === sky?.me?.id, color: hashColor(s0.id) })),
       sun: /^#[0-9a-f]{6}$/i.test(cfg.sun || "") ? cfg.sun : null,
+      stamp: /^#[0-9a-f]{6}$/i.test(cfg.stamp || "") ? cfg.stamp : null,
       title,
       dateLine: filmDateLine(film.date, film.venue),
       date: film.date, venue: film.venue,
@@ -603,7 +561,7 @@ export default function EventSky() {
                     star={p.star}
                     color={isMe ? color : hashColor(p.star.id)}
                     isMe={isMe}
-                    scale={stars.length > 90 ? 0.6 : stars.length > 45 ? 0.78 : 1}
+                    scale={crowdScale(stars.length)}
                     selected={selected === p.star.id}
                     revealDelay={firstOpen.current ? (isMe ? 700 : 100 + Math.min(i, 40) * 25) : 0}
                     onSelect={(e) => { e.stopPropagation(); setSelected(selected === p.star.id ? null : p.star.id); }}
