@@ -6,7 +6,7 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
-import { StageFloor } from "@/components/showpilot/StageEditor";
+import { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -82,7 +82,7 @@ function PersonCard({ m, i, colors, onClose }) {
         <span className="w-10 h-10 shrink-0 [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: stageIconSvg(pos, pc, 40) }} />
         <div className="flex-1 min-w-0">
           <div className="text-white text-[18px] font-bold leading-tight truncate">{m.name || `Member ${i + 1}`}</div>
-          <div className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: pc }}>{positionLabel(pos).toUpperCase()}</div>
+          <div className="text-[11px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: pc }}>{memberPositionLabel(m, pos).toUpperCase()}</div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
       </div>
