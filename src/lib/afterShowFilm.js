@@ -599,16 +599,65 @@ export function createFilm(canvas, opts = {}) {
     },
     stop() { cancelAnimationFrame(raf); ended = null; },
     still(t = 12) { cancelAnimationFrame(raf); frame(t); },
+    // Frame-by-frame drawing for saving (job 269): reset once, then render
+    // each moment in order so sparks and shooting stars move as in play.
+    reset() { cancelAnimationFrame(raf); ended = null; shooting = []; dust = []; seed = 11; },
+    render(t) { frame(t); },
   };
 }
 
-// Record one full play as a video. Resolves { blob, ext } or rejects.
-export function recordFilm(canvas, film, onProgress) {
+// Save the film as a video. Resolves { blob, ext } or rejects.
+//
+// Job 269: where the browser can encode video itself (WebCodecs: Chrome,
+// Edge, Safari 16.4+, Firefox 130+), every frame is drawn and encoded one at
+// a time at exactly 30 fps, so the file plays smoothly however slow the
+// phone draws. Elsewhere it records the screen while it plays, as before.
+const FPS = 30;
+
+async function pickEncoderConfig(w, h) {
+  if (typeof VideoEncoder === "undefined" || typeof VideoFrame === "undefined") return null;
+  // H.264 first (plays everywhere, Photos included); VP9 only where a
+  // browser has no H.264 encoder, still smoother than recording live.
+  for (const codec of ["avc1.640028", "avc1.4d0028", "avc1.42e028", "avc1.640033", "vp09.00.40.08"]) {
+    const vp9 = codec.startsWith("vp09");
+    const config = { codec, width: w, height: h, bitrate: 10_000_000, framerate: FPS, ...(vp9 ? {} : { avc: { format: "avc" } }) };
+    try { if ((await VideoEncoder.isConfigSupported(config)).supported) return { config, muxCodec: vp9 ? "vp9" : "avc" }; } catch { /* next */ }
+  }
+  return null;
+}
+
+async function encodeFilm(canvas, film, onProgress, { config, muxCodec }) {
+  const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
+  const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: muxCodec, width: config.width, height: config.height, frameRate: FPS }, fastStart: "in-memory" });
+  let failed = null;
+  const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { failed = e; } });
+  enc.configure(config);
+  const total = Math.ceil(FILM_SECONDS * FPS);
+  film.reset();
+  for (let i = 0; i <= total; i++) {
+    if (failed) throw failed;
+    film.render(i / FPS);
+    const vf = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
+    enc.encode(vf, { keyFrame: i % (FPS * 2) === 0 });
+    vf.close();
+    onProgress?.(i / total);
+    // Let the encoder catch up and the screen breathe.
+    while (enc.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 4));
+    if (i % 3 === 0) await new Promise((r) => setTimeout(r, 0));
+  }
+  await enc.flush();
+  if (failed) throw failed;
+  enc.close();
+  muxer.finalize();
+  return { blob: new Blob([muxer.target.buffer], { type: "video/mp4" }), ext: "mp4" };
+}
+
+function recordLive(canvas, film, onProgress) {
   const types = ["video/mp4;codecs=avc1.42E01E", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
   const type = typeof MediaRecorder !== "undefined" ? types.find((m) => MediaRecorder.isTypeSupported(m)) : null;
   if (!canvas.captureStream || !type) return Promise.reject(new Error("unsupported"));
   return new Promise((resolve, reject) => {
-    const mr = new MediaRecorder(canvas.captureStream(30), { mimeType: type, videoBitsPerSecond: 12_000_000 });
+    const mr = new MediaRecorder(canvas.captureStream(FPS), { mimeType: type, videoBitsPerSecond: 12_000_000 });
     const chunks = [];
     mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     mr.onerror = (e) => reject(e.error || new Error("record failed"));
@@ -616,6 +665,15 @@ export function recordFilm(canvas, film, onProgress) {
     mr.start(500);
     film.play(() => setTimeout(() => mr.stop(), 150), onProgress);
   });
+}
+
+export async function recordFilm(canvas, film, onProgress) {
+  const picked = await pickEncoderConfig(canvas.width, canvas.height);
+  if (picked) {
+    try { return await encodeFilm(canvas, film, onProgress, picked); }
+    catch (e) { console.warn("Stellar Birth: frame-by-frame save failed, recording live instead", e); }
+  }
+  return recordLive(canvas, film, onProgress);
 }
 
 // "SUN · NOV 8 · 2026 · ABAA" from an event's date and venue.
