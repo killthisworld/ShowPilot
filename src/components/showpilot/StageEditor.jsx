@@ -442,9 +442,11 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     if (editing === null) list.push(m); else list[editing] = m;
     setMembers(list);
     close();
-    // New on the stage: they place them next (tap where they stand, or drag);
-    // that's when it's committed.
-    if (!wasPlaced) { setSel(idx); setStep("place"); } else onCommit?.(list);
+    onCommit?.(list);
+    // New on the stage (job 285): they stand on a free spot, picked up (dashed
+    // outline) with their line showing collapsed under the stage - drag them
+    // or tap a spot, tap them again to set them down, tap the line to open.
+    if (!wasPlaced && canMove) { setSel(idx); setStep("lift"); }
   };
   const placeAt = (x, y) => {
     if (sel === null) return;

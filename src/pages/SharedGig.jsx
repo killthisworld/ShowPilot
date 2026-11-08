@@ -1563,7 +1563,7 @@ export default function SharedGig() {
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
                         <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
-                        <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
+                        <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
                         </span>
@@ -1612,7 +1612,7 @@ export default function SharedGig() {
                     />
                     <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
-                        <ActStagePlotButton size="sm" act={b} onClick={() => setPlotAt(i)} />
+                        <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />
                   </div>
                   {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>

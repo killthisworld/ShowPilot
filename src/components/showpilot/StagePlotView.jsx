@@ -271,8 +271,9 @@ export function StagePlotCard({ acts = [], token = null, onActs = null, onEditMe
 }
 
 // The button on an act's row, next to its notes and tracks buttons.
-export function ActStagePlotButton({ act, onClick, size = "md" }) {
-  if (!hasStagePlot(act)) return null;
+// `always`: show it with no stage yet too (they can build it; job 285).
+export function ActStagePlotButton({ act, onClick, size = "md", always = false }) {
+  if (!always && !hasStagePlot(act)) return null;
   const box = size === "sm" ? "w-8 h-8" : "w-10 h-10";
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} aria-label={`${actName(act)}'s stage plot`} title="Stage plot"

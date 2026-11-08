@@ -434,9 +434,11 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   // save the event the usual way, once the page has the new lineup.
   const [saveAfter, setSaveAfter] = useState(0);
   useEffect(() => { if (saveAfter) handleSave(); }, [saveAfter]); // eslint-disable-line react-hooks/exhaustive-deps
-  const editStage = stageRole && !isNew ? async (i, list) => {
+  // A new show isn't saved yet (job 285): the stage still builds here and
+  // saves with the show.
+  const editStage = stageRole ? async (i, list) => {
     setBands((prev) => prev.map((b, k) => (k === i ? { ...b, band_members: list } : b)));
-    setSaveAfter((n) => n + 1);
+    if (!isNew) setSaveAfter((n) => n + 1);
     return null;
   } : null;
 
@@ -1236,7 +1238,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
                 <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
-                <ActStagePlotButton act={activeBand} onClick={() => setPlotAt(activeBandIndex)} />
+                <ActStagePlotButton act={activeBand} always={!!editStage} onClick={() => setPlotAt(activeBandIndex)} />
               </div>
             }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
