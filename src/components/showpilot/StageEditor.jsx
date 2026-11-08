@@ -35,6 +35,16 @@ function Icon({ pos, color, size = 48, glow = false }) {
 // The black stage with everyone on it. Shared with the engineer's view.
 // `onDrag(i, x, y)` with `dragOnly` = only that member can be dragged (the one
 // picked up); `onDragEnd(i)` when they let go after a drag.
+// A text highlight left by tapping on the stage (not one in a text box).
+function clearStraySelection() {
+  try {
+    const el = document.activeElement;
+    if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) sel.removeAllRanges();
+  } catch {}
+}
+
 export function StageFloor({ members, getInstruments, colors, picked = null, onTapMember, onTapEmpty, onDrag, onDragEnd, dragOnly = null, labels = true }) {
   const canDrag = (i) => !!onDrag && (dragOnly === null || dragOnly === i);
   const ref = useRef(null);
@@ -48,7 +58,10 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
     if (!el) return undefined;
     const stop = (e) => { const p = press.current; if (p && canDragRef.current(p.i) && e.cancelable) e.preventDefault(); };
     el.addEventListener("touchmove", stop, { passive: false });
-    return () => el.removeEventListener("touchmove", stop);
+    // No text highlight starting on the stage (job 284).
+    const noSelect = (e) => e.preventDefault();
+    el.addEventListener("selectstart", noSelect);
+    return () => { el.removeEventListener("touchmove", stop); el.removeEventListener("selectstart", noSelect); };
   }, []);
   const at = (e) => {
     const r = ref.current.getBoundingClientRect();
@@ -68,6 +81,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
     onDrag(p.i, x, y);
   };
   const up = (e) => {
+    clearStraySelection();
     const p = press.current;
     press.current = null;
     if (p && !p.moved) onTapMember?.(p.i);
@@ -79,9 +93,13 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={() => { press.current = null; }}
-      onClick={(e) => { if (e.target === ref.current && onTapEmpty) onTapEmpty(...at(e)); }}
+      // Tapping a member twice is a double click: don't let it highlight
+      // nearby text like a copy selection (job 284).
+      onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
+      onClick={(e) => { clearStraySelection(); if (e.target === ref.current && onTapEmpty) onTapEmpty(...at(e)); }}
+      onContextMenu={(e) => e.preventDefault()}
       className="relative w-full rounded-[14px] border border-[#3a3a3a] border-b-4 border-b-white bg-black select-none"
-      style={{ aspectRatio: "4 / 3", touchAction: onDrag && dragOnly === null ? "none" : "manipulation" }}
+      style={{ aspectRatio: "4 / 3", touchAction: onDrag && dragOnly === null ? "none" : "manipulation", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
       aria-label="Stage"
     >
       <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>BACK OF STAGE</span>
@@ -541,7 +559,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             const pc = memberLook(m, getInstruments, colors).color;
             return (
               <button key={i} type="button" onClick={() => (on || !canMove || step === "form" ? openDetails(i) : lift(i))} aria-label={`${m.name || `Member ${i + 1}`}: ${on ? "details" : "pick"}`} aria-expanded={false} aria-pressed={on}
-                className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444]"
+                className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none"
                 style={{ borderColor: on ? pc : "#2a2a2a", borderStyle: on ? "dashed" : "solid" }}>
                 <span className="flex-1 min-w-0"><MemberLine member={m} insts={getInstruments(m)} busColors={busColors} /></span>
                 {!placed(m) && <span className="text-[10px] tracking-[0.1em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>OFF STAGE</span>}
