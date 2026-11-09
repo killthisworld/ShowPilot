@@ -29,7 +29,17 @@ export const memberPositionLabel = (m, pos) => (pos === "other" && m?.position_l
 const inputCls = "w-full min-h-[44px] px-3 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white text-base placeholder:text-white/30 outline-none focus:border-white/40";
 
 function Icon({ pos, color, size = 48, glow = false }) {
-  return <span className="block shrink-0 [&>svg]:w-full [&>svg]:h-full" style={{ width: size, height: size, filter: glow ? `drop-shadow(0 0 9px ${color})` : "none" }} dangerouslySetInnerHTML={{ __html: stageIconSvg(pos, color, size) }} />;
+  // The glow is a soft gradient behind the icon, not a drop-shadow filter:
+  // iPhone Safari left a trail of the filter's color behind a member being
+  // dragged (job 288).
+  const svg = <span className="relative block w-full h-full [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: stageIconSvg(pos, color, size) }} />;
+  if (!glow) return <span className="block shrink-0" style={{ width: size, height: size }}>{svg}</span>;
+  return (
+    <span className="relative block shrink-0" style={{ width: size, height: size }}>
+      <span aria-hidden className="absolute pointer-events-none rounded-full" style={{ inset: -Math.round(size * 0.3), background: `radial-gradient(closest-side, ${color}66, ${color}22 55%, transparent)` }} />
+      {svg}
+    </span>
+  );
 }
 
 // The black stage with everyone on it. Shared with the engineer's view.
@@ -98,7 +108,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
       onMouseDown={(e) => { if (e.detail > 1) e.preventDefault(); }}
       onClick={(e) => { clearStraySelection(); if (e.target === ref.current && onTapEmpty) onTapEmpty(...at(e)); }}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative w-full rounded-[14px] border border-[#3a3a3a] border-b-4 border-b-white bg-black select-none"
+      className="relative w-full rounded-[14px] border border-[#3a3a3a] border-b-4 border-b-white bg-black select-none isolate"
       style={{ aspectRatio: "4 / 3", touchAction: onDrag && dragOnly === null ? "none" : "manipulation", WebkitTouchCallout: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
       aria-label="Stage"
     >
@@ -110,7 +120,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
         const on = picked === i;
         const inst = (getInstruments(m) || []).filter((x) => x.name && !isVocalInput(x)).map((x) => x.name).join(", ") || (memberSings(m, getInstruments(m) || []) ? "Vocals" : "");
         return (
-          <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: on ? 3 : 2 }}>
+          <div key={i} className="absolute flex flex-col items-center" style={{ left: `${m.stage_x * 100}%`, top: `${m.stage_y * 100}%`, zIndex: on ? 3 : 2, transform: "translate3d(-50%, -50%, 0)", willChange: on ? "left, top" : undefined, backfaceVisibility: "hidden" }}>
             <button type="button" onPointerDown={down(i)} aria-label={`${m.name || `Member ${i + 1}`}, ${memberPositionLabel(m, pos)}`} aria-pressed={on}
               onContextMenu={(e) => e.preventDefault()}
               className="flex flex-col items-center rounded-lg select-none" style={{ touchAction: canDrag(i) ? "none" : "manipulation", cursor: canDrag(i) ? "grab" : "pointer", outline: on ? `2px dashed ${pc}` : "none", outlineOffset: 4, WebkitTouchCallout: "none", WebkitUserSelect: "none" }}>
