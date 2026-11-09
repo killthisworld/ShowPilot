@@ -149,21 +149,24 @@ export default function BookingPackage() {
     setLoadingTemplate(false);
   };
 
-  const helpers = { ...h, fillFromProfile: { onClick: fillFromTemplate, loading: loadingTemplate } };
+  const helpers = { ...h, noSetLength: true, fillFromProfile: { onClick: fillFromTemplate, loading: loadingTemplate } };
   const actCircles = intakeCircles(helpers, { seen, card: { showCard: false } }).filter((c) => c.key !== "role");
   const byKey = Object.fromEntries(actCircles.map((c) => [c.key, c]));
   const hasMonths = (wants.months || []).length > 0;
+  // The order a venue reads it in (job 289): who they are, how they look and
+  // sound, the deal, when, hospitality, who to call; the audio side last.
   const circles = [
-    byKey.artist, byKey.members, byKey.plot, byKey.notes,
-    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
-      done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
-    { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table", required: false,
-      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} /> },
+    byKey.artist && { ...byKey.artist, label: "Artist", short: "Artist", hint: "Name and genre" },
     { key: "promo", label: "Promo", short: "Promo", hint: "Your picture and links the venue can share", required: false,
       done: !!seen.promo && promoHas(form), body: () => <PromoBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
+    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
+      done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
     { key: "dates", label: "Dates wanted", short: "Dates wanted", hint: "When you'd like to play", required: true,
       done: hasMonths, body: () => <DatesBody wants={wants} setWants={setWantsD} /> },
+    { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table", required: false,
+      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} /> },
     byKey.contact,
+    byKey.members, byKey.plot, byKey.notes,
   ].filter(Boolean);
   const toDone = sendToDone(to);
   const canSend = !!form.band_name.trim() && hasMonths && toDone;

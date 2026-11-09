@@ -45,8 +45,9 @@ function ArtistBody({ h }) {
       {h.applyTemplate && <UploadTemplateButton onApply={h.applyTemplate} />}
       <label><span className={label}>ARTIST / GROUP NAME *</span>
         <input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} placeholder="Artist" className={inputCls} /></label>
-      <label><span className={label}>SET LENGTH (MINUTES)</span>
-        <input type="number" inputMode="numeric" value={form.set_length_minutes || ""} onChange={(e) => update("set_length_minutes", e.target.value)} placeholder="e.g. 30" className={`${inputCls} !w-[140px]`} /></label>
+      {/* Not asked in a booking package (job 289): the venue sets the set. */}
+      {!h.noSetLength && <label><span className={label}>SET LENGTH (MINUTES)</span>
+        <input type="number" inputMode="numeric" value={form.set_length_minutes || ""} onChange={(e) => update("set_length_minutes", e.target.value)} placeholder="e.g. 30" className={`${inputCls} !w-[140px]`} /></label>}
       <div>
         <span className={label}>GENRE / STYLE</span>
         <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] min-h-[44px] items-center">

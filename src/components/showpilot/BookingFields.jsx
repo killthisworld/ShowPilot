@@ -4,7 +4,7 @@ import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
 
 // The booking package's own circles (job 246): Hospitality & merch, Promo,
-// Dates wanted, and the "Send to" corner. The act circles (Artist & set,
+// Dates wanted, and the "Send to" corner. The act circles (Artist,
 // Members & inputs, Stage plot, Notes, Contact) come from IntakeFields.
 const GREEN = "#8CFF3D";
 const RED = "#F87171";
@@ -270,12 +270,57 @@ export function packageReadCircles(pkg, wantsText) {
   const genres = Array.isArray(d.genre_tags) ? d.genre_tags : [];
   const deal = d.deal || {};
   const c = (key, label, short, done, body) => ({ key, label, short, done, body });
+  // A venue reads it in this order (job 289): who they are, how they look and
+  // sound, the deal, when, hospitality, who to call; the audio side last.
   return [
-    c("artist", "Artist and set", "Artist & set", true, () => (
+    c("artist", "Artist", "Artist", true, () => (
       <div className="flex flex-col">
         <Row k="Artist" v={pkg.act_name} />
-        <Row k="Set" v={has(d.set_length_minutes) ? `${d.set_length_minutes} min` : ""} />
         <Row k="Genre" v={genres.join(", ")} />
+      </div>
+    )),
+    c("promo", "Promo", "Promo", promoHas(d), () => (
+      <div className="flex flex-col gap-3 items-center">
+        {d.photo_url && <img src={d.photo_url} alt={`${pkg.act_name}`} className="w-full max-w-[280px] rounded-[14px] border border-[#2a2a2a] object-cover" />}
+        {links.map((l, i) => {
+          const kind = LINK_KINDS.find((k) => k.key === l.kind)?.label || "Link";
+          return <a key={i} href={linkHref(l.url)} target="_blank" rel="noreferrer" className="w-full min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><ExternalLink className="w-4 h-4 shrink-0" />{kind}<span className="text-white/50 font-normal truncate">{String(l.url).replace(/^https?:\/\//, "")}</span></a>;
+        })}
+        {!promoHas(d) && <Empty>No promo sent.</Empty>}
+      </div>
+    )),
+    c("deal", "Deal and draw", "Deal & draw", dealHas(d), () => (dealHas(d) ? (
+      <div className="flex flex-col">
+        <Row k="Based in" v={deal.hometown} />
+        <Row k="Expected draw" v={has(deal.draw) ? `${deal.draw} people` : ""} />
+        <Row k="Recent shows" v={deal.recent} />
+        <Row k="Deal" v={dealAskLine(deal)} />
+        <Row k="Tickets" v={deal.ticket_price} />
+        <Row k="Ages" v={textOf(AGES, deal.age)} />
+        <Row k="Backline" v={backlineLine(deal)} />
+      </div>
+    ) : <Empty>Nothing sent about the deal or draw.</Empty>)),
+    c("dates", "Dates wanted", "Dates wanted", true, () => (
+      <div className="flex flex-col gap-2 text-center">
+        <span className="text-[18px] font-bold">{wantsText || "Any time"}</span>
+        {has(pkg.wants?.note) && <p className="text-[14.5px] text-white/75">"{pkg.wants.note}"</p>}
+      </div>
+    )),
+    c("hosp", "Hospitality and merch", "Hospitality", hospitalityHas(d), () => (hospitalityHas(d) ? (
+      <div className="flex flex-col">
+        <Row k="Meals" v={has(hosp.meals) ? String(hosp.meals) : ""} />
+        <Row k="Guest list" v={has(hosp.guests) ? `+${hosp.guests}` : ""} />
+        <Row k="Dietary" v={hosp.dietary} />
+        <Row k="Drinks & green room" v={hosp.drinks} />
+        <Row k="Merch" v={MERCH[merch.table] || ""} />
+        <Row k="Split" v={merch.split} />
+      </div>
+    ) : <Empty>Nothing asked for.</Empty>)),
+    c("contact", "Their contact", "Contact", [d.submitter_name, d.submitter_phone, d.submitter_email].some(has), () => (
+      <div className="flex flex-col">
+        <Row k="Name" v={d.submitter_name} />
+        <Row k="Phone" v={d.submitter_phone ? <a href={`tel:${String(d.submitter_phone).replace(/[^\d+]/g, "")}`} style={{ color: GREEN }}>{d.submitter_phone}</a> : ""} />
+        <Row k="Email" v={d.submitter_email ? <a href={`mailto:${d.submitter_email}`} style={{ color: GREEN }}>{d.submitter_email}</a> : ""} />
       </div>
     )),
     c("members", "Members and inputs", "Members & inputs", members.length > 0, () => (members.length ? (
@@ -302,50 +347,6 @@ export function packageReadCircles(pkg, wantsText) {
         {has(d.general_notes) && <p>{d.general_notes}</p>}
         {members.filter((m) => has(m.notes)).map((m, i) => <p key={i}><span className="font-bold">{m.name}:</span> {m.notes}</p>)}
         {!has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
-      </div>
-    )),
-    c("deal", "Deal and draw", "Deal & draw", dealHas(d), () => (dealHas(d) ? (
-      <div className="flex flex-col">
-        <Row k="Based in" v={deal.hometown} />
-        <Row k="Expected draw" v={has(deal.draw) ? `${deal.draw} people` : ""} />
-        <Row k="Recent shows" v={deal.recent} />
-        <Row k="Deal" v={dealAskLine(deal)} />
-        <Row k="Tickets" v={deal.ticket_price} />
-        <Row k="Ages" v={textOf(AGES, deal.age)} />
-        <Row k="Backline" v={backlineLine(deal)} />
-      </div>
-    ) : <Empty>Nothing sent about the deal or draw.</Empty>)),
-    c("hosp", "Hospitality and merch", "Hospitality", hospitalityHas(d), () => (hospitalityHas(d) ? (
-      <div className="flex flex-col">
-        <Row k="Meals" v={has(hosp.meals) ? String(hosp.meals) : ""} />
-        <Row k="Guest list" v={has(hosp.guests) ? `+${hosp.guests}` : ""} />
-        <Row k="Dietary" v={hosp.dietary} />
-        <Row k="Drinks & green room" v={hosp.drinks} />
-        <Row k="Merch" v={MERCH[merch.table] || ""} />
-        <Row k="Split" v={merch.split} />
-      </div>
-    ) : <Empty>Nothing asked for.</Empty>)),
-    c("promo", "Promo", "Promo", promoHas(d), () => (
-      <div className="flex flex-col gap-3 items-center">
-        {d.photo_url && <img src={d.photo_url} alt={`${pkg.act_name}`} className="w-full max-w-[280px] rounded-[14px] border border-[#2a2a2a] object-cover" />}
-        {links.map((l, i) => {
-          const kind = LINK_KINDS.find((k) => k.key === l.kind)?.label || "Link";
-          return <a key={i} href={linkHref(l.url)} target="_blank" rel="noreferrer" className="w-full min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><ExternalLink className="w-4 h-4 shrink-0" />{kind}<span className="text-white/50 font-normal truncate">{String(l.url).replace(/^https?:\/\//, "")}</span></a>;
-        })}
-        {!promoHas(d) && <Empty>No promo sent.</Empty>}
-      </div>
-    )),
-    c("dates", "Dates wanted", "Dates wanted", true, () => (
-      <div className="flex flex-col gap-2 text-center">
-        <span className="text-[18px] font-bold">{wantsText || "Any time"}</span>
-        {has(pkg.wants?.note) && <p className="text-[14.5px] text-white/75">"{pkg.wants.note}"</p>}
-      </div>
-    )),
-    c("contact", "Their contact", "Contact", [d.submitter_name, d.submitter_phone, d.submitter_email].some(has), () => (
-      <div className="flex flex-col">
-        <Row k="Name" v={d.submitter_name} />
-        <Row k="Phone" v={d.submitter_phone ? <a href={`tel:${String(d.submitter_phone).replace(/[^\d+]/g, "")}`} style={{ color: GREEN }}>{d.submitter_phone}</a> : ""} />
-        <Row k="Email" v={d.submitter_email ? <a href={`mailto:${d.submitter_email}`} style={{ color: GREEN }}>{d.submitter_email}</a> : ""} />
       </div>
     )),
   ];
