@@ -17,6 +17,7 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import EventOverviewSheet from "@/components/showpilot/EventOverviewSheet";
+import TourView from "@/components/showpilot/TourView";
 import DayEventOverview from "@/components/showpilot/DayEventOverview";
 import { BookingsCalendarRow } from "@/components/showpilot/BookingsNeeds";
 
@@ -40,6 +41,8 @@ export default function BandCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   // Phone: the event Overview opened from the day list (job 73).
   const [overviewGig, setOverviewGig] = useState(null);
+  // Tours (job 73, On the road stage 5): upcoming dates in order.
+  const [tours, setTours] = useState(false);
   const [dayModalKey, setDayModalKey] = useState(null);
   // Desktop: which of the selected day's events the right side shows (job 126).
   const [focusKey, setFocusKey] = useState(null);
@@ -168,6 +171,7 @@ export default function BandCalendar() {
             className="-ml-2 px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em]"
           />
           <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
+          <button type="button" onClick={() => setTours(true)} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Tours</button>
           <div className="flex-1 max-w-[440px] ml-auto"><StatusStrip cells={headerCells} /></div>
           <button type="button" onClick={() => newShowOnDate(activeKey)} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
             <Plus className="w-[18px] h-[18px]" strokeWidth={2.6} /> New event
@@ -274,6 +278,7 @@ export default function BandCalendar() {
           )}
         </div>
         <BandBottomTabs />
+        {tours && <TourView gigs={gigs} onOpen={(g) => { setTours(false); openGig(g); }} onClose={() => setTours(false)} />}
       </div>
     );
   }
@@ -291,6 +296,12 @@ export default function BandCalendar() {
       />
       {/* Dates on hold from booking packages (job 246). */}
       <div className="px-4 pt-3 max-w-lg mx-auto empty:hidden"><BookingsCalendarRow /></div>
+      <div className="px-4 pt-3 max-w-lg mx-auto">
+        <button type="button" onClick={() => setTours(true)} className="w-full min-h-[52px] px-4 rounded-xl bg-[#151515] border border-[#262626] flex items-center gap-3 text-left" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+          <span className="flex-1 flex flex-col"><span className="text-[15px] font-semibold text-white">Tours</span><span className="text-[12.5px] text-white/50">Your dates in order, with the drive between</span></span>
+          <span className="text-white/40 text-lg" aria-hidden>›</span>
+        </button>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-20">
@@ -427,6 +438,7 @@ export default function BandCalendar() {
         </div>
       )}
 
+      {tours && <TourView gigs={gigs} onOpen={(g) => { setTours(false); setOverviewGig(g); }} onClose={() => setTours(false)} />}
       {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => setOverviewGig(null)} onRemoved={(g) => setGigs((list) => list.filter((x) => x.share_token !== g.share_token))} />}
 
       <BandBottomTabs />
