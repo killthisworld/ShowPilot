@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import jsPDF from "jspdf";
-import { Download, FileDown, Loader2 } from "lucide-react";
+import { Download, FileDown, Loader2, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { positionOfMember, positionColor, positionLabel } from "@/lib/stagePositions";
 import { stageIconSvg, stageIconPng } from "@/lib/stageIcons";
@@ -29,7 +30,7 @@ const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) &
 // INPUT LIST, one numbered row per input. Runs onto more pages if needed.
 const BUS_DEFAULT = { IEM: "#EAB308", Monitor: "#F97316" };
 
-export async function stagePlotPdf({ actName, members, getInstruments, colors, busColors = null }) {
+export async function stagePlotPdf({ actName, members, getInstruments, colors, busColors = null, inputList = true }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
@@ -160,7 +161,7 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors, b
   });
   // Two columns side by side, filled top to bottom, so a band's inputs
   // mostly fit under the stage; the rest carry on to the next page.
-  if (rows.length) {
+  if (inputList && rows.length) {
     y += 4;
     heading("INPUT LIST");
     const gap = 20, cw = (W - 2 * M - gap) / 2, RH = 14;
@@ -207,17 +208,58 @@ export async function stagePlotPdf({ actName, members, getInstruments, colors, b
 // plot files like an upload, and can be saved to their phone or computer.
 // `downloadOnly` (intake, job 257): just a small "Download as PDF" link that
 // makes the PDF and saves it to their device; nothing is added to the files.
+// Input list on the PDF is optional (job 293): one switch, remembered on
+// this device, wherever the PDF is made.
+const IL_KEY = "sp_pdf_input_list";
+export function useInputListPref() {
+  const [on, setOn] = useState(() => { try { return localStorage.getItem(IL_KEY) !== "0"; } catch { return true; } });
+  const set = (v) => { setOn(v); try { localStorage.setItem(IL_KEY, v ? "1" : "0"); } catch {} };
+  return [on, set];
+}
+export function InputListSwitch({ on, onChange, className = "" }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)}
+      className={`min-h-[40px] flex items-center justify-center gap-2.5 text-[13px] text-white/70 ${className}`}>
+      <span className="relative w-9 h-5 rounded-full transition-colors" style={{ background: on ? G : "#333" }}>
+        <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
+      </span>
+      Input list on the PDF
+    </button>
+  );
+}
+
+// Save a file to their phone or computer: the share sheet where there is
+// one, else a download.
+export async function saveFileToDevice(f) {
+  if (!f?.name) return;
+  try {
+    if (navigator.canShare?.({ files: [f] })) { await navigator.share({ files: [f], title: f.name }); return; }
+  } catch (e) {
+    if (e?.name === "AbortError") return;
+  }
+  const url = URL.createObjectURL(f);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = f.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+export const stagePlotFileName = (actName) => `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
+
 export default function StagePlotPdfActions({ members = [], getInstruments, actName, files = [], onRemoveFile, onAddFile, colors = null, downloadOnly = false }) {
   const [making, setMaking] = useState(false);
   const [madeNote, setMadeNote] = useState("");
   const [made, setMade] = useState(null);
   const onCount = members.filter(placed).length;
+  const [inputList, setInputList] = useInputListPref();
 
   const make = async () => {
     setMaking(true);
     setMadeNote("");
     try {
-      const doc = await stagePlotPdf({ actName, members, getInstruments, colors });
+      const doc = await stagePlotPdf({ actName, members, getInstruments, colors, inputList });
       const name = `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
       // One made plot at a time: a new one replaces the last.
       files.map((f, i) => [f, i]).filter(([f]) => String(f.name || "").startsWith(MADE_PREFIX)).map(([, i]) => i).reverse().forEach((i) => onRemoveFile(i));
@@ -253,7 +295,7 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
   const download = async () => {
     setMaking(true);
     try {
-      const doc = await stagePlotPdf({ actName, members, getInstruments, colors });
+      const doc = await stagePlotPdf({ actName, members, getInstruments, colors, inputList });
       const name = `${MADE_PREFIX}${(actName || "My act").replace(/[\\/:*?"<>|]+/g, "").trim()}.pdf`;
       await savePdf(new File([doc.output("blob")], name, { type: "application/pdf" }));
     } catch (err) { console.error(err); }
@@ -262,9 +304,12 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
   if (downloadOnly) {
     if (onCount === 0) return null;
     return (
-      <button type="button" onClick={download} disabled={making} className="w-full h-full min-h-[52px] px-3 rounded-[12px] border-[1.5px] border-[#3a3a3a] text-white/75 text-[14px] flex items-center justify-center gap-2 hover:border-white/40 disabled:opacity-50">
-        {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Download PDF
-      </button>
+      <div className="w-full h-full flex flex-col gap-1">
+        <button type="button" onClick={download} disabled={making} className="w-full flex-1 min-h-[52px] px-3 rounded-[12px] border-[1.5px] border-[#3a3a3a] text-white/75 text-[14px] flex items-center justify-center gap-2 hover:border-white/40 disabled:opacity-50">
+          {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Download PDF
+        </button>
+        <InputListSwitch on={inputList} onChange={setInputList} className="!min-h-[32px] !text-[12px]" />
+      </div>
     );
   }
 
@@ -278,6 +323,7 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
         {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
         {making ? "Making it…" : made ? "Make it again" : "Make my stage plot"}
       </button>
+      <InputListSwitch on={inputList} onChange={setInputList} />
       {madeNote && <span className="text-center text-[12.5px]" style={{ color: madeNote.startsWith("Added") ? G : "#f87171" }}>{madeNote}</span>}
       {made && (
         <button type="button" onClick={savePdf} className="min-h-[46px] rounded-xl border font-semibold text-[14.5px] flex items-center justify-center gap-2" style={{ borderColor: G + "66", color: G, background: G + "12" }}>
@@ -285,5 +331,51 @@ export default function StagePlotPdfActions({ members = [], getInstruments, actN
         </button>
       )}
     </div>
+  );
+}
+
+// The full stage plot page's PDF icon (job 293): anyone looking at the stage,
+// engineers included, can download it, with or without the input list.
+export function StagePdfButton({ actName, members = [], getInstruments, colors = null, busColors = null, className = "" }) {
+  const [open, setOpen] = useState(false);
+  const [making, setMaking] = useState(false);
+  const [err, setErr] = useState(false);
+  const [inputList, setInputList] = useInputListPref();
+  const ready = members.some(placed);
+  const go = async () => {
+    setMaking(true); setErr(false);
+    try {
+      const doc = await stagePlotPdf({ actName, members, getInstruments, colors, busColors, inputList });
+      await saveFileToDevice(new File([doc.output("blob")], stagePlotFileName(actName), { type: "application/pdf" }));
+      setOpen(false);
+    } catch (e) { console.error(e); setErr(true); }
+    setMaking(false);
+  };
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} disabled={!ready} aria-label="Stage plot PDF" title="Stage plot PDF"
+        className={`disabled:opacity-40 ${className}`} style={{ color: "rgba(140,255,61,0.75)" }}>
+        <Download className="w-[18px] h-[18px]" />
+      </button>
+      {open && createPortal(
+        <div className="fixed inset-0 z-[95] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div role="dialog" aria-label="Stage plot PDF" className="w-full max-w-[360px] rounded-2xl border border-[#2a2a2a] bg-[#111] p-5 flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-white text-[17px] font-semibold leading-snug">Stage plot PDF</p>
+                <p className="text-white/55 text-[13px] mt-1 leading-snug">The stage and who plays what{inputList ? ", plus the input list" : ""}.</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="w-9 h-9 -mr-2 -mt-1 flex items-center justify-center text-white/45"><X className="w-5 h-5" /></button>
+            </div>
+            <InputListSwitch on={inputList} onChange={setInputList} className="!justify-start" />
+            <button type="button" onClick={go} disabled={making} className="min-h-[48px] rounded-xl font-semibold text-[15px] flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+              {making ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}{making ? "Making it…" : "Download PDF"}
+            </button>
+            {err && <p className="text-[12.5px] text-[#f87171] text-center">Couldn't make it. Try again.</p>}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }

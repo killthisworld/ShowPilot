@@ -9,6 +9,7 @@ import { memberLook } from "@/lib/customPositions";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 import StageEditor, { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
+import { StagePdfButton } from "@/components/showpilot/StagePlotBuilder";
 import { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
@@ -187,6 +188,8 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           <div className="text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>STAGE PLOT</div>
           <div className="text-[19px] font-bold leading-tight truncate">{actName(act)}</div>
         </div>
+        {/* The stage plot PDF, input list optional (job 293). */}
+        {act && <StagePdfButton actName={act.band_name || actName(act)} members={list} getInstruments={instrumentsOf} colors={colors} busColors={busColors} className={iconBtn} />}
         {onOpenNotes && act && <ActNotesButton act={act} onClick={() => onOpenNotes(cur)} />}
         {/* Keep this act's stage in My Templates (job 254), right of notes;
             always there (job 287), ready once someone is on the stage. */}
