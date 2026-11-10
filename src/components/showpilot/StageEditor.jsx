@@ -306,6 +306,50 @@ const BUS_DEFAULT = { IEM: "#EAB308", Monitor: "#F97316" };
 // "Name -> Instrument(s) -> IEM / Monitor", like the old member rows (job 270).
 // One instrument and they sing: the instrument and a mic; more than one
 // instrument: Multi Track; only vocals: a mic.
+// Swipe a picked member's closed line left to show Remove (job 291); swipe
+// back or tap the line to hide it. A swipe isn't a tap, so it won't open them.
+function SwipeRemove({ children, onRemove, label = "member" }) {
+  const W = 96;
+  const [dx, setDx] = useState(0);
+  const [open, setOpen] = useState(false);
+  const g = useRef(null);
+  const down = (e) => { g.current = { x: e.clientX, y: e.clientY, base: open ? -W : 0, moved: false, id: e.pointerId }; };
+  const move = (e) => {
+    const s = g.current;
+    if (!s) return;
+    const mx = e.clientX - s.x, my = e.clientY - s.y;
+    if (!s.moved) {
+      if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { g.current = null; return; } // scrolling
+      if (Math.abs(mx) < 8) return;
+      s.moved = true;
+      try { e.currentTarget.setPointerCapture(s.id); } catch {}
+    }
+    setDx(Math.max(-W - 24, Math.min(0, s.base + mx)));
+  };
+  const up = () => {
+    const s = g.current;
+    g.current = null;
+    if (!s?.moved) return;
+    const o = dx < -W / 2;
+    setOpen(o); setDx(o ? -W : 0);
+    swallow.current = true; // the click after a swipe
+  };
+  const swallow = useRef(false);
+  return (
+    <div className="relative w-full shrink-0 rounded-xl overflow-hidden">
+      <button type="button" onClick={onRemove} tabIndex={open ? 0 : -1} aria-hidden={!open} aria-label={`Remove ${label}`}
+        className="absolute inset-y-0 right-0 flex items-center justify-center gap-1.5 font-semibold text-[14px] text-white" style={{ width: W, background: "#DC2626" }}>
+        <Trash2 className="w-4 h-4" />Remove
+      </button>
+      <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { g.current = null; setDx(open ? -W : 0); }}
+        onClickCapture={(e) => { if (swallow.current) { swallow.current = false; e.stopPropagation(); e.preventDefault(); return; } if (open) { e.stopPropagation(); e.preventDefault(); setOpen(false); setDx(0); } }}
+        className="relative" style={{ transform: `translateX(${dx}px)`, transition: g.current?.moved ? "none" : "transform 160ms ease", touchAction: "pan-y" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function MemberLine({ member, insts, busColors }) {
   const played = insts.filter((x) => !isVocalInput(x) && String(x.name || "").trim());
   const sings = memberSings(member, insts);
@@ -493,6 +537,14 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
     onCommit?.(list);
   };
 
+  // Remove a picked member from their swiped line (job 291).
+  const removeAt = (i) => {
+    const list = members.filter((_, k) => k !== i);
+    onRemoveMember ? onRemoveMember(i) : setMembers(list);
+    close();
+    onCommit?.(list);
+  };
+
   // Move / swap: tap one, then another (swap) or an empty spot (move).
   const tapInSwap = (i) => {
     if (sel === null) { setSel(i); return; }
@@ -569,7 +621,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             if (open && !canEdit && renderMemberCard) return <div key={i}>{renderMemberCard(m, i, collapse)}</div>;
             const on = sel === i;
             const pc = memberLook(m, getInstruments, colors).color;
-            return (
+            const line = (
               <button key={i} type="button" onClick={() => (on || !canMove || step === "form" ? openDetails(i) : lift(i))} aria-label={`${m.name || `Member ${i + 1}`}: ${on ? "details" : "pick"}`} aria-expanded={false} aria-pressed={on}
                 className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none"
                 style={{ borderColor: on ? pc : "#2a2a2a", borderStyle: on ? "dashed" : "solid" }}>
@@ -578,6 +630,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
                 <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
               </button>
             );
+            return on && canEdit ? <SwipeRemove key={i} onRemove={() => removeAt(i)} label={m.name || "member"}>{line}</SwipeRemove> : line;
           })}
         </div>
       ) : swap ? (
@@ -593,11 +646,13 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       ) : step === "lift" && sel !== null && members[sel] ? (
         // Picked up: the dashed outline says it; tap them again to set them down.
         // Their line, like the old member rows; tap to open their details (job 271).
-        <button type="button" onClick={() => edit(sel)} aria-label={`${members[sel].name || "Member"}: details`} aria-expanded={false}
-          className="w-full min-h-[48px] rounded-xl border border-[#2a2a2a] bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444]">
-          <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} /></span>
-          <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
-        </button>
+        <SwipeRemove onRemove={() => removeAt(sel)} label={members[sel].name || "member"}>
+          <button type="button" onClick={() => edit(sel)} aria-label={`${members[sel].name || "Member"}: details`} aria-expanded={false}
+            className="w-full min-h-[48px] rounded-xl border border-[#2a2a2a] bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none">
+            <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} /></span>
+            <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
+          </button>
+        </SwipeRemove>
       ) : step === "pick" ? (
         <PickPanel colors={colors} onPick={pickPos} onPickCustom={pickCustom} onClose={close} />
       ) : step === "form" && draft ? (
