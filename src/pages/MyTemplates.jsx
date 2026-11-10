@@ -11,7 +11,8 @@ import VenueInfoFields from "@/components/showpilot/VenueInfoFields";
 import PerformerFields from "@/components/showpilot/PerformerFields";
 import StageEditor from "@/components/showpilot/StageEditor";
 import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
-import { instrumentsOf } from "@/components/showpilot/StagePlotView";
+import { instrumentsOf, StagePlotView, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
+import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { emptyVenueTemplate, emptyArtistTemplate, normalizeVenueTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
 import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubtitle } from "@/lib/roleTemplates";
@@ -59,6 +60,12 @@ export default function MyTemplates() {
   const [editing, setEditing] = useState(null); // workspace editor: { key, role, name, gig }
   const [edSaving, setEdSaving] = useState(false);
   const [edSaved, setEdSaved] = useState(false);
+  // An artist template's notes window and full stage page (job 73): the same
+  // Notes and Stage Plot buttons as an act on a show. Each holds the
+  // template's key.
+  const [notesKey, setNotesKey] = useState(null);
+  const [stageKey, setStageKey] = useState(null);
+  const stageChanged = useRef(false);
   // Wallets (like Fellow Pilots): each template kind is a wallet; swipe one
   // left to see its templates.
   const [activeCat, setActiveCat] = useState(null);
@@ -405,7 +412,15 @@ export default function MyTemplates() {
                       onAddGenreFromTag={(name) => addGenre(name)}
                       iemMonitorColors={iemMonitorColors}
                       onStagePlotUpload={(e) => handleStagePlotUpload(t.key, e)}
-                      showNotes
+                      // Notes and the stage plot, beside Set Length as on a
+                      // show's act (job 73): notes open their window (General
+                      // + a chip per member), the stage opens its full page.
+                      setLengthAction={(
+                        <div className="flex items-center gap-2">
+                          <ActNotesButton act={{ ...t.data, band_name: t.name }} onClick={() => setNotesKey(t.key)} />
+                          <ActStagePlotButton act={{ ...t.data, band_name: t.name }} always onClick={() => setStageKey(t.key)} />
+                        </div>
+                      )}
                       // Contact info (job 282), filled into intake forms.
                       afterName={(
                         <div className="space-y-1.5">
@@ -642,6 +657,39 @@ export default function MyTemplates() {
         </div>
       )}
       {editor}
+      {(() => {
+        const nt = notesKey && templates.find((x) => x.key === notesKey);
+        const st = stageKey && templates.find((x) => x.key === stageKey);
+        const actOf = (x) => ({ ...x.data, band_name: x.name });
+        return (
+          <>
+            {nt && (
+              <FxNotesWindow
+                acts={[actOf(nt)]}
+                target={0}
+                onTarget={() => {}}
+                actOnly={0}
+                onActPatch={(_, patch) => setTemplate(nt.key, (cur) => ({ ...cur, data: { ...cur.data, ...patch } }))}
+                onSave={async () => { await saveTemplate(nt.key); setNotesKey(null); }}
+                saving={!!nt.saving}
+                onClose={() => setNotesKey(null)}
+              />
+            )}
+            {st && (
+              <StagePlotView
+                acts={[actOf(st)]}
+                start={0}
+                // Changes on the stage page are kept with the template when
+                // you leave it, so nobody loses a stage they built.
+                onClose={() => { if (stageChanged.current) saveTemplate(st.key); stageChanged.current = false; setStageKey(null); }}
+                onEditMembers={async (_, list) => { setData(st.key, "band_members", list); stageChanged.current = true; return null; }}
+                busColors={iemMonitorColors}
+                onOpenNotes={() => setNotesKey(st.key)}
+              />
+            )}
+          </>
+        );
+      })()}
       <BottomTabs railOnly />
     </div>
   );
