@@ -381,7 +381,7 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
   const upd = (ii, f, v) => { const l = [...insts]; l[ii] = { ...l[ii], [f]: v }; setInsts(l); };
   const toggle = (on, color) => (on ? { color, borderColor: color + "80", background: color + "1F" } : { color: "rgba(255,255,255,0.45)", borderColor: "#333" });
   return (
-    <div className="rounded-[14px] border bg-[#101010] p-3 flex flex-col gap-3" style={{ borderColor: pc + "55" }}>
+    <div className="rounded-[14px] border bg-[#101010] p-3 flex flex-col gap-3" style={{ borderColor: pc }}>
       {!isNew && (
         // Tap the line to close the details again (job 271).
         <button type="button" onClick={onCancel} aria-expanded={true} aria-label="Close details" className="w-full flex items-center gap-2 text-left">
@@ -624,7 +624,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             const line = (
               <button key={i} type="button" onClick={() => (on || !canMove || step === "form" ? openDetails(i) : lift(i))} aria-label={`${m.name || `Member ${i + 1}`}: ${on ? "details" : "pick"}`} aria-expanded={false} aria-pressed={on}
                 className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none"
-                style={{ borderColor: on ? pc : "#2a2a2a", borderStyle: on ? "dashed" : "solid" }}>
+                // Outlined in their instrument's color (job 292); dashed while picked.
+                style={{ borderColor: on ? pc : pc + "8C", borderStyle: on ? "dashed" : "solid" }}>
                 <span className="flex-1 min-w-0"><MemberLine member={m} insts={getInstruments(m)} busColors={busColors} /></span>
                 {!placed(m) && <span className="text-[10px] tracking-[0.1em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>OFF STAGE</span>}
                 <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
@@ -648,7 +649,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         // Their line, like the old member rows; tap to open their details (job 271).
         <SwipeRemove onRemove={() => removeAt(sel)} label={members[sel].name || "member"}>
           <button type="button" onClick={() => edit(sel)} aria-label={`${members[sel].name || "Member"}: details`} aria-expanded={false}
-            className="w-full min-h-[48px] rounded-xl border border-[#2a2a2a] bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none">
+            className="w-full min-h-[48px] rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left select-none"
+            style={{ borderColor: memberLook(members[sel], getInstruments, colors).color }}>
             <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} /></span>
             <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
           </button>
