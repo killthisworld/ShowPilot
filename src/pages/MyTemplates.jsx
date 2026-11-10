@@ -20,6 +20,7 @@ import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubti
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
+import TemplatePlansSheet, { useTemplatePlan, templateLimitKind } from "@/components/showpilot/TemplatePlans";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -37,9 +38,9 @@ const EMPTY_NOTE = {
     artist: "No artist templates yet. Save one for an artist you work with repeatedly.",
   },
   company: {
-    venue: "Your room once: address, load-in, schedule, house gear, hospitality. Load it on every show.",
-    manager: "Contact, advance checklist, vehicle, standing guest list and merch.",
-    artist: "Members, genres, stage plot and notes. Load it as an act in the lineup, or into a performer intake.",
+    venue: "Your room, once: address, load-in, schedule, house gear, hospitality. Load it on every show. Other rooms come from your Fellow Pilots.",
+    manager: "Your side, once: contact, advance checklist, vehicle, standing guest list and merch.",
+    artist: "Each act you manage or book: members, genres, stage plot and notes. Load it as an act in the lineup, or into a performer intake.",
   },
 };
 
@@ -79,12 +80,17 @@ export default function MyTemplates() {
   const accountType = preferences?.account_type || "engineer";
   const isTech = ["engineer", "lighting"].includes(accountType);
   const own = MANAGER_SIDE[accountType] || accountType;
-  // Wallets (job 124): company accounts get one Manager / Artist wallet that
-  // holds both manager-section and artist templates; techs keep Venue + Artist.
+  // Wallets (job 124): techs keep Venue + Artist (as many as they like).
+  // Company accounts build only their own (job 295): a venue keeps one venue
+  // template; a manager / artist keeps one manager template and their acts
+  // (1 free, more on a plan). The database holds the same rule.
   const WALLETS = isTech
     ? [{ id: "venue", cats: ["venue"] }, { id: "artist", cats: ["artist"] }]
-    : [{ id: "venue", cats: ["venue"] }, { id: "manager", cats: ["manager", "artist"] }].sort((a, b) => (a.id === own ? -1 : b.id === own ? 1 : 0));
+    : own === "venue" ? [{ id: "venue", cats: ["venue"] }] : [{ id: "manager", cats: ["manager", "artist"] }];
+  const { plan: tplPlan, reload: reloadPlan, setPlan: setTplPlan } = useTemplatePlan(!isTech && !!preferences);
+  const [plansOpen, setPlansOpen] = useState(false);
   const walletOf = (id) => WALLETS.find((w) => w.id === id) || WALLETS[0];
+  const walletTitle = (id) => (!isTech && id === "venue" ? "Your venue" : GROUP[id].plural);
   const workspaceKind = (category) => !isTech && COMPANY_TEMPLATE_ROLES.includes(category);
 
   useEffect(() => {
@@ -266,9 +272,10 @@ export default function MyTemplates() {
       toast({ title: "Template saved" });
     } catch (e) {
       console.error(e);
-      toast({ title: "Error saving template", variant: "destructive" });
+      if (!limitToast(e, t.category)) toast({ title: "Error saving template", variant: "destructive" });
       setTemplate(key, { saving: false });
     }
+    if (!isTech) reloadPlan();
   };
 
   // Save from the workspace editor.
@@ -291,7 +298,7 @@ export default function MyTemplates() {
       setTimeout(() => setEdSaved(false), 1800);
     } catch (e) {
       console.error(e);
-      toast({ title: "Error saving template", description: "Check your connection and try again.", variant: "destructive" });
+      if (!limitToast(e, editing.role)) toast({ title: "Error saving template", description: "Check your connection and try again.", variant: "destructive" });
     }
     setEdSaving(false);
   };
@@ -357,6 +364,18 @@ export default function MyTemplates() {
 
   const listFor = (category) => templates.filter((t) => t.category === category && (t.id || !workspaceKind(category)));
   const listForWallet = (w) => w.cats.flatMap((c) => listFor(c));
+  // What a company account may still add (job 295): one venue / manager
+  // template, and acts up to the plan (null = no limit).
+  const savedCount = (c) => templates.filter((t) => t.category === c && t.id).length;
+  const actsLimit = tplPlan ? tplPlan.acts_limit : 1;
+  const canAdd = (c) => isTech || (c === "artist" ? actsLimit == null || savedCount("artist") < actsLimit : savedCount(c) === 0)
+    && !templates.some((t) => t.category === c && !t.id && !isTech && c !== "artist");
+  const limitToast = (e, category) => {
+    const kind = templateLimitKind(e);
+    if (kind === "acts") { setPlansOpen(true); return true; }
+    if (kind === "one") { toast({ title: `You already have your ${GROUP[category]?.label.toLowerCase() || ""} template`, description: "Edit that one instead.", variant: "destructive" }); return true; }
+    return false;
+  };
 
   // The templates inside one wallet. A wallet with two kinds (Manager /
   // Artist) tags each row with its kind.
@@ -527,7 +546,7 @@ export default function MyTemplates() {
         key={category}
         role="button"
         tabIndex={0}
-        aria-label={`${g.plural} wallet, ${n} template${n === 1 ? "" : "s"}. ${desktop ? "Open" : "Swipe left to open"}`}
+        aria-label={`${walletTitle(category)} wallet, ${n} template${n === 1 ? "" : "s"}. ${desktop ? "Open" : "Swipe left to open"}`}
         onPointerDown={(e) => onDown(e, category)}
         onPointerMove={onMove}
         onPointerUp={onUp}
@@ -546,7 +565,7 @@ export default function MyTemplates() {
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 15% -10%, rgba(255,255,255,0.32), transparent 55%)" }} />
         <div className="relative z-10 flex items-center gap-2.5">
           <Icon className="w-6 h-6 shrink-0" style={{ color: "#0d0d0d" }} />
-          <span className="flex-1 min-w-0 truncate text-[20px] font-bold text-[#0d0d0d]">{g.plural}</span>
+          <span className="flex-1 min-w-0 truncate text-[20px] font-bold text-[#0d0d0d]">{walletTitle(category)}</span>
           {yours && <span className="text-[10px] tracking-[0.12em] px-1.5 py-[2px] rounded bg-[#0d0d0d] shrink-0" style={{ color, fontFamily: SCENE_MONO }}>YOURS</span>}
         </div>
         <p className="relative z-10 mt-2 text-[13px] text-[#0d0d0d]/70">{n} template{n === 1 ? "" : "s"}</p>
@@ -576,29 +595,40 @@ export default function MyTemplates() {
     return (
       <section className="rounded-2xl bg-[#111] border border-[#1f1f1f] overflow-hidden" style={{ borderTop: `3px solid ${color}` }}>
         <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-          {!desktop && (
+          {!desktop && WALLETS.length > 1 && (
             <button type="button" onClick={() => setOpenCat(null)} aria-label="Back to wallets" className="p-1 -ml-1 text-white/60 hover:text-white"><ArrowLeft className="w-5 h-5" /></button>
           )}
           <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + "1f" }}>
             <Icon className="w-[18px] h-[18px]" style={{ color }} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-[20px] font-bold leading-none text-white">{g.plural}</h2>
+            <h2 className="text-[20px] font-bold leading-none text-white">{walletTitle(category)}</h2>
             <div className="mt-1 text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{n} TEMPLATE{n === 1 ? "" : "S"}</div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {w.cats.map((c) => {
               const cc = GROUP[c].style.color;
+              // Their one venue / manager template is made: no button. Acts
+              // at the plan's limit: the button opens Host more acts.
+              if (!canAdd(c) && c !== "artist") return null;
+              const more = !canAdd(c);
               return (
-                <button key={c} onClick={() => addTemplate(c)}
+                <button key={c} onClick={() => (more ? setPlansOpen(true) : addTemplate(c))}
                   className="flex items-center gap-1 text-[13px] font-bold tracking-[0.04em] px-3 py-2 rounded-lg"
                   style={{ border: `1px solid ${cc}66`, color: cc, background: cc + "14" }}>
-                  <Plus className="w-4 h-4" /> {w.cats.length > 1 ? GROUP[c].label.toUpperCase() : "NEW"}
+                  <Plus className="w-4 h-4" /> {more ? "MORE ACTS" : w.cats.length > 1 ? (c === "artist" ? "ACT" : GROUP[c].label.toUpperCase()) : "NEW"}
                 </button>
               );
             })}
           </div>
         </div>
+        {/* Acts on the plan (job 295). */}
+        {!isTech && w.cats.includes("artist") && (
+          <div className="mx-4 mb-3 -mt-1 flex items-center gap-2 text-[12.5px] text-white/55">
+            <span style={{ fontFamily: SCENE_MONO }} className="tracking-[0.08em]">ACTS {savedCount("artist")} OF {actsLimit == null ? "∞" : actsLimit}</span>
+            <button type="button" onClick={() => setPlansOpen(true)} className="ml-auto min-h-[32px] px-2 text-[12.5px] font-semibold underline underline-offset-2" style={{ color: GROUP.artist.style.color }}>Host more acts</button>
+          </div>
+        )}
         {templateList(w)}
       </section>
     );
@@ -653,7 +683,7 @@ export default function MyTemplates() {
           <div>
             <h1 className="text-[26px] font-bold leading-none">My Templates</h1>
             <p className="mt-1 text-white/50 text-[14px]">
-              {isTech ? "Save venue and artist info once, reuse it every time you're back." : "Fill a section in once, then press Load template on any event."}
+              {isTech ? "Save venue and artist info once, reuse it every time you're back." : own === "venue" ? "Your venue, filled in once. Press Load template on any event." : "Your side and your acts, filled in once. Press Load template on any event."}
             </p>
           </div>
         </div>
@@ -666,10 +696,12 @@ export default function MyTemplates() {
         </div>
       ) : (
         <div className="px-4 pt-5 mx-auto max-w-lg">
-          {openCat ? openedWallet(openCat) : walletStack}
+          {/* One wallet (company accounts, job 295): straight to it. */}
+          {openCat || WALLETS.length === 1 ? openedWallet(openCat || WALLETS[0].id) : walletStack}
         </div>
       )}
       {editor}
+      {plansOpen && tplPlan && <TemplatePlansSheet plan={{ ...tplPlan, acts_used: savedCount("artist") }} onClose={() => setPlansOpen(false)} onChanged={(d) => d && setTplPlan(d)} />}
       {(() => {
         const nt = notesKey && templates.find((x) => x.key === notesKey);
         const st = stageKey && templates.find((x) => x.key === stageKey);

@@ -35,6 +35,8 @@ export async function saveStageTemplate(act) {
     ...stage,
   });
   const { error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "artist", name, data: fresh });
+  // A manager / artist account at its plan's act limit (job 295).
+  if (error && /TEMPLATE_LIMIT/.test(error.message || "")) return "limit";
   if (error) throw error;
   return "saved";
 }
@@ -61,7 +63,7 @@ export function useResumeStageSave(act, onDone) {
 
 // iconOnly (the stage plot page's top right; job 272): just the icon.
 export default function SaveStageTemplateButton({ act, className = "", primary = false, iconOnly = false }) {
-  const [state, setState] = useState("idle"); // idle | saving | saved | updated | error
+  const [state, setState] = useState("idle"); // idle | saving | saved | updated | limit | error
   const [askAuth, setAskAuth] = useState(false);
   const save = async () => {
     setState("saving");
@@ -77,11 +79,11 @@ export default function SaveStageTemplateButton({ act, className = "", primary =
     try { sessionStorage.setItem("post_auth_redirect", here()); } catch {}
     window.location.href = `${to}?redirect=${encodeURIComponent(here())}`;
   };
-  const label = state === "saving" ? "Saving…" : state === "saved" ? "Saved to My Templates" : state === "updated" ? "Updated in My Templates" : state === "error" ? "Couldn't save. Try again" : primary ? "Save to template" : "Save to my templates";
+  const label = state === "saving" ? "Saving…" : state === "saved" ? "Saved to My Templates" : state === "updated" ? "Updated in My Templates" : state === "error" ? "Couldn't save. Try again" : state === "limit" ? "Your act templates are full. Host more acts in My Templates" : primary ? "Save to template" : "Save to my templates";
   const done = state === "saved" || state === "updated";
-  const look = primary && !done && state !== "error"
+  const look = primary && !done && state !== "error" && state !== "limit"
     ? { background: G, borderColor: G, color: "#0d0d0d" }
-    : { borderColor: done ? G : "#3a3a3a", color: state === "error" ? "#f87171" : done ? G : "rgba(255,255,255,0.8)" };
+    : { borderColor: done ? G : "#3a3a3a", color: state === "error" || state === "limit" ? "#f87171" : done ? G : "rgba(255,255,255,0.8)" };
   const icon = state === "saving" ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : done ? <Check className="w-[18px] h-[18px]" /> : <BookmarkPlus className="w-[18px] h-[18px]" />;
   return (
     <>

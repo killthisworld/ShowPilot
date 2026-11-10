@@ -62,7 +62,7 @@ export default function TourManagerIntake({ link } = {}) {
   const [seen, setSeen] = usePersistedState(`tm_intake_seen_${token}`, {});
   const { toast } = useToast();
   // Saved their stage to a template before signing up / logging in (job 257).
-  useResumeStageSave(form, (r) => toast(r === "error" ? { title: "Couldn't save your template", description: "Tap Save to template to try again.", variant: "destructive" } : { title: r === "updated" ? "Updated your template" : "Saved your stage to My Templates" }));
+  useResumeStageSave(form, (r) => toast(r === "error" ? { title: "Couldn't save your template", description: "Tap Save to template to try again.", variant: "destructive" } : r === "limit" ? { title: "Your act templates are full", description: "Host more acts in My Templates.", variant: "destructive" } : { title: r === "updated" ? "Updated your template" : "Saved your stage to My Templates" }));
 
   // Upload template (job 282): one of their artist templates fills the form.
   const applyTemplate = (fields, name) => {

@@ -1823,9 +1823,15 @@ function TemplateTools({ role, color, gig, update, userId, onLoadVenue = null })
     try {
       const data = templateFromGig(role, gig);
       const { data: existing } = await supabase.from("saved_templates").select("id").eq("owner_id", userId).eq("category", role).eq("name", n).maybeSingle();
-      const { error } = existing
+      let { error } = existing
         ? await supabase.from("saved_templates").update({ data, updated_at: new Date().toISOString() }).eq("id", existing.id)
         : await supabase.from("saved_templates").insert({ owner_id: userId, category: role, name: n, data });
+      // A venue / manager account keeps one template of its own (job 295):
+      // saving under a new name updates that one instead.
+      if (error && /TEMPLATE_LIMIT/.test(error.message || "")) {
+        const { data: mine } = await supabase.from("saved_templates").select("id").eq("owner_id", userId).eq("category", role).limit(1).maybeSingle();
+        if (mine) ({ error } = await supabase.from("saved_templates").update({ name: n, data, updated_at: new Date().toISOString() }).eq("id", mine.id));
+      }
       if (error) throw error;
       setState("saved");
       setTimeout(() => { setNaming(false); setState(""); }, 1400);
