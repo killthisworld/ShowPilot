@@ -533,6 +533,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
   const remove = () => {
     const list = members.filter((_, k) => k !== editing);
     onRemoveMember ? onRemoveMember(editing) : setMembers(list);
+    setSel(null);
     close();
     onCommit?.(list);
   };
@@ -541,6 +542,8 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
   const removeAt = (i) => {
     const list = members.filter((_, k) => k !== i);
     onRemoveMember ? onRemoveMember(i) : setMembers(list);
+    // Nobody picked any more, so every line shows again (job 294).
+    setSel(null);
     close();
     onCommit?.(list);
   };
