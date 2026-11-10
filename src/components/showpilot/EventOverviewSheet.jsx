@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight } from "lucide-react";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import FanPageButton from "@/components/showpilot/FanPageButton";
+import GuestList from "@/components/showpilot/GuestList";
+import DaySheet from "@/components/showpilot/DaySheet";
 import { feedRows, canWorkSection } from "@/lib/eventFeed";
 import { roleStatus } from "@/lib/inviteGroups";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -57,6 +59,8 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
 
   const color = eventTypeColor(gig.event_type) || G;
   const title = eventTitle(gig);
+  const [guests, setGuests] = useState(false);
+  const [daySheet, setDaySheet] = useState(false);
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const vi = gig.venue_info || {};
   const mi = gig.manager_info || {};
@@ -121,6 +125,22 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
             open; the owner (and the venue side, for the website) can add or
             change them right here. */}
         <EventLinks gig={gig} perms={perms} box={box} color={color} onSaved={(patch) => setGig((g) => ({ ...g, ...patch }))} />
+
+        {/* The day sheet and the guest list, for everyone on the event
+            (job 73, On the road). */}
+        {user && perms && (
+          <div className={`${box} -mt-2 divide-y divide-[#1f1f1f] overflow-hidden`}>
+            {[["Day sheet", ClipboardList, () => setDaySheet(true)], ["Guest list", Users, () => setGuests(true)]].map(([name, Icon, open]) => (
+              <button key={name} type="button" onClick={open} className="w-full min-h-[56px] px-3 flex items-center gap-2.5 text-left active:bg-[#1a1a1a]">
+                <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
+                <span className="flex-1 text-[15px] font-semibold text-white">{name}</span>
+                <ChevronRight className="w-4 h-4 text-white/40" />
+              </button>
+            ))}
+          </div>
+        )}
+        {guests && <GuestList gig={gig} accent={color} onClose={() => setGuests(false)} />}
+        {daySheet && <DaySheet gig={gig} accent={color} onClose={() => setDaySheet(false)} />}
 
         {loading ? (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: color + "40", borderTopColor: color }} /></div>

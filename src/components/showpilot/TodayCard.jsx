@@ -4,6 +4,7 @@ import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
 import { dayTimes, nextCall, untilText, findTime, directionsUrl } from "@/lib/daySheet";
 import DaySheet from "@/components/showpilot/DaySheet";
+import GuestList from "@/components/showpilot/GuestList";
 
 const has = (v) => v != null && String(v).trim() !== "";
 
@@ -14,6 +15,7 @@ export default function TodayCard({ gig: base, accent, todayWord = "Today" }) {
   const [gig, setGig] = useState(base);
   const [, tick] = useState(0);
   const [sheet, setSheet] = useState(false);
+  const [guests, setGuests] = useState(false);
 
   // The full event (venue schedule, set times), not just the list row.
   useEffect(() => {
@@ -66,8 +68,10 @@ export default function TodayCard({ gig: base, accent, todayWord = "Today" }) {
           )}
           <button type="button" onClick={() => setSheet(true)} className="h-12 rounded-xl bg-[#222] text-white text-[15px] font-semibold">Day sheet</button>
         </div>
+        <button type="button" onClick={() => setGuests(true)} className="-mt-1 h-11 rounded-xl border border-[#333] text-white/85 text-[14px] font-semibold">Guest list</button>
       </section>
       {sheet && <DaySheet gig={gig} accent={accent} onClose={() => setSheet(false)} />}
+      {guests && <GuestList gig={gig} accent={accent} onClose={() => setGuests(false)} />}
     </>
   );
 }
