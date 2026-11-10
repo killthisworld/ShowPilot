@@ -5,6 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { dayTimes, nextCall, venueAddress, directionsUrl, dayContacts, daySheetText } from "@/lib/daySheet";
+import useTouringParty, { textLink, emailLink } from "@/lib/touringParty";
 
 const has = (v) => v != null && String(v).trim() !== "";
 
@@ -15,6 +16,10 @@ const has = (v) => v != null && String(v).trim() !== "";
 export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
   const [gig, setGig] = useState(base);
   const [copied, setCopied] = useState(false);
+  // Send to the party (job 73, On the road stage 6).
+  const { party } = useTouringParty();
+  const [sendOpen, setSendOpen] = useState(false);
+  const reachable = party.filter((p) => p.phone || p.email);
 
   useEffect(() => {
     let off = false;
@@ -92,6 +97,11 @@ export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
         </div>
 
         <div className="px-6 pt-7 flex flex-col gap-2.5">
+          {reachable.length > 0 && (
+            <button type="button" onClick={() => setSendOpen(true)} className="h-[52px] rounded-[14px] text-[16px] font-bold" style={{ background: accent, color: "#0d0d0d" }}>
+              Send to the party · {reachable.length}
+            </button>
+          )}
           {maps && (
             <a href={maps} target="_blank" rel="noopener noreferrer" className={row}>
               <span className="flex-1 min-w-0 flex flex-col">
@@ -124,6 +134,28 @@ export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
           </div>
         )}
       </div>
+
+      {sendOpen && (
+        <div className="fixed inset-0 z-[61] bg-black/70 flex items-end justify-center" onClick={() => setSendOpen(false)}>
+          <div className="w-full max-w-lg max-h-[80dvh] overflow-y-auto bg-[#111] border-t border-[#262626] rounded-t-[22px] px-5 pt-5 pb-[max(20px,env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Send to the party">
+            <h2 className="m-0 text-[26px] font-bold text-white tracking-[0.02em]" style={{ fontFamily: SCENE_FONT }}>Send to the party</h2>
+            <p className="m-0 mt-1 mb-3 text-[14px] text-white/55">Each button opens your messages with the day sheet filled in.</p>
+            {reachable.map((p) => {
+              const body = daySheetText(gig, title);
+              return (
+                <div key={p.id} className="flex items-center gap-3 min-h-[60px] border-b border-[#1f1f1f]">
+                  <span className="flex-1 min-w-0 flex flex-col">
+                    <span className="text-[16px] font-semibold text-white truncate">{p.name}</span>
+                    {p.role && <span className="text-[13px] text-white/50 truncate">{p.role}</span>}
+                  </span>
+                  {p.phone && <a href={textLink(p.phone, body)} className="h-11 px-4 rounded-[10px] bg-[#222] text-white text-[14px] font-semibold flex items-center no-underline">Text</a>}
+                  {p.email && <a href={emailLink(p.email, `${title} day sheet`, body)} className="h-11 px-4 rounded-[10px] bg-[#222] text-white text-[14px] font-semibold flex items-center no-underline">Email</a>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

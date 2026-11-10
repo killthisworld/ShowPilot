@@ -6,6 +6,7 @@ import Cockpit from "@/pages/Experience";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
+import PartyPanel from "@/components/showpilot/PartyPanel";
 
 // The company phone's "Me" tab: a full page (it used to slide over from the
 // left) with two sections:
@@ -15,21 +16,28 @@ import { SCENE_FONT } from "@/lib/sceneStyle";
 //             wallets and Logbook (desktop keeps its own Cockpit tab).
 // /me?section=cockpit opens straight on the Cockpit (add &tab=logbook or
 // &tab=fellow for those).
+//   Party   - artist / manager accounts (job 73, On the road): the people
+//             you tour with, who get the day sheet. /me?section=party.
 const SECTIONS = [
   { id: "profile", label: "Profile" },
   { id: "cockpit", label: "Cockpit" },
+  { id: "party", label: "Party", tours: true },
 ];
+const TOURING = new Set(["band", "manager"]);
 
 export default function MePage() {
   const { preferences, reload } = usePreferences();
   const [params, setParams] = useSearchParams();
-  const section = params.get("section") === "cockpit" ? "cockpit" : "profile";
+  const touring = TOURING.has(preferences?.account_type);
+  const sections = SECTIONS.filter((s) => !s.tours || touring);
+  const asked = params.get("section");
+  const section = sections.some((s) => s.id === asked) ? asked : "profile";
   const style = getAccountTypeStyle(preferences?.account_type);
   const accent = style.color;
 
   const pick = (id) => {
     if (id === section) return;
-    setParams(id === "cockpit" ? { section: "cockpit" } : {}, { replace: true });
+    setParams(id === "profile" ? {} : { section: id }, { replace: true });
     window.scrollTo(0, 0);
   };
 
@@ -44,8 +52,8 @@ export default function MePage() {
           </div>
         </div>
 
-        <div role="tablist" aria-label="Me sections" className="mx-5 mt-4 grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-          {SECTIONS.map((s) => {
+        <div role="tablist" aria-label="Me sections" className={`mx-5 mt-4 grid ${sections.length === 3 ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]`} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+          {sections.map((s) => {
             const on = section === s.id;
             return (
               <button
@@ -64,7 +72,11 @@ export default function MePage() {
         </div>
       </div>
 
-      {section === "cockpit" ? (
+      {section === "party" ? (
+        <div className="max-w-lg mx-auto">
+          <PartyPanel accent={accent} />
+        </div>
+      ) : section === "cockpit" ? (
         <div className="mt-1">
           <Cockpit embedded />
         </div>
