@@ -13,6 +13,7 @@ import StageEditor from "@/components/showpilot/StageEditor";
 import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
 import { instrumentsOf, StagePlotView, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+import ApplyTemplateSheet from "@/components/showpilot/ApplyTemplateSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { emptyVenueTemplate, emptyArtistTemplate, normalizeVenueTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
 import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubtitle } from "@/lib/roleTemplates";
@@ -66,6 +67,8 @@ export default function MyTemplates() {
   const [notesKey, setNotesKey] = useState(null);
   const [stageKey, setStageKey] = useState(null);
   const stageChanged = useRef(false);
+  // "Put on your dates" (job 73, On the road stage 4): the template's key.
+  const [applyKey, setApplyKey] = useState(null);
   // Wallets (like Fellow Pilots): each template kind is a wallet; swipe one
   // left to see its templates.
   const [activeCat, setActiveCat] = useState(null);
@@ -459,6 +462,16 @@ export default function MyTemplates() {
                       )}
                     />
                   )}
+                  {t.category === "artist" && t.name.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setApplyKey(t.key)}
+                      className="w-full h-12 rounded-xl border text-[15px] font-semibold"
+                      style={{ borderColor: GROUP.artist.style.color, color: GROUP.artist.style.color }}
+                    >
+                      Put on your dates
+                    </button>
+                  )}
                   <div className="flex items-center gap-2 pt-1">
                     <Button onClick={() => saveTemplate(t.key)} disabled={t.saving} className="flex-1 bg-[#8CFF3D] text-black font-semibold hover:bg-[#7ae62e] rounded-xl">
                       {t.saving ? "Saving..." : t.saved ? "Saved ✓" : "Save Template"}
@@ -661,8 +674,10 @@ export default function MyTemplates() {
         const nt = notesKey && templates.find((x) => x.key === notesKey);
         const st = stageKey && templates.find((x) => x.key === stageKey);
         const actOf = (x) => ({ ...x.data, band_name: x.name });
+        const at = applyKey && templates.find((x) => x.key === applyKey);
         return (
           <>
+            {at && <ApplyTemplateSheet template={at} accent={GROUP.artist.style.color} onClose={() => setApplyKey(null)} />}
             {nt && (
               <FxNotesWindow
                 acts={[actOf(nt)]}
