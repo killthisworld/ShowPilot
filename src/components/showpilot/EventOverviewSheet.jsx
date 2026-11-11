@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight, DollarSign } from "lucide-react";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -9,6 +9,7 @@ import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import FanPageButton from "@/components/showpilot/FanPageButton";
 import GuestList from "@/components/showpilot/GuestList";
 import DaySheet from "@/components/showpilot/DaySheet";
+import SettlementSheet from "@/components/showpilot/SettlementSheet";
 import { feedRows, canWorkSection } from "@/lib/eventFeed";
 import { roleStatus } from "@/lib/inviteGroups";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -61,6 +62,16 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   const title = eventTitle(gig);
   const [guests, setGuests] = useState(false);
   const [daySheet, setDaySheet] = useState(false);
+  // Settlement (job 73, On the road stage 7): only for the venue and the
+  // manager / artist side, who can see the money.
+  const [settle, setSettle] = useState(false);
+  const [moneyOk, setMoneyOk] = useState(false);
+  useEffect(() => {
+    if (!user || !base?.id) return undefined;
+    let off = false;
+    supabase.rpc("get_event_settlement", { p_show: base.id }).then(({ data }) => { if (!off) setMoneyOk(!!data?.can_view); });
+    return () => { off = true; };
+  }, [user, base?.id]);
   const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
   const vi = gig.venue_info || {};
   const mi = gig.manager_info || {};
@@ -130,7 +141,7 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
             (job 73, On the road). */}
         {user && perms && (
           <div className={`${box} -mt-2 divide-y divide-[#1f1f1f] overflow-hidden`}>
-            {[["Day sheet", ClipboardList, () => setDaySheet(true)], ["Guest list", Users, () => setGuests(true)]].map(([name, Icon, open]) => (
+            {[["Day sheet", ClipboardList, () => setDaySheet(true)], ["Guest list", Users, () => setGuests(true)], ...(moneyOk ? [["Settlement", DollarSign, () => setSettle(true)]] : [])].map(([name, Icon, open]) => (
               <button key={name} type="button" onClick={open} className="w-full min-h-[56px] px-3 flex items-center gap-2.5 text-left active:bg-[#1a1a1a]">
                 <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
                 <span className="flex-1 text-[15px] font-semibold text-white">{name}</span>
@@ -141,6 +152,7 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
         )}
         {guests && <GuestList gig={gig} accent={color} onClose={() => setGuests(false)} />}
         {daySheet && <DaySheet gig={gig} accent={color} onClose={() => setDaySheet(false)} />}
+        {settle && <SettlementSheet gig={gig} accent={color} onClose={() => setSettle(false)} />}
 
         {loading ? (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: color + "40", borderTopColor: color }} /></div>
