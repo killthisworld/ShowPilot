@@ -59,7 +59,7 @@ export const VENUE_PARTS = [
   { key: "advance", label: "Advance schedule" },
   { key: "documents", label: "Documents" },
 ];
-const VENUE_PART_FIELDS = {
+export const VENUE_PART_FIELDS = {
   address: { gig: ["venue", "city", "state"], section: ["address", "capacity", "age_policy", "photo_url"] },
   load_in: { section: ["load_in_location", "parking", "load_in_notes"] },
   schedule: { section: ["schedule", "hard_curfew", "load_out_by"] },
@@ -82,6 +82,38 @@ const VENUE_PART_FIELDS = {
 export function venuePartOf(where, key) {
   for (const [part, f] of Object.entries(VENUE_PART_FIELDS)) if ((f[where] || []).includes(key)) return part;
   return null;
+}
+// Which manager_info fields belong to which manager section (job 297), so a
+// section left out of the template stays off events too.
+export const MANAGER_PART_FIELDS = {
+  contact: ["contact_name", "contact_title", "contact_phone", "contact_email", "photo_url"],
+  advance: ["checklist", "advancing_notes"],
+  travel: ["vehicle", "travel_notes"],
+  guests: ["guests", "guest_list"],
+  merch: ["merch_table", "merch_seller", "merch_split", "merch_notes"],
+  documents: ["documents"],
+};
+export const managerPartOf = (k) => Object.keys(MANAGER_PART_FIELDS).find((p) => MANAGER_PART_FIELDS[p].includes(k)) || null;
+// Built-in fields the template page hides from loading (job 297).
+const hiddenOf = (data = {}) => {
+  const h = data.page && typeof data.page.hidden === "object" && data.page.hidden ? data.page.hidden : {};
+  return new Set(Object.values(h).flat());
+};
+// What a template's page (job 297, templatePage.js) carries onto an event's
+// section: the page's order and names, and their own fields / sections for
+// the parts that load. Nothing when the template has no page.
+export function eventExtras(role, data = {}, parts = null) {
+  const page = data.page && typeof data.page === "object" ? data.page : null;
+  if (!page) return {};
+  const ex = new Set(templateExclude(data));
+  const loads = (k) => !ex.has(k) && (parts ? parts.has(k) : true);
+  const list = (v) => (Array.isArray(v) ? v : []);
+  const extra = page.extra && typeof page.extra === "object" ? page.extra : {};
+  const custom_sections = [
+    ...Object.entries(extra).filter(([k, f]) => loads(k) && list(f).length).map(([k, f]) => ({ id: `x_${k}`, part: k, name: "", fields: list(f).map((x) => ({ ...x })) })),
+    ...list(page.custom).filter((c) => loads(c.id) && list(c.fields).length).map((c) => ({ id: c.id, name: c.name || "Your section", fields: list(c.fields).map((x) => ({ ...x })) })),
+  ];
+  return { layout: { order: list(page.order), names: page.names && typeof page.names === "object" ? page.names : {} }, custom_sections };
 }
 export const templateExclude = (data = {}) => (Array.isArray(data.exclude) ? data.exclude : []);
 // Parts in this template that have something filled in (for the load sheet).
@@ -188,7 +220,16 @@ export function applyTemplate(role, data = {}, gig, update, parts = null) {
   const sectionKey = SECTION_KEY[role];
   const tpl = gigFromTemplate(role, "", data);
   const ex = new Set(templateExclude(data));
+  const hidden = hiddenOf(data);
   const wanted = (where, k) => {
+    if (hidden.has(k)) return false;
+    // Their own fields / page layout go on through eventExtras (job 297).
+    if (where === "section" && (k === "custom_sections" || k === "layout")) return false;
+    if (role === "manager") {
+      const part = managerPartOf(k);
+      if (!part) return true;
+      return parts ? parts.has(part) : !ex.has(part);
+    }
     if (role !== "venue") return true;
     // Saved as the event's deal / tasks instead, or only used from the template.
     if (where === "section" && (k === "tpl_deal" || k === "task_presets" || k === "saved_replies" || k === "advance_steps")) return false;
@@ -209,6 +250,8 @@ export function applyTemplate(role, data = {}, gig, update, parts = null) {
     else if (Array.isArray(v)) next[k] = v.map((row) => (row && typeof row === "object" ? { ...row, id: newId() } : row));
     else next[k] = v;
   }
+  // The page's layout and their own fields come along (job 297).
+  Object.assign(next, eventExtras(role, data, parts));
   update(sectionKey, next);
 }
 

@@ -21,6 +21,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
 import TemplatePlansSheet, { useTemplatePlan, templateLimitKind } from "@/components/showpilot/TemplatePlans";
+import CompanyTemplatePage from "@/components/showpilot/CompanyTemplatePage";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -182,10 +183,12 @@ export default function MyTemplates() {
   };
   const setData = (key, field, val) => setTemplate(key, (t) => ({ ...t, data: { ...t.data, [field]: val } }));
 
-  const openEditor = (t) => {
+  const openEditor = (t, tab = null) => {
     setEdSaved(false);
-    setEditing({ key: t.key, role: t.category, name: t.name, gig: { id: `tpl_${user?.id}`, ...gigFromTemplate(t.category, t.name, t.data) } });
+    setEditing({ key: t.key, role: t.category, name: t.name, tab, gig: { id: `tpl_${user?.id}`, ...gigFromTemplate(t.category, t.name, t.data) } });
   };
+  // The company page (job 297) re-reads its template after the editor saves.
+  const [pageRev, setPageRev] = useState(0);
 
   const addTemplate = (category) => {
     const key = `new:${Date.now()}`;
@@ -294,6 +297,7 @@ export default function MyTemplates() {
       const data = { ...(t.data || {}), ...templateFromGig(editing.role, editing.gig) };
       const key = await writeTemplate(t, name, data);
       setEditing((e) => (e ? { ...e, key, name } : e));
+      setPageRev((r) => r + 1);
       setEdSaved(true);
       setTimeout(() => setEdSaved(false), 1800);
     } catch (e) {
@@ -653,8 +657,46 @@ export default function MyTemplates() {
   } : null;
   const tplMeta = editing ? { name: editing.name, setName: (n) => setEditing((e) => (e ? { ...e, name: n } : e)) } : null;
 
+  // ---- Company profiles (job 297): one page for their one template ----
+  const ownCat = own === "venue" ? "venue" : "manager";
+  const myTpl = !isTech ? templates.find((t) => t.category === ownCat && t.id) : null;
+  const createMine = async () => {
+    const t = { key: `new:${Date.now()}`, id: null, category: ownCat, name: "", data: emptyData(ownCat) };
+    const name = (preferences?.display_name || (ownCat === "venue" ? "My venue" : "My template")).trim();
+    setTemplates((prev) => [...prev, t]);
+    try { await writeTemplate(t, name, t.data); } catch (e) { console.error(e); if (!limitToast(e, ownCat)) toast({ title: "Couldn't start your template", variant: "destructive" }); }
+  };
+  const actsBlock = !isTech && ownCat === "manager" ? (
+    <section aria-label="Your acts" className="rounded-[14px] border border-[#262626] bg-[#111]">
+      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+        <span className="text-[15px] font-bold tracking-[0.08em] text-white/60" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>YOUR ACTS</span>
+        <span className="text-[10.5px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{savedCount("artist")} OF {actsLimit == null ? "∞" : actsLimit}</span>
+        <span className="flex-1" />
+        <button type="button" onClick={() => (canAdd("artist") ? addTemplate("artist") : setPlansOpen(true))} className="min-h-[36px] px-2.5 rounded-lg text-[12.5px] font-bold flex items-center gap-1" style={{ color: GROUP.artist.style.color, border: `1px solid ${GROUP.artist.style.color}55` }}>
+          <Plus className="w-3.5 h-3.5" />{canAdd("artist") ? "Add an act" : "More acts"}
+        </button>
+      </div>
+      {templateList({ id: "artist", cats: ["artist"] })}
+    </section>
+  ) : null;
+  const companyPage = !isTech && (loading ? (
+    <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>
+  ) : (
+    <CompanyTemplatePage
+      key={myTpl?.id || "none"}
+      role={ownCat}
+      template={myTpl ? { id: myTpl.id, name: myTpl.name, data: myTpl.data, rev: pageRev } : null}
+      displayName={preferences?.display_name || ""}
+      desktop={desktop}
+      onCreate={createMine}
+      onSave={async (name, data) => { await writeTemplate(myTpl, name, data); }}
+      onEditDetails={(tab) => myTpl && openEditor(myTpl, tab)}
+      actsBlock={actsBlock}
+    />
+  ));
+
   const editor = editing && (desktop ? (
-    <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} modal onClose={closeEditor} />
+    <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} modal initialTab={editing.tab || null} onClose={closeEditor} />
   ) : (
     <div className="fixed inset-0 z-[70] bg-[#0d0d0d] overflow-y-auto" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-10 bg-[#0d0d0d]/95 backdrop-blur border-b border-[#1a1a1a] px-4 py-3 flex items-center gap-3">
@@ -668,7 +710,7 @@ export default function MyTemplates() {
         />
       </div>
       <div className="px-4 py-4 max-w-lg mx-auto">
-        <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} layout="web" onClose={closeEditor} />
+        <RoleWorkspace role={editing.role} p={tplP} template={tplMeta} layout="web" initialTab={editing.tab || null} onClose={closeEditor} />
       </div>
     </div>
   ));
@@ -689,7 +731,12 @@ export default function MyTemplates() {
         </div>
       </div>
 
-      {desktop ? (
+      {!isTech ? (
+        // Venue / manager / artist: their one template as a page (job 297).
+        <div className={`px-4 pt-5 mx-auto ${desktop ? "max-w-[1280px]" : "max-w-lg"}`}>
+          {companyPage}
+        </div>
+      ) : desktop ? (
         <div className="px-4 pt-5 mx-auto max-w-[1180px] grid gap-6 items-start" style={{ gridTemplateColumns: "380px minmax(0, 1fr)" }}>
           <div>{walletStack}</div>
           <div>{openedWallet(openCat || activeCat || WALLETS[0].id)}</div>

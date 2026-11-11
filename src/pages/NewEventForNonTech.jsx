@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildEventTypeOptions, addCustomEventType, ADD_NEW_VALUE } from "@/lib/eventTypes";
 import { uploadIconImage } from "@/lib/eventIcons";
+import { autoFillNewEvent } from "@/lib/templatePage";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 
 
@@ -117,6 +118,8 @@ export default function NewEventForNonTech() {
         .select()
         .single();
       if (insertError) throw insertError;
+      // Their template's "fill it in" sections go on right away (job 297).
+      await autoFillNewEvent(supabase, user.id, preferences?.account_type, data);
       navigate(`/gig/web?token=${data.share_token}`);
     } catch (e) {
       console.error(e);

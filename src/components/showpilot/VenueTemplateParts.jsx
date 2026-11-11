@@ -7,6 +7,7 @@ import { DEAL_TYPES, FORCE_MAJEURE_TEXT, CANCELLATION_TEXT } from "@/lib/eventBu
 import { DEFAULT_ASKS, DEFAULT_EMAIL, EMAIL_FIELDS } from "@/lib/eventLink";
 import { AskGrid } from "@/components/showpilot/EventLinkBuilder";
 import { venuePartsWithContent, venuePartOnEvent } from "@/lib/roleTemplates";
+import { modeOf, pageOf, fieldFilled } from "@/lib/templatePage";
 import { REPLY_FIELDS } from "@/lib/savedReplies";
 import { ADVANCE_HOW, DEFAULT_ADVANCE_STEPS, newAdvanceStep, whenLabel, fmtWhen, fetchEventAdvance, updateAdvanceStep, stepSendAt } from "@/lib/eventAdvance";
 
@@ -141,8 +142,14 @@ export function ExcludedPart({ label, onInclude, color = "#60A5FA" }) {
 // The venue ticks which parts of the template go onto this event. Parts the
 // event already has say they'll be replaced; a deal that's been sent can't be.
 export function VenueLoadSheet({ name, data, gig, deal, onClose, onLoad, color = "#60A5FA" }) {
-  const parts = venuePartsWithContent(data);
-  const [on, setOn] = useState(() => new Set(parts.map((pt) => pt.key)));
+  // Their own sections (job 297) load from here too.
+  const parts = [
+    ...venuePartsWithContent(data).map((pt) => ({ ...pt, label: pageOf(data).names[pt.key] || pt.label })),
+    ...pageOf(data).custom.filter((c) => !(data?.exclude || []).includes(c.id) && (c.fields || []).some(fieldFilled)).map((c) => ({ key: c.id, label: c.name || "Your section" })),
+  ];
+  // A template made on the My Template page (job 297): sections set to
+  // "Ask me" start unticked. Older templates: everything ticked, as before.
+  const [on, setOn] = useState(() => new Set(parts.filter((pt) => !data?.page || modeOf("venue", data, pt.key) !== "ask").map((pt) => pt.key)));
   const [linkExists, setLinkExists] = useState(false);
   const [busy, setBusy] = useState(false);
   const dealLocked = !!deal && deal.status && deal.status !== "draft";

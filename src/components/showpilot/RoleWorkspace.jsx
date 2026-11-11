@@ -8,6 +8,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, Chevron
 import { supabase } from "@/api/supabaseClient";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
+import CustomFieldsView from "@/components/showpilot/CustomFieldsView";
 import { DealTemplateFields, LinkSetupTemplateFields, LinkEmailTemplateFields, ExcludedPart, VenueLoadSheet, dealTermsFromTemplate, linkSetupSummary, linkEmailSummary, SavedRepliesFields, repliesSummary, TaskPresetsFields, presetsSummary, presetDue, AdvanceStepsFields, advanceSummary, EventAdvancePage, eventAdvanceSummary } from "@/components/showpilot/VenueTemplateParts";
 import { scheduleAdvance, fetchEventAdvance } from "@/lib/eventAdvance";
 import { artistFromTemplate } from "@/lib/showTemplates";
@@ -913,6 +914,37 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       if (extra.length) {
         const at = list.findIndex((t) => t.key === "requests");
         list = at === -1 ? [...list, ...extra] : [...list.slice(0, at), ...extra, ...list.slice(at)];
+      }
+      // From the venue's / manager's My Template page (job 297): their names
+      // and order for the pages, their own fields under a page, and their
+      // own sections as pages.
+      const secKey = role === "venue" ? "venue_info" : role === "manager" ? "manager_info" : null;
+      const sec = secKey ? gig[secKey] || {} : {};
+      if (secKey && (sec.layout || (sec.custom_sections || []).length)) {
+        const own = Array.isArray(sec.custom_sections) ? sec.custom_sections : [];
+        const names = sec.layout?.names || {};
+        const order = sec.layout?.order || [];
+        const setOwn = (id, fields) => p.update(secKey, { ...(gig[secKey] || {}), custom_sections: own.map((c) => (c.id === id ? { ...c, fields } : c)) });
+        list = list.map((t) => {
+          const x = own.find((c) => c.part === t.key);
+          const named = names[t.key] ? { ...t, label: names[t.key] } : t;
+          if (!x) return named;
+          return { ...named, render: () => (<>{t.render()}<div className="mt-5 pt-4 border-t border-[#262626]"><CustomFieldsView fields={x.fields} edit={ed} color={color} heading="YOUR OWN FIELDS" onChange={(f) => setOwn(x.id, f)} /></div></>) };
+        });
+        const ownPages = own.filter((c) => !c.part).map((c) => {
+          const n = (c.fields || []).filter((f) => f.value !== undefined && f.value !== null && String(f.value).trim() !== "").length;
+          return {
+            key: `own_${c.id}`, label: c.name || "Your section", summary: n ? `${n} of ${(c.fields || []).length} filled` : "Not filled in",
+            state: n === 0 ? "empty" : n < (c.fields || []).length ? "partial" : "done",
+            render: () => <CustomFieldsView fields={c.fields || []} edit={ed} color={color} onChange={(f) => setOwn(c.id, f)} />,
+          };
+        });
+        const at = list.findIndex((t) => t.key === "requests");
+        list = at === -1 ? [...list, ...ownPages] : [...list.slice(0, at), ...ownPages, ...list.slice(at)];
+        if (order.length) {
+          const pos = (t) => { const k = t.key.startsWith("own_") ? t.key.slice(4) : t.key; const i = order.indexOf(k); return i === -1 ? 1000 : i; };
+          list = list.map((t, i) => ({ t, i })).sort((a, b) => (pos(a.t) - pos(b.t)) || (a.i - b.i)).map(({ t }) => t);
+        }
       }
       // Tasks aren't a page of the profile any more: they live in the Tasks
       // feature in the web's corner, which opens the event's task page
