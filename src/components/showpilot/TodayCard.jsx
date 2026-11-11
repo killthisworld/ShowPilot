@@ -5,6 +5,7 @@ import { SCENE_FONT } from "@/lib/sceneStyle";
 import { dayTimes, nextCall, untilText, findTime, directionsUrl } from "@/lib/daySheet";
 import DaySheet from "@/components/showpilot/DaySheet";
 import GuestList from "@/components/showpilot/GuestList";
+import { keep, kept } from "@/lib/offline";
 
 const has = (v) => v != null && String(v).trim() !== "";
 
@@ -12,7 +13,7 @@ const has = (v) => v != null && String(v).trim() !== "";
 // today's event, a countdown to the next call time, doors and the set, and
 // the two things you reach for on the way - Directions and the day sheet.
 export default function TodayCard({ gig: base, accent, todayWord = "Today" }) {
-  const [gig, setGig] = useState(base);
+  const [gig, setGig] = useState(() => ({ ...(kept(`gig:${base.share_token}`) || {}), ...base }));
   const [, tick] = useState(0);
   const [sheet, setSheet] = useState(false);
   const [guests, setGuests] = useState(false);
@@ -23,6 +24,7 @@ export default function TodayCard({ gig: base, accent, todayWord = "Today" }) {
     (async () => {
       const { data, error } = await supabase.rpc("get_shared_gig", { p_token: base.share_token });
       if (error) console.error(error);
+      if (data) keep(`gig:${base.share_token}`, data);
       if (!off && data) setGig({ ...base, ...data, icon_url: base.icon_url || data.icon_url });
     })();
     return () => { off = true; };

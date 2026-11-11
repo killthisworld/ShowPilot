@@ -6,6 +6,7 @@ import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { dayTimes, nextCall, venueAddress, directionsUrl, dayContacts, daySheetText } from "@/lib/daySheet";
 import useTouringParty, { textLink, emailLink } from "@/lib/touringParty";
+import { keep, kept } from "@/lib/offline";
 
 const has = (v) => v != null && String(v).trim() !== "";
 
@@ -14,7 +15,8 @@ const has = (v) => v != null && String(v).trim() !== "";
 // from the Today card on Needs me. Share sends it as text (a group text to
 // the band, an email, notes).
 export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
-  const [gig, setGig] = useState(base);
+  // Last saved copy first, so it opens with no signal (stage 9).
+  const [gig, setGig] = useState(() => ({ ...(kept(`gig:${base.share_token}`) || {}), ...base }));
   const [copied, setCopied] = useState(false);
   // Send to the party (job 73, On the road stage 6).
   const { party } = useTouringParty();
@@ -26,6 +28,7 @@ export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
     (async () => {
       const { data, error } = await supabase.rpc("get_shared_gig", { p_token: base.share_token });
       if (error) console.error(error);
+      if (data) keep(`gig:${base.share_token}`, data);
       if (!off && data) setGig({ ...base, ...data, icon_url: base.icon_url || data.icon_url });
     })();
     return () => { off = true; };

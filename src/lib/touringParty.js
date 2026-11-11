@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
+import { keep, kept } from "@/lib/offline";
 
 // The touring party (job 73, "On the road" stage 6): your band and crew,
 // added once, private to your account.
@@ -13,13 +14,14 @@ export const seesLabel = (id) => SEES.find((s) => s.id === id)?.label || "No mon
 export const PARTY_CHANGED = "showpilot:party-changed";
 
 export default function useTouringParty() {
-  const [party, setParty] = useState(null);
+  const [party, setParty] = useState(() => kept("party"));
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("touring_party").select("*").order("created_at", { ascending: true });
     if (error) { console.error(error); setFailed(true); setParty((p) => p || []); return; }
     setFailed(false);
+    keep("party", data || []);
     setParty(data || []);
   }, []);
 

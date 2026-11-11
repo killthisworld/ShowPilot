@@ -4,12 +4,15 @@ import { ArrowLeft, Search, X, Plus, Minus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
+import { keep, kept, nowOrLater, flushLater, waiting } from "@/lib/offline";
 
 // The event's guest list on the phone (job 73, "On the road" stage 3).
 // Everyone on the event shares one list: the band adds names, the door
 // searches and checks people in. Tap "In" again to undo a check-in.
 export default function GuestList({ gig, accent = "#8CFF3D", onClose }) {
-  const [list, setList] = useState(null);
+  const saveKey = `guests:${gig.share_token}`;
+  // Last saved copy first, so the door can work with no signal (stage 9).
+  const [list, setList] = useState(() => kept(saveKey));
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [name, setName] = useState("");
@@ -18,11 +21,15 @@ export default function GuestList({ gig, accent = "#8CFF3D", onClose }) {
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
+    // Send anything done without signal before reading the list back.
+    if (waiting()) { await flushLater(); if (waiting()) return; }
     const { data, error } = await supabase.rpc("get_guest_list", { p_token: gig.share_token });
     if (error) { console.error(error); setFailed(true); setList((l) => l || []); return; }
     setFailed(false);
     setList(Array.isArray(data) ? data : []);
   }, [gig.share_token]);
+  // Keep the latest copy (check-ins made offline included) on this phone.
+  useEffect(() => { if (list) keep(saveKey, list); }, [list, saveKey]);
 
   useEffect(() => { load(); }, [load]);
   // Pick up names others add while the door has it open.
@@ -53,13 +60,15 @@ export default function GuestList({ gig, accent = "#8CFF3D", onClose }) {
   const toggle = async (g) => {
     const next = !g.checked_in_at;
     setList((l) => l.map((x) => (x.id === g.id ? { ...x, checked_in_at: next ? new Date().toISOString() : null } : x)));
-    const { error } = await supabase.rpc("check_in_guest", { p_id: g.id, p_in: next });
+    if (String(g.id).startsWith("later-")) return; // added offline: not on the shared list yet
+    const { error } = await nowOrLater("check_in_guest", { p_id: g.id, p_in: next });
     if (error) { console.error(error); load(); }
   };
 
   const remove = async (g) => {
     setList((l) => l.filter((x) => x.id !== g.id));
-    const { error } = await supabase.rpc("remove_guest", { p_id: g.id });
+    if (String(g.id).startsWith("later-")) return;
+    const { error } = await nowOrLater("remove_guest", { p_id: g.id });
     if (error) { console.error(error); load(); }
   };
 
@@ -67,11 +76,15 @@ export default function GuestList({ gig, accent = "#8CFF3D", onClose }) {
     const n = name.trim();
     if (!n || adding) return;
     setAdding(true); setErr("");
-    const { error } = await supabase.rpc("add_guest", { p_token: gig.share_token, p_name: n, p_plus: plus, p_note: null });
+    const res = await nowOrLater("add_guest", { p_token: gig.share_token, p_name: n, p_plus: plus, p_note: null });
     setAdding(false);
-    if (error) { console.error(error); setErr("Couldn't add that name. Try again."); return; }
+    if (res.error) { console.error(res.error); setErr("Couldn't add that name. Try again."); return; }
+    if (res.queued) {
+      // No signal: show it now, it's added for real once back online.
+      setList((l) => [...(l || []), { id: `later-${Date.now()}`, name: n, plus_ones: plus, note: null, checked_in_at: null, added_by_name: "You · sends later" }]);
+    }
     setName(""); setPlus(0);
-    load();
+    if (!res.queued) load();
   };
 
   return createPortal(

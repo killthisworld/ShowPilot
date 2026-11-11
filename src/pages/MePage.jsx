@@ -7,6 +7,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
 import PartyPanel from "@/components/showpilot/PartyPanel";
+import HomeScreenCard from "@/components/showpilot/HomeScreenCard";
 
 // The company phone's "Me" tab: a full page (it used to slide over from the
 // left) with two sections:
@@ -82,6 +83,7 @@ export default function MePage() {
         </div>
       ) : (
         <div className="max-w-lg mx-auto">
+          <HomeScreenCard accent={accent} />
           {preferences && <BandSettingsDrawer page preferences={preferences} onPreferencesUpdate={reload} />}
         </div>
       )}
