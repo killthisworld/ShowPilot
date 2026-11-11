@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, Camera, ChevronRight, Eye, EyeOff, ImagePlus, Palette, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera, Check, ChevronRight, Copy, Eye, EyeOff, ImagePlus, Mail, MessageSquare, Palette, Plus, Send, Trash2, X } from "lucide-react";
+import { supabase } from "@/api/supabaseClient";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { VENUE_PART_FIELDS, MANAGER_PART_FIELDS } from "@/lib/roleTemplates";
@@ -318,6 +319,37 @@ function Preview({ role, look, name, sub, ring, initials, sections, title = true
   );
 }
 
+// Send your venue as a package (job 298): one link, by text, email or copy.
+function SendSheet({ ring, name, onClose }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    supabase.rpc("share_my_template").then(({ data, error: e }) => {
+      if (e) { console.error(e); setError("Couldn't make the link. Try again."); return; }
+      setCode(data || "");
+    });
+  }, []);
+  const url = code ? `${window.location.origin}/vp/${code}` : "";
+  const msg = `Here's everything about ${name || "our venue"}: load-in, schedule, gear, hospitality. ${url}`;
+  const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ } };
+  const opt = "min-h-[56px] rounded-[12px] border border-[#333] flex flex-col items-center justify-center gap-1 text-[13px] font-semibold";
+  return (
+    <Sheet title="Send your venue" kicker="SEND AS A PACKAGE" color={ring} onClose={onClose}>
+      <p className="m-0 -mt-2 text-[14px] text-white/65 leading-snug">Acts and techs open it as a web: every section a circle, or Read it all. Your deal, event link, saved replies, task presets and advance never go in it, nor anything you left out or hid. It's always your template as it is now.</p>
+      {error ? <p className="m-0 text-[14px] text-red-400">{error}</p> : (
+        <div className="rounded-[10px] bg-[#0b0b0b] border border-[#2a2a2a] px-3 py-2.5 text-[14px] text-white/80 break-all" style={MONO}>{code ? url.replace(/^https?:\/\//, "") : "Making your link…"}</div>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        <a href={code ? `sms:?&body=${encodeURIComponent(msg)}` : undefined} aria-disabled={!code} className={opt}><MessageSquare className="w-4 h-4" />Text</a>
+        <a href={code ? `mailto:?subject=${encodeURIComponent(`${name || "Our venue"}: everything you need`)}&body=${encodeURIComponent(msg)}` : undefined} aria-disabled={!code} className={opt}><Mail className="w-4 h-4" />Email</a>
+        <button type="button" disabled={!code} onClick={copy} className={`${opt} disabled:opacity-50`}>{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copied ? "Copied" : "Copy"}</button>
+      </div>
+      {code && <a href={`/vp/${code}`} target="_blank" rel="noreferrer" className="min-h-[46px] rounded-[12px] border text-[14px] font-semibold flex items-center justify-center" style={{ borderColor: `${ring}77`, color: ring }}>See what they get</a>}
+    </Sheet>
+  );
+}
+
 export default function CompanyTemplatePage({ role, template, displayName, desktop, onCreate, onSave, onEditDetails, actsBlock = null }) {
   const ring = role === "venue" ? ACCOUNT_TYPE_STYLES.venue.color : ACCOUNT_TYPE_STYLES.manager.color;
   const [name, setName] = useState(template?.name || "");
@@ -441,6 +473,8 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   let sheetEl = null;
   if (sheet === "look") {
     sheetEl = <Sheet title="Make it yours" kicker="THE LOOK" color={ring} onClose={() => setSheet(null)}><LookControls look={look} setLook={setLook} ring={ring} onUpload={uploadIconImage} /></Sheet>;
+  } else if (sheet === "send") {
+    sheetEl = <SendSheet ring={ring} name={name} onClose={() => setSheet(null)} />;
   } else if (sheet === "preview") {
     sheetEl = <Sheet title="A new event" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} sections={sections} title={false} /></Sheet>;
   } else if (sheet === "loads") {
@@ -530,9 +564,15 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     }
   }
 
+  const sendBtn = role === "venue" ? (
+    <button type="button" onClick={() => setSheet("send")} className="min-h-[40px] px-3 rounded-[10px] text-[13px] font-bold flex items-center gap-1.5" style={desktop ? { background: ring, color: "#0d0d0d" } : { border: `1px solid ${ring}88`, color: ring }}>
+      <Send className="w-4 h-4" />{desktop ? "Send as a package" : "Send"}
+    </button>
+  ) : null;
   const topButtons = (
     <div className="flex items-center gap-2">
       {status}
+      {sendBtn}
       {!desktop && <button type="button" onClick={() => setSheet("look")} className="min-h-[40px] px-3 rounded-[10px] border border-[#333] text-[13px] font-semibold flex items-center gap-1.5"><Palette className="w-4 h-4" />Look</button>}
       {!desktop && <button type="button" onClick={() => setSheet("preview")} className="min-h-[40px] px-3 rounded-[10px] text-[13px] font-bold" style={{ background: ring, color: "#0d0d0d" }}>Preview</button>}
     </div>
@@ -566,9 +606,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   }
   return (
     <div className="flex flex-col gap-4" style={{ fontFamily: SCENE_FONT }}>
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] tracking-[0.14em] text-white/55" style={MONO}>MY TEMPLATE</span>
-        <span className="flex-1" />
+      <div className="flex items-center justify-end gap-2">
         {topButtons}
       </div>
       <Hero look={look} name={name} sub={sub} ring={ring} initials={initials} onCover={async (f) => { if (!f) return; try { setLook({ cover_url: await uploadIconImage(f) }); } catch (e) { console.error(e); } }} />

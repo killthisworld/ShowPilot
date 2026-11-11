@@ -23,7 +23,7 @@ export const RESERVED_SLUGS = [
   "band", "show", "shows", "calendar", "experience", "archived", "manager-links", "band-profile",
   "my-templates", "event", "events", "eventbrite", "api", "app", "admin", "auth", "assets", "static",
   "home", "settings", "profile", "help", "support", "privacy", "terms", "pricing", "contact", "new",
-  "invite", "web", "fan", "fans", "sky", "www", "showpilot", "records", "book", "booking", "bookings",
+  "invite", "web", "fan", "fans", "sky", "www", "showpilot", "records", "book", "booking", "bookings", "vp",
 ];
 export const slugProblem = (s) => {
   if (!s) return "";

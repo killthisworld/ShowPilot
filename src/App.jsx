@@ -28,6 +28,7 @@ import IntakeShortLink from '@/pages/IntakeShortLink';
 import EventLink from '@/pages/EventLink';
 import BookingPackage from '@/pages/BookingPackage';
 import PackageView from '@/pages/PackageView';
+import VenuePackageView from '@/pages/VenuePackageView';
 import TechAskView from '@/pages/TechAskView';
 import Bookings from '@/pages/Bookings';
 import PilotCardView from '@/pages/PilotCardView';
@@ -95,6 +96,8 @@ const AuthenticatedApp = () => {
       {/* The venue opens a package; a tech opens an "are you free?" ask. */}
       <Route path="/p/:code" element={<PackageView />} />
       <Route path="/t/:code" element={<TechAskView />} />
+      {/* A venue's template sent as a package (job 298). */}
+      <Route path="/vp/:code" element={<VenuePackageView />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />

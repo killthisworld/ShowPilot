@@ -97,7 +97,29 @@ export default function BookingPackage() {
           console.error(e);
         }
       } else {
-        setForm((f) => ({ ...f, submitter_name: prefs?.display_name || "", submitter_email: user.email || "" }));
+        // A new package fills itself from My Template (job 298): your
+        // contact from your manager template, and the act when you have one.
+        const { data: tpls } = await supabase.from("saved_templates").select("category, name, data").eq("owner_id", user.id).in("category", ["manager", "artist"]).order("updated_at", { ascending: false });
+        if (gone) return;
+        const mgr = (tpls || []).find((t) => t.category === "manager")?.data?.section || {};
+        const acts = (tpls || []).filter((t) => t.category === "artist");
+        const act = acts.length === 1 ? { ...(acts[0].data || {}), band_name: acts[0].data?.band_name || acts[0].name } : null;
+        setForm((f) => ({
+          ...f,
+          submitter_name: mgr.contact_name || prefs?.display_name || "",
+          submitter_phone: mgr.contact_phone || f.submitter_phone || "",
+          submitter_email: mgr.contact_email || user.email || "",
+          ...(act ? {
+            band_name: act.band_name || "",
+            genre_tags: act.genre_tags || f.genre_tags,
+            band_members: act.band_members || f.band_members,
+            stage_plot_url: act.stage_plot_url || f.stage_plot_url,
+            stage_plot_files: act.stage_plot_files || f.stage_plot_files,
+            general_notes: act.general_notes || f.general_notes,
+            photo_url: act.photo_url || f.photo_url,
+          } : {}),
+        }));
+        if (act) setSeen((s) => ({ ...s, artist: true, members: true, contact: true, promo: !!act.photo_url }));
       }
       setLoading(false);
     })();
