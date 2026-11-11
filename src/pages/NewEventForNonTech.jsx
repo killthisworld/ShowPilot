@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { cropImage } from "@/lib/cropImage";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -57,9 +58,10 @@ export default function NewEventForNonTech() {
   // Optional icon picked up front: previewed locally, uploaded on Create.
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState("");
-  const pickIcon = (e) => {
-    const f = e.target.files?.[0];
+  const pickIcon = async (e) => {
+    const picked = e.target.files?.[0];
     e.target.value = "";
+    const f = await cropImage(picked, { aspectW: 1, aspectH: 1 });
     if (!f) return;
     if (f.size > 2 * 1024 * 1024) { setError("Icon image must be under 2 MB."); return; }
     setError("");

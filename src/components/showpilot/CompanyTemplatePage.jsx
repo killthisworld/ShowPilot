@@ -6,6 +6,18 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { VENUE_PART_FIELDS, MANAGER_PART_FIELDS } from "@/lib/roleTemplates";
 import { uploadIconImage } from "@/lib/eventIcons";
+import { cropImage } from "@/lib/cropImage";
+import { usePreferences } from "@/hooks/usePreferences";
+
+// The banner and the circle go through the photo editor first (job 73,
+// 2026-11-11). For an artist / manager the circle is their profile picture
+// (their account photo until they pick one) and the wide one is their banner.
+const BANNER = { aspectW: 21, aspectH: 9, fit: "cover", outWidth: 1400 };
+const CIRCLE = { shape: "circle", aspectW: 1, aspectH: 1, outWidth: 600 };
+const uploadEdited = async (file, opts) => {
+  const edited = await cropImage(file, opts);
+  return edited ? uploadIconImage(edited) : null;
+};
 import {
   COLORS, FIELD_KINDS, kindLabel, fieldFilled, fieldText, newId, pageOf, sectionList, setMode, withPage,
 } from "@/lib/templatePage";
@@ -198,7 +210,8 @@ function ModePicker({ value, onChange, color, kept }) {
 }
 
 // The template's header, as it'll look.
-function Hero({ look, name, sub, ring, initials, onCover, compact = false }) {
+function Hero({ look, name, sub, ring, initials, onCover, compact = false, role = "venue", profilePhoto = "" }) {
+  const circle = look.logo_url || (role !== "venue" ? profilePhoto : "");
   const tf = TITLE_FONT[look.title] || TITLE_FONT.bold;
   const accent = look.color || ring;
   const h = compact ? 132 : 168;
@@ -207,9 +220,9 @@ function Hero({ look, name, sub, ring, initials, onCover, compact = false }) {
       <div className="relative rounded-[18px] overflow-hidden border" style={{ height: look.header === "logo" ? 72 : h, borderColor: "#22324a33", background: look.header === "color" ? accent : "#16202e" }}>
         {look.header === "photo" && (look.cover_url
           ? <img src={look.cover_url} alt="" className="w-full h-full object-cover" />
-          : <div className="w-full h-full flex items-center justify-center text-[11px] tracking-[0.1em] text-white/35" style={MONO}>ADD A COVER PHOTO</div>)}
+          : <div className="w-full h-full flex items-center justify-center text-[11px] tracking-[0.1em] text-white/35" style={MONO}>{role === "venue" ? "ADD A COVER PHOTO" : "ADD A BANNER"}</div>)}
         {onCover && look.header === "photo" && (
-          <label aria-label="Change cover photo" className="absolute right-2.5 top-2.5 w-10 h-10 rounded-[10px] bg-black/55 flex items-center justify-center cursor-pointer">
+          <label aria-label={role === "venue" ? "Change cover photo" : "Change banner"} className="absolute right-2.5 top-2.5 w-10 h-10 rounded-[10px] bg-black/55 flex items-center justify-center cursor-pointer">
             <Camera className="w-4 h-4" />
             <input type="file" accept="image/*" className="sr-only" onChange={(e) => { onCover(e.target.files?.[0]); e.target.value = ""; }} />
           </label>
@@ -218,7 +231,7 @@ function Hero({ look, name, sub, ring, initials, onCover, compact = false }) {
       {/* The logo overlaps the cover's edge; the name sits just under it. */}
       <div className="relative z-[1] flex items-start gap-3 px-3" style={{ marginTop: -34 }}>
         <div className="w-[72px] h-[72px] rounded-full shrink-0 overflow-hidden flex items-center justify-center text-[26px]" style={{ border: `3px solid ${ring}`, background: "#141a22", color: ring, ...TITLE_FONT.bold }}>
-          {look.logo_url ? <img src={look.logo_url} alt="" className="w-full h-full object-cover" /> : initials}
+          {circle ? <img src={circle} alt="" className="w-full h-full object-cover" /> : initials}
         </div>
         <div className="min-w-0" style={{ marginTop: 40 }}>
           <div className="text-[30px] leading-none truncate" style={tf}>{name || "Your template"}</div>
@@ -229,22 +242,30 @@ function Hero({ look, name, sub, ring, initials, onCover, compact = false }) {
   );
 }
 
-function LookControls({ look, setLook, ring, onUpload }) {
+function LookControls({ look, setLook, ring, role = "venue", profilePhoto = "" }) {
   const [busy, setBusy] = useState("");
   const up = async (which, file) => {
     if (!file) return;
+    const edited = await cropImage(file, which === "logo_url" ? CIRCLE : BANNER);
+    if (!edited) return;
     setBusy(which);
-    try { const url = await onUpload(file); setLook({ [which]: url }); } catch (e) { console.error(e); }
+    try { const url = await uploadIconImage(edited); setLook({ [which]: url }); } catch (e) { console.error(e); }
     setBusy("");
   };
+  const artist = role !== "venue";
+  const slots = artist
+    ? [["cover_url", "Banner", "The wide picture behind you"], ["logo_url", "Profile picture", look.logo_url ? "The circle on every event" : "Your account photo for now"]]
+    : [["cover_url", "Cover photo", "The room, the stage"], ["logo_url", "Logo", "Shows on every event"]];
   const opt = (on) => (on ? { borderColor: ring, background: `${ring}1a`, color: "#fff" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.8)" });
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-2">
-        {[["cover_url", "Cover photo", "The room, the stage"], ["logo_url", "Logo", "Shows on every event"]].map(([k, t, s]) => (
+        {slots.map(([k, t, s]) => (
           <div key={k} className="relative">
             <label className="min-h-[88px] rounded-[14px] border border-[#2a2a2a] bg-[#101010] flex flex-col items-center justify-center gap-1 text-center cursor-pointer px-2">
-              {look[k] ? <img src={look[k]} alt="" className={`w-10 h-10 object-cover ${k === "logo_url" ? "rounded-full" : "rounded-md"}`} /> : <ImagePlus className="w-5 h-5 text-white/70" />}
+              {look[k] || (k === "logo_url" && artist && profilePhoto)
+                ? <img src={look[k] || profilePhoto} alt="" className={`object-cover ${k === "logo_url" ? "w-10 h-10 rounded-full" : "w-16 h-10 rounded-md"}`} />
+                : <ImagePlus className="w-5 h-5 text-white/70" />}
               <span className="text-[13.5px] font-semibold">{busy === k ? "Uploading…" : t}</span>
               <span className="text-[11.5px] text-white/50">{s}</span>
               <input type="file" accept="image/*" className="sr-only" onChange={(e) => { up(k, e.target.files?.[0]); e.target.value = ""; }} />
@@ -296,14 +317,14 @@ function LookControls({ look, setLook, ring, onUpload }) {
 }
 
 // What a new event made with this template looks like.
-function Preview({ role, look, name, sub, ring, initials, sections, title = true }) {
+function Preview({ role, look, name, sub, ring, initials, sections, title = true, profilePhoto = "" }) {
   const fill = sections.filter((s) => s.mode === "fill" && s.filled);
   const ask = sections.filter((s) => s.mode === "ask");
   const accent = look.color || ring;
   return (
     <div className="flex flex-col gap-3">
       {title && <div className="text-[10.5px] tracking-[0.12em] text-white/55" style={MONO}>A NEW EVENT, WITH YOUR TEMPLATE</div>}
-      <Hero look={look} name={role === "venue" ? `New event · ${name || "your venue"}` : name} sub={sub} ring={ring} initials={initials} compact />
+      <Hero look={look} name={role === "venue" ? `New event · ${name || "your venue"}` : name} sub={sub} ring={ring} initials={initials} compact role={role} profilePhoto={profilePhoto} />
       {fill.length ? (
         <div className={look.layout === "list" ? "flex flex-col gap-1.5" : "grid grid-cols-2 xl:grid-cols-3 gap-2"}>
           {fill.map((s) => (
@@ -352,6 +373,8 @@ function SendSheet({ ring, name, onClose }) {
 
 export default function CompanyTemplatePage({ role, template, displayName, desktop, onCreate, onSave, onEditDetails, actsBlock = null }) {
   const ring = role === "venue" ? ACCOUNT_TYPE_STYLES.venue.color : ACCOUNT_TYPE_STYLES.manager.color;
+  const { preferences } = usePreferences();
+  const profilePhoto = preferences?.profile_photo_url || "";
   const [name, setName] = useState(template?.name || "");
   const [data, setData] = useState(template?.data || {});
   const [saveState, setSaveState] = useState("saved");
@@ -472,11 +495,11 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   // ---- sheets ----
   let sheetEl = null;
   if (sheet === "look") {
-    sheetEl = <Sheet title="Make it yours" kicker="THE LOOK" color={ring} onClose={() => setSheet(null)}><LookControls look={look} setLook={setLook} ring={ring} onUpload={uploadIconImage} /></Sheet>;
+    sheetEl = <Sheet title="Make it yours" kicker="THE LOOK" color={ring} onClose={() => setSheet(null)}><LookControls look={look} setLook={setLook} ring={ring} role={role} profilePhoto={profilePhoto} /></Sheet>;
   } else if (sheet === "send") {
     sheetEl = <SendSheet ring={ring} name={name} onClose={() => setSheet(null)} />;
   } else if (sheet === "preview") {
-    sheetEl = <Sheet title="A new event" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} sections={sections} title={false} /></Sheet>;
+    sheetEl = <Sheet title="A new event" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} sections={sections} title={false} /></Sheet>;
   } else if (sheet === "loads") {
     sheetEl = (
       <Sheet title="Every new event starts with" kicker="WHAT LOADS" color={ring} onClose={() => setSheet(null)}>
@@ -593,11 +616,11 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
             {sectionsBlock}
           </div>
           <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4">
-            <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} sections={sections} />
+            <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} sections={sections} />
           </div>
           <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4 flex flex-col gap-3">
             <div className="text-[22px]" style={TITLE_FONT.bold}>The look</div>
-            <LookControls look={look} setLook={setLook} ring={ring} onUpload={uploadIconImage} />
+            <LookControls look={look} setLook={setLook} ring={ring} role={role} profilePhoto={profilePhoto} />
           </div>
         </div>
         {sheetEl}
@@ -609,7 +632,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       <div className="flex items-center justify-end gap-2">
         {topButtons}
       </div>
-      <Hero look={look} name={name} sub={sub} ring={ring} initials={initials} onCover={async (f) => { if (!f) return; try { setLook({ cover_url: await uploadIconImage(f) }); } catch (e) { console.error(e); } }} />
+      <Hero look={look} name={name} sub={sub} ring={ring} initials={initials} role={role} profilePhoto={profilePhoto} onCover={async (f) => { if (!f) return; try { const url = await uploadEdited(f, BANNER); if (url) setLook({ cover_url: url }); } catch (e) { console.error(e); } }} />
       {nameInput}
       {progress}
       {actsBlock}

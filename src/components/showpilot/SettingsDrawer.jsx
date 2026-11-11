@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { cropImage } from "@/lib/cropImage";
 import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,9 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate, avata
   };
 
   const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    const file = picked && user ? await cropImage(picked, { shape: "circle", aspectW: 1, aspectH: 1 }) : null;
     if (!file || !user) return;
     try {
       const filePath = `${user.id}/${Date.now()}_${file.name}`;

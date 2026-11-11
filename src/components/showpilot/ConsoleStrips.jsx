@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { cropImage } from "@/lib/cropImage";
 import { eventTitle } from "@/lib/eventTitle";
 import { Link, useNavigate } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, MessageCircle, Ticket, Camera, Plus } from "lucide-react";
@@ -116,9 +117,10 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
     fileRef.current?.click();
   };
   const onFile = async (e) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     const s = photoTarget.current;
     e.target.value = "";
+    const file = picked && s ? await cropImage(picked, { aspectW: 1, aspectH: 1 }) : null;
     if (!file || !s) return;
     const key = s.id || s.share_token;
     setBusyPhoto(key);

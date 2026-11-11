@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { cropImage } from "@/lib/cropImage";
 import { Plus, X, ExternalLink, ImagePlus, Trash2 } from "lucide-react";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
@@ -126,8 +127,9 @@ export function PromoBody({ form, update, uploadFile }) {
   const setLinks = (next) => update("promo_links", next);
   const setRow = (i, patch) => setLinks(links.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const onPhoto = async (e) => {
-    const f = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     e.target.value = "";
+    const f = await cropImage(picked, { aspectW: 4, aspectH: 3, fit: "cover", outWidth: 1000 });
     if (!f) return;
     setBusy(true);
     try { update("photo_url", await uploadFile(f)); } catch (err) { console.error(err); }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { cropImage } from "@/lib/cropImage";
 import { eventTitle } from "@/lib/eventTitle";
 import { supabase } from "@/api/supabaseClient";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronRight, Eye, EyeOff, FileText, ImagePlus, MapPin, Paperclip, Pencil, Plus, Share2, Ticket, Users, X } from "lucide-react";
@@ -201,8 +202,9 @@ function OwnerSheet({ showId, onClose }) {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { setErr("Couldn't copy. Select the link and copy it."); }
   };
   const pickFlyer = async (e) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     e.target.value = "";
+    const file = await cropImage(picked, { aspect: "image", outWidth: 1400 });
     if (!file) return;
     if (file.size > 4 * 1024 * 1024) { setErr("Flyer must be under 4 MB."); return; }
     setBusy(true);
@@ -781,9 +783,10 @@ function OwnerSheet({ showId, onClose }) {
   const [uploadingNotch, setUploadingNotch] = useState(null);
   const notchImageRef = useRef(null);
   const pickNotchImage = async (e) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     const id = uploadingNotch;
     e.target.value = "";
+    const file = picked && id ? await cropImage(picked, { aspect: "image", outWidth: 1200 }) : null;
     if (!file || !id) { setUploadingNotch(null); return; }
     if (file.size > 4 * 1024 * 1024) { setErr("Images must be under 4 MB."); setUploadingNotch(null); return; }
     try { const url = await uploadIconImage(file); setNotch(id, { image_url: url }); } catch { setErr("Couldn't upload the image."); }
@@ -821,7 +824,8 @@ function OwnerSheet({ showId, onClose }) {
     : "It's emailed to them the morning after (10 AM Eastern) unless you attach it to an after-show email on the Countdown tab, and their sky gets a Watch Stellar Birth button.";
   const filmPic = fm ? (fm.image || draft.flyer || row?.icon_url || "") : "";
   const pickFilmImage = async (e) => {
-    const file = e.target.files?.[0]; e.target.value = "";
+    const picked = e.target.files?.[0]; e.target.value = "";
+    const file = await cropImage(picked, { aspect: "image", outWidth: 1400 });
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) { setErr("Pictures must be under 8 MB."); return; }
     setFilmUploading(true);

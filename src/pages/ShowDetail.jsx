@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { cropImage } from "@/lib/cropImage";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
@@ -154,8 +155,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const [saving, setSaving] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const handleIconUpload = async (e) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     e.target.value = "";
+    const file = await cropImage(picked, { aspectW: 1, aspectH: 1 });
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { showPill("Image must be under 2 MB"); return; }
     setUploadingIcon(true);
