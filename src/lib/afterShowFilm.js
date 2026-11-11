@@ -250,12 +250,28 @@ function makeStamp(date, venue, ink, R) {
   return c;
 }
 
+// The ShowPilot mark (the app icon's dome), traced from the icon as strokes so
+// it stays sharp at any size (job 296). Drawn centred on (x, y), w wide.
+export function drawShowPilotMark(g, x, y, w, color = "#8CFF3D") {
+  const k = w / 888; // the icon's mark is 888 units wide
+  g.save();
+  g.translate(x, y); g.scale(k, k); // the mark's middle is the arches' centre
+  g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 64; g.lineJoin = "miter"; g.lineCap = "butt";
+  // Origin = the arches' centre (icon 964, 988).
+  g.beginPath(); g.moveTo(-310, 102); g.lineTo(-310, 0); g.arc(0, 0, 310, Math.PI, 0); g.lineTo(310, 102); g.stroke();
+  g.beginPath(); g.moveTo(-172, 102); g.lineTo(-172, 0); g.arc(0, 0, 172, Math.PI, 0); g.lineTo(172, 102); g.stroke();
+  g.beginPath(); g.moveTo(-66.5, 70); g.lineTo(-66.5, 0); g.arc(0, 0, 66.5, Math.PI, 0); g.lineTo(66.5, 70); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(-310, 102); g.lineTo(-412, 212); g.lineTo(-412, 309); g.lineTo(412, 309); g.lineTo(412, 212); g.lineTo(310, 102); g.closePath(); g.stroke();
+  g.restore();
+}
+
 export function createFilm(canvas, opts = {}) {
   // Landscape puts the sun on the left and the event on the right.
   const land = opts.orientation === "landscape";
   const W = land ? FILM_H : FILM_W, H = land ? FILM_W : FILM_H, DUR = FILM_SECONDS;
   canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext("2d");
+  let ctx = canvas.getContext("2d"); // swapped briefly to draw the cover
+  let coverCanvas = null;
   const sunHex = hexRgb(opts.sun) ? opts.sun : null;
   const sun = makeSun(sunHex);
   const glowRgb = hexRgb(sunHex) || [255, 140, 40];
@@ -603,6 +619,31 @@ export function createFilm(canvas, opts = {}) {
     // each moment in order so sparks and shooting stars move as in play.
     reset() { cancelAnimationFrame(raf); ended = null; shooting = []; dust = []; seed = 11; },
     render(t) { frame(t); },
+    // The saved video's cover (job 296): space, the green ShowPilot mark,
+    // STELLAR BIRTH and the title. Laid over the frame at the given strength.
+    cover(alpha = 1) {
+      if (!coverCanvas) {
+        coverCanvas = document.createElement("canvas"); coverCanvas.width = W; coverCanvas.height = H;
+        const g0 = ctx; ctx = coverCanvas.getContext("2d");
+        background(0, 0, 0);
+        const mw = land ? 460 : 560, my = land ? H * .42 : H * .44;
+        ctx.save(); ctx.shadowColor = "rgba(140,255,61,.55)"; ctx.shadowBlur = 60;
+        drawShowPilotMark(ctx, W / 2, my, mw); ctx.restore();
+        drawShowPilotMark(ctx, W / 2, my, mw);
+        ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "rgba(140,255,61,.9)"; ctx.font = '600 38px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+        const ty = my + mw * .55;
+        ctx.fillText("S T E L L A R   B I R T H", W / 2, ty);
+        if (opts.title) {
+          ctx.fillStyle = "#ffffff"; let fs = 88;
+          do { ctx.font = `700 ${fs}px "Barlow Condensed", "Arial Narrow", sans-serif`; fs -= 4; } while (ctx.measureText(opts.title).width > W * .82 && fs > 40);
+          ctx.fillText(opts.title, W / 2, ty + 110);
+        }
+        ctx = g0;
+      }
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = alpha; ctx.globalCompositeOperation = "source-over";
+      ctx.drawImage(coverCanvas, 0, 0); ctx.restore();
+    },
   };
 }
 
@@ -632,11 +673,16 @@ async function encodeFilm(canvas, film, onProgress, { config, muxCodec }) {
   let failed = null;
   const enc = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: (e) => { failed = e; } });
   enc.configure(config);
-  const total = Math.ceil(FILM_SECONDS * FPS);
+  // Job 296: the video opens on its cover (the ShowPilot mark in space), so
+  // that's the picture Photos and folders show, then fades into the film.
+  const HOLD = Math.round(FPS * .7), FADE = Math.round(FPS * .6);
+  const total = HOLD + Math.ceil(FILM_SECONDS * FPS);
   film.reset();
   for (let i = 0; i <= total; i++) {
     if (failed) throw failed;
-    film.render(i / FPS);
+    const ft = i - HOLD;
+    if (ft < 0) film.cover(1);
+    else { film.render(ft / FPS); if (ft < FADE) film.cover(1 - ft / FADE); }
     const vf = new VideoFrame(canvas, { timestamp: Math.round((i * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
     enc.encode(vf, { keyFrame: i % (FPS * 2) === 0 });
     vf.close();
