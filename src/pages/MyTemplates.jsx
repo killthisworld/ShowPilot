@@ -90,6 +90,10 @@ export default function MyTemplates() {
     : own === "venue" ? [{ id: "venue", cats: ["venue"] }] : [{ id: "manager", cats: ["manager", "artist"] }];
   const { plan: tplPlan, reload: reloadPlan, setPlan: setTplPlan } = useTemplatePlan(!isTech && !!preferences);
   const [plansOpen, setPlansOpen] = useState(false);
+  // One act vs many (job 73, 2026-11-11): the act opens full-screen from
+  // My Template's Sections; with more than one act, "Your acts" lists them.
+  const [actOpen, setActOpen] = useState(null); // an artist template's key
+  const [actsOpen, setActsOpen] = useState(false);
   const walletOf = (id) => WALLETS.find((w) => w.id === id) || WALLETS[0];
   const walletTitle = (id) => (!isTech && id === "venue" ? "Your venue" : GROUP[id].plural);
   const workspaceKind = (category) => !isTech && COMPANY_TEMPLATE_ROLES.includes(category);
@@ -195,6 +199,7 @@ export default function MyTemplates() {
     const t = { key, id: null, category, name: "", data: emptyData(category), open: !workspaceKind(category), saving: false, saved: false };
     setTemplates((prev) => [...prev, t]);
     if (workspaceKind(category)) openEditor(t);
+    return key;
   };
 
   const toggleOpen = (key) => setTemplate(key, (t) => ({ ...t, open: !t.open }));
@@ -381,43 +386,13 @@ export default function MyTemplates() {
     return false;
   };
 
-  // The templates inside one wallet. A wallet with two kinds (Manager /
-  // Artist) tags each row with its kind.
-  const templateList = (w) => {
-    const list = listForWallet(w);
-    const mixed = w.cats.length > 1;
+  // The inside of a venue / act template (its fields, Put on your dates,
+  // Save). Shown in a template's dropdown, or full-screen from My Template's
+  // Sections (job 73, one act vs many).
+  const editorBody = (t) => {
+    const category = t.category;
+    const g = GROUP[category];
     return (
-      <>
-        <div className="px-3 pb-3 space-y-2">
-          {list.length === 0 && (
-            <p className="px-1 pb-1 text-[14px] leading-snug text-white/40">{w.cats.map((c) => EMPTY_NOTE[isTech ? "tech" : "company"][c]).join(" ")}</p>
-          )}
-          {list.map((t) => {
-            const category = t.category;
-            const g = GROUP[category];
-            const color = g.style.color;
-            const kindTag = mixed && <span className="shrink-0 text-[10px] tracking-[0.1em] px-1.5 py-[2px] rounded" style={{ fontFamily: SCENE_MONO, color, background: color + "1f" }}>{g.label.toUpperCase()}</span>;
-            return (workspaceKind(category) ? (
-            <div key={t.key} className="flex items-center gap-1 rounded-xl bg-[#161616] border border-[#242424]" style={{ borderLeft: `3px solid ${color}` }}>
-              <button type="button" onClick={() => openEditor(t)} className="flex-1 min-w-0 flex items-center gap-2 px-3.5 py-3 text-left">
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2"><span className="block text-[16px] font-semibold text-white truncate">{t.name}</span>{kindTag}</span>
-                  {summaryLine(t) && <span className="block text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</span>}
-                </span>
-                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: color + "aa" }} />
-              </button>
-              <div className="pr-1.5">{deleteControls(t)}</div>
-            </div>
-          ) : (
-            <div key={t.key} className="rounded-xl border overflow-hidden" style={{ borderColor: color + "40", borderLeftWidth: 3, borderLeftColor: color }}>
-              <button type="button" onClick={() => toggleOpen(t.key)} className="w-full flex items-center justify-between gap-2 px-3.5 py-3 bg-[#161616]">
-                <div className="min-w-0 text-left">
-                  <p className="flex items-center gap-2"><span className="text-[16px] font-semibold text-white truncate">{t.name || `Untitled ${g.label.toLowerCase()}`}</span>{kindTag}</p>
-                  {!t.open && summaryLine(t) && <p className="text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</p>}
-                </div>
-                <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${t.open ? "rotate-180" : ""}`} />
-              </button>
-              {t.open && (
                 <div className="p-4 space-y-3 bg-[#141414]">
                   {category === "venue" ? (
                     <VenueInfoFields
@@ -502,7 +477,46 @@ export default function MyTemplates() {
                     {deleteControls(t)}
                   </div>
                 </div>
-              )}
+    );
+  };
+
+  // The templates inside one wallet. A wallet with two kinds (Manager /
+  // Artist) tags each row with its kind.
+  const templateList = (w) => {
+    const list = listForWallet(w);
+    const mixed = w.cats.length > 1;
+    return (
+      <>
+        <div className="px-3 pb-3 space-y-2">
+          {list.length === 0 && (
+            <p className="px-1 pb-1 text-[14px] leading-snug text-white/40">{w.cats.map((c) => EMPTY_NOTE[isTech ? "tech" : "company"][c]).join(" ")}</p>
+          )}
+          {list.map((t) => {
+            const category = t.category;
+            const g = GROUP[category];
+            const color = g.style.color;
+            const kindTag = mixed && <span className="shrink-0 text-[10px] tracking-[0.1em] px-1.5 py-[2px] rounded" style={{ fontFamily: SCENE_MONO, color, background: color + "1f" }}>{g.label.toUpperCase()}</span>;
+            return (workspaceKind(category) ? (
+            <div key={t.key} className="flex items-center gap-1 rounded-xl bg-[#161616] border border-[#242424]" style={{ borderLeft: `3px solid ${color}` }}>
+              <button type="button" onClick={() => openEditor(t)} className="flex-1 min-w-0 flex items-center gap-2 px-3.5 py-3 text-left">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2"><span className="block text-[16px] font-semibold text-white truncate">{t.name}</span>{kindTag}</span>
+                  {summaryLine(t) && <span className="block text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</span>}
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: color + "aa" }} />
+              </button>
+              <div className="pr-1.5">{deleteControls(t)}</div>
+            </div>
+          ) : (
+            <div key={t.key} className="rounded-xl border overflow-hidden" style={{ borderColor: color + "40", borderLeftWidth: 3, borderLeftColor: color }}>
+              <button type="button" onClick={() => toggleOpen(t.key)} className="w-full flex items-center justify-between gap-2 px-3.5 py-3 bg-[#161616]">
+                <div className="min-w-0 text-left">
+                  <p className="flex items-center gap-2"><span className="text-[16px] font-semibold text-white truncate">{t.name || `Untitled ${g.label.toLowerCase()}`}</span>{kindTag}</p>
+                  {!t.open && summaryLine(t) && <p className="text-[13px] text-white/45 truncate mt-0.5">{summaryLine(t)}</p>}
+                </div>
+                <ChevronDown className={`w-4 h-4 text-white/40 transition-transform shrink-0 ${t.open ? "rotate-180" : ""}`} />
+              </button>
+              {t.open && editorBody(t)}
             </div>
           ));
           })}
@@ -666,19 +680,53 @@ export default function MyTemplates() {
     setTemplates((prev) => [...prev, t]);
     try { await writeTemplate(t, name, t.data); } catch (e) { console.error(e); if (!limitToast(e, ownCat)) toast({ title: "Couldn't start your template", variant: "destructive" }); }
   };
+  // The act inside My Template's Sections (job 73, Jay 2026-11-11). One act
+  // (the default plan): the act itself, straight in. More than one: a single
+  // "Your acts" row that lists them. See claude/design-principle-one-act-vs-many.md.
+  const actColor = GROUP.artist.style.color;
+  const oneAct = actsLimit === 1;
+  const acts = listFor("artist");
+  const newAct = () => { if (!canAdd("artist")) { setPlansOpen(true); return; } setActOpen(addTemplate("artist")); };
+  const actRow = (label, sub, tag, onClick) => (
+    <button type="button" onClick={onClick} className="w-full flex items-center gap-2.5 min-h-[56px] pl-3 pr-2 rounded-[12px] bg-[#151515] border text-left" style={{ borderColor: actColor + "55" }}>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[14.5px] font-semibold truncate">{label}</span>
+        <span className="block text-[12px] text-white/55 truncate">{sub}</span>
+      </span>
+      <span className="shrink-0 text-[9.5px] tracking-[0.1em] px-1.5 py-1 rounded-[5px] border" style={{ fontFamily: SCENE_MONO, borderColor: actColor + "66", color: actColor }}>{tag}</span>
+      <ChevronRight className="w-4 h-4 text-white/35 shrink-0" />
+    </button>
+  );
   const actsBlock = !isTech && ownCat === "manager" ? (
-    <section aria-label="Your acts" className="rounded-[14px] border border-[#262626] bg-[#111]">
-      <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-        <span className="text-[15px] font-bold tracking-[0.08em] text-white/60" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>YOUR ACTS</span>
-        <span className="text-[10.5px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{savedCount("artist")} OF {actsLimit == null ? "∞" : actsLimit}</span>
-        <span className="flex-1" />
-        <button type="button" onClick={() => (canAdd("artist") ? addTemplate("artist") : setPlansOpen(true))} className="min-h-[36px] px-2.5 rounded-lg text-[12.5px] font-bold flex items-center gap-1" style={{ color: GROUP.artist.style.color, border: `1px solid ${GROUP.artist.style.color}55` }}>
-          <Plus className="w-3.5 h-3.5" />{canAdd("artist") ? "Add an act" : "More acts"}
-        </button>
-      </div>
-      {templateList({ id: "artist", cats: ["artist"] })}
-    </section>
+    oneAct
+      ? (acts[0]
+        ? actRow(acts[0].name || "Your act", summaryLine(acts[0]) || "Members, stage plot, notes", "THE ACT", () => setActOpen(acts[0].key))
+        : actRow("Your act", "Add your members, stage plot and notes", "THE ACT", newAct))
+      : actRow("Your acts", acts.length ? acts.map((t) => t.name || "Untitled act").join(", ") : "Add the acts you manage", `${acts.length} ACT${acts.length === 1 ? "" : "S"}`, () => setActsOpen(true))
   ) : null;
+  const actT = actOpen ? templates.find((t) => t.key === actOpen) : null;
+  const actScreen = (actT || actsOpen) && (
+    <div className="fixed inset-0 z-[70] bg-[#0d0d0d] overflow-y-auto overscroll-contain" style={{ fontFamily: SCENE_FONT }}>
+      <div className="sticky top-0 z-10 bg-[#0d0d0d]/95 backdrop-blur border-b border-[#1a1a1a] px-4 py-3 flex items-center gap-3">
+        <button type="button" onClick={() => (actT ? setActOpen(null) : setActsOpen(false))} aria-label="Back" className="p-1 -ml-1 text-white/60 hover:text-white"><ArrowLeft className="w-5 h-5" /></button>
+        <span className="flex-1 min-w-0 text-[17px] font-semibold truncate">{actT ? (actT.name || (oneAct ? "Your act" : "New act")) : "Your acts"}</span>
+        {!actT && <span className="text-[11px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{savedCount("artist")} OF {actsLimit == null ? "∞" : actsLimit}</span>}
+      </div>
+      <div className={`mx-auto ${desktop ? "max-w-[760px]" : "max-w-lg"} px-4 py-4`}>
+        {actT ? (
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: actColor + "40" }}>{editorBody(actT)}</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {acts.map((t) => actRow(t.name || "Untitled act", summaryLine(t) || "Members, stage plot, notes", "ACT", () => setActOpen(t.key)))}
+            {!acts.length && <p className="m-0 py-2 text-[14px] text-white/50">No acts yet. Add each act you manage: their members, stage plot and notes load onto their events.</p>}
+            <button type="button" onClick={newAct} className="min-h-[48px] rounded-[12px] border-[1.5px] border-dashed text-[14px] font-semibold flex items-center justify-center gap-1.5" style={{ borderColor: actColor + "66", color: actColor }}>
+              <Plus className="w-4 h-4" strokeWidth={2.5} />{canAdd("artist") ? "Add an act" : "Host more acts"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
   const companyPage = !isTech && (loading ? (
     <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>
   ) : (
@@ -725,7 +773,7 @@ export default function MyTemplates() {
           <div>
             <h1 className="text-[26px] font-bold leading-none">My Templates</h1>
             <p className="mt-1 text-white/50 text-[14px]">
-              {isTech ? "Save venue and artist info once, reuse it every time you're back." : own === "venue" ? "Your venue, filled in once. Press Load template on any event." : "Your side and your acts, filled in once. Press Load template on any event."}
+              {isTech ? "Save venue and artist info once, reuse it every time you're back." : own === "venue" ? "Your venue, filled in once. Press Load template on any event." : (actsLimit === 1 ? "Your side and your act, filled in once. Press Load template on any event." : "Your side and your acts, filled in once. Press Load template on any event.")}
             </p>
           </div>
         </div>
@@ -748,6 +796,7 @@ export default function MyTemplates() {
         </div>
       )}
       {editor}
+      {actScreen}
       {plansOpen && tplPlan && <TemplatePlansSheet plan={{ ...tplPlan, acts_used: savedCount("artist") }} onClose={() => setPlansOpen(false)} onChanged={(d) => d && setTplPlan(d)} />}
       {(() => {
         const nt = notesKey && templates.find((x) => x.key === notesKey);

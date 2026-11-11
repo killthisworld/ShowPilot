@@ -469,6 +469,8 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         <span className="flex-1" />
         <button type="button" aria-pressed={reorder} onClick={() => setReorder((r) => !r)} className="min-h-[36px] px-2.5 rounded-lg text-[12.5px] font-semibold" style={reorder ? { color: "#0d0d0d", background: ring } : { color: "rgba(255,255,255,0.65)" }}>{reorder ? "Done" : "Reorder"}</button>
       </div>
+      {/* The act (one-act accounts) or "Your acts" (more than one), job 73. */}
+      {actsBlock}
       {sections.map(sectionRow)}
       <button type="button" onClick={addSection} className="min-h-[48px] rounded-[12px] border-[1.5px] border-dashed text-[14px] font-semibold flex items-center justify-center gap-1.5" style={{ borderColor: `${ring}66`, color: ring }}>
         <Plus className="w-4 h-4" strokeWidth={2.5} />Add your own section
@@ -612,7 +614,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "320px minmax(0, 1fr) 320px" }}>
           <div className="flex flex-col gap-4">
             {progress}
-            {actsBlock}
             {sectionsBlock}
           </div>
           <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4">
@@ -635,7 +636,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       <Hero look={look} name={name} sub={sub} ring={ring} initials={initials} role={role} profilePhoto={profilePhoto} onCover={async (f) => { if (!f) return; try { const url = await uploadEdited(f, BANNER); if (url) setLook({ cover_url: url }); } catch (e) { console.error(e); } }} />
       {nameInput}
       {progress}
-      {actsBlock}
       {sectionsBlock}
       {sheetEl}
     </div>
