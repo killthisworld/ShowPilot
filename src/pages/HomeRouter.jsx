@@ -1,4 +1,6 @@
 import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import useIsDesktop from "@/hooks/useIsDesktop";
 import { usePreferences } from "@/hooks/usePreferences";
 import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
@@ -17,6 +19,8 @@ const TECHNICAL_PRODUCTION_TYPES = ["engineer", "lighting"];
 
 export default function HomeRouter() {
   const { preferences, loading } = usePreferences();
+  const isDesktop = useIsDesktop();
+  const { search } = useLocation();
 
   if (loading) {
     return (
@@ -30,6 +34,9 @@ export default function HomeRouter() {
   if (preferences?.account_type === "fan") return <FanHome />;
 
   if (preferences?.account_type && !TECHNICAL_PRODUCTION_TYPES.includes(preferences.account_type)) {
+    // Company phones open on the calendar (job 73, Jay 2026-11-11). Needs me
+    // is still one tap away on the bar (/?view=needs); desktop is unchanged.
+    if (!isDesktop && !search) return <Navigate to="/band/calendar" replace />;
     return <BandHome />;
   }
 

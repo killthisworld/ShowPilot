@@ -23,7 +23,7 @@ const TABS = [
 ];
 
 // Phones: the company phone layout's bottom bar - Needs me / Calendar / + /
-// Chats / Me, with "+" (quick-add a task) in the middle on every screen.
+// Chats / Me (the app opens on Calendar; Needs me is /?view=needs), with "+" (quick-add a task) in the middle on every screen.
 // Calendar opens the banner calendar; an event's web opens from there. Me is
 // your profile and settings, as its own full page (/me, job 73).
 // Desktop (1024px+): a slim left rail with Home / Calendar / Cockpit plus
@@ -146,7 +146,7 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
-          {tab("needs", "/", "Needs me", Zap, needsTotal, "#FF6A00")}
+          {tab("needs", "/?view=needs", "Needs me", Zap, needsTotal, "#FF6A00")}
           {tab("events", "/band/calendar", "Calendar", CalendarDays)}
           <button
             onClick={openQuickAdd}
