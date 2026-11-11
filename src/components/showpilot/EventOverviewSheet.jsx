@@ -11,6 +11,7 @@ import GuestList from "@/components/showpilot/GuestList";
 import DaySheet from "@/components/showpilot/DaySheet";
 import SettlementSheet from "@/components/showpilot/SettlementSheet";
 import MerchSheet from "@/components/showpilot/MerchSheet";
+import LineupEditor from "@/components/showpilot/LineupEditor";
 import { usePreferences } from "@/hooks/usePreferences";
 import { feedRows, canWorkSection } from "@/lib/eventFeed";
 import { roleStatus } from "@/lib/inviteGroups";
@@ -29,6 +30,7 @@ const has = (v) => v != null && String(v).trim() !== "";
 // photo, when and where, the run of show, the lineup, who's on each profile,
 // contacts, and what's still open - plus the fan page ticket. No event web
 // on a phone (that's the desktop's job); open items get done on Needs me.
+// The owner and the Manager / Artist side can edit the lineup from here.
 export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   const { user } = useAuth();
   const [gig, setGig] = useState(base);
@@ -84,6 +86,10 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const ros = buildRunOfShow(gig);
   const acts = (gig.bands || []).filter((b) => b.band_name);
+  // Edit the lineup here (Jay 2026-11-11): the owner and the Manager / Artist
+  // side, same as desktop's Performers.
+  const [lineup, setLineup] = useState(false);
+  const canLineup = !!user && !loading && !!perms && canWorkSection("manager", perms);
   const rows = loading ? [] : feedRows(gig, perms, user?.id || null);
   const facts = [
     ["Doors", (vi.schedule || []).find((r) => /door/i.test(r.label || ""))?.time],
@@ -160,6 +166,7 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
         {daySheet && <DaySheet gig={gig} accent={color} onClose={() => setDaySheet(false)} />}
         {settle && <SettlementSheet gig={gig} accent={color} onClose={() => setSettle(false)} />}
         {merch && <MerchSheet gig={gig} accent={color} onClose={() => setMerch(false)} />}
+        {lineup && <LineupEditor gig={gig} accent={color} onClose={() => setLineup(false)} onSaved={(patch) => setGig((g) => ({ ...g, ...patch }))} />}
 
         {loading ? (
           <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: color + "40", borderTopColor: color }} /></div>
@@ -196,10 +203,19 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
               )}
             </section>
 
-            {acts.length > 0 && (
+            {(acts.length > 0 || canLineup) && (
               <section>
-                {label("LINEUP", `${acts.length} ACT${acts.length === 1 ? "" : "S"}`)}
-                <div className={`${box} divide-y divide-[#1f1f1f] overflow-hidden`}>
+                <div className="flex items-center mb-2">
+                  <span className="text-[11px] tracking-[0.14em] text-white/50" style={{ fontFamily: SCENE_MONO }}>LINEUP</span>
+                  {acts.length > 0 && <span className="ml-2 text-[11px] tracking-[0.14em] text-white/35" style={{ fontFamily: SCENE_MONO }}>{acts.length} ACT{acts.length === 1 ? "" : "S"}</span>}
+                  {canLineup && (
+                    <button type="button" onClick={() => setLineup(true)} className="ml-auto -my-2 h-9 px-3 rounded-lg flex items-center gap-1.5 text-[13px] font-semibold" style={{ color }}>
+                      <Pencil className="w-3.5 h-3.5" />{acts.length ? "Edit" : "Add acts"}
+                    </button>
+                  )}
+                </div>
+                {acts.length === 0 && <p className={`${box} m-0 px-3 py-3 text-[14px] text-white/45`}>No acts yet.</p>}
+                <div className={`${box} divide-y divide-[#1f1f1f] overflow-hidden empty:hidden`}>
                   {acts.map((b, i) => (
                     <div key={i} className="flex items-center gap-3 px-3 py-2.5">
                       <span className="w-5 text-right text-[16px] font-bold tabular-nums" style={{ color: ROLE_COLOR.band }}>{i + 1}</span>
