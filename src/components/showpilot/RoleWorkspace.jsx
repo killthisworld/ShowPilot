@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
+import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import CustomFieldsView from "@/components/showpilot/CustomFieldsView";
@@ -629,6 +630,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     const guests = mi.guests || [];
     const setGuests = (list) => p.update("manager_info", { ...mi, guests: list, guest_list: list.filter((g) => g.name).map((g) => (num(g.plus) > 0 ? `${g.name} +${num(g.plus)}` : g.name)).join(", ") });
     const used = guests.reduce((a, g) => a + (g.name ? 1 + (num(g.plus) || 0) : 0), 0);
+    // Who each guest is on the list for (job 304): the event's acts and fan page lineup.
+    const guestArtists = template ? [] : [...new Set([...(gig.bands || []).map((b) => b.band_name), ...((gig.fan_page?.lineup) || []).map((a) => a.name)]
+      .map((n) => String(n || "").trim()).filter(Boolean))];
+    const guestsPdf = () => saveOrShare(guestListPdf({ kind: "guests", rows: guests, eventName: gig.event_name || gig.band_name || "Event", eventDate: gig.date || null, venue: gig.venue || null })).catch(() => {});
     const setTimes = mi.set_times || {};
     const doneCount = checklist.filter((c) => c.done).length;
     return [
@@ -767,15 +772,28 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           <>
             <TableBox>
               {guests.map((g, i) => (
-                <div key={g.id || i} className="grid grid-cols-[minmax(0,1fr)_90px_40px] gap-3 px-4 py-2 items-center">
+                <div key={g.id || i} className={`grid ${guestArtists.length ? "grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_70px_40px]" : "grid-cols-[minmax(0,1fr)_90px_40px]"} gap-3 px-4 py-2 items-center`}>
                   <input value={g.name || ""} onChange={(e) => setGuests(guests.map((x, idx) => (idx === i ? { ...x, name: e.target.value } : x)))} disabled={off} placeholder="Name" className={inputCls} aria-label="Guest name" />
+                  {guestArtists.length > 0 && (
+                    <select value={g.artist || ""} onChange={(e) => setGuests(guests.map((x, idx) => (idx === i ? { ...x, artist: e.target.value } : x)))} disabled={off} className={`${inputCls} [color-scheme:dark]`} aria-label="Guest of">
+                      <option value="">Guest of…</option>
+                      {[...new Set([...guestArtists, ...(g.artist ? [g.artist] : [])])].map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  )}
                   <input value={g.plus || ""} onChange={(e) => setGuests(guests.map((x, idx) => (idx === i ? { ...x, plus: e.target.value.replace(/[^0-9]/g, "") } : x)))} disabled={off} placeholder="+0" className={inputCls} aria-label="Plus ones" />
                   {ed && <button type="button" onClick={() => setGuests(guests.filter((_, idx) => idx !== i))} aria-label="Remove guest" className="p-2 text-white/30 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>}
                 </div>
               ))}
               {guests.length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">{mi.guest_list ? `Current list: ${mi.guest_list}` : "No guests yet."}</p>}
             </TableBox>
-            <AddButton color={color} disabled={off} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
+            <div className="flex flex-wrap items-center gap-2">
+              <AddButton color={color} disabled={off} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
+              {!template && guests.some((g) => g.name) && (
+                <button type="button" onClick={guestsPdf} className="self-start mt-1 text-[13px] font-semibold px-3 py-1.5 rounded-md border flex items-center gap-1.5" style={{ color, borderColor: `${color}66` }}>
+                  <FileText className="w-4 h-4" /> Create PDF
+                </button>
+              )}
+            </div>
           </>
         ),
       },

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { guestListPdf } from "@/lib/guestListPdf";
+import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
 
 const G = "#8CFF3D";
 
@@ -13,7 +13,7 @@ const G = "#8CFF3D";
 // party size, alphabetical, grouped by artist when there's a lineup).
 // The host can remove an RSVP (e.g. a test one); that also lets the same
 // address get the confirmation email again if they RSVP for real.
-// "Download PDF" (job 304) saves the whole list with email, party size and
+// "Create PDF" (job 304) saves the whole list with email, party size and
 // who each person is coming for; the close time shows above the list.
 export default function RsvpList({ showId, tall = false, capacity = null, closeAt = null, eventName = "", eventDate = null, venue = null }) {
   const [rows, setRows] = useState(null);
@@ -80,17 +80,10 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
   const downloadPdf = async () => {
     setPdfNote("");
     let file;
-    try { file = guestListPdf({ rows: rows || [], eventName, eventDate, venue, closeAt, capacity }); }
+    try { file = guestListPdf({ kind: "rsvps", rows: rows || [], eventName, eventDate, venue, closeAt, capacity }); }
     catch { setErr("Couldn't make the PDF. Try again."); return; }
-    try {
-      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return; }
-    } catch (e) { if (e?.name === "AbortError") return; }
-    const url = URL.createObjectURL(file);
-    const a = document.createElement("a"); a.href = url; a.download = file.name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    setPdfNote("Saved to your downloads.");
-    setTimeout(() => setPdfNote(""), 2500);
+    const how = await saveOrShare(file);
+    if (how === "downloaded") { setPdfNote("saved"); setTimeout(() => setPdfNote(""), 2500); }
   };
   const closeTime = closeAt && !Number.isNaN(new Date(closeAt).getTime()) ? new Date(closeAt) : null;
   const closeText = closeTime && `${closeTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}, ${closeTime.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
@@ -102,7 +95,7 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
         <span className="flex-1 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>RSVPS</span>
         {rows && rows.length > 0 && (
           <>
-            <button type="button" onClick={downloadPdf} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{pdfNote ? "SAVED" : "DOWNLOAD PDF"}</button>
+            <button type="button" onClick={downloadPdf} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{pdfNote ? "SAVED" : "CREATE PDF"}</button>
             <button type="button" onClick={copy} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{copied ? "COPIED" : "COPY LIST"}</button>
           </>
         )}

@@ -9,6 +9,7 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import EventbriteLink from "@/components/showpilot/EventbriteLink";
 import RsvpList from "@/components/showpilot/RsvpList";
+import EventGuestList from "@/components/showpilot/EventGuestList";
 import HostMessagesList from "@/components/showpilot/HostMessagesList";
 import FanQrCode from "@/components/showpilot/FanQrCode";
 import AfterShowFilm from "@/components/showpilot/AfterShowFilm";
@@ -111,6 +112,7 @@ function OwnerSheet({ showId, onClose }) {
   const attachRef = useRef(null);
   const desktop = useIsDesktop();
   const [tab, setTab] = useState("page"); // page | guests | share | countdown | film | setup
+  const [guestView, setGuestView] = useState("rsvps"); // Guests tab: RSVPs or Guest list (job 304)
   const [editing, setEditing] = useState(null); // which part of the page is open
   const [stats, setStats] = useState(null); // local shows stats (job 92)
   const [countdownStats, setCountdownStats] = useState(null); // per-notch sent / opened (job 78)
@@ -727,19 +729,38 @@ function OwnerSheet({ showId, onClose }) {
   );
 
   // ---- Guests: the RSVP list ----
-  const guestsTab = row && (savedRsvp && row.fan_page_enabled ? (
+  // Two lists (job 304): the fan page's RSVPs, and the event's guest list
+  // (the same list as the management profile's Guest list).
+  const guestList = <EventGuestList showId={showId} lineup={row?.fan_page?.lineup || []} eventName={title} eventDate={row?.date || null} venue={row?.venue || null} />;
+  const listSwitch = (
+    <div role="tablist" aria-label="Guests" className="flex gap-1 p-1 rounded-xl bg-[#0a0c1c] border border-[#1c2042]">
+      {[["rsvps", "RSVPs"], ["list", "Guest list"]].map(([k, l]) => (
+        <button key={k} type="button" role="tab" aria-selected={guestView === k} onClick={() => setGuestView(k)}
+          className="flex-1 h-10 rounded-lg text-[15px] font-bold transition-colors"
+          style={guestView === k ? { background: "rgba(140,255,61,0.12)", color: G, border: "1px solid rgba(140,255,61,0.45)" } : { color: "rgba(255,255,255,0.6)", border: "1px solid transparent" }}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+  const guestsTab = row && (guestView === "list" ? (
+    <>{listSwitch}{guestList}</>
+  ) : savedRsvp && row.fan_page_enabled ? (
     <>
+      {listSwitch}
       <HostMessagesList showId={showId} />
       <RsvpList showId={showId} tall={desktop} capacity={savedCap} closeAt={row.fan_page?.rsvp_close_at || null} eventName={title} eventDate={row.date || null} venue={row.venue || null} />
     </>
-  ) : (
+  ) : (<>
+    {listSwitch}
+    <div className="mt-3" />
     <div className="rounded-2xl p-5 text-center" style={{ background: PANEL, border: `1px dashed ${EDGE_LINE}` }}>
       <Users className="w-7 h-7 mx-auto" style={{ color: G }} />
       <p className="mt-2 text-[17px] font-bold text-white">{savedRsvp ? "Your guest list starts when the page is live" : "Guest lists are for RSVP events"}</p>
       <p className="mt-1 text-[15px] leading-relaxed" style={{ color: SOFT }}>{savedRsvp ? "Turn the page on and publish, then RSVPs show up here." : "Switch how fans get in to RSVP under Setup and publish. Everyone who RSVPs shows up here."}</p>
       {!savedRsvp && <button type="button" onClick={() => setTab("setup")} className="mt-3 px-4 py-2.5 rounded-lg text-[14px] font-bold" style={{ background: "rgba(140,255,61,0.1)", border: "1px solid rgba(140,255,61,0.4)", color: G }}>Open Setup</button>}
     </div>
-  ));
+  </>));
 
   // ---- Countdown (job 78): up to 5 notches, each an email to RSVP'd fans ----
   const cd = draft?.countdown || { enabled: false, notches: [] };
@@ -846,12 +867,12 @@ function OwnerSheet({ showId, onClose }) {
   // placed and sized as fans see it. Sample stars until someone RSVPs.
   const [filmStarsReal, setFilmStarsReal] = useState(null);
   useEffect(() => {
-    if (!filmPreview || !row?.id) return;
+    if (!filmPreview || !showId) return;
     let off = false;
-    supabase.from("fan_rsvps").select("id, guests, created_at").eq("show_id", row.id).order("created_at", { ascending: true }).limit(400)
+    supabase.from("fan_rsvps").select("id, guests, created_at").eq("show_id", showId).order("created_at", { ascending: true }).limit(400)
       .then(({ data }) => { if (!off) setFilmStarsReal((data || []).map((r) => ({ id: r.id, at: r.created_at, guests: r.guests, color: hashColor(r.id) }))); });
     return () => { off = true; };
-  }, [filmPreview, row?.id]);
+  }, [filmPreview, showId]);
   const filmStars = filmStarsReal?.length ? filmStarsReal : filmStarsSample;
   const filmSection = fm && (
     <section className="rounded-2xl p-4" style={{ background: PANEL, border: "1px solid rgba(255,179,71,0.4)" }}>
@@ -917,7 +938,7 @@ function OwnerSheet({ showId, onClose }) {
         style={{ color: "#FFB347", borderColor: "rgba(255,179,71,0.55)", background: filmChanged ? "rgba(255,179,71,0.1)" : "transparent" }}>
         {filmSaving ? "Updating…" : filmSaved ? "✓ Stellar Birth updated" : filmChanged ? "Update Stellar Birth" : "Stellar Birth is up to date"}
       </button>
-      {filmPreview && (filmStarsReal || !row?.id) && (
+      {filmPreview && filmStarsReal && (
         <AfterShowFilm preview stars={filmStars} title={String(fm.title || "").trim() || title} dateLine={filmDateLine(row?.date, row?.venue)} date={row?.date} venue={row?.venue}
           imageUrl={filmPic || null} show={fm.show} sun={fm.sun || null} stamp={fm.stamp || null} fileName={title} onClose={() => { setFilmPreview(false); setFilmStarsReal(null); }} />
       )}
