@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, MessageSquare, Mail, Copy, Check } from "lucide-react";
+import { Send, MessageSquare, Mail, Copy, Check, Eye } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -9,8 +9,9 @@ import { useActForm } from "@/lib/useActForm";
 import { savePackage, sendPackage, loadPackage, loadPublicPackage, wantsLine, packageUrl, PACKAGE_RED } from "@/lib/bookingPackage";
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas } from "@/components/showpilot/BookingFields";
+import { PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas } from "@/components/showpilot/BookingFields";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
 // as a web, the dates they want, and who it goes to, then sends it with the
@@ -45,6 +46,7 @@ export default function BookingPackage() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sentOff, setSentOff] = useState(false);
+  const [preview, setPreview] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -112,14 +114,10 @@ export default function BookingPackage() {
           ...(act ? {
             band_name: act.band_name || "",
             genre_tags: act.genre_tags || f.genre_tags,
-            band_members: act.band_members || f.band_members,
-            stage_plot_url: act.stage_plot_url || f.stage_plot_url,
-            stage_plot_files: act.stage_plot_files || f.stage_plot_files,
-            general_notes: act.general_notes || f.general_notes,
             photo_url: act.photo_url || f.photo_url,
           } : {}),
         }));
-        if (act) setSeen((s) => ({ ...s, artist: true, members: true, contact: true, promo: !!act.photo_url }));
+        if (act) setSeen((s) => ({ ...s, artist: true, contact: true, promo: !!act.photo_url }));
       }
       setLoading(false);
     })();
@@ -181,14 +179,14 @@ export default function BookingPackage() {
     byKey.artist && { ...byKey.artist, label: "Artist", short: "Artist", hint: "Name and genre" },
     { key: "promo", label: "Promo", short: "Promo", hint: "Your picture and links the venue can share", required: false,
       done: !!seen.promo && promoHas(form), body: () => <PromoBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
-    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
+    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw and the deal you're after", required: false,
       done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
     { key: "dates", label: "Dates wanted", short: "Dates wanted", hint: "When you'd like to play", required: true,
       done: hasMonths, body: () => <DatesBody wants={wants} setWants={setWantsD} /> },
-    { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table", required: false,
-      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} /> },
     byKey.contact,
-    byKey.members, byKey.plot, byKey.notes,
+    // Members, stage plot, notes and hospitality aren't asked here (job 301):
+    // a venue books on the act, the deal and the dates; the rest comes
+    // through the intake forms once it's booked.
   ].filter(Boolean);
   const toDone = sendToDone(to);
   const canSend = !!form.band_name.trim() && hasMonths && toDone;
@@ -218,6 +216,26 @@ export default function BookingPackage() {
       </div>
     );
   }
+
+  // "View as the venue" (job 301): the package as the venue opens it, from
+  // what's in the editor right now. Nothing on it can be sent.
+  if (preview) {
+    return (
+      <PackageView
+        onClosePreview={() => setPreview(false)}
+        previewPkg={{
+          code: code || "PREVIEW", act_name: form.band_name, status: "sent", wants, data: toData(form),
+          sender: { name: me?.display_name || "", photo: me?.profile_photo_url || "", type: me?.account_type || "", card: me?.card_share_token || "" },
+          to_name: to.name, offers: [], is_sender: false, is_venue: false, taken: false,
+        }}
+      />
+    );
+  }
+  const viewAsVenue = (
+    <button type="button" onClick={() => setPreview(true)} className="min-h-[46px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold text-white/80 flex items-center justify-center gap-2">
+      <Eye className="w-4 h-4" />View as {to.name || "the venue"}
+    </button>
+  );
 
   const confirm = async (date) => {
     setConfirming(true);
@@ -270,6 +288,7 @@ export default function BookingPackage() {
           <button type="button" onClick={copy} className="min-h-[48px] rounded-[12px] border border-[#333] text-[15px] font-semibold flex items-center justify-center gap-2 text-white/85">
             {copied ? <><Check className="w-4 h-4" />Copied</> : <><Copy className="w-4 h-4" />Copy the link</>}
           </button>
+          {viewAsVenue}
           <a href="/" className="mt-2 text-[14px] text-white/60 underline">Back to ShowPilot</a>
         </div>
       </IntakeSent>
@@ -299,6 +318,7 @@ export default function BookingPackage() {
       error={error}
       sent={sent}
       onSentOff={() => setSentOff(true)}
+      belowSend={viewAsVenue}
     />
   );
 }

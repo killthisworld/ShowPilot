@@ -93,7 +93,6 @@ export function DealBody({ form, update }) {
         <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
         <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
       </div>
-      <label><span className={label}>RECENT SHOWS</span><textarea rows={2} value={deal.recent || ""} onChange={(e) => set("recent", e.target.value)} placeholder="The Earl, Atlanta - 180 people, Oct" className={`${inputCls} py-2.5 resize-none`} /></label>
       <div className="flex flex-col gap-2">
         <span className={label}>THE DEAL YOU'RE LOOKING FOR</span>
         {choice(DEAL_ASKS, "ask")}
@@ -103,13 +102,6 @@ export function DealBody({ form, update }) {
             {(deal.ask === "door" || deal.ask === "vs") && <label><span className={label}>DOOR %</span><input type="number" inputMode="numeric" min="0" max="100" value={deal.door_percent ?? ""} onChange={(e) => set("door_percent", e.target.value === "" ? "" : Number(e.target.value))} placeholder="70" className={inputCls} /></label>}
           </div>
         )}
-      </div>
-      <label><span className={label}>TICKET PRICE YOU'D SUGGEST</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15 adv / $18 door" className={inputCls} /></label>
-      <div className="flex flex-col gap-2"><span className={label}>AGES</span>{choice(AGES, "age")}</div>
-      <div className="flex flex-col gap-2">
-        <span className={label}>BACKLINE</span>
-        {choice(BACKLINE, "backline", true)}
-        {(() => { const c = chip(!!deal.share_backline); return <div className="flex justify-center"><button type="button" aria-pressed={!!deal.share_backline} onClick={() => set("share_backline", !deal.share_backline)} className={c.className} style={c.style}>Happy to share with other acts</button></div>; })()}
       </div>
     </div>
   );
@@ -274,6 +266,10 @@ export function packageReadCircles(pkg, wantsText) {
   const c = (key, label, short, done, body) => ({ key, label, short, done, body });
   // A venue reads it in this order (job 289): who they are, how they look and
   // sound, the deal, when, hospitality, who to call; the audio side last.
+  // Only what a venue needs to decide (job 301): who, how they look and
+  // sound, the deal, when, who to call. Members, stage plot, notes and
+  // hospitality come later, through the intake forms.
+  const CORE = ["artist", "promo", "deal", "dates", "contact"];
   return [
     c("artist", "Artist", "Artist", true, () => (
       <div className="flex flex-col">
@@ -351,5 +347,6 @@ export function packageReadCircles(pkg, wantsText) {
         {!has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
       </div>
     )),
-  ];
+  // A section they left empty isn't shown at all (less to look at).
+  ].filter((x) => CORE.includes(x.key) && (x.done || ["artist", "dates", "contact"].includes(x.key)));
 }

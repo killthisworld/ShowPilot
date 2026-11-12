@@ -16,20 +16,25 @@ const BLUE = "#60A5FA";
 const fmtDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 const btn = "w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2";
 
-export default function PackageView() {
-  const { code } = useParams();
+// previewPkg (job 301): the sender's "View as the venue". The package as the
+// venue sees it, from what's in the editor; nothing on it does anything.
+export default function PackageView({ previewPkg = null, onClosePreview = null }) {
+  const params = useParams();
+  const code = previewPkg ? previewPkg.code : params.code;
   const navigate = useNavigate();
   const { user, isLoadingAuth } = useAuth();
-  const [pkg, setPkg] = useState(undefined);
+  const [pkg, setPkg] = useState(previewPkg || undefined);
   const [step, setStep] = useState("web"); // web | join | offer | decline | sent | passed
   const [booked, setBooked] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const load = async () => {
+    if (previewPkg) return;
     try { setPkg(await loadPublicPackage(code)); } catch (e) { console.error(e); setPkg(null); }
   };
   useEffect(() => { if (!isLoadingAuth) load(); }, [code, isLoadingAuth, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (previewPkg) setPkg(previewPkg); }, [previewPkg]);
 
   // My own package: open it where I can follow it.
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function PackageView() {
   };
   const startOffer = () => setStep(user ? "offer" : "join");
 
-  if (pkg === undefined || isLoadingAuth) {
+  if (pkg === undefined || (isLoadingAuth && !previewPkg)) {
     return <div className="min-h-screen bg-[#05060d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#F87171]/30 border-t-[#F87171] rounded-full animate-spin" /></div>;
   }
   if (!pkg) {
@@ -136,9 +141,22 @@ export default function PackageView() {
   }
 
   const answeredElsewhere = pkg.taken && step === "web";
+  // Preview: the bar on top says so, and the buttons stay put.
+  const previewBar = previewPkg ? (
+    <div className="fixed top-0 inset-x-0 z-[70] flex justify-center px-3 pt-3 pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-[#3a2a2a] bg-[#1a1212]/95 backdrop-blur pl-4 pr-1.5 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <span className="text-[13px] font-semibold text-white/85">Preview: what {pkg.to_name || "the venue"} sees</span>
+        <button type="button" onClick={onClosePreview} className="min-h-[38px] px-4 rounded-full text-[13px] font-bold" style={{ background: "#F87171", color: "#0d0d0d" }}>Back to editing</button>
+      </div>
+    </div>
+  ) : null;
   // The dates they want sit in the corner box, so not a circle as well.
   const circles = packageReadCircles(pkg, wl).filter((c) => c.key !== "dates");
   return (
+    <>
+    {previewBar}
+    {/* Room for the bar on a phone, so it doesn't sit on the title. */}
+    {previewPkg && <div aria-hidden="true" className="h-[60px] lg:hidden bg-[#05060d]" />}
     <IntakeKeyWeb
       readOnly
       startOpen={step === "look"}
@@ -166,12 +184,13 @@ export default function PackageView() {
           {pkg.wants?.note && <p className="text-[15px] text-white/75">"{pkg.wants.note}"</p>}
         </div>
       )}
-      onSend={answeredElsewhere ? () => {} : startOffer}
+      onSend={answeredElsewhere || previewPkg ? () => {} : startOffer}
       canSend={!answeredElsewhere}
       sendLabel={answeredElsewhere ? "Another account answered this" : pkg.is_venue && pkg.status === "offered" ? "Change the dates" : "Offer dates"}
       belowSend={!answeredElsewhere && pkg.status === "sent" ? (
-        <button type="button" onClick={() => setStep(user ? "decline" : "join")} className="min-h-[46px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold text-white/75">Not this time</button>
+        <button type="button" onClick={() => { if (!previewPkg) setStep(user ? "decline" : "join"); }} className="min-h-[46px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold text-white/75">Not this time</button>
       ) : null}
     />
+    </>
   );
 }

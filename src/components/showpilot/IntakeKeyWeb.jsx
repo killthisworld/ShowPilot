@@ -238,7 +238,7 @@ export default function IntakeKeyWeb({
         <button type="button" disabled={opening} onClick={() => setPhase("unlocking")} className="min-h-[56px] rounded-[14px] font-bold text-[17px] flex items-center justify-center gap-2.5" style={{ background: color, color: "#0d0d0d", boxShadow: `0 0 24px ${color}55` }}>
           <Lock className="w-5 h-5" />{unlockLabel}
         </button>
-        <p className="text-center text-[12.5px] text-white/55 leading-relaxed">{N} thing{N === 1 ? "" : "s"} to fill in. No account needed. Your answers save as you go.</p>
+        <p className="text-center text-[12.5px] text-white/55 leading-relaxed">{readOnly ? `${N} thing${N === 1 ? "" : "s"} inside. No account needed to read it.` : `${N} thing${N === 1 ? "" : "s"} to fill in. No account needed. Your answers save as you go.`}</p>
       </div>
     );
     if (desktop) {
