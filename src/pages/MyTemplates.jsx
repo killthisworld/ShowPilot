@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { forgetActs } from "@/lib/acts";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
@@ -248,6 +249,7 @@ export default function MyTemplates() {
 
   // Insert or update one template row. Returns the saved row's key.
   const writeTemplate = async (t, name, data) => {
+    forgetActs();
     if (t.id) {
       const { error } = await supabase.from("saved_templates").update({ name, data, updated_at: new Date().toISOString() }).eq("id", t.id);
       if (error) throw error;
@@ -324,6 +326,7 @@ export default function MyTemplates() {
   const deleteTemplate = async (key) => {
     const t = templates.find((tt) => tt.key === key);
     if (!t) return;
+    forgetActs();
     try {
       if (t.id) {
         const { error } = await supabase.from("saved_templates").delete().eq("id", t.id);

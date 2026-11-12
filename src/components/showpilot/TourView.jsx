@@ -6,6 +6,7 @@ import useEventFeed from "@/lib/eventFeed";
 import { eventTitle } from "@/lib/eventTitle";
 import { localISO } from "@/lib/needsMe";
 import { SCENE_FONT } from "@/lib/sceneStyle";
+import ActSwitcher from "@/components/showpilot/ActSwitcher";
 
 // Dates (job 73, "On the road" stage 5; was "Tours"): your upcoming dates in
 // order, split into tours and single dates (All / Tours / Single dates).
@@ -77,6 +78,7 @@ export default function TourView({ gigs, accent = "#8CFF3D", onOpen, onClose }) 
           </p>
         </div>
 
+        <ActSwitcher className="px-6 mt-4" />
         {upcoming.length > 0 && (
           <div role="tablist" aria-label="Show" className="mx-6 mt-5 grid grid-cols-3 gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]">
             {[["all", "All", upcoming.length], ["tours", "Tours", tourCount], ["single", "Single dates", singleCount]].map(([id, label, n]) => (

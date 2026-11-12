@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import ActSwitcher from "@/components/showpilot/ActSwitcher";
+import { useActGigs } from "@/lib/acts";
 import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
@@ -51,7 +53,9 @@ export default function BandHome() {
   const { preferences, reload } = usePreferences();
   const accountStyle = getAccountTypeStyle(preferences?.account_type);
   const isDesktop = useIsDesktop();
-  const [gigs, setGigs] = useState([]);
+  const [allGigs, setGigs] = useState([]);
+  // Accounts with more than one act see the picked act's events (job 73).
+  const gigs = useActGigs(allGigs);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [webToken, setWebToken] = useState(null);
@@ -749,6 +753,7 @@ export default function BandHome() {
   if (phoneView === "needs") {
     return (
       <div className="min-h-screen bg-[#0d0d0d] pb-28">
+        <ActSwitcher className="px-4 pt-[max(12px,env(safe-area-inset-top))] max-w-lg mx-auto" />
         <NeedsMeHome
           preferences={preferences}
           onPreferencesUpdate={reload}
