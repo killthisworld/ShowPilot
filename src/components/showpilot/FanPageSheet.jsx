@@ -241,6 +241,18 @@ function OwnerSheet({ showId, onClose }) {
     }
     return added;
   };
+  // View a file that's been added (job 310): the private fan-files bucket
+  // gives the owner a link that lasts 10 minutes. The tab opens on the tap
+  // itself (so phones don't block it), then goes to the file.
+  const viewFile = async (f) => {
+    const tab = window.open("", "_blank");
+    const { data, error } = await supabase.storage.from(FAN_FILES).createSignedUrl(f.path, 600);
+    if (error || !data?.signedUrl) { tab?.close(); setErr(`Couldn't open "${f.name}". Try again.`); return; }
+    if (tab) tab.location.href = data.signedUrl; else window.location.assign(data.signedUrl);
+  };
+  const viewBtn = (f) => (
+    <button type="button" onClick={() => viewFile(f)} aria-label={`View ${f.name}`} className="px-2 py-1 rounded-md text-[12.5px] font-bold shrink-0" style={{ color: G, border: "1px solid rgba(140,255,61,0.4)" }}>View</button>
+  );
   const pickAttachments = async (e) => {
     const picked = [...(e.target.files || [])];
     e.target.value = "";
@@ -699,6 +711,7 @@ function OwnerSheet({ showId, onClose }) {
               <FileText className="w-4 h-4 text-white/50 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-[15px] text-white">{f.name}</span>
               <span className="text-[13px] text-white/50 shrink-0">{fileSize(f.size || 0)}</span>
+              {viewBtn(f)}
               <button type="button" onClick={() => set({ files: draft.files.filter((_, j) => j !== i) })} aria-label={`Remove ${f.name}`} className="p-1 text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
             </div>
           ))}
@@ -1085,8 +1098,11 @@ function OwnerSheet({ showId, onClose }) {
               {(n.files || []).map((f, i) => (
                 <div key={f.path} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#0a0c1c] border border-[#1c2042]">
                   {String(f.type).startsWith("image/") ? <ImagePlus className="w-4 h-4 text-white/50 shrink-0" /> : <FileText className="w-4 h-4 text-white/50 shrink-0" />}
-                  <span className="min-w-0 flex-1 truncate text-[15px] text-white">{f.name}</span>
-                  <span className="text-[12px] text-white/45 shrink-0">{String(f.type).startsWith("image/") ? "in the email" : "attached"} · {fileSize(f.size || 0)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] text-white">{f.name}</span>
+                    <span className="block text-[12px] text-white/45">{String(f.type).startsWith("image/") ? "In the email" : "Attached"} · {fileSize(f.size || 0)}</span>
+                  </span>
+                  {viewBtn(f)}
                   <button type="button" onClick={() => setNotch(n.id, { files: n.files.filter((_, j) => j !== i) })} aria-label={`Remove ${f.name}`} className="p-1 text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
                 </div>
               ))}
