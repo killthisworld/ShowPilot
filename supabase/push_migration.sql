@@ -68,6 +68,7 @@ create table if not exists public.push_outbox (
 create index if not exists push_outbox_waiting_idx on public.push_outbox (send_after) where sent_at is null;
 create unique index if not exists push_outbox_tag_user_idx on public.push_outbox (tag, user_id) where sent_at is null and tag is not null;
 alter table public.push_outbox enable row level security; -- no policies: apps can't read or write it
+revoke all on public.push_outbox from anon, authenticated;
 
 -- Queue one alert for everyone on an event (except p_skip) who has alerts on.
 create or replace function public.queue_event_push(p_show_id uuid, p_skip uuid, p_title text, p_body text, p_url text, p_tag text)
