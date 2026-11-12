@@ -1,4 +1,5 @@
 import React from "react";
+import AlertsCard from "@/components/showpilot/AlertsCard";
 import { useSearchParams } from "react-router-dom";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
@@ -84,6 +85,7 @@ export default function MePage() {
       ) : (
         <div className="max-w-lg mx-auto">
           <HomeScreenCard accent={accent} />
+          <AlertsCard accent={accent} />
           {preferences && <BandSettingsDrawer page preferences={preferences} onPreferencesUpdate={reload} />}
         </div>
       )}

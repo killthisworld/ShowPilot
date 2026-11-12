@@ -6,7 +6,7 @@
 // Nothing else is touched: no API calls, no Supabase, no other sites. The
 // app keeps its own copy of the day sheet, contacts and guest list.
 
-const VERSION = "sp-shell-v1";
+const VERSION = "sp-shell-v2";
 const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -52,13 +52,30 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Tapping a reminder's notification opens Show Pilot (reminders, 2026-11-12).
+// Lock-screen alerts (job 305): show what send-push sent. The payload is
+// { title, body, url, tag }; the same tag replaces an older alert.
+self.addEventListener("push", (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch { d = { title: "Show Pilot", body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(d.title || "Show Pilot", {
+    body: d.body || "",
+    tag: d.tag || undefined,
+    renotify: !!d.tag,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url: d.url || "/" },
+  }));
+});
+
+// Tapping an alert (or a reminder) opens Show Pilot at its page.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       const open = list.find((c) => "focus" in c);
-      return open ? open.focus() : self.clients.openWindow("/");
+      if (open) return open.focus().then((c) => (c && "navigate" in c ? c.navigate(url) : c)).catch(() => self.clients.openWindow(url));
+      return self.clients.openWindow(url);
     })
   );
 });

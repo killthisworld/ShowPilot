@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import AlertsCard from "@/components/showpilot/AlertsCard";
 import { cropImage } from "@/lib/cropImage";
 import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -149,6 +150,7 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate, avata
         )}
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-[#0d0d0d] border-[#1f1f1f] p-0 overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <AlertsCard accent={accountStyle?.color || "#8CFF3D"} className="mx-4 mt-4" />
         <SettingsPanel
           prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
           navItems={[
