@@ -19,7 +19,7 @@ const uploadEdited = async (file, opts) => {
   return edited ? uploadIconImage(edited) : null;
 };
 import {
-  COLORS, FIELD_KINDS, kindLabel, fieldFilled, fieldText, newId, pageOf, sectionList, setMode, withPage,
+  COLORS, FONTS, titleFont, loadFont, FIELD_KINDS, kindLabel, fieldFilled, fieldText, newId, pageOf, sectionList, setMode, withPage,
 } from "@/lib/templatePage";
 
 // My Template for a venue, manager or artist (job 297): their one template as
@@ -212,7 +212,7 @@ function ModePicker({ value, onChange, color, kept }) {
 // The template's header, as it'll look.
 function Hero({ look, name, sub, ring, initials, onCover, compact = false, role = "venue", profilePhoto = "" }) {
   const circle = look.logo_url || (role !== "venue" ? profilePhoto : "");
-  const tf = TITLE_FONT[look.title] || TITLE_FONT.bold;
+  const tf = titleFont(look.title);
   const accent = look.color || ring;
   const h = compact ? 132 : 168;
   return (
@@ -256,7 +256,6 @@ function LookControls({ look, setLook, ring, role = "venue", profilePhoto = "" }
   const slots = artist
     ? [["cover_url", "Banner", "The wide picture behind you"], ["logo_url", "Profile picture", look.logo_url ? "The circle on every event" : "Your account photo for now"]]
     : [["cover_url", "Cover photo", "The room, the stage"], ["logo_url", "Logo", "Shows on every event"]];
-  const opt = (on) => (on ? { borderColor: ring, background: `${ring}1a`, color: "#fff" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.8)" });
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-2">
@@ -289,53 +288,63 @@ function LookControls({ look, setLook, ring, role = "venue", profilePhoto = "" }
         <p className="text-[12px] text-white/50 mt-2 mb-0 leading-snug">Your color brands your page. Your profile color stays on the frame and the logo ring so people know what kind of profile it is.</p>
       </div>
       <div>
-        <span className={label} style={MONO}>HEADER</span>
-        <div className="grid grid-cols-3 gap-2">
-          {[["photo", "Photo"], ["color", "Color"], ["logo", "Logo only"]].map(([k, t]) => (
-            <button key={k} type="button" aria-pressed={look.header === k} onClick={() => setLook({ header: k })} className="min-h-[44px] rounded-[12px] border text-[13.5px] font-semibold" style={opt(look.header === k)}>{t}</button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className={label} style={MONO}>SECTIONS SHOW AS</span>
-        <div className="grid grid-cols-2 gap-2">
-          {[["cards", "Cards"], ["list", "List"]].map(([k, t]) => (
-            <button key={k} type="button" aria-pressed={look.layout === k} onClick={() => setLook({ layout: k })} className="min-h-[44px] rounded-full border text-[13.5px] font-semibold" style={opt(look.layout === k)}>{t}</button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className={label} style={MONO}>TITLE STYLE</span>
-        <div className="grid grid-cols-3 gap-2">
-          {[["bold", "Bold"], ["classic", "Classic"], ["clean", "Clean"]].map(([k, t]) => (
-            <button key={k} type="button" aria-pressed={look.title === k} onClick={() => setLook({ title: k })} className="min-h-[50px] rounded-[12px] border text-[19px]" style={{ ...opt(look.title === k), ...TITLE_FONT[k] }}>{t}</button>
-          ))}
-        </div>
+        <span className={label} style={MONO}>FONT</span>
+        <FontPicker value={look.title} onChange={(id) => setLook({ title: id })} ring={ring} />
       </div>
     </div>
   );
 }
 
-// What a new event made with this template looks like.
-function Preview({ role, look, name, sub, ring, initials, sections, title = true, profilePhoto = "" }) {
-  const fill = sections.filter((s) => s.mode === "fill" && s.filled);
-  const ask = sections.filter((s) => s.mode === "ask");
-  const accent = look.color || ring;
+// How your header looks: cover, logo and name in your font (job 299: just
+// the header, no event stand-in or section list).
+function Preview({ role, look, name, sub, ring, initials, title = true, profilePhoto = "" }) {
   return (
     <div className="flex flex-col gap-3">
-      {title && <div className="text-[10.5px] tracking-[0.12em] text-white/55" style={MONO}>A NEW EVENT, WITH YOUR TEMPLATE</div>}
-      <Hero look={look} name={role === "venue" ? `New event · ${name || "your venue"}` : name} sub={sub} ring={ring} initials={initials} compact role={role} profilePhoto={profilePhoto} />
-      {fill.length ? (
-        <div className={look.layout === "list" ? "flex flex-col gap-1.5" : "grid grid-cols-2 xl:grid-cols-3 gap-2"}>
-          {fill.map((s) => (
-            <div key={s.key} className="rounded-[12px] bg-[#151515] border border-[#262626] px-3 py-2.5 min-w-0">
-              <div className="text-[10px] tracking-[0.1em] truncate" style={{ ...MONO, color: accent }}>{s.label.toUpperCase()}</div>
-              <div className="text-[13px] text-white/80 mt-1 leading-snug line-clamp-2">{s.sub || "Filled in"}</div>
-            </div>
-          ))}
-        </div>
-      ) : <p className="text-[13px] text-white/50 m-0">Nothing fills in by itself yet. Fill a section in and set it to Fill it in.</p>}
-      {ask.length > 0 && <div className="rounded-[12px] border border-dashed border-[#333] px-3 py-2.5 text-[13px] text-white/65">Asks you when you load it: {ask.map((s, i) => <span key={s.key}><strong className="text-white">{s.label}</strong>{i < ask.length - 1 ? ", " : ""}</span>)}</div>}
+      {title && <div className="text-[10.5px] tracking-[0.12em] text-white/55" style={MONO}>PREVIEW</div>}
+      <Hero look={look} name={name} sub={sub} ring={ring} initials={initials} compact role={role} profilePhoto={profilePhoto} />
+    </div>
+  );
+}
+
+// The font for your name and section titles, as a dropdown; each option is
+// shown in its own lettering (job 299).
+function FontPicker({ value, onChange, ring }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  const current = FONTS.find((f) => f.id === value) || FONTS[0];
+  useEffect(() => {
+    if (!open) return undefined;
+    FONTS.forEach((f) => loadFont(f.id));
+    const off = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const key = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", off);
+    document.addEventListener("keydown", key);
+    return () => { document.removeEventListener("mousedown", off); document.removeEventListener("keydown", key); };
+  }, [open]);
+  return (
+    <div ref={box} className="relative">
+      <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        className="w-full min-h-[52px] px-3.5 rounded-[12px] border bg-[#101010] flex items-center gap-3 text-left" style={{ borderColor: open ? ring : "#2a2a2a" }}>
+        <span className="flex-1 min-w-0 truncate text-[22px] leading-none" style={titleFont(current.id)}>{current.label}</span>
+        <span className="text-[11px] text-white/45" style={MONO}>{FONTS.indexOf(current) + 1} / {FONTS.length}</span>
+        <ChevronRight className={`w-4 h-4 text-white/50 transition-transform ${open ? "-rotate-90" : "rotate-90"}`} />
+      </button>
+      {open && (
+        <ul role="listbox" aria-label="Font" className="absolute z-20 left-0 right-0 mt-1.5 max-h-[300px] overflow-y-auto rounded-[12px] border border-[#2a2a2a] bg-[#141414] p-1 shadow-[0_16px_40px_rgba(0,0,0,0.6)]">
+          {FONTS.map((f) => {
+            const on = f.id === current.id;
+            return (
+              <li key={f.id} role="option" aria-selected={on}>
+                <button type="button" onClick={() => { onChange(f.id); setOpen(false); }}
+                  className="w-full min-h-[48px] px-3 rounded-[9px] flex items-center gap-3 text-left hover:bg-white/5" style={on ? { background: `${ring}1a` } : undefined}>
+                  <span className="flex-1 min-w-0 truncate text-[21px] leading-tight" style={titleFont(f.id)}>{f.label}</span>
+                  {on && <Check className="w-4 h-4 shrink-0" style={{ color: ring }} />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -501,7 +510,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   } else if (sheet === "send") {
     sheetEl = <SendSheet ring={ring} name={name} onClose={() => setSheet(null)} />;
   } else if (sheet === "preview") {
-    sheetEl = <Sheet title="A new event" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} sections={sections} title={false} /></Sheet>;
+    sheetEl = <Sheet title="Your header" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} title={false} /></Sheet>;
   } else if (sheet === "loads") {
     sheetEl = (
       <Sheet title="Every new event starts with" kicker="WHAT LOADS" color={ring} onClose={() => setSheet(null)}>
@@ -599,7 +608,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       {status}
       {sendBtn}
       {!desktop && <button type="button" onClick={() => setSheet("look")} className="min-h-[40px] px-3 rounded-[10px] border border-[#333] text-[13px] font-semibold flex items-center gap-1.5"><Palette className="w-4 h-4" />Look</button>}
-      {!desktop && <button type="button" onClick={() => setSheet("preview")} className="min-h-[40px] px-3 rounded-[10px] text-[13px] font-bold" style={{ background: ring, color: "#0d0d0d" }}>Preview</button>}
     </div>
   );
 
@@ -617,7 +625,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
             {sectionsBlock}
           </div>
           <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4">
-            <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} sections={sections} />
+            <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} />
           </div>
           <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4 flex flex-col gap-3">
             <div className="text-[22px]" style={TITLE_FONT.bold}>The look</div>

@@ -1,6 +1,6 @@
 // A company profile's one template, as a page they make their own (job 297).
 // Kept inside the template's data as data.page:
-//   look:   { cover_url, logo_url, color, header: photo|color|logo, layout: cards|list, title: bold|classic|clean }
+//   look:   { cover_url, logo_url, color, title: a FONTS id }  (header and layout: no longer offered, job 299)
 //   order:  section keys (built-in parts and custom section ids) in the order they show
 //   names:  { key: "Their name for it" }
 //   loads:  { key: "fill" | "ask" }  what happens on every new event
@@ -44,6 +44,42 @@ export const FIELD_KINDS = [
 ];
 export const kindLabel = (k) => FIELD_KINDS.find((f) => f.kind === k)?.label || "Text";
 
+// Title fonts for the page and the package (job 299). The first three ship
+// with the app; the rest load from Google Fonts the first time they're shown.
+export const FONTS = [
+  { id: "bold", label: "Bold", family: "'Barlow Condensed', sans-serif", weight: 700 },
+  { id: "classic", label: "Classic", family: "Georgia, 'Times New Roman', serif", weight: 600 },
+  { id: "clean", label: "Clean", family: "Inter, system-ui, sans-serif", weight: 700, spacing: "-0.01em" },
+  { id: "poster", label: "Poster", gf: "Bebas+Neue", family: "'Bebas Neue', sans-serif", weight: 400, spacing: "0.02em" },
+  { id: "groovy", label: "Groovy", gf: "Shrikhand", family: "'Shrikhand', serif", weight: 400 },
+  { id: "elegant", label: "Elegant", gf: "Playfair+Display:wght@700", family: "'Playfair Display', serif", weight: 700 },
+  { id: "slab", label: "Slab", gf: "Roboto+Slab:wght@700", family: "'Roboto Slab', serif", weight: 700 },
+  { id: "retro", label: "Retro", gf: "Righteous", family: "'Righteous', sans-serif", weight: 400 },
+  { id: "script", label: "Script", gf: "Pacifico", family: "'Pacifico', cursive", weight: 400 },
+  { id: "western", label: "Western", gf: "Rye", family: "'Rye', serif", weight: 400 },
+  { id: "typewriter", label: "Typewriter", gf: "Special+Elite", family: "'Special Elite', monospace", weight: 400 },
+  { id: "marker", label: "Marker", gf: "Permanent+Marker", family: "'Permanent Marker', cursive", weight: 400 },
+  { id: "rounded", label: "Rounded", gf: "Nunito:wght@800", family: "'Nunito', sans-serif", weight: 800 },
+  { id: "gothic", label: "Gothic", gf: "UnifrakturMaguntia", family: "'UnifrakturMaguntia', serif", weight: 400 },
+  { id: "mono", label: "Mono", gf: "Space+Mono:wght@700", family: "'Space Mono', monospace", weight: 700 },
+];
+const loadedFonts = new Set();
+export function loadFont(id) {
+  const f = FONTS.find((x) => x.id === id);
+  if (!f?.gf || loadedFonts.has(f.id) || typeof document === "undefined") return;
+  loadedFonts.add(f.id);
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `https://fonts.googleapis.com/css2?family=${f.gf}&display=swap`;
+  document.head.appendChild(link);
+}
+// The style for a title in this font (loads it if it needs to).
+export function titleFont(id) {
+  const f = FONTS.find((x) => x.id === id) || FONTS[0];
+  loadFont(f.id);
+  return { fontFamily: f.family, fontWeight: f.weight, ...(f.spacing ? { letterSpacing: f.spacing } : {}) };
+}
+
 export const COLORS = [
   { hex: "#60A5FA", label: "Blue" }, { hex: "#F5B342", label: "Amber" }, { hex: "#E879F9", label: "Violet" },
   { hex: "#34D399", label: "Teal" }, { hex: "#F1F1F1", label: "White" }, { hex: "#FB7185", label: "Rose" },
@@ -62,9 +98,10 @@ export function pageOf(data = {}) {
   return {
     look: {
       cover_url: look.cover_url || "", logo_url: look.logo_url || "", color: look.color || "",
-      header: ["photo", "color", "logo"].includes(look.header) ? look.header : "photo",
+      // The header is always the cover photo now (job 299 took the choice away).
+      header: "photo",
       layout: look.layout === "list" ? "list" : "cards",
-      title: ["bold", "classic", "clean"].includes(look.title) ? look.title : "bold",
+      title: FONTS.some((f) => f.id === look.title) ? look.title : "bold",
     },
     order: arr(p.order), names: obj(p.names), loads: obj(p.loads),
     custom: arr(p.custom), extra: obj(p.extra), hidden: obj(p.hidden),

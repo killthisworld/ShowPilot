@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import CustomFieldsView from "@/components/showpilot/CustomFieldsView";
 import { VENUE_PART_FIELDS } from "@/lib/roleTemplates";
-import { pageOf, sectionList, fieldFilled } from "@/lib/templatePage";
+import { pageOf, sectionList, fieldFilled, titleFont } from "@/lib/templatePage";
 
 // A venue's template, sent as a package (job 298): the web an act or tech
 // opens at /vp/CODE. Each section is a circle (the venue's order, names and
@@ -122,7 +122,7 @@ export default function VenuePackageView() {
   ) : null;
 
   if (readAll) {
-    const tf = look.title === "classic" ? { fontFamily: "Georgia, serif", fontWeight: 600 } : look.title === "clean" ? { fontFamily: "Inter, sans-serif", fontWeight: 700 } : COND;
+    const tf = titleFont(look.title);
     return (
       <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-5">
         <div className="w-full max-w-[640px] flex flex-col gap-4">
@@ -141,7 +141,7 @@ export default function VenuePackageView() {
           </div>
           {sections.map((s) => (
             <section key={s.key} aria-label={s.label} className="rounded-[14px] bg-[#151515] border border-[#262626] px-4 py-3">
-              <h2 className="m-0 text-[20px] mb-1" style={{ ...COND, color: look.color || "#fff" }}>{s.label}</h2>
+              <h2 className="m-0 text-[20px] mb-1" style={{ ...tf, color: look.color || "#fff" }}>{s.label}</h2>
               {s.rows.map(([k, v]) => <Row key={k} k={k} v={v} />)}
               {s.fields.length > 0 && <div className={s.rows.length ? "pt-3" : ""}><CustomFieldsView fields={s.fields} /></div>}
             </section>
