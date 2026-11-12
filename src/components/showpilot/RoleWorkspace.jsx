@@ -22,7 +22,6 @@ import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/S
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness, saveDeal, dealSummary } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
-import VenuePhoto from "@/components/showpilot/VenuePhoto";
 import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
 import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
 import { isPageMarkedDone } from "@/lib/donePages";
@@ -204,7 +203,7 @@ function SideRow({ left, right, rightColor, highlight }) {
 // `template` switches it into template editing (My Templates): only the
 // reusable tabs, no tasks / requests / other sections, and a name field.
 // Shape: { name, setName }. `p` then edits the template instead of an event.
-export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null, wide = false, onActMembers = null }) {
+export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = false, layout, webSlot, leaving = false, onBack, onOpenFanPage, onOpenDj = null, focus = null, defaultOpen = false, selected = false, onInvite = null, showContent = true, initialTab = null, template = null, homeIcon = null, solo = false, headSlot = null, wide = false, onActMembers = null, onlyTab = null }) {
   const navigate = useNavigate();
   // The section of the event this circle belongs to (Manager and Artist share one, Audio and Lighting share one).
   const section = SECTION_OF[role] || role;
@@ -316,10 +315,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([gig.venue, gig.city, vi.address]), 3),
         render: () => (
           <>
-            {/* On an event the venue's picture is its circle on the web (set
-                from the camera on the web's center, job 181); a venue
-                template still sets it here. */}
-            {template && <VenuePhoto value={vi.photo_url || ""} onChange={(url) => setVi("photo_url", url)} editable={!off} accent={color} />}
+            {/* No photo here (job 303): on an event the venue's picture is
+                its circle on the web; a template has its banner and circle
+                on My Template. */}
             <In label="Venue" value={gig.venue} onChange={(v) => p.update("venue", v)} disabled={off} placeholder="Venue name" />
             <In label="Street address" value={vi.address} onChange={(v) => setVi("address", v)} disabled={off} placeholder="1604 8th Ave S" />
             <Grid><In label="City" value={gig.city} onChange={(v) => p.update("city", v)} disabled={off} /><In label="State" value={gig.state} onChange={(v) => p.update("state", v)} disabled={off} /></Grid>
@@ -640,8 +638,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: stateOf(countFilled([mi.contact_name, mi.contact_phone, mi.contact_email]), 3),
         render: () => (
           <>
-            {/* On an event the manager's picture is its circle on the web (job 182); a template still sets it here. */}
-            {template && <VenuePhoto kind="artist" value={mi.photo_url || ""} onChange={(url) => setMi("photo_url", url)} editable={!off} accent={color} />}
+            {/* No photo here (job 303): the circle on the web, and My Template's banner and circle. */}
             <Grid><In label="Name" value={mi.contact_name} onChange={(v) => setMi("contact_name", v)} disabled={off} /><In label="Title" value={mi.contact_title} onChange={(v) => setMi("contact_title", v)} disabled={off} placeholder="Manager, tour manager, member" /></Grid>
             <Grid><In label="Phone" value={mi.contact_phone} onChange={(v) => setMi("contact_phone", v)} disabled={off} /><In label="Email" value={mi.contact_email} onChange={(v) => setMi("contact_email", v)} disabled={off} /></Grid>
           </>
@@ -1242,6 +1239,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       label={ROLE_TITLE[role].toLowerCase()}
     />
   ) : null;
+
+  // One page's fields by themselves: My Template's section sheet edits them
+  // in place (job 303), with no tabs, header or save button around them.
+  if (onlyTab) {
+    const t = tabs.find((x) => x.key === onlyTab);
+    return t ? <div className="flex flex-col gap-3">{t.render()}</div> : null;
+  }
 
   if (layout === "pages") {
     const dotColor = { done: G, partial: AMBER, empty: "rgba(255,255,255,0.22)" };

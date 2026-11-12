@@ -406,6 +406,9 @@ export default function MyTemplates() {
                   ) : (
                     <PerformerFields
                       band={{ ...t.data, band_name: t.name }}
+                      // Venue / manager / artist: no act photo here, their
+                      // banner and circle are enough (job 303). Techs keep it.
+                      withPhoto={isTech}
                       onPatch={({ band_name, ...rest }) => setTemplate(t.key, (cur) => ({
                         ...cur,
                         ...(band_name !== undefined ? { name: band_name } : {}),
@@ -741,7 +744,6 @@ export default function MyTemplates() {
       desktop={desktop}
       onCreate={createMine}
       onSave={async (name, data) => { await writeTemplate(myTpl, name, data); }}
-      onEditDetails={(tab) => myTpl && openEditor(myTpl, tab)}
       actsBlock={actsBlock}
     />
   ));

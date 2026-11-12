@@ -37,7 +37,7 @@ const EVENT_ONLY = {
   manager: ["set_times", "arrival_time", "hotel"],
 };
 
-const VENUE_TECH_KEYS = ["city", "state", "wifi_network", "wifi_password", "console", "power_notes"];
+export const VENUE_TECH_KEYS = ["city", "state", "wifi_network", "wifi_password", "console", "power_notes"];
 
 // The parts of a venue template (job 185). The venue ticks which parts a
 // template carries (data.exclude lists the ones left out; older templates

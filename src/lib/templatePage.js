@@ -39,7 +39,7 @@ export const FIELD_KINDS = [
   { kind: "yesno", label: "Yes / no" },
   { kind: "time", label: "Time" },
   { kind: "checklist", label: "Checklist" },
-  { kind: "file", label: "Photo or file" },
+  { kind: "file", label: "File" },
   { kind: "link", label: "Link" },
 ];
 export const kindLabel = (k) => FIELD_KINDS.find((f) => f.kind === k)?.label || "Text";

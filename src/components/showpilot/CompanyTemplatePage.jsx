@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, Camera, Check, ChevronRight, Copy, Eye, EyeOff, ImagePlus, Mail, MessageSquare, Palette, Plus, Send, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Camera, Check, ChevronRight, Copy, ImagePlus, Mail, MessageSquare, Palette, Plus, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { VENUE_PART_FIELDS, MANAGER_PART_FIELDS } from "@/lib/roleTemplates";
+import { gigFromTemplate, templateFromGig, templateExclude, VENUE_TECH_KEYS } from "@/lib/roleTemplates";
+import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
+import { useAuth } from "@/lib/AuthContext";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { cropImage } from "@/lib/cropImage";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -26,8 +28,8 @@ import {
 // a page of their own. The look (cover, logo, color, header, layout, title),
 // the sections (order, names, hidden fields, fields and sections of their
 // own) and what every new event starts with (fill it in / ask me / leave out).
-// The built-in details are still edited in the event workspace's editor
-// (onEditDetails opens it at that section).
+// A section's details are edited right in its sheet (job 303): the same
+// fields as the event page, through RoleWorkspace's onlyTab.
 const COND = "'Barlow Condensed', sans-serif";
 const MONO = { fontFamily: SCENE_MONO };
 const TITLE_FONT = { bold: { fontFamily: COND, fontWeight: 700 }, classic: { fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 600 }, clean: { fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, letterSpacing: "-0.01em" } };
@@ -35,9 +37,6 @@ const MODE = { fill: "AUTO", ask: "ASK", off: "OFF", kept: "IN CHAT" };
 const MODE_LONG = { fill: "Fill it in", ask: "Ask me", off: "Leave out" };
 const inputCls = "w-full min-h-[46px] px-3 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white text-base placeholder:text-white/30 outline-none focus:border-white/40";
 const label = "block text-[10.5px] tracking-[0.12em] text-white/55 mb-1.5";
-const pretty = (k) => k.replace(/^tpl_/, "").replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase()).replace(/\bpa\b/i, "PA").replace(/\bwifi\b/i, "Wi-Fi");
-const isEmpty = (v) => v == null || (typeof v === "string" && !v.trim()) || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length);
-const valueText = (v) => (Array.isArray(v) ? `${v.length} item${v.length === 1 ? "" : "s"}` : typeof v === "object" ? "Set" : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v));
 
 // One line per built-in section from what's in the template.
 function summaries(role, data = {}) {
@@ -70,18 +69,6 @@ function summaries(role, data = {}) {
     merch: j(s.merch_split && `split ${s.merch_split}`, s.merch_table),
     documents: n(s.documents, "file"),
   };
-}
-
-// The built-in fields of a section that have something, for hiding.
-function builtInFields(role, data, key) {
-  const map = role === "venue" ? VENUE_PART_FIELDS[key] : { section: MANAGER_PART_FIELDS[key] || [] };
-  if (!map) return [];
-  const s = data.section || {};
-  const g = data.gig || {};
-  const out = [];
-  for (const k of map.gig || []) if (!isEmpty(g[k] ?? data[k])) out.push({ key: k, value: g[k] ?? data[k] });
-  for (const k of map.section || []) if (!isEmpty(s[k])) out.push({ key: k, value: s[k] });
-  return out.filter((f) => !["tpl_deal", "event_link_setup", "event_link_email", "saved_replies", "task_presets", "advance_steps"].includes(f.key));
 }
 
 function Sheet({ title, kicker, color, onClose, children, wide = false }) {
@@ -149,7 +136,7 @@ function FieldEditor({ field, onChange, onRemove, onMove, color }) {
       </div>
     ) : (
       <label className="min-h-[46px] rounded-lg border border-dashed border-[#3a3a3a] flex items-center justify-center text-[14px] font-semibold text-white/70 cursor-pointer">
-        {busy ? "Uploading…" : "Choose a photo or file"}
+        {busy ? "Uploading…" : "Choose a file"}
         <input type="file" className="sr-only" onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
       </label>
     );
@@ -380,7 +367,8 @@ function SendSheet({ ring, name, onClose }) {
   );
 }
 
-export default function CompanyTemplatePage({ role, template, displayName, desktop, onCreate, onSave, onEditDetails, actsBlock = null }) {
+export default function CompanyTemplatePage({ role, template, displayName, desktop, onCreate, onSave, actsBlock = null }) {
+  const { user } = useAuth();
   const ring = role === "venue" ? ACCOUNT_TYPE_STYLES.venue.color : ACCOUNT_TYPE_STYLES.manager.color;
   const { preferences } = usePreferences();
   const profilePhoto = preferences?.profile_photo_url || "";
@@ -409,6 +397,33 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
 
   const page = pageOf(data);
   const look = page.look;
+  // The template as an event, for the section fields (job 303). Every change
+  // goes straight back into the template's data and autosaves.
+  const gigOf = (d) => {
+    const g = { id: `tpl_${user?.id || "me"}`, ...gigFromTemplate(role, name, d) };
+    // The sheet has its own Fill / Ask / Leave out, so the fields always show.
+    if (role === "venue") g.template_exclude = [];
+    return g;
+  };
+  const putGig = (fn) => setData((d) => {
+    const g = fn(gigOf(d));
+    if (role === "venue") g.template_exclude = templateExclude(d);
+    const next = templateFromGig(role, g);
+    const out = { ...d, ...next };
+    // A cleared Wi-Fi, console, city... doesn't come back from the old top-level copy.
+    if (role === "venue") for (const k of VENUE_TECH_KEYS) if (!(k in next)) delete out[k];
+    return out;
+  });
+  const fieldsP = {
+    gig: gigOf(data), editable: true, canEdit: true, user, permissions: { is_owner: true }, canEditSection: () => true,
+    update: (k, v) => putGig((g) => ({ ...g, [k]: v })),
+    updateSection: (s, k, v) => putGig((g) => ({ ...g, [s]: { ...(g[s] || {}), [k]: v } })),
+    handleSave: () => {}, saving: false, saved: false,
+    addRequirement: () => {}, updateRequirementStatus: () => {}, deleteRequirement: () => {},
+    claimTask: async () => {}, markTaskDone: async () => {}, setTaskDetails: async () => {}, setTaskDueDate: async () => {}, setTaskDone: () => {},
+    addBand: () => {}, updateBand: () => {}, removeBand: () => {},
+  };
+  const tplMeta = { name, setName };
   const sums = useMemo(() => summaries(role, data), [role, data]);
   const sections = useMemo(() => sectionList(role, data, sums), [role, data, sums]);
   const setLook = (patch) => setData((d) => withPage(d, { look: { ...pageOf(d).look, ...patch } }));
@@ -545,7 +560,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     const s = sections.find((x) => x.key === key);
     if (s) {
       const hiddenList = page.hidden[key] || [];
-      const fields = s.builtIn ? builtInFields(role, data, key) : [];
       const setFields = (list) => setData((d) => {
         const p = pageOf(d);
         return s.builtIn ? withPage(d, { extra: { ...p.extra, [key]: list } }) : withPage(d, { custom: p.custom.map((c) => (c.id === key ? { ...c, fields: list } : c)) });
@@ -554,33 +568,23 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         const p = pageOf(d);
         return s.builtIn ? withPage(d, { names: { ...p.names, [key]: v } }) : withPage(d, { custom: p.custom.map((c) => (c.id === key ? { ...c, name: v } : c)) });
       });
-      const toggleHidden = (fk) => setPage({ hidden: { ...page.hidden, [key]: hiddenList.includes(fk) ? hiddenList.filter((x) => x !== fk) : [...hiddenList, fk] } });
+      const showHidden = () => setPage({ hidden: { ...page.hidden, [key]: [] } });
       const removeSection = () => { setData((d) => { const p = pageOf(d); return withPage(d, { custom: p.custom.filter((c) => c.id !== key), order: p.order.filter((k) => k !== key) }); }); setSheet(null); };
       const currentName = s.builtIn ? (page.names[key] ?? "") : (page.custom.find((c) => c.id === key)?.name ?? "");
       sheetEl = (
         <Sheet title={s.label} kicker={s.builtIn ? "SECTION" : "YOUR OWN SECTION"} color={ring} onClose={() => setSheet(null)}>
-          <label>
-            <span className={label} style={MONO}>SECTION NAME</span>
-            <input value={currentName} onChange={(e) => rename(e.target.value)} placeholder={s.base || "e.g. Parking pass"} className={`${inputCls} text-[18px] font-semibold`} />
-          </label>
-          {s.builtIn && (
-            <div className="flex flex-col gap-1.5">
-              <span className={label + " mb-0"} style={MONO}>WHAT'S IN IT</span>
-              {fields.length ? fields.map((f) => {
-                const off = hiddenList.includes(f.key);
-                return (
-                  <div key={f.key} className="flex items-center gap-2 min-h-[50px] pl-3 pr-1 rounded-[11px] bg-[#101010] border border-[#262626]" style={{ opacity: off ? 0.5 : 1 }}>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-[10px] tracking-[0.1em] text-white/55" style={MONO}>{pretty(f.key).toUpperCase()}</span>
-                      <span className="block text-[14px] truncate">{valueText(f.value)}</span>
-                    </span>
-                    <button type="button" aria-pressed={!off} aria-label={off ? `Load ${pretty(f.key)} on events` : `Don't load ${pretty(f.key)} on events`} onClick={() => toggleHidden(f.key)} className="w-11 h-11 text-white/60 hover:text-white">
-                      {off ? <EyeOff className="w-4 h-4 mx-auto" /> : <Eye className="w-4 h-4 mx-auto" />}
-                    </button>
-                  </div>
-                );
-              }) : <p className="m-0 text-[13.5px] text-white/50">Nothing filled in here yet.</p>}
-              <button type="button" onClick={() => { setSheet(null); onEditDetails(key); }} className="min-h-[46px] rounded-[12px] border text-[14px] font-semibold" style={{ borderColor: `${ring}77`, color: ring }}>Edit the details</button>
+          {!s.builtIn && (
+            <label>
+              <span className={label} style={MONO}>SECTION NAME</span>
+              <input value={currentName} onChange={(e) => rename(e.target.value)} placeholder="e.g. Parking pass" className={`${inputCls} text-[18px] font-semibold`} />
+            </label>
+          )}
+          {/* The details themselves, edited right here (job 303). */}
+          {s.builtIn && <RoleWorkspace role={role} p={fieldsP} template={tplMeta} onlyTab={key} />}
+          {s.builtIn && hiddenList.length > 0 && (
+            <div className="flex items-center gap-2 rounded-[11px] border border-[#2a2a2a] px-3 py-2">
+              <span className="flex-1 text-[13px] text-white/60">{hiddenList.length} field{hiddenList.length === 1 ? "" : "s"} here {hiddenList.length === 1 ? "doesn't" : "don't"} load on events.</span>
+              <button type="button" onClick={showHidden} className="min-h-[38px] px-2 text-[13px] font-semibold" style={{ color: ring }}>Load {hiddenList.length === 1 ? "it" : "them"}</button>
             </div>
           )}
           <div className="flex flex-col gap-1.5">
@@ -591,6 +595,12 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
             <span className={label + " mb-0"} style={MONO}>ON EVERY NEW EVENT</span>
             <ModePicker value={s.mode} kept={s.mode === "kept"} onChange={(m) => setData((d) => setMode(role, d, key, m))} color={ring} />
           </div>
+          {s.builtIn && (
+            <label>
+              <span className={label} style={MONO}>CALL THIS SECTION</span>
+              <input value={currentName} onChange={(e) => rename(e.target.value)} placeholder={s.base} className={inputCls} />
+            </label>
+          )}
           {!s.builtIn && <button type="button" onClick={removeSection} className="min-h-[44px] rounded-[12px] text-[14px] font-semibold text-red-400 border border-red-500/30">Delete this section</button>}
           <button type="button" onClick={() => setSheet(null)} className="min-h-[50px] rounded-[12px] font-bold text-[15px]" style={{ background: ring, color: "#0d0d0d" }}>Done</button>
         </Sheet>
