@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import RemindersBox from "@/components/showpilot/RemindersBox";
 import { eventTitle } from "@/lib/eventTitle";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Check, ClipboardList, Plus } from "lucide-react";
@@ -130,6 +131,9 @@ export default function EventTasks() {
           <Link to={`/gig/web?token=${token}`} className="h-9 lg:h-10 px-3.5 rounded-[10px] flex items-center text-[14px] font-semibold bg-[#1a1a1a] border border-[#333] text-white/85 hover:text-white">Open web</Link>
         </div>
       </div>
+
+      {/* Your own reminders for this event (Jay 2026-11-12), on this phone. */}
+      <div className="mx-4 lg:mx-6 mt-3 max-w-xl"><RemindersBox event={titleText} token={token} /></div>
 
       {error && <p className="mx-4 lg:mx-6 mt-3 text-[13px] text-red-300 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">{error}</p>}
 

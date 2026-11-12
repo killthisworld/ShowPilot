@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster"
+import ReminderAlarm from "@/components/showpilot/ReminderAlarm"
 import OfflineBanner from "@/components/showpilot/OfflineBanner"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -160,6 +161,7 @@ function App() {
         </Router>
         <Toaster />
         <OfflineBanner />
+        <ReminderAlarm />
       </QueryClientProvider>
     </AuthProvider>
   )

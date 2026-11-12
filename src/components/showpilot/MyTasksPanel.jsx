@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import RemindersBox from "@/components/showpilot/RemindersBox";
 import { useNavigate } from "react-router-dom";
 import { X, ChevronRight, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -54,7 +55,9 @@ export default function MyTasksPanel({ tasks, onClose, top = 68, phone = false }
         </div>
         {err && <p className="mx-[18px] mb-2 text-[13px] text-red-400">{err}</p>}
         <div className="flex-1 min-h-0 overflow-y-auto px-[18px] pb-5 flex flex-col gap-4" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
-          {tasks.length === 0 && <p className="text-white/45 text-[15px] pt-8 text-center">Nothing on your list.</p>}
+          {/* Reminders for later (Jay 2026-11-12), above the tasks. */}
+          <RemindersBox />
+          {tasks.length === 0 && <p className="text-white/45 text-[15px] pt-4 text-center">No tasks on your list.</p>}
           {groups.filter((g) => g.items.length).map((g) => (
             <section key={g.key} className="flex flex-col gap-1.5">
               <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: g.color }}>{g.label} · {g.items.length}</span>
