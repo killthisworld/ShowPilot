@@ -20,10 +20,15 @@ function siteUrl(): string {
   return /^https?:\/\/[^\s/]+$/i.test(fromEnv) ? fromEnv : DEFAULT_SITE;
 }
 
+type NotchFile = { path: string; name?: string; type?: string; size?: number };
 type Notch = {
   id: string; days_before: number | string; type?: string; subject?: string; message?: string;
-  kind?: string; title?: string; film?: boolean;
+  kind?: string; title?: string; film?: boolean; files?: NotchFile[];
 };
+// What a notch's own files become (job 308): pictures shown in the email
+// (private links), documents attached.
+type Media = { pictures: string[]; attachments: { filename: string; content: string }[] };
+const NO_MEDIA: Media = { pictures: [], attachments: [] };
 type Ev = {
   event_name?: string; band_name?: string; date: string; door_time?: string; show_time?: string;
   venue?: string; address?: string; city?: string; state?: string; flyer_url?: string; door_price?: string;
@@ -45,7 +50,7 @@ const dateLong = (iso: string) =>
   new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
 const whenWord = (d: number) => (d === 0 ? "Tonight" : d === 1 ? "Tomorrow" : d < 7 ? `${d} days to go` : d === 7 ? "One week to go" : d === 14 ? "Two weeks to go" : `${d} days to go`);
 
-export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
+export function buildCountdownEmail(site: string, due: Due, fan: Rsvp, media: Media = NO_MEDIA) {
   const ev = due.event;
   const n = due.notch;
   // Below zero = after the show (job 244): -1 the day after, and so on.
@@ -75,6 +80,7 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
   if (ev.venue) rows.push(["VENUE", ev.venue]);
   if (!after && (ev.address || place)) rows.push(["ADDRESS", [ev.address, place].filter(Boolean).join(", ")]);
   if (!after && ev.door_price) rows.push(["AT THE DOOR", ev.door_price]);
+  if (media.attachments.length) rows.push(["ATTACHED", media.attachments.map((a) => a.filename).join(", ")]);
   // Hype meter (job 234): one tap opens the fan's sky and records the answer.
   const hypeLink = (lvl: number) => `${sky}&hype=${encodeURIComponent(n.id)}.${lvl}`;
   const postLink = `${sky}&post=1`;
@@ -114,6 +120,7 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
           ${rows.map(([k, v], i) => `<tr><td style="padding:10px 14px;${i ? "border-top:1px solid #1c2042;" : ""}font-family:${mono};font-size:11px;letter-spacing:.12em;color:#7e83b8;width:100px;vertical-align:top;">${k}</td><td style="padding:10px 14px;${i ? "border-top:1px solid #1c2042;" : ""}font-size:15px;">${esc(v)}</td></tr>`).join("")}
         </table>
       </td></tr>
+      ${media.pictures.map((u) => `<tr><td style="padding:0 0 14px;"><img src="${esc(u)}" alt="" width="520" style="display:block;width:100%;height:auto;max-height:560px;object-fit:cover;border-radius:14px;border:1px solid #232849;"></td></tr>`).join("")}
       ${!unlock ? `<tr><td style="padding:0 0 6px;"><a href="${esc(sky)}" style="display:inline-block;padding:12px 20px;background:${G};color:#0d0d0d;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;">${after ? "Open your sky" : "Open your key"} &rsaquo;</a>
         <a href="${esc(base)}" style="display:inline-block;margin-left:6px;padding:12px 16px;border:1px solid #232849;border-radius:12px;color:#fff;font-weight:700;font-size:15px;text-decoration:none;">Event page</a></td></tr>` : ""}
       ${after ? "" : `<tr><td style="padding:18px 0 0;">
@@ -140,6 +147,8 @@ export function buildCountdownEmail(site: string, due: Due, fan: Rsvp) {
     film ? `Stellar Birth: every star from the night came together. Watch it and save the video:\n${watch}\n` : null,
     unlock ? `Your key turned a notch. Something new is waiting in the sky: ${teaser}\n${sky}\n` : null,
     message ? `From the host:\n${message}\n` : null,
+    ...media.pictures.map((u) => `Picture: ${u}`),
+    media.pictures.length ? "" : null,
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
     unlock ? null : `${after ? "Open your sky" : "Open your key"}: ${sky}`,
@@ -202,6 +211,52 @@ export function buildFilmEmail(site: string, due: FilmDue, fan: Rsvp) {
   return { subject, html, text, stop };
 }
 
+// A notch's pictures and documents (job 308). Only files in the event
+// owner's own folder of the private fan-files bucket count. Pictures get a
+// private link that lasts until a month after the show; PDFs are attached
+// (5 MB each, 15 MB in all). A file that can't be read is skipped so the
+// email still goes out.
+const FAN_FILES = "fan-files";
+const PIC_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_FILE = 5 * 1024 * 1024, MAX_TOTAL = 15 * 1024 * 1024;
+const safeName = (name: unknown) => {
+  const base = String(name ?? "").replace(/\.[A-Za-z0-9]{1,5}$/, "").replace(/[^\w .()\-]+/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "attachment";
+  return `${base}.pdf`;
+};
+const toBase64 = (bytes: Uint8Array) => {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+async function notchMedia(admin: any, item: Due): Promise<Media> {
+  const files = Array.isArray(item.notch.files) ? item.notch.files.slice(0, 3) : [];
+  if (!files.length) return NO_MEDIA;
+  const { data: show } = await admin.from("shows").select("owner_id, date").eq("id", item.show_id).maybeSingle();
+  if (!show?.owner_id) return NO_MEDIA;
+  const ok = (f: NotchFile) => typeof f?.path === "string" && f.path.startsWith(`${show.owner_id}/`) && !f.path.includes("..");
+  const day = 86_400;
+  const untilShow = show.date ? Math.ceil((new Date(`${show.date}T00:00:00Z`).getTime() - Date.now()) / 1000) : 0;
+  const seconds = Math.min(365 * day, Math.max(30 * day, untilShow + 30 * day));
+  const out: Media = { pictures: [], attachments: [] };
+  let total = 0;
+  for (const f of files) {
+    if (!ok(f)) continue;
+    if (PIC_TYPES.includes(String(f.type))) {
+      const { data, error } = await admin.storage.from(FAN_FILES).createSignedUrl(f.path, seconds);
+      if (error || !data?.signedUrl) { console.error("Picture link failed", f.path, error); continue; }
+      out.pictures.push(data.signedUrl);
+    } else if (f.type === "application/pdf") {
+      const { data: blob, error } = await admin.storage.from(FAN_FILES).download(f.path);
+      if (error || !blob) { console.error("Attachment download failed", f.path, error); continue; }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (bytes.length > MAX_FILE || total + bytes.length > MAX_TOTAL) continue;
+      total += bytes.length;
+      out.attachments.push({ filename: safeName(f.name), content: toBase64(bytes) });
+    }
+  }
+  return out;
+}
+
 Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
   const { data: ok } = await admin.rpc("check_digest_secret", { p_secret: req.headers.get("x-cron-secret") ?? "" });
@@ -220,8 +275,9 @@ Deno.serve(async (req) => {
 
   for (const item of due) {
     const done: string[] = [];
+    const media = await notchMedia(admin, item); // once per notch, shared by every fan
     for (const fan of item.rsvps ?? []) {
-      const { subject, html, text, stop } = buildCountdownEmail(site, item, fan);
+      const { subject, html, text, stop } = buildCountdownEmail(site, item, fan, media);
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -230,7 +286,7 @@ Deno.serve(async (req) => {
           // One email per notch per RSVP, even if a run is retried.
           "Idempotency-Key": `fan-countdown-${item.show_id}-${item.notch.id}-${fan.rsvp_id}`,
         },
-        body: JSON.stringify({ from, to: [fan.email], subject, html, text, headers: { "List-Unsubscribe": `<${stop}>` } }),
+        body: JSON.stringify({ from, to: [fan.email], subject, html, text, headers: { "List-Unsubscribe": `<${stop}>` }, ...(media.attachments.length ? { attachments: media.attachments } : {}) }),
       });
       if (!res.ok) { failed++; console.error("Resend error", res.status, (await res.text()).slice(0, 300)); continue; }
       done.push(fan.rsvp_id);

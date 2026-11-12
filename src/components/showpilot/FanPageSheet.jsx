@@ -168,6 +168,8 @@ function OwnerSheet({ showId, onClose }) {
           time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(n.time || "")) ? n.time : "10:00",
           type: n.type === "unlock" ? "unlock" : "reminder", subject: n.subject || "", message: n.message || "", kind: n.kind || "",
           title: n.title || "", body: n.body || "", image_url: n.image_url || "", link_url: n.link_url || "",
+          // Pictures and documents for this email (job 308), in fan-files.
+          files: Array.isArray(n.files) ? n.files.filter((f) => f && typeof f.path === "string").slice(0, MAX_FILES) : [],
         })) : [],
       },
     };
@@ -218,17 +220,15 @@ function OwnerSheet({ showId, onClose }) {
 
   // Uploads right away (so the name and size show), but the file only goes
   // into emails once the owner presses Publish.
-  const pickAttachments = async (e) => {
-    const picked = [...(e.target.files || [])];
-    e.target.value = "";
-    if (!picked.length) return;
-    const room = MAX_FILES - draft.files.length;
-    if (picked.length > room) { setErr(`Up to ${MAX_FILES} files per event.`); return; }
+  // Checks and uploads picked files to the private fan-files bucket; returns
+  // the saved list entries. Shared by the RSVP email attachments and each
+  // countdown email's pictures and documents (job 308).
+  const uploadFanFiles = async (picked, room, what) => {
+    if (picked.length > room) { setErr(`Up to ${MAX_FILES} files per ${what}.`); return []; }
     const bad = picked.find((f) => !FILE_TYPES.includes(f.type));
-    if (bad) { setErr(`"${bad.name}" isn't a PDF or image. Attach PDFs, JPGs or PNGs.`); return; }
+    if (bad) { setErr(`"${bad.name}" isn't a PDF or picture. Add PDFs, JPGs or PNGs.`); return []; }
     const big = picked.find((f) => f.size > MAX_FILE_MB * 1024 * 1024);
-    if (big) { setErr(`"${big.name}" is over ${MAX_FILE_MB} MB. Try a smaller version.`); return; }
-    setAttaching(true);
+    if (big) { setErr(`"${big.name}" is over ${MAX_FILE_MB} MB. Try a smaller version.`); return []; }
     const { data: auth } = await supabase.auth.getUser();
     const uid = auth?.user?.id;
     const added = [];
@@ -239,8 +239,35 @@ function OwnerSheet({ showId, onClose }) {
       if (error) { setErr(`Couldn't upload "${f.name}". Try again.`); break; }
       added.push({ path, name: f.name.slice(0, 80), size: f.size, type: f.type });
     }
+    return added;
+  };
+  const pickAttachments = async (e) => {
+    const picked = [...(e.target.files || [])];
+    e.target.value = "";
+    if (!picked.length) return;
+    setAttaching(true);
+    const added = await uploadFanFiles(picked, MAX_FILES - draft.files.length, "event");
     setAttaching(false);
     if (added.length) set({ files: [...draft.files, ...added] });
+  };
+  // Countdown email files (job 308): the notch the picker is open for.
+  const notchFilesRef = useRef(null);
+  const [notchFilesFor, setNotchFilesFor] = useState(null);
+  const [notchUploading, setNotchUploading] = useState(null);
+  const pickNotchFiles = async (e) => {
+    const picked = [...(e.target.files || [])];
+    e.target.value = "";
+    const id = notchFilesFor;
+    if (!picked.length || !id) return;
+    const notch = (draft.countdown?.notches || []).find((x) => x.id === id);
+    if (!notch) return;
+    setErr(""); setNotchUploading(id);
+    const added = await uploadFanFiles(picked, MAX_FILES - (notch.files || []).length, "email");
+    setNotchUploading(null);
+    if (added.length) {
+      setPublished(false);
+      setDraft((d) => ({ ...d, countdown: { ...d.countdown, notches: d.countdown.notches.map((x) => (x.id === id ? { ...x, files: [...(x.files || []), ...added] } : x)) } }));
+    }
   };
 
   const publish = async () => {
@@ -317,6 +344,7 @@ function OwnerSheet({ showId, onClose }) {
             subject: n.subject.trim().slice(0, 150), message: n.message.trim().slice(0, 1500),
             kind: n.type === "unlock" ? n.kind || "note" : "", title: n.title.trim().slice(0, 80), body: n.body.trim().slice(0, 2000),
             image_url: n.image_url, link_url: n.link_url.trim(),
+            files: (n.files || []).slice(0, MAX_FILES).map((f) => ({ path: f.path, name: String(f.name || "").slice(0, 80), size: Number(f.size) || 0, type: f.type })),
           })),
         },
       })
@@ -767,7 +795,7 @@ function OwnerSheet({ showId, onClose }) {
   const setCd = (patch) => set({ countdown: { ...cd, ...patch } });
   const setNotch = (id, patch) => setCd({ notches: cd.notches.map((n) => (n.id === id ? { ...n, ...patch } : n)) });
   const newNotchId = () => `n${Math.random().toString(36).slice(2, 8)}`;
-  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, time: "10:00", type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", film: false, ...extra });
+  const blankNotch = (days, type, extra = {}) => ({ id: newNotchId(), days_before: days, time: "10:00", type, subject: "", message: "", kind: type === "unlock" ? "note" : "", title: "", body: "", image_url: "", link_url: "", film: false, files: [], ...extra });
   const QUICK = {
     reminder: () => [blankNotch(1, "reminder", { subject: `Get ready for ${title}` })],
     full: () => [
@@ -948,6 +976,7 @@ function OwnerSheet({ showId, onClose }) {
   const countdownTab = draft && (
     <div className="space-y-3">
       <input ref={notchImageRef} type="file" accept="image/*" className="hidden" onChange={pickNotchImage} />
+      <input ref={notchFilesRef} type="file" multiple accept={FILE_TYPES.join(",")} className="hidden" onChange={pickNotchFiles} />
       {section("Countdown", <>
         {segmented([[false, "Off"], [true, "On"]], !!cd.enabled, (k) => setCd({ enabled: k, notches: k && !cd.notches.length ? QUICK.reminder() : cd.notches }), "Countdown")}
         {note(cd.enabled
@@ -1048,6 +1077,27 @@ function OwnerSheet({ showId, onClose }) {
             {label("MESSAGE (OPTIONAL)", "mt-3")}
             <textarea ref={fitBox} onInput={(e) => fitBox(e.currentTarget)} className={`${inputCls} mt-1.5 min-h-[220px] !leading-[1.45] resize-y`} maxLength={1500} value={n.message} onChange={(e) => setNotch(n.id, { message: e.target.value })}
               placeholder={afterShow ? "A thank-you, photos, what's next. The date and venue are added automatically." : unlock ? "A line to go with the unlock" : "Anything fans should know. Date, doors, venue and their key are added automatically."} />
+
+            {/* Pictures and documents (job 308): pictures show in the email,
+                PDFs come attached. Up to 3, 5 MB each. */}
+            {label("PICTURES & DOCUMENTS", "mt-3")}
+            <div className="mt-1.5 space-y-1.5">
+              {(n.files || []).map((f, i) => (
+                <div key={f.path} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#0a0c1c] border border-[#1c2042]">
+                  {String(f.type).startsWith("image/") ? <ImagePlus className="w-4 h-4 text-white/50 shrink-0" /> : <FileText className="w-4 h-4 text-white/50 shrink-0" />}
+                  <span className="min-w-0 flex-1 truncate text-[15px] text-white">{f.name}</span>
+                  <span className="text-[12px] text-white/45 shrink-0">{String(f.type).startsWith("image/") ? "in the email" : "attached"} · {fileSize(f.size || 0)}</span>
+                  <button type="button" onClick={() => setNotch(n.id, { files: n.files.filter((_, j) => j !== i) })} aria-label={`Remove ${f.name}`} className="p-1 text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
+              {(n.files || []).length < MAX_FILES && (
+                <button type="button" disabled={!!notchUploading} onClick={() => { setNotchFilesFor(n.id); notchFilesRef.current?.click(); }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0a0c1c] border border-dashed border-[#262b52] text-white/80 text-[15px] font-semibold hover:text-white disabled:opacity-50">
+                  <Plus className="w-4 h-4" /> {notchUploading === n.id ? "Uploading..." : "Add pictures or documents"}
+                </button>
+              )}
+            </div>
+            <p className="mt-1.5 text-[13px]" style={{ color: DIM }}>Pictures show in the email; PDFs come attached. Up to {MAX_FILES}, {MAX_FILE_MB} MB each.</p>
 
             {unlock && (
               <div className="mt-3 rounded-xl p-3" style={{ background: "#0a0c1c", border: "1px solid #1c2042" }}>
