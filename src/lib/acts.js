@@ -90,3 +90,12 @@ export function useActGigs(gigs) {
     });
   }, [gigs, multi, current, ownNames]);
 }
+
+// The acts on an event (its lineup), and whether a row tied to an act (a
+// party member, a merch item; null = every act) belongs there. An event with
+// no lineup yet takes everything.
+export const actsOnGig = (gig) => (gig?.bands || []).map((b) => b.band_name).filter((n) => norm(n));
+export function forActs(actName, names) {
+  if (!actName || !names || !names.length) return true;
+  return names.some((n) => norm(n) === norm(actName));
+}

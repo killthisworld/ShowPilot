@@ -4,6 +4,7 @@ import { ArrowLeft, Minus, Plus, ChevronDown, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { eventTitle } from "@/lib/eventTitle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
+import { useActs, actsOnGig, forActs } from "@/lib/acts";
 
 // Merch counts (job 73, "On the road" stage 8). Your merch is kept once
 // (Edit items: name, price, sizes); each night you count what goes out to
@@ -16,7 +17,14 @@ const usd = (n) => `$${(Math.round(n * 100) / 100).toLocaleString("en-US", { max
 const keyOf = (itemId, size) => `${itemId}|${size || ""}`;
 
 export default function MerchSheet({ gig, accent = "#F87171", onClose }) {
-  const [items, setItems] = useState(null);
+  const [allItems, setItems] = useState(null);
+  // More than one act (stage 3): each item can belong to one act; an event
+  // shows the items of the acts on its lineup (and the ones for every act).
+  const { multi, acts, current } = useActs();
+  const onGig = actsOnGig(gig);
+  const items = allItems && multi ? allItems.filter((it) => forActs(it.act_name, onGig)) : allItems;
+  const ourActsHere = multi ? acts.filter((a) => forActs(a.name, onGig)) : [];
+  const [forAct, setForAct] = useState(() => (ourActsHere.length === 1 ? ourActsHere[0].name : current || ""));
   const [counts, setCounts] = useState({}); // key -> { count_in, count_out }
   const [mode, setMode] = useState("in"); // in | out
   const [open, setOpen] = useState(() => new Set());
@@ -81,7 +89,7 @@ export default function MerchSheet({ gig, accent = "#F87171", onClose }) {
     if (!name) return;
     const sizes = draft.sizes.split(/[,\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 10);
     const price = draft.price.trim() ? Number(draft.price.replace(/[$,]/g, "")) : null;
-    const { error } = await supabase.from("merch_items").insert({ name, price: Number.isFinite(price) ? price : null, sizes });
+    const { error } = await supabase.from("merch_items").insert({ name, price: Number.isFinite(price) ? price : null, sizes, ...(multi ? { act_name: forAct || null } : {}) });
     if (error) { console.error(error); setErr("Couldn't add that item."); return; }
     setDraft({ name: "", price: "", sizes: "" });
     load();
@@ -158,7 +166,7 @@ export default function MerchSheet({ gig, accent = "#F87171", onClose }) {
                       {sized && !editing && <ChevronDown className={`w-4 h-4 text-white/45 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />}
                     </span>
                     <span className="text-[13px] text-white/50 truncate">
-                      {editing ? [item.price != null ? usd(Number(item.price)) : null, sized ? item.sizes.join(" ") : null].filter(Boolean).join(" · ") || "No price"
+                      {editing ? [multi ? (item.act_name || "All acts") : null, item.price != null ? usd(Number(item.price)) : null, sized ? item.sizes.join(" ") : null].filter(Boolean).join(" · ") || "No price"
                         : `${soldOf(item)} sold${sized ? ` · tap for sizes` : ""}`}
                     </span>
                   </button>
@@ -191,6 +199,14 @@ export default function MerchSheet({ gig, accent = "#F87171", onClose }) {
                 <input value={draft.price} onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))} placeholder="Price" aria-label="Price" inputMode="decimal" className={`${input} w-28`} />
                 <input value={draft.sizes} onChange={(e) => setDraft((d) => ({ ...d, sizes: e.target.value }))} placeholder="Sizes, e.g. S M L XL" aria-label="Sizes" className={`${input} flex-1 min-w-0`} />
               </div>
+              {multi && (
+                <div role="radiogroup" aria-label="Whose merch" className="flex flex-wrap gap-1.5">
+                  {[["", "All acts"], ...acts.map((a) => [a.name, a.name])].map(([v, l]) => (
+                    <button key={v || "all"} type="button" role="radio" aria-checked={forAct === v} onClick={() => setForAct(v)}
+                      className="h-10 px-3.5 rounded-full border text-[13.5px] font-semibold" style={forAct === v ? { background: accent, borderColor: accent, color: "#0d0d0d" } : { borderColor: "#2e2e2e", color: "rgba(255,255,255,0.75)" }}>{l}</button>
+                  ))}
+                </div>
+              )}
               <button type="button" onClick={addItem} disabled={!draft.name.trim()} className="h-12 rounded-xl text-[15px] font-bold disabled:opacity-40" style={{ background: accent, color: "#0d0d0d" }}>Add item</button>
             </div>
           )}

@@ -7,6 +7,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { dayTimes, nextCall, venueAddress, directionsUrl, dayContacts, daySheetText } from "@/lib/daySheet";
 import useTouringParty, { textLink, emailLink } from "@/lib/touringParty";
 import { keep, kept } from "@/lib/offline";
+import { actsOnGig, forActs } from "@/lib/acts";
 
 const has = (v) => v != null && String(v).trim() !== "";
 
@@ -21,7 +22,8 @@ export default function DaySheet({ gig: base, accent = "#8CFF3D", onClose }) {
   // Send to the party (job 73, On the road stage 6).
   const { party } = useTouringParty();
   const [sendOpen, setSendOpen] = useState(false);
-  const reachable = party.filter((p) => p.phone || p.email);
+  // People tied to an act only when that act is on this event (stage 3).
+  const reachable = party.filter((p) => (p.phone || p.email) && forActs(p.act_name, actsOnGig(gig)));
 
   useEffect(() => {
     let off = false;

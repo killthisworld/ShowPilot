@@ -3,6 +3,8 @@ import { Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT } from "@/lib/sceneStyle";
 import useTouringParty, { SEES, seesLabel, PARTY_CHANGED } from "@/lib/touringParty";
+import { useActs, forActs } from "@/lib/acts";
+import ActSwitcher from "@/components/showpilot/ActSwitcher";
 
 // Me > Party (job 73, "On the road" stage 6): the people you tour with,
 // added once. Each one gets the day sheet by text or email from the Day
@@ -10,11 +12,15 @@ import useTouringParty, { SEES, seesLabel, PARTY_CHANGED } from "@/lib/touringPa
 // "Sees" is how much they should get: everything, no money, or just the
 // day sheet.
 
-const blank = { name: "", role: "", phone: "", email: "", sees: "no_money" };
+const blank = { name: "", role: "", phone: "", email: "", sees: "no_money", act_name: "" };
 const initials = (n) => String(n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
 export default function PartyPanel({ accent = "#F87171" }) {
-  const { party, loading, failed, reload } = useTouringParty();
+  const { party: everyone, loading, failed, reload } = useTouringParty();
+  // More than one act (stage 3): each person can tour with one act or all of
+  // them; the list follows the act picked at the top.
+  const { multi, acts, current } = useActs();
+  const party = multi && current ? everyone.filter((p) => forActs(p.act_name, [current])) : everyone;
   const [form, setForm] = useState(null); // { ...person } being added / edited
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -23,6 +29,7 @@ export default function PartyPanel({ accent = "#F87171" }) {
 
   const save = async () => {
     const row = { name: form.name.trim(), role: form.role.trim() || null, phone: form.phone.trim() || null, email: form.email.trim() || null, sees: form.sees };
+    if (multi) row.act_name = form.act_name || null;
     if (!row.name) { setErr("Add a name."); return; }
     setBusy(true); setErr("");
     const { error } = form.id
@@ -65,6 +72,17 @@ export default function PartyPanel({ accent = "#F87171" }) {
             ))}
           </div>
         </div>
+        {multi && (
+          <div className="pt-1 flex flex-col gap-1.5">
+            <span className="text-[13px] text-white/55">Tours with</span>
+            <div role="radiogroup" aria-label="Tours with" className="flex flex-wrap gap-1.5">
+              {[["", "All acts"], ...acts.map((a) => [a.name, a.name])].map(([v, l]) => (
+                <button key={v || "all"} type="button" role="radio" aria-checked={(form.act_name || "") === v} onClick={() => set("act_name", v)}
+                  className="h-10 px-3.5 rounded-full border text-[13.5px] font-semibold" style={(form.act_name || "") === v ? { background: accent, borderColor: accent, color: "#0d0d0d" } : { borderColor: "#2e2e2e", color: "rgba(255,255,255,0.75)" }}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
         {err && <p className="m-0 text-[13px] text-red-400">{err}</p>}
         <div className="pt-2 flex gap-2">
           <button type="button" onClick={() => { setForm(null); setErr(""); }} disabled={busy} className="flex-1 h-12 rounded-xl bg-[#1f1f1f] text-white/80 text-[15px] font-semibold">Cancel</button>
@@ -84,9 +102,10 @@ export default function PartyPanel({ accent = "#F87171" }) {
           <h2 className="m-0 text-[32px] leading-none font-bold tracking-[0.03em] text-white" style={{ fontFamily: SCENE_FONT }}>THE PARTY</h2>
           <p className="m-0 text-[14px] text-white/55">{party.length ? `${party.length} ${party.length === 1 ? "person" : "people"} on the road` : "Who you tour with"}</p>
         </div>
-        <button type="button" onClick={() => setForm({ ...blank })} className="h-11 px-4 rounded-[10px] text-[14px] font-bold shrink-0" style={{ background: accent, color: "#0d0d0d" }}>Add</button>
+        <button type="button" onClick={() => setForm({ ...blank, act_name: multi ? current : "" })} className="h-11 px-4 rounded-[10px] text-[14px] font-bold shrink-0" style={{ background: accent, color: "#0d0d0d" }}>Add</button>
       </div>
 
+      <ActSwitcher className="pt-4" />
       <div className="pt-5">
         {loading ? (
           <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: accent + "40", borderTopColor: accent }} /></div>
@@ -95,12 +114,12 @@ export default function PartyPanel({ accent = "#F87171" }) {
         ) : !party.length ? (
           <p className="m-0 text-[15px] text-white/55 leading-snug">Add your band and crew once. Then, from any day sheet, tap Send to the party to text or email it to each of them, even if they're not on Show Pilot.</p>
         ) : party.map((p) => (
-          <button key={p.id} type="button" onClick={() => setForm({ ...blank, ...p, role: p.role || "", phone: p.phone || "", email: p.email || "" })}
+          <button key={p.id} type="button" onClick={() => setForm({ ...blank, ...p, role: p.role || "", phone: p.phone || "", email: p.email || "", act_name: p.act_name || "" })}
             className="w-full flex items-center gap-3.5 min-h-[64px] border-b border-[#1f1f1f] text-left active:bg-[#121212]">
             <span className="w-10 h-10 rounded-full bg-[#222] flex items-center justify-center text-[13px] font-bold text-white shrink-0">{initials(p.name)}</span>
             <span className="flex-1 min-w-0 flex flex-col">
               <span className="text-[16px] font-semibold text-white truncate">{p.name}</span>
-              <span className="text-[13px] text-white/50 truncate">{[p.role, p.phone ? null : p.email ? "email only" : "no phone or email"].filter(Boolean).join(" · ")}</span>
+              <span className="text-[13px] text-white/50 truncate">{[p.role, multi && !current ? (p.act_name || "All acts") : null, p.phone ? null : p.email ? "email only" : "no phone or email"].filter(Boolean).join(" · ")}</span>
             </span>
             <span className="text-[13px] shrink-0" style={{ color: p.sees === "all" ? "#8CFF3D" : "rgba(255,255,255,0.55)" }}>{seesLabel(p.sees)}</span>
           </button>
