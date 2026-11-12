@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
+import { guestListPdf } from "@/lib/guestListPdf";
 
 const G = "#8CFF3D";
 
@@ -12,7 +13,9 @@ const G = "#8CFF3D";
 // party size, alphabetical, grouped by artist when there's a lineup).
 // The host can remove an RSVP (e.g. a test one); that also lets the same
 // address get the confirmation email again if they RSVP for real.
-export default function RsvpList({ showId, tall = false, capacity = null }) {
+// "Download PDF" (job 304) saves the whole list with email, party size and
+// who each person is coming for; the close time shows above the list.
+export default function RsvpList({ showId, tall = false, capacity = null, closeAt = null, eventName = "", eventDate = null, venue = null }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -72,6 +75,25 @@ export default function RsvpList({ showId, tall = false, capacity = null }) {
       setCopied(true); setTimeout(() => setCopied(false), 1800);
     } catch { setErr("Couldn't copy. Try again."); }
   };
+  const [pdfNote, setPdfNote] = useState("");
+  // Built on the tap itself so the phone's share sheet (Save to Files) opens.
+  const downloadPdf = async () => {
+    setPdfNote("");
+    let file;
+    try { file = guestListPdf({ rows: rows || [], eventName, eventDate, venue, closeAt, capacity }); }
+    catch { setErr("Couldn't make the PDF. Try again."); return; }
+    try {
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return; }
+    } catch (e) { if (e?.name === "AbortError") return; }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a"); a.href = url; a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    setPdfNote("Saved to your downloads.");
+    setTimeout(() => setPdfNote(""), 2500);
+  };
+  const closeTime = closeAt && !Number.isNaN(new Date(closeAt).getTime()) ? new Date(closeAt) : null;
+  const closeText = closeTime && `${closeTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}, ${closeTime.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
   const when = (iso) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   return (
@@ -79,7 +101,10 @@ export default function RsvpList({ showId, tall = false, capacity = null }) {
       <div className="mt-3.5 flex items-center gap-2">
         <span className="flex-1 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>RSVPS</span>
         {rows && rows.length > 0 && (
-          <button type="button" onClick={copy} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{copied ? "COPIED" : "COPY LIST"}</button>
+          <>
+            <button type="button" onClick={downloadPdf} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{pdfNote ? "SAVED" : "DOWNLOAD PDF"}</button>
+            <button type="button" onClick={copy} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{copied ? "COPIED" : "COPY LIST"}</button>
+          </>
         )}
         <button type="button" onClick={load} className="text-[11.5px] tracking-[0.1em] text-white/55 hover:text-white/80" style={{ fontFamily: SCENE_MONO }}>REFRESH</button>
       </div>
@@ -101,6 +126,11 @@ export default function RsvpList({ showId, tall = false, capacity = null }) {
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, (people / capacity) * 100)}%`, background: G }} />
                 </span>
                 <span className="mt-1 block text-[12.5px] text-white/50">{people >= capacity ? "Full. New RSVPs are turned away." : `${capacity - people} ${capacity - people === 1 ? "spot" : "spots"} left`}</span>
+              </div>
+            )}
+            {closeTime && (
+              <div className="px-3 py-2 border-b border-[#1c1c1c] text-[13px]" style={{ color: closeTime <= new Date() ? "#FFB347" : "rgba(255,255,255,0.6)" }}>
+                {closeTime <= new Date() ? `RSVPs closed ${closeText}.` : `RSVPs close ${closeText}.`}
               </div>
             )}
             {hasArtists && (

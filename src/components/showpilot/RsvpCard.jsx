@@ -16,7 +16,14 @@ const remember = (token, v) => { try { localStorage.setItem(memKey(token), JSON.
 // name, email and party size; the send-fan-event-email function saves the
 // RSVP and emails them the event info once. RSVPing again with the same email
 // updates the party size instead of adding a second RSVP.
-export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare, full = false }) {
+// "Fri, Nov 13 at 6:00 PM" in the fan's own time.
+const closeLabel = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+};
+
+export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare, full = false, closed = false, closesAt = null }) {
   const saved = recall(token);
   const [done, setDone] = useState(saved); // { name, guests, email, note }
   const [name, setName] = useState(saved?.name || "");
@@ -97,6 +104,11 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
               <button type="button" onClick={() => setDone(null)} className="text-[13px] text-white/45 hover:text-white/80 underline underline-offset-2">Change party size</button>
             </div>
           </>
+        ) : closed && !saved ? (
+          <div className="py-1">
+            <p className="text-lg font-bold text-white leading-tight">RSVPs are closed.</p>
+            <p className="mt-1 text-[14px] text-white/60 leading-snug">The guest list for this event is final.</p>
+          </div>
         ) : full && !saved ? (
           <div className="py-1">
             <p className="text-lg font-bold text-white leading-tight">RSVPs are full.</p>
@@ -138,7 +150,8 @@ export default function RsvpCard({ token, color, doorPrice, lineup = [], onShare
               </button>
             </div>
             {err && <p className="mt-2 text-[13px] text-[#FF6B6B]">{err}</p>}
-            <p className="mt-2 text-[12px] leading-snug text-white/40">We'll email you the date, doors and address once. The host sees your name, party size{lineup.length ? " and who you're coming to see" : ""}. No mailing list.</p>
+            <p className="mt-2 text-[12px] leading-snug text-white/40">We'll email you the date, doors and address once. The host sees your name, email, party size{lineup.length ? " and who you're coming to see" : ""}. No mailing list.</p>
+            {closesAt && !closed && closeLabel(closesAt) && <p className="mt-2 mb-0 text-[13px] text-white/50">RSVPs close {closeLabel(closesAt)}.</p>}
           </form>
         )}
       </div>

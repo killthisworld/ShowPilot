@@ -138,6 +138,9 @@ function OwnerSheet({ showId, onClose }) {
       // RSVP capacity: no limit, or a max number of people.
       capacityOn: typeof cfg.capacity === "number" && cfg.capacity >= 1,
       capacity: typeof cfg.capacity === "number" && cfg.capacity >= 1 ? String(Math.floor(cfg.capacity)) : "",
+      // When RSVPs close (job 304): stays open, or a set time.
+      closeOn: !!toLocalInput(cfg.rsvp_close_at),
+      closeAt: toLocalInput(cfg.rsvp_close_at),
       // After-the-show film (job 239).
       film: {
         on: cfg.film?.on !== false,
@@ -265,6 +268,16 @@ function OwnerSheet({ showId, onClose }) {
         return;
       }
     }
+    let rsvpCloseAt = null;
+    if (draft.closeOn) {
+      const d = new Date(draft.closeAt || "");
+      if (!draft.closeAt || Number.isNaN(d.getTime())) {
+        setTab("setup");
+        setErr("Pick the date and time RSVPs close, or choose Stays open.");
+        return;
+      }
+      rsvpCloseAt = d.toISOString();
+    }
     setSaving(true);
     // Ticket link and price live in the promoter section of the Gig Web, so
     // the promoter sees what's entered here and vice versa.
@@ -288,6 +301,7 @@ function OwnerSheet({ showId, onClose }) {
           lineup: draft.lineup.map((a) => ({ id: a.id, name: a.name.trim().slice(0, 80) })).filter((a) => a.name),
           files: draft.files,
           capacity,
+          rsvp_close_at: rsvpCloseAt,
           discover: draft.discover,
           qr: draft.qr,
           film: { on: draft.film.on, sun: /^#[0-9a-f]{6}$/i.test(draft.film.sun) ? draft.film.sun : "", stamp: /^#[0-9a-f]{6}$/i.test(draft.film.stamp || "") ? draft.film.stamp : "", show: draft.film.show, title: draft.film.title.trim().slice(0, 60), image: draft.film.image },
@@ -620,6 +634,26 @@ function OwnerSheet({ showId, onClose }) {
           )}
           {note(draft.capacityOn ? "Counts everyone in each party. When it's full, the RSVP form says RSVPs are full." : "Anyone can RSVP.")}
         </>)}
+      {rsvp && section("RSVPs close", <>
+          {segmented([[false, "Stays open"], [true, "At a set time"]], !!draft.closeOn, (k) => {
+            if (!k) { set({ closeOn: false }); return; }
+            // Suggest 6 PM on the show's day (or tomorrow when that's passed).
+            let at = draft.closeAt;
+            if (!at) {
+              const d = row?.date ? new Date(`${row.date}T18:00`) : new Date(Date.now() + 864e5);
+              if (Number.isNaN(d.getTime()) || d < new Date()) { d.setTime(Date.now() + 864e5); d.setMinutes(0, 0, 0); }
+              at = toLocalInput(d.toISOString());
+            }
+            set({ closeOn: true, closeAt: at });
+          }, "When RSVPs close")}
+          {draft.closeOn && (
+            <input type="datetime-local" aria-label="RSVPs close at" value={draft.closeAt} onChange={(e) => set({ closeAt: e.target.value })}
+              className="mt-2 w-full max-w-[280px] bg-[#0a0c1c] border border-[#262b52] rounded-lg px-3 py-2.5 text-white text-base focus:outline-none focus:border-[#8CFF3D]/60 [color-scheme:dark]" style={{ fontFamily: SCENE_MONO }} />
+          )}
+          {note(!draft.closeOn ? "Fans can RSVP right up to the show." : (draft.closeAt && new Date(draft.closeAt) <= new Date())
+            ? "That time has passed, so RSVPs are closed once you publish. Everyone already on the list stays on it."
+            : "At this time (your time zone) the RSVP form closes and the fan page says RSVPs are closed. Everyone already on the list stays on it.")}
+        </>)}
       {rsvp && section("RSVP email", <>
           {label("SUBJECT", "mt-3")}
           <input className={`${inputCls} mt-1.5`} maxLength={150} placeholder={`You're on the list: ${title}`} value={draft.emailSubject} onChange={(e) => set({ emailSubject: e.target.value })} />
@@ -696,7 +730,7 @@ function OwnerSheet({ showId, onClose }) {
   const guestsTab = row && (savedRsvp && row.fan_page_enabled ? (
     <>
       <HostMessagesList showId={showId} />
-      <RsvpList showId={showId} tall={desktop} capacity={savedCap} />
+      <RsvpList showId={showId} tall={desktop} capacity={savedCap} closeAt={row.fan_page?.rsvp_close_at || null} eventName={title} eventDate={row.date || null} venue={row.venue || null} />
     </>
   ) : (
     <div className="rounded-2xl p-5 text-center" style={{ background: PANEL, border: `1px dashed ${EDGE_LINE}` }}>
@@ -1272,6 +1306,15 @@ function ViewerSheet({ shareToken, onClose }) {
 
 // Owner (has showId) gets the editor; everyone else linked to the event
 // (has shareToken) gets the read-only view.
+// RSVP close time (job 304): saved as an ISO timestamp, edited in a
+// datetime-local box in the host's own time zone.
+const toLocalInput = (iso) => {
+  const d = new Date(iso || "");
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
 export default function FanPageSheet({ showId, shareToken, onClose }) {
   if (showId) return <OwnerSheet showId={showId} onClose={onClose} />;
   if (shareToken) return <ViewerSheet shareToken={shareToken} onClose={onClose} />;

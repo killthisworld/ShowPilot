@@ -44,6 +44,8 @@ const RSVP_MAX = 200; // new RSVPs per event per window (anti-spam; capacity is 
 
 // deno-lint-ignore no-explicit-any
 async function rsvp(admin: any, showId: string, token: string, email: string, body: any, ev: any) {
+  // RSVPs close at the host's set time (job 304); get_fan_event works it out.
+  if (ev?.rsvp_closed === true) return json({ error: "RSVPs are closed for this event.", closed: true }, 409);
   const name = String(body?.name ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
   const guests = Number(body?.guests ?? 1);
   if (!name) return json({ error: "Add your name so the door has you on the list" }, 400);

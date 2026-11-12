@@ -307,7 +307,7 @@ export default function FanEvent() {
         )}
 
         {/* RSVP events (pay at the door) replace the email box and ticket button. */}
-        {ev.rsvp && <RsvpCard token={token} color={color} doorPrice={ev.door_price} lineup={ev.lineup || []} onShare={sharePage} full={!!ev.rsvp_full} />}
+        {ev.rsvp && <RsvpCard token={token} color={color} doorPrice={ev.door_price} lineup={ev.lineup || []} onShare={sharePage} full={!!ev.rsvp_full} closed={!!ev.rsvp_closed} closesAt={ev.rsvp_closes_at || null} />}
 
         {!ev.rsvp && (ev.emails_buyers ? (
           ticketUrl && (
