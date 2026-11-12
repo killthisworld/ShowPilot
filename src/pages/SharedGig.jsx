@@ -757,6 +757,9 @@ export default function SharedGig() {
   const [engineerCards, setEngineerCards] = useState({});
   // FX / Artist Notes window (job 205): opened from each act's row.
   const [fxOpen, setFxOpen] = useState(false);
+  // Tech phone (job 302): tap the event banner to open the event dropdown -
+  // the event's details and Engineers on call.
+  const [eventOpen, setEventOpen] = useState(false);
   const [fxTarget, setFxTarget] = useState("__show__");
   const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
   // Tracks each act sent for this event, by its set time (job 219).
@@ -1331,25 +1334,20 @@ export default function SharedGig() {
           </div>
         )}
 
-        {techPhone && <EventBanner gig={gig} imageUrl={myIcon} title={title} />}
-        {/* Engineers on call, under the date (job 205). */}
         {techPhone && (
-          <OnCallStrip
-            gig={gig}
-            ownerType={permissions?.owner_account_type}
-            canEdit={canEditEngineerSection()}
-            onSetLightsToo={async (v) => {
-              const ei = gig.engineer_info || {};
-              const next = { ...ei, lighting: { ...(ei.lighting || {}), same_as_audio: v } };
-              setGig((g) => ({ ...g, engineer_info: next }));
-              await saveSection(myEngineerRole(), next);
-            }}
-          />
+          <button type="button" onClick={() => setEventOpen((o) => !o)} aria-expanded={eventOpen} aria-label={eventOpen ? "Hide event info" : "Show event info"}
+            className="relative block w-full text-left p-0 bg-transparent border-0 rounded-2xl">
+            <EventBanner gig={gig} imageUrl={myIcon} title={title} />
+            <span className="absolute right-3 bottom-3 w-9 h-9 rounded-full bg-black/55 border border-white/15 flex items-center justify-center text-white/85">
+              <ChevronDown className={`w-5 h-5 transition-transform ${eventOpen ? "rotate-180" : ""}`} />
+            </span>
+          </button>
         )}
-        {/* The stage plot, the engineer's show-night reference (job 251). */}
-        {(techPhone || (isDesktop && stageRole)) && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
+        {/* The stage plot card is off the tech phone (job 302): it's in the
+            Performers tab. Desktop keeps it. */}
+        {isDesktop && stageRole && !techPhone && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
 
-        {(!techPhone || permissions?.is_owner) && (
+        {(!techPhone || eventOpen) && (
         <div className="bg-[#161616] rounded-2xl border border-[#222] p-4 space-y-3">
           {/* Only the owner can actually persist these (update_shared_gig
               rejects anyone else), so show them as editable only for the
@@ -1389,6 +1387,20 @@ export default function SharedGig() {
               )}
               {gig.event_type && <p className="text-white/40 text-xs">{gig.event_type}</p>}
             </>
+          )}
+          {/* Engineers on call, in the event dropdown (job 302). */}
+          {techPhone && (
+            <OnCallStrip
+              gig={gig}
+              ownerType={permissions?.owner_account_type}
+              canEdit={canEditEngineerSection()}
+              onSetLightsToo={async (v) => {
+                const ei = gig.engineer_info || {};
+                const next = { ...ei, lighting: { ...(ei.lighting || {}), same_as_audio: v } };
+                setGig((g) => ({ ...g, engineer_info: next }));
+                await saveSection(myEngineerRole(), next);
+              }}
+            />
           )}
         </div>
         )}
