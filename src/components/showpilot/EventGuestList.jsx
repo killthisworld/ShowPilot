@@ -19,6 +19,19 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 export const guestSummary = (list) =>
   list.filter((g) => g.name).map((g) => (Number(g.plus) > 0 ? `${g.name} +${Number(g.plus)}` : g.name)).join(", ");
 
+// Read the event's latest guest list, change it, write it back, changing
+// only the guest list in manager_info. Returns the new list, or null.
+export async function saveGuestList(showId, change) {
+  const { data: cur, error: readErr } = await supabase.from("shows").select("manager_info").eq("id", showId).single();
+  if (readErr) return null;
+  const mi = cur?.manager_info || {};
+  const next = change(Array.isArray(mi.guests) ? mi.guests : []);
+  const { error } = await supabase.from("shows").update({ manager_info: { ...mi, guests: next, guest_list: guestSummary(next) } }).eq("id", showId);
+  return error ? null : next;
+}
+export const newGuestId = uid;
+export const sameName = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+
 export default function EventGuestList({ showId, lineup = [], eventName = "", eventDate = null, venue = null }) {
   const [guests, setGuests] = useState(null);
   const [acts, setActs] = useState([]);
@@ -54,13 +67,9 @@ export default function EventGuestList({ showId, lineup = [], eventName = "", ev
   // Read the latest, change only the guest list, write it back.
   const save = async (change) => {
     setBusy(true); setErr("");
-    const { data: cur, error: readErr } = await supabase.from("shows").select("manager_info").eq("id", showId).single();
-    if (readErr) { setBusy(false); setErr("Couldn't save. Try again."); return false; }
-    const mi = cur?.manager_info || {};
-    const next = change(Array.isArray(mi.guests) ? mi.guests : []);
-    const { error } = await supabase.from("shows").update({ manager_info: { ...mi, guests: next, guest_list: guestSummary(next) } }).eq("id", showId);
+    const next = await saveGuestList(showId, change);
     setBusy(false);
-    if (error) { setErr("Couldn't save. Try again."); return false; }
+    if (!next) { setErr("Couldn't save. Try again."); return false; }
     setGuests(next);
     return true;
   };

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { UserCheck, UserPlus, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import { saveGuestList, newGuestId, sameName } from "@/components/showpilot/EventGuestList";
 
 const G = "#8CFF3D";
 
@@ -22,6 +23,25 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
   // Remove: the row asks "Remove?" inline first, so one tap can't lose an RSVP.
   const [confirmId, setConfirmId] = useState(null);
   const [removing, setRemoving] = useState(null);
+
+  // Add to guest list (job 309): the name, the rest of the party as plus-ones
+  // and who they came for go on the event's guest list (the management
+  // profile's list). Names already there show a check.
+  const [guestNames, setGuestNames] = useState([]);
+  const [adding, setAdding] = useState(null);
+  useEffect(() => {
+    supabase.from("shows").select("manager_info").eq("id", showId).single()
+      .then(({ data }) => setGuestNames((Array.isArray(data?.manager_info?.guests) ? data.manager_info.guests : []).map((g) => g.name).filter(Boolean)));
+  }, [showId]);
+  const onList = (r) => guestNames.some((n) => sameName(n, r.name));
+  const addToGuests = async (r) => {
+    setAdding(r.id); setErr("");
+    const next = await saveGuestList(showId, (list) => (list.some((g) => sameName(g.name, r.name)) ? list
+      : [...list, { id: newGuestId(), name: String(r.name).trim().slice(0, 80), plus: (r.guests || 1) > 1 ? String((r.guests || 1) - 1) : "", ...(r.artist_name ? { artist: r.artist_name } : {}) }]));
+    setAdding(null);
+    if (!next) { setErr("Couldn't add to the guest list. Try again."); return; }
+    setGuestNames(next.map((g) => g.name).filter(Boolean));
+  };
 
   const remove = async (r) => {
     setRemoving(r.id);
@@ -123,6 +143,7 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
               </div>
             )}
             {rows.length === 0 && <p className="px-3 py-3 text-[14px] text-white/45">No RSVPs yet. Share the fan page link to get the word out.</p>}
+            {rows.length > 0 && <p className="px-3 py-2 m-0 border-b border-[#1c1c1c] text-[12.5px] text-white/45 flex items-center gap-1.5"><UserPlus className="w-3.5 h-3.5 shrink-0" /> adds someone to the guest list, with their party and who they came for.</p>}
             <div className={tall ? "" : "max-h-[240px] overflow-y-auto"}>
               {rows.map((r) => (
                 <div key={r.id} className="flex items-center gap-2.5 px-3 py-2 border-b border-[#181818] last:border-b-0">
@@ -140,6 +161,12 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
                     <>
                       <span className="text-[13px] text-white/50 shrink-0">{when(r.created_at)}</span>
                       <span className="w-8 text-right text-base font-bold shrink-0" style={{ fontFamily: SCENE_MONO, color: "#fff" }}>×{r.guests}</span>
+                      {onList(r) ? (
+                        <span title="On the guest list" aria-label={`${r.name} is on the guest list`} className="p-1 shrink-0" style={{ color: G }}><UserCheck className="w-4 h-4" /></span>
+                      ) : (
+                        <button type="button" onClick={() => addToGuests(r)} disabled={adding === r.id} aria-label={`Add ${r.name} to the guest list`} title="Add to guest list"
+                          className="p-1 text-white/45 hover:text-[#8CFF3D] shrink-0 disabled:opacity-40"><UserPlus className="w-4 h-4" /></button>
+                      )}
                       <button type="button" onClick={() => setConfirmId(r.id)} aria-label={`Remove ${r.name}'s RSVP`} title="Remove RSVP" className="p-1 -mr-1 text-white/30 hover:text-[#FF8A8A] shrink-0"><X className="w-4 h-4" /></button>
                     </>
                   )}
