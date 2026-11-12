@@ -10,10 +10,36 @@ import jsPDF from "jspdf";
 //   rows: [{ name, email, guests, artist_name, created_at }]
 // kind "guests": the event's guest list (names the acts / management add)
 //   rows: [{ name, plus, artist }]
+// The PDF's built-in font only has Western letters (Windows-1252). Anything
+// else, such as emoji, comes out as garbage and is measured wrong, so it can
+// run into the next column (job 312). Fancy letters become plain ones
+// (NFKC), and characters the font can't draw are dropped.
+const CP1252_EXTRA = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
+export function pdfSafe(text) {
+  const t = String(text ?? "").normalize("NFKC");
+  let out = "";
+  for (const ch of t) {
+    const c = ch.codePointAt(0);
+    if ((c >= 0x20 && c <= 0x7e) || (c >= 0xa0 && c <= 0xff) || CP1252_EXTRA.includes(ch)) out += ch;
+    else if (c === 0x09 || c === 0x0a) out += " ";
+  }
+  return out.replace(/\s+/g, " ").trim();
+}
+
 export const DEFAULT_PDF_STYLE = { bg: "#FFFFFF", font: "#000000", image: null, fade: 0.55 };
 
-export function guestListPdf({ kind = "rsvps", rows: input, eventName, eventDate, venue, closeAt, capacity, style = DEFAULT_PDF_STYLE }) {
+export function guestListPdf({ kind = "rsvps", rows: rawInput, eventName: rawEventName, eventDate, venue: rawVenue, closeAt, capacity, style = DEFAULT_PDF_STYLE }) {
   const guestsKind = kind === "guests";
+  // Every name, email and artist made safe for the PDF font (job 312); a name
+  // that was only emoji falls back to "(name)".
+  const eventName = pdfSafe(rawEventName), venue = pdfSafe(rawVenue);
+  const input = (rawInput || []).map((r) => ({
+    ...r,
+    name: r.name == null ? r.name : (pdfSafe(r.name) || (String(r.name).trim() ? "(name)" : "")),
+    ...(r.email != null ? { email: pdfSafe(r.email) } : {}),
+    ...(r.artist_name != null ? { artist_name: pdfSafe(r.artist_name) } : {}),
+    ...(r.artist != null ? { artist: pdfSafe(r.artist) } : {}),
+  }));
   // One shape for both: guests = everyone in the party, artist_name = who for.
   const rows = guestsKind
     ? input.filter((g) => String(g.name || "").trim()).map((g) => ({ name: String(g.name).trim(), guests: 1 + (Number(g.plus) || 0), plus: Number(g.plus) || 0, artist_name: g.artist || null }))
