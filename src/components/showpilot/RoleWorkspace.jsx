@@ -768,6 +768,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         key: "guests", label: "Guest list",
         summary: guests.length ? `${used} on the list` : mi.guest_list || "Names for the door",
         state: guests.length || has(mi.guest_list) ? "done" : "empty",
+        // Create PDF sits at the top beside Mark as done (job 305).
+        headAction: () => (!template && guests.some((g) => g.name) ? (
+          <button type="button" onClick={guestsPdf} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em]" style={{ background: "#111", border: `1px solid ${color}88`, color }}>
+            <FileText className="w-3.5 h-3.5" /> CREATE PDF
+          </button>
+        ) : null),
         render: () => (
           <>
             <TableBox>
@@ -786,14 +792,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               ))}
               {guests.length === 0 && <p className="px-4 py-4 text-white/35 text-[15px]">{mi.guest_list ? `Current list: ${mi.guest_list}` : "No guests yet."}</p>}
             </TableBox>
-            <div className="flex flex-wrap items-center gap-2">
-              <AddButton color={color} disabled={off} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
-              {!template && guests.some((g) => g.name) && (
-                <button type="button" onClick={guestsPdf} className="self-start mt-1 text-[13px] font-semibold px-3 py-1.5 rounded-md border flex items-center gap-1.5" style={{ color, borderColor: `${color}66` }}>
-                  <FileText className="w-4 h-4" /> Create PDF
-                </button>
-              )}
-            </div>
+            <AddButton color={color} disabled={off} onClick={() => setGuests([...guests, { id: uid(), name: "", plus: "" }])}>Add a guest</AddButton>
           </>
         ),
       },
@@ -1267,9 +1266,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
 
   if (layout === "pages") {
     const dotColor = { done: G, partial: AMBER, empty: "rgba(255,255,255,0.22)" };
-    const real = counted(tabs);
-    const filled = real.filter((t) => t.state === "done").length;
-    const openTaskCount = (gig.tasks || []).filter((t) => t.section === section && t.status !== "done").length;
     const web = webSlot
       ? createPortal(
           <ProfileWeb
@@ -1315,10 +1311,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               <>
                 {headBar(
                   <>
-                    <span className="flex items-center gap-1.5 text-[11px] tracking-[0.08em] text-white/45 whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>
-                      <span className="w-2 h-2 rounded-full" style={{ background: dotColor[page.state] || dotColor.empty }} />
-                      {page.marked ? "MARKED DONE" : page.state === "done" ? "FILLED IN" : page.state === "partial" ? "IN PROGRESS" : "NOT STARTED"}{!ed ? " · VIEW ONLY" : ""}
-                    </span>
+                    {/* No page status in the header (job 305); a page's own button
+                        (e.g. the guest list's Create PDF) sits by Mark as done. */}
+                    {page.headAction?.()}
                     {markDoneBtn(page)}
                     {topSave}
                   </>
@@ -1332,9 +1327,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               <>
                 {headBar(
                   <>
-                    <span className="text-[11px] tracking-[0.08em] text-white/45 whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>
-                      {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} OPEN TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ") || "PICK A PAGE"}
-                    </span>
                     {topSave}
                   </>
                 )}
@@ -1372,9 +1364,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[19px] font-bold leading-none tracking-wide truncate" style={{ color: blockOpen || selected ? color : undefined }}>{ROLE_TITLE[role]}</span>
-                <span className="block mt-1 text-[11px] leading-none tracking-[0.08em] text-white/45 truncate" style={{ fontFamily: SCENE_MONO }}>
-                  {[real.length ? `${filled}/${real.length} FILLED` : "", openTaskCount ? `${openTaskCount} TASK${openTaskCount === 1 ? "" : "S"}` : "", !ed ? "VIEW ONLY" : ""].filter(Boolean).join(" · ")}
-                </span>
               </span>
               <ChevronDown className="w-4 h-4 shrink-0 text-white/40 transition-transform" style={{ transform: blockOpen ? "rotate(180deg)" : undefined }} />
             </button>
@@ -1421,8 +1410,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   if (layout === "web") {
     // Features (DCAs) sit in the web's four corners (featureDcas, above).
     const dcas = featureDcas;
-    const stateWord = { done: ["FILLED IN", G], partial: ["IN PROGRESS", AMBER], empty: ["NOT STARTED", "rgba(255,255,255,0.45)"] };
-    const sw = stateWord[current?.state] || stateWord.empty;
     const web = webSlot
       ? createPortal(
           <ProfileWeb
@@ -1472,7 +1459,6 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             <section className="flex flex-col gap-1.5">
               <div className="flex items-center gap-3">
                 <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
-                <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{sw[0]}</span>
               </div>
               <p className="text-[15px] text-white/50">Only {ROLE_TITLE[role]} works on the details here. You can see where it's at and what's needed from you.</p>
             </section>
@@ -1519,8 +1505,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           {tabChips}
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
-            <span className="text-[11px] tracking-[0.08em]" style={{ fontFamily: SCENE_MONO, color: sw[1] }}>{current?.marked ? "MARKED DONE" : sw[0]}</span>
             <span className="ml-auto" />
+            {current?.headAction?.()}
             {current && markDoneBtn(current)}
             {includeToggle(current)}
           </div>

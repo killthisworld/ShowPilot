@@ -21,7 +21,6 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import FlightLog, { FlightRail } from "@/components/showpilot/FlightLog";
-import { latestBySection, firstName, agoLabel } from "@/lib/gigActivity";
 import { sectionPhoto } from "@/lib/sectionPhotos";
 import { profilePercent } from "@/lib/profileProgress";
 
@@ -1917,7 +1916,6 @@ function DesktopGigWeb({
     });
     return () => { live = false; };
   }, [token, user?.id, gig]);
-  const lastBySection = latestBySection(activity);
   // No chat on the desktop event page (job 130): every chat lives on the
   // Chats page in the rail.
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done");
@@ -2000,12 +1998,7 @@ function DesktopGigWeb({
                     {/* The open profile's page status, Mark as done and SAVE land here (job 169). */}
                     <div ref={setHeadSlot} className="shrink-0 flex items-center gap-2.5" />
                   </div>
-                  <span className="pl-5 text-white/40 text-[10px] uppercase tracking-[0.08em] truncate" style={{ fontFamily: SCENE_MONO }}>
-                    {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}% filled in
-                    {lastBySection[sectionOf(selectedRole)] && (
-                      <> · Updated by {firstName(lastBySection[sectionOf(selectedRole)].user_name)} {agoLabel(lastBySection[sectionOf(selectedRole)].at)}</>
-                    )}
-                  </span>
+                  {/* Just the profile's title here (job 305): no claimed / filled / updated line. */}
                 </div>
               ) : (
                 <>
