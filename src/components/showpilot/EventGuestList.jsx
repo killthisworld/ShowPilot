@@ -3,6 +3,7 @@ import { Minus, Plus, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
+import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
 
 const G = "#8CFF3D";
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -26,7 +27,6 @@ export default function EventGuestList({ showId, lineup = [], eventName = "", ev
   const [plus, setPlus] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [note, setNote] = useState("");
 
   const load = async () => {
     setErr("");
@@ -78,17 +78,14 @@ export default function EventGuestList({ showId, lineup = [], eventName = "", ev
   const people = shown.reduce((n, g) => n + 1 + (Number(g.plus) || 0), 0);
   const sorted = [...shown].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
-  const pdf = async () => {
-    setNote("");
-    let file;
-    try { file = guestListPdf({ kind: "guests", rows: shown, eventName, eventDate, venue }); }
-    catch { setErr("Couldn't make the PDF. Try again."); return; }
-    if ((await saveOrShare(file)) === "downloaded") { setNote("saved"); setTimeout(() => setNote(""), 2500); }
-  };
+  const [styling, setStyling] = useState(false);
+  // Create PDF opens the style screen (job 307).
+  const makePdf = async (style) => { await saveOrShare(guestListPdf({ kind: "guests", rows: shown, eventName, eventDate, venue, style })); };
 
   const inputCls = "h-11 bg-[#0a0c1c] border border-[#262b52] rounded-lg px-3 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#8CFF3D]/60";
   return (
     <>
+      {styling && <PdfStyleSheet title="Guest list" eventName={eventName} onCreate={makePdf} onClose={() => setStyling(false)} />}
       <form onSubmit={add} className="mt-3 rounded-[10px] p-3 bg-[#111] border border-[#1f1f1f]" noValidate>
         <div className="text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>ADD A GUEST</div>
         <input className={`${inputCls} mt-2 w-full`} placeholder="Name" value={name} maxLength={80} onChange={(e) => { setName(e.target.value); setErr(""); }} aria-label="Guest name" />
@@ -111,8 +108,7 @@ export default function EventGuestList({ showId, lineup = [], eventName = "", ev
 
       <div className="mt-3.5 flex items-center gap-2">
         <span className="flex-1 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>GUEST LIST</span>
-        {shown.length > 0 && <button type="button" onClick={pdf} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{note ? "SAVED" : "CREATE PDF"}</button>}
-        <button type="button" onClick={load} className="text-[11.5px] tracking-[0.1em] text-white/55 hover:text-white/80" style={{ fontFamily: SCENE_MONO }}>REFRESH</button>
+        {shown.length > 0 && <button type="button" onClick={() => setStyling(true)} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>CREATE PDF</button>}
       </div>
       <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
         {guests === null ? (

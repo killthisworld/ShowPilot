@@ -3,14 +3,15 @@ import { X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
+import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
 
 const G = "#8CFF3D";
 
 // Owner-only RSVP list for a pay-at-the-door event, shown in Fan page
 // settings. Reads fan_rsvps directly: RLS only returns RSVPs for events the
 // signed-in user owns. With a lineup, it also shows how many people are
-// coming for each artist. "Copy list" gives a plain door list (name and
-// party size, alphabetical, grouped by artist when there's a lineup).
+// coming for each artist. Create PDF makes the door list (job 307 style screen)
+// with each name, email, party size and who they came for.
 // The host can remove an RSVP (e.g. a test one); that also lets the same
 // address get the confirmation email again if they RSVP for real.
 // "Create PDF" (job 304) saves the whole list with email, party size and
@@ -18,7 +19,6 @@ const G = "#8CFF3D";
 export default function RsvpList({ showId, tall = false, capacity = null, closeAt = null, eventName = "", eventDate = null, venue = null }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
-  const [copied, setCopied] = useState(false);
   // Remove: the row asks "Remove?" inline first, so one tap can't lose an RSVP.
   const [confirmId, setConfirmId] = useState(null);
   const [removing, setRemoving] = useState(null);
@@ -64,26 +64,12 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
   }, [rows]);
   const hasArtists = byArtist.some((g) => g.name);
 
-  const copy = async () => {
-    const line = (r) => `${r.name} (${r.guests})`;
-    const byName = (a, b) => a.name.localeCompare(b.name);
-    const list = hasArtists
-      ? byArtist.map((g) => `${g.name || "No pick"}: ${g.people}\n${[...g.rsvps].sort(byName).map(line).join("\n")}`).join("\n\n")
-      : [...(rows || [])].sort(byName).map(line).join("\n");
-    try {
-      await navigator.clipboard.writeText(`${list}\n\n${people} people, ${rows.length} RSVPs`);
-      setCopied(true); setTimeout(() => setCopied(false), 1800);
-    } catch { setErr("Couldn't copy. Try again."); }
-  };
-  const [pdfNote, setPdfNote] = useState("");
   // Built on the tap itself so the phone's share sheet (Save to Files) opens.
-  const downloadPdf = async () => {
-    setPdfNote("");
-    let file;
-    try { file = guestListPdf({ kind: "rsvps", rows: rows || [], eventName, eventDate, venue, closeAt, capacity }); }
-    catch { setErr("Couldn't make the PDF. Try again."); return; }
-    const how = await saveOrShare(file);
-    if (how === "downloaded") { setPdfNote("saved"); setTimeout(() => setPdfNote(""), 2500); }
+  const [styling, setStyling] = useState(false);
+  // Create PDF opens the style screen (job 307); its Create PDF builds it.
+  const makePdf = async (style) => {
+    const file = guestListPdf({ kind: "rsvps", rows: rows || [], eventName, eventDate, venue, closeAt, capacity, style });
+    await saveOrShare(file);
   };
   const closeTime = closeAt && !Number.isNaN(new Date(closeAt).getTime()) ? new Date(closeAt) : null;
   const closeText = closeTime && `${closeTime.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}, ${closeTime.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
@@ -91,15 +77,12 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
 
   return (
     <>
+      {styling && <PdfStyleSheet title="RSVPs" eventName={eventName} onCreate={makePdf} onClose={() => setStyling(false)} />}
       <div className="mt-3.5 flex items-center gap-2">
         <span className="flex-1 text-[11.5px] tracking-[0.14em] text-white/55" style={{ fontFamily: SCENE_MONO }}>RSVPS</span>
         {rows && rows.length > 0 && (
-          <>
-            <button type="button" onClick={downloadPdf} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{pdfNote ? "SAVED" : "CREATE PDF"}</button>
-            <button type="button" onClick={copy} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>{copied ? "COPIED" : "COPY LIST"}</button>
-          </>
+          <button type="button" onClick={() => setStyling(true)} className="text-[11.5px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: G }}>CREATE PDF</button>
         )}
-        <button type="button" onClick={load} className="text-[11.5px] tracking-[0.1em] text-white/55 hover:text-white/80" style={{ fontFamily: SCENE_MONO }}>REFRESH</button>
       </div>
       <div className="mt-1.5 bg-[#111] border border-[#1f1f1f] rounded-[10px] overflow-hidden">
         {rows === null ? (

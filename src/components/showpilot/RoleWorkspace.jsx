@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
+import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import CustomFieldsView from "@/components/showpilot/CustomFieldsView";
@@ -213,6 +214,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const ed = p.editable;
   // Task summary (TaskSheet) open over the workspace, by task id.
   const [openTaskId, setOpenTaskId] = useState(null);
+  const [guestPdfOpen, setGuestPdfOpen] = useState(false); // Guest list's PDF style screen (job 307)
   // FX / Artist Notes window (job 205), opened from an act's row by its set time.
   const [fxTarget, setFxTarget] = useState(null);
   const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
@@ -633,7 +635,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     // Who each guest is on the list for (job 304): the event's acts and fan page lineup.
     const guestArtists = template ? [] : [...new Set([...(gig.bands || []).map((b) => b.band_name), ...((gig.fan_page?.lineup) || []).map((a) => a.name)]
       .map((n) => String(n || "").trim()).filter(Boolean))];
-    const guestsPdf = () => saveOrShare(guestListPdf({ kind: "guests", rows: guests, eventName: gig.event_name || gig.band_name || "Event", eventDate: gig.date || null, venue: gig.venue || null })).catch(() => {});
+    const guestsPdf = (style) => saveOrShare(guestListPdf({ kind: "guests", rows: guests, eventName: gig.event_name || gig.band_name || "Event", eventDate: gig.date || null, venue: gig.venue || null, style }));
     const setTimes = mi.set_times || {};
     const doneCount = checklist.filter((c) => c.done).length;
     return [
@@ -770,9 +772,12 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
         state: guests.length || has(mi.guest_list) ? "done" : "empty",
         // Create PDF sits at the top beside Mark as done (job 305).
         headAction: () => (!template && guests.some((g) => g.name) ? (
-          <button type="button" onClick={guestsPdf} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em]" style={{ background: "#111", border: `1px solid ${color}88`, color }}>
-            <FileText className="w-3.5 h-3.5" /> CREATE PDF
-          </button>
+          <>
+            <button type="button" onClick={() => setGuestPdfOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em]" style={{ background: "#111", border: `1px solid ${color}88`, color }}>
+              <FileText className="w-3.5 h-3.5" /> CREATE PDF
+            </button>
+            {guestPdfOpen && <PdfStyleSheet title="Guest list" eventName={gig.event_name || gig.band_name || ""} onCreate={guestsPdf} onClose={() => setGuestPdfOpen(false)} />}
+          </>
         ) : null),
         render: () => (
           <>
