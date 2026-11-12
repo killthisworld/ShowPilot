@@ -133,8 +133,8 @@ export default function EventGuestList({ showId, lineup = [], eventName = "", ev
             {sorted.map((g) => (
               <div key={g.id || g.name} className="flex items-center gap-2.5 px-3 py-2 border-b border-[#181818] last:border-b-0">
                 <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-semibold text-white truncate">{g.name}</div>
-                  {g.artist && <div className="text-[13px] text-white/55 truncate">Guest of {g.artist}</div>}
+                  <div className="text-[15px] font-semibold text-white leading-snug [overflow-wrap:anywhere]">{g.name}</div>
+                  {g.artist && <div className="text-[13px] text-white/55 leading-snug [overflow-wrap:anywhere]">Guest of {g.artist}</div>}
                 </div>
                 {Number(g.plus) > 0 && <span className="text-base font-bold text-white shrink-0" style={{ fontFamily: SCENE_MONO }}>+{Number(g.plus)}</span>}
                 <button type="button" onClick={() => remove(g)} disabled={busy} aria-label={`Remove ${g.name}`} className="p-1 -mr-1 text-white/30 hover:text-[#FF8A8A] shrink-0 disabled:opacity-40"><X className="w-4 h-4" /></button>

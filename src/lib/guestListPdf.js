@@ -93,27 +93,61 @@ export function guestListPdf({ kind = "rsvps", rows: input, eventName, eventDate
     y += 18;
   };
   header();
-  const sorted = [...rows].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }));
+  const sorted = [...rows].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base", numeric: true }));
   doc.setFontSize(10.5);
+  // Long names, emails and artists wrap onto more lines instead of being cut
+  // off (job 311), so the door can read every one. An email breaks after
+  // its @ or a dot when it has to.
+  const LINE = 12.5;
+  const wrap = (text, w) => {
+    const out = [];
+    let line = "";
+    const push = () => { if (line) out.push(line); line = ""; };
+    for (const word of String(text ?? "").split(/\s+/).filter(Boolean)) {
+      const tryLine = line ? `${line} ${word}` : word;
+      if (doc.getTextWidth(tryLine) <= w) { line = tryLine; continue; }
+      push();
+      let rest = word;
+      while (doc.getTextWidth(rest) > w) {
+        let cut = rest.length - 1;
+        while (cut > 1 && doc.getTextWidth(rest.slice(0, cut)) > w) cut--;
+        // Prefer breaking right after @ . - _ when that keeps most of the line.
+        const soft = Math.max(rest.lastIndexOf("@", cut - 1), rest.lastIndexOf(".", cut - 1), rest.lastIndexOf("-", cut - 1), rest.lastIndexOf("_", cut - 1)) + 1;
+        if (soft > cut * 0.4) cut = soft;
+        out.push(rest.slice(0, cut));
+        rest = rest.slice(cut);
+      }
+      line = rest;
+    }
+    push();
+    return out.length ? out : [""];
+  };
   sorted.forEach((r, i) => {
-    if (y > BOTTOM) { doc.addPage(); paintBg(); y = M + 10; header(); doc.setFontSize(10.5); }
-    if (i % 2 === 1) { tint(0.05); doc.rect(M, y - 12, W - 2 * M, 18, "F"); }
-    let x = M + 4;
-    doc.setDrawColor(FONT); alpha(0.55); doc.setLineWidth(0.8); doc.rect(x + 1, y - 9, 10, 10);
-    x += cols[0][1];
     const cells = guestsKind
       ? [r.name, r.plus ? `+${r.plus}` : "", String(r.guests), ...(hasArtists ? [r.artist_name || "No artist"] : [])]
       : hasArtists
       ? [r.name, r.email, String(r.guests || 1), r.artist_name || "No pick", new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })]
       : [r.name, r.email, String(r.guests || 1), new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })];
-    cells.forEach((c, k) => {
+    // Work out each cell's lines first (bold names measure wider).
+    const laid = cells.map((c, k) => {
+      const [t, w] = cols[k + 1];
+      doc.setFont("helvetica", t === "Name" || t === "Party" ? "bold" : "normal");
+      return right(t) || t === "RSVP'd" ? [c] : wrap(c, w - 8);
+    });
+    const rowH = 18 + (Math.max(...laid.map((l) => l.length)) - 1) * LINE;
+    if (y - 12 + rowH > BOTTOM + 6) { doc.addPage(); paintBg(); y = M + 10; header(); doc.setFontSize(10.5); }
+    if (i % 2 === 1) { tint(0.05); doc.rect(M, y - 12, W - 2 * M, rowH, "F"); }
+    let x = M + 4;
+    doc.setDrawColor(FONT); alpha(0.55); doc.setLineWidth(0.8); doc.rect(x + 1, y - 9, 10, 10);
+    x += cols[0][1];
+    laid.forEach((lines, k) => {
       const [t, w] = cols[k + 1];
       doc.setFont("helvetica", t === "Name" || t === "Party" ? "bold" : "normal"); ink(t === "Email" || t === "RSVP'd" || t === "Plus" ? 0.72 : 1);
-      if (right(t)) doc.text(c, x + w - 10, y, { align: "right" });
-      else doc.text(fit(c, w - 8), x, y);
+      if (right(t)) doc.text(lines[0], x + w - 10, y, { align: "right" });
+      else lines.forEach((ln, j) => doc.text(ln, x, y + j * LINE));
       x += w;
     });
-    y += 18;
+    y += rowH;
   });
   if (!rows.length) { doc.setFont("helvetica", "normal"); ink(0.65); doc.text(guestsKind ? "No names on the guest list yet." : "No RSVPs yet.", M + 4, y); }
 

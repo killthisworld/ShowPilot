@@ -148,8 +148,10 @@ export default function RsvpList({ showId, tall = false, capacity = null, closeA
               {rows.map((r) => (
                 <div key={r.id} className="flex items-center gap-2.5 px-3 py-2 border-b border-[#181818] last:border-b-0">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-semibold text-white truncate">{r.name}</div>
-                    <div className="text-[13px] text-white/55 truncate">{[r.artist_name, r.email].filter(Boolean).join(" · ")}</div>
+                    {/* Long names and emails wrap so the door can read them (job 311). */}
+                    <div className="text-[15px] font-semibold text-white leading-snug [overflow-wrap:anywhere]">{r.name}</div>
+                    {r.artist_name && <div className="text-[13px] text-white/55 leading-snug [overflow-wrap:anywhere]">{r.artist_name}</div>}
+                    <div className="text-[13px] text-white/55 leading-snug [overflow-wrap:anywhere]">{r.email}</div>
                   </div>
                   {confirmId === r.id ? (
                     <>
