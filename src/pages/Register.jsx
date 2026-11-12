@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, Music, Headphones, Briefcase, Lightbulb, ChevronLeft, Star } from "lucide-react";
+import { MapPin, Music, Headphones, Briefcase, Lightbulb, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -32,16 +32,9 @@ const ALL_ROLE_GROUPS = [
       { value: "lighting", label: "Lighting Tech", icon: Lightbulb },
     ],
   },
-  {
-    // Fans (job 77): every show they RSVP to, with their key and sky.
-    label: "Going to shows",
-    roles: [
-      { value: "fan", label: "Fan", icon: Star },
-    ],
-  },
 ];
-// Roles that are switched off (the fan side, see lib/hiddenProfiles.js) are left
-// out here, and a group with nothing left disappears.
+// Roles that are switched off (see lib/hiddenProfiles.js) are left out here,
+// and a group with nothing left disappears.
 const ROLE_GROUPS = ALL_ROLE_GROUPS
   .map((g) => ({ ...g, roles: g.roles.filter((r) => isProfileOpen(r.value)) }))
   .filter((g) => g.roles.length > 0);
@@ -49,7 +42,7 @@ const ROLES = ROLE_GROUPS.flatMap((g) => g.roles);
 const roleColor = (value) => ACCOUNT_TYPE_STYLES[value]?.color || "#8CFF3D";
 
 export default function Register() {
-  // ?role=fan (from an RSVP confirmation) skips straight to the form.
+  // ?role=<profile> skips straight to the form.
   const presetRole = (() => {
     try { const r = new URLSearchParams(window.location.search).get("role"); return ROLES.some((x) => x.value === r) ? r : null; } catch { return null; }
   })();
@@ -188,11 +181,6 @@ export default function Register() {
           }
         />
         <form onSubmit={handleSubmit} className="px-6 pt-5 pb-6 space-y-4">
-          {accountType === "fan" && (
-            <p className="text-[14px] leading-snug rounded-lg px-3 py-2.5" style={{ color: "#d6d8f5", background: "#0b0e24", border: "1px solid #2b2f5a" }}>
-              Use the email you RSVP with. Every show you RSVP to with it shows up in your account, with your key and the event sky.
-            </p>
-          )}
           <AuthField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           <AuthField label="Password" password autoComplete="new-password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="At least 6 characters" />
           <AuthField label="Confirm password" password autoComplete="new-password" minLength={6} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />

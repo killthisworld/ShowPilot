@@ -16,7 +16,6 @@ import ColorPicker from "@/components/showpilot/ColorPicker";
 import { filmDateLine } from "@/lib/afterShowFilm";
 import { hashColor } from "@/lib/constellation";
 import { fanUrl, cleanSlug, trimSlug, slugProblem, SLUG_MIN, SLUG_MAX } from "@/lib/fanUrl";
-import { FAN_SIDE_OPEN } from "@/lib/hiddenProfiles";
 
 const G = "#8CFF3D";
 const MAX_LINEUP = 12;
@@ -621,30 +620,6 @@ function OwnerSheet({ showId, onClose }) {
           )}
           {note(draft.capacityOn ? "Counts everyone in each party. When it's full, the RSVP form says RSVPs are full." : "Anyone can RSVP.")}
         </>)}
-      {/* Local shows needs fan accounts to see it (Discover), so it's off while the fan side is (job 110). */}
-      {FAN_SIDE_OPEN && section("Local shows", <>
-        {segmented([[false, "Not listed"], [true, "List in local shows"]], draft.discover, (k) => set({ discover: k }), "Local shows")}
-        {draft.discover && (draft.hidden.includes("date") || draft.hidden.includes("venue"))
-          ? <p className="mt-2.5 text-[15px] leading-relaxed text-[#FF6A00]">Fans nearby won't see it yet: local shows need the date and venue shown, so fans know when and where. Show them on the page, or leave this off to keep the event private.</p>
-          : note(draft.discover
-            ? `Fan accounts in ${row?.city || "this event's city"}${row?.state ? `, ${row.state}` : ""} who turned on local shows see it in Discover as a flyer card. It drops off after the show.`
-            : "Only people with the link see this page. Turn this on to also show it to fans nearby in Show Pilot's local shows.")}
-        {draft.discover && !row?.state && <p className="mt-2 text-[14px] text-[#FF6A00]">This event has no city or state yet, so it can't be matched to fans nearby. Add them in the event itself.</p>}
-        {(row?.fan_page?.discover === true || (stats && stats.seen > 0)) && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {[["SEEN BY", stats?.seen, stats?.seen_7d, "fans landed on your card in Discover"], ["TAPPED THROUGH", stats?.tapped, stats?.tapped_7d, "opened your fan page from it"]].map(([l, all, week, hint]) => (
-              <div key={l} className="rounded-xl px-3 py-2.5 bg-[#0a0c1c] border border-[#1c2042]" title={hint}>
-                <div className="text-[10.5px] tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: DIM }}>{l}</div>
-                <div className="mt-0.5 flex items-baseline gap-1.5">
-                  <span className="text-[26px] font-bold leading-none text-white" style={{ fontFamily: SCENE_MONO }}>{all ?? "–"}</span>
-                  <span className="text-[13px]" style={{ color: SOFT }}>{all === 1 ? "fan" : "fans"}</span>
-                </div>
-                <div className="mt-1 text-[12px]" style={{ color: week ? G : DIM }}>{week ? `+${week} this week` : "none this week"}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </>)}
       {rsvp && section("RSVP email", <>
           {label("SUBJECT", "mt-3")}
           <input className={`${inputCls} mt-1.5`} maxLength={150} placeholder={`You're on the list: ${title}`} value={draft.emailSubject} onChange={(e) => set({ emailSubject: e.target.value })} />
