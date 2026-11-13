@@ -166,7 +166,7 @@ const eventLines = (gig, extra) => [[dayLong(gig.date), [gig.venue, [gig.city, g
 const eventTitle = (gig) => gig.event_name || gig.band_name || "Event";
 
 // Acts in playing order: by set time when there is one, else lineup order.
-function actsInOrder(gig) {
+export function actsInOrder(gig) {
   const times = gig.manager_info?.set_times || {};
   return [...(gig.bands || [])].filter((b) => b.band_name)
     .map((b, i) => ({ b, i, t: times[b.band_name] }))
@@ -212,7 +212,8 @@ export function setlistPdf(gig, setlists, act, style) {
   return sheetPdf({ title: eventTitle(gig), lines: eventLines(gig, "Set list"), style, fileLabel: act && lists.length === 1 ? `${act} Set List` : "Set List", blocks });
 }
 
-export function contactsPdf(gig, style) {
+// Everyone to reach on the event: [role, name, phone, email or address].
+export function contactRows(gig) {
   const vi = gig.venue_info || {}, mi = gig.manager_info || {}, ei = gig.engineer_info || {};
   const rows = [];
   if (gig.venue || vi.address) rows.push(["Venue", gig.venue || "", "", vi.address || ""]);
@@ -220,6 +221,11 @@ export function contactsPdf(gig, style) {
   (gig.bands || []).forEach((b) => { if (b.band_name && (b.submitter_name || b.submitter_phone || b.submitter_email)) rows.push([`Act: ${b.band_name}`, b.submitter_name || "", b.submitter_phone || "", b.submitter_email || ""]); });
   const lightsToo = !!ei.lighting?.same_as_audio;
   [[lightsToo ? "Audio + Lighting" : "Audio", ei.audio], ...(lightsToo ? [] : [["Lighting", ei.lighting]])].forEach(([r, i]) => { if (i && (i.contact_name || i.contact_phone || i.contact_email)) rows.push([r, i.contact_name || "", i.contact_phone || "", i.contact_email || ""]); });
+  return rows;
+}
+
+export function contactsPdf(gig, style) {
+  const rows = contactRows(gig);
   return sheetPdf({
     title: eventTitle(gig), lines: eventLines(gig, "Contact sheet"), style, fileLabel: "Contacts",
     blocks: [{ type: "table", size: 11, cols: [{ label: "Role", w: 120, bold: true }, { label: "Name", w: 130, bold: true }, { label: "Phone", w: 100 }, { label: "Email / address", w: 180, dim: true }], rows, empty: "No contacts filled in yet." }],
@@ -231,3 +237,36 @@ export const pdfCounts = (gig) => ({
   songs: (gig.manager_info?.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => has(x.title)).length, 0),
   guests: (gig.manager_info?.guests || []).filter((g) => has(g.name)).length,
 });
+
+// ---- Pin to board (job 314) ----
+// Non-tech profiles pin live sheets to the event's home. Pins live with the
+// profile that pinned them (venue_info.pins, manager_info.pins), so only
+// that profile's editors change them and everyone on the event reads them.
+export const PIN_TYPES = ["schedule", "lineup", "setlist", "contacts", "guests"];
+export const PIN_LABEL = { schedule: "Day-of schedule", lineup: "Lineup", setlist: "Set list", contacts: "Contact sheet", guests: "Guest list" };
+export function readPins(gig) {
+  const out = [];
+  const take = (list, by) => (Array.isArray(list) ? list : []).forEach((p) => {
+    if (p && PIN_TYPES.includes(p.type) && !out.some((o) => o.type === p.type)) out.push({ type: p.type, by, at: p.at || null });
+  });
+  take(gig.venue_info?.pins, "venue");
+  take(gig.manager_info?.pins, "manager");
+  return out.sort((a, b) => PIN_TYPES.indexOf(a.type) - PIN_TYPES.indexOf(b.type));
+}
+
+// The day's run of show, same rules as RoleWorkspace's buildRunOfShow (kept
+// here so the pinned board doesn't import the whole workspace): the venue's
+// schedule, each act's set time, the artist's arrival; after-midnight times
+// sort last.
+export function runOfShowFor(gig) {
+  const vi = gig.venue_info || {}, mi = gig.manager_info || {};
+  const rows = (vi.schedule || []).filter((r) => has(r.time) || has(r.label))
+    .map((r) => ({ time: r.time, label: r.label, kind: /curfew/i.test(r.label || "") ? "curfew" : /door/i.test(r.label || "") ? "doors" : "venue" }));
+  (gig.bands || []).forEach((b) => {
+    const t = (mi.set_times || {})[b.band_name];
+    if (b.band_name && has(t)) rows.push({ time: t, label: `${b.band_name}${b.set_length_minutes ? ` · ${b.set_length_minutes} min` : ""}`, kind: "set" });
+  });
+  if (has(mi.arrival_time)) rows.push({ time: mi.arrival_time, label: "Artist arrives", kind: "travel" });
+  const key = (t) => { const v = toMin(t); return v === 99999 ? 99999 : v < 360 ? v + 1440 : v; };
+  return rows.sort((a, b) => key(a.time) - key(b.time));
+}

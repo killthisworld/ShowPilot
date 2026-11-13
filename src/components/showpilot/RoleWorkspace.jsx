@@ -1251,8 +1251,16 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     else setMi("documents", [...(mi.documents || []), doc]);
     return true;
   };
+  // Pin to board (job 314): this profile's pins, saved with its own info.
+  const ownPinList = (role === "venue" ? gig.venue_info?.pins : mi.pins) || [];
+  const togglePin = (type) => {
+    const list = Array.isArray(ownPinList) ? ownPinList : [];
+    const next = list.some((x) => x.type === type) ? list.filter((x) => x.type !== type) : [...list, { type, at: new Date().toISOString() }];
+    if (role === "venue") setVi("pins", next); else setMi("pins", next);
+  };
   const pdfSheet = pdfMaker && pdfsOn ? (
     <PdfMaker gig={gig} role={role} color={color} runOfShow={buildRunOfShow(gig)} canRsvps={role === "manager" && !!onOpenFanPage}
+      ownPins={(Array.isArray(ownPinList) ? ownPinList : []).map((x) => x.type)} onTogglePin={ed ? togglePin : null}
       onAddToDocs={ed ? addPdfToDocs : null} docsLabel={`Add to ${ROLE_TITLE[role]} Documents on the event`}
       initial={typeof pdfMaker === "string" ? pdfMaker : null} onClose={() => setPdfMaker(null)} />
   ) : null;

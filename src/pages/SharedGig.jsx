@@ -30,6 +30,7 @@ import { fetchMyIcons } from "@/lib/eventIcons";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import PinnedBoard from "@/components/showpilot/PinnedBoard";
 
 export const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -1343,6 +1344,8 @@ export default function SharedGig() {
             </span>
           </button>
         )}
+        {/* Pinned sheets (job 314): what the Venue / Manager pinned, live. */}
+        {techPhone && gig && <div className="mt-3"><PinnedBoard gig={gig} /></div>}
         {/* The stage plot card is off the tech phone (job 302): it's in the
             Performers tab. Desktop keeps it. */}
         {isDesktop && stageRole && !techPhone && <StagePlotCard acts={gig?.bands || []} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}

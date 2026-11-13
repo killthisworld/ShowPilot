@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarClock, Check, ChevronRight, ListMusic, ListOrdered, Ticket, UserRound, Users, X } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, ListMusic, ListOrdered, Pin, PinOff, Ticket, UserRound, Users, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
-import { lineupPdf, schedulePdf, setlistPdf, contactsPdf, pdfCounts } from "@/lib/eventPdfs";
+import { lineupPdf, schedulePdf, setlistPdf, contactsPdf, pdfCounts, readPins, PIN_TYPES } from "@/lib/eventPdfs";
 
 // Create PDFs (job 313): the bottom-right feature on the Venue, Artist and
 // Manager profiles. Pick a sheet, style it (color or picture background,
@@ -14,7 +14,9 @@ import { lineupPdf, schedulePdf, setlistPdf, contactsPdf, pdfCounts } from "@/li
 //   Lineup, Day-of schedule, Contact sheet: every one of these profiles
 //   Set list: Artist and Manager only
 //   Guest list: everyone here; RSVPs: when the event has a fan page you run
-export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [], canRsvps = false, onAddToDocs, docsLabel = "Add to this event's Documents", initial = null, onClose }) {
+// onTogglePin(type) (job 314): pin a live sheet to the event's board, or
+// take it off. ownPins: the types this profile has pinned.
+export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [], canRsvps = false, onAddToDocs, docsLabel = "Add to this event's Documents", initial = null, onClose, ownPins = [], onTogglePin = null }) {
   const counts = pdfCounts(gig);
   const title = gig.event_name || gig.band_name || "Event";
   const songActs = useMemo(() => (gig.manager_info?.setlists || []).filter((s) => (s.songs || []).some((x) => String(x.title || "").trim())).map((s) => s.act), [gig.manager_info?.setlists]);
@@ -44,6 +46,20 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
     canRsvps && { key: "rsvps", label: "RSVPs", icon: Users, sub: rsvps === null ? "Loading..." : rsvps.length ? `${rsvps.length} RSVP${rsvps.length === 1 ? "" : "s"}, for the door` : "No RSVPs yet", ok: !!rsvps?.length, docs: false },
   ].filter(Boolean);
   const current = types.find((t) => t.key === pick);
+  const allPins = readPins(gig);
+  const pinBtn = (t) => {
+    if (!onTogglePin || !PIN_TYPES.includes(t.key)) return null;
+    const mine = ownPins.includes(t.key);
+    const other = !mine && allPins.find((p) => p.type === t.key);
+    if (other) return <span className="shrink-0 flex items-center gap-1 text-[12px] text-white/45 px-2" title="Pinned by another profile"><Pin className="w-3.5 h-3.5" /> Pinned by {other.by === "venue" ? "Venue" : "Manager / Artist"}</span>;
+    return (
+      <button type="button" onClick={() => onTogglePin(t.key)} aria-pressed={mine} aria-label={mine ? `Unpin ${t.label}` : `Pin ${t.label} to the board`}
+        className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 mr-2 rounded-lg text-[12.5px] font-bold"
+        style={mine ? { background: color, color: "#0d0d0d" } : { color, border: `1px solid ${color}66` }}>
+        {mine ? <><PinOff className="w-3.5 h-3.5" /> Pinned</> : <><Pin className="w-3.5 h-3.5" /> Pin to board</>}
+      </button>
+    );
+  };
 
   const build = (key, style) => {
     if (key === "lineup") return lineupPdf(gig, style);
@@ -75,18 +91,21 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
           <h2 className="flex-1 text-[22px] font-bold leading-none">Create PDFs</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
-        <p className="mt-2 mb-0 text-[14px] text-white/55">{title}. Pick a sheet, style it, then save it or add it to the event's Documents.</p>
+        <p className="mt-2 mb-0 text-[14px] text-white/55">{title}. Pick a sheet, style it, then save it or add it to the event's Documents.{onTogglePin ? " Pin a sheet to keep it live on the event's home for everyone on the event." : ""}</p>
         {note && <p className="mt-3 mb-0 flex items-center gap-2 text-[14px]" style={{ color }}><Check className="w-4 h-4" /> {note}</p>}
         <div className="mt-4 flex flex-col gap-2">
           {types.map((t) => {
             const Icon = t.icon;
             return (
               <div key={t.key} className="rounded-xl bg-[#0b0b0b] border border-[#232323] overflow-hidden">
-                <button type="button" disabled={!t.ok} onClick={() => { setNote(""); setPick(t.key); }} className="w-full flex items-center gap-3 px-3.5 py-3 text-left disabled:opacity-45">
+                <div className="flex items-center">
+                <button type="button" disabled={!t.ok} onClick={() => { setNote(""); setPick(t.key); }} className="min-w-0 flex-1 flex items-center gap-3 px-3.5 py-3 text-left disabled:opacity-45">
                   <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}1f`, color }}><Icon className="w-5 h-5" /></span>
                   <span className="min-w-0 flex-1"><span className="block text-[16px] font-bold">{t.label}</span><span className="block text-[13px] text-white/55">{t.sub}</span></span>
                   {t.ok && <ChevronRight className="w-5 h-5 text-white/40 shrink-0" />}
                 </button>
+                {pinBtn(t)}
+                </div>
                 {t.key === "setlist" && songActs.length > 1 && (
                   <div className="px-3.5 pb-3 -mt-1 flex flex-wrap gap-1.5" aria-label="Which act">
                     {[[null, "All acts"], ...songActs.map((a) => [a, a])].map(([k, l]) => (

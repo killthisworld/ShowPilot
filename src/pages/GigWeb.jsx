@@ -43,6 +43,7 @@ import DjTools from "@/pages/DjTools";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { myOpenTasks } from "@/lib/myTasks";
 import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
+import PinnedBoard from "@/components/showpilot/PinnedBoard";
 
 // Short console-style codes for the role channel buttons.
 const ROLE_CODES = { venue: "VENUE", manager: "MGMT", band: "ARTIST", engineer: "AUDIO", lighting: "LIGHTS" };
@@ -897,7 +898,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
           <div className="mb-4 flex flex-col gap-3">
             {!selectedRole && (
               <div className="bg-[#111111] border border-[#1f1f1f] rounded-2xl p-3">
-                <OverviewBoard hideStrips nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                <OverviewBoard canEditSection={(sec) => !!user && roleEditable(sec, permissions)} hideStrips nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !permissions?.is_owner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
               </div>
             )}
             <EventSections
@@ -1428,7 +1429,7 @@ function ProfileStrips({ nodes, tasks, onSelectRole }) {
 // which only shows one tile per section regardless of how many people
 // hold it - so this is what actually scales as a gig grows past one
 // person per role.
-function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails, hideStrips }) {
+function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged, onGigChanged, canPersonalIcon, myIcon, onMyIconChanged, hideInvite, foldDetails, hideStrips, canEditSection = null }) {
   // Desktop board: the event's name / date / icon editor is one compact row
   // (always open, no dropdown) so the role tiles and tasks lead. Phones keep
   // the full editor, as before.
@@ -1439,6 +1440,8 @@ function OverviewBoard({ nodes, onSelectRole, permissions, token, gig, onChanged
   // up when someone's on it.
   return (
     <div>
+      {/* Pinned sheets (job 314), live, for everyone on the event. */}
+      {gig && <PinnedBoard gig={gig} canEdit={canEditSection || (() => false)} onEdit={onSelectRole ? (role, key) => onSelectRole(role, key) : null} />}
       {permissions?.is_owner && gig && (
         <EventDetailsEditor token={token} gig={gig} onChanged={onChanged} onIconChanged={onGigChanged} compact={!!foldDetails} />
       )}
@@ -2009,7 +2012,7 @@ function DesktopGigWeb({
             <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 border-t border-dashed border-[#2a2a2a] pt-3">
               <div className="flex flex-col gap-4">
                 {!selectedRole && (
-                  <OverviewBoard hideInvite hideStrips foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
+                  <OverviewBoard canEditSection={(sec) => !!user && roleEditable(sec, permissions)} hideInvite hideStrips foldDetails nodes={nodes} onSelectRole={selectRole} permissions={permissions} token={token} gig={gig} onChanged={loadGig} onGigChanged={onGigChanged} canPersonalIcon={!!user && !isOwner} myIcon={myIcon} onMyIconChanged={(u) => { setMyIcon(u); onGigChanged?.(); }} />
                 )}
                 {/* Run of show + one To do list; every row opens the page where it gets done (job 120). */}
                 {!selectedRole && (
