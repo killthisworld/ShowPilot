@@ -82,13 +82,13 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
   const style = { bg, font, fade, image: mode === "picture" ? image : null };
   const create = async () => {
     if (mode === "picture" && !image) { setErr("Choose a picture first, or pick Color."); return; }
-    if (destinations && !toPhone && !toDocs) { setErr("Pick where the PDF goes: your phone, Documents, or both."); return; }
+    if (destinations && !toPhone && !toDocs) { setErr("Pick where the PDF goes: your phone, Paperwork, or both."); return; }
     try { localStorage.setItem(KEEP, JSON.stringify({ bg, font, fade })); } catch { /* fine */ }
     setBusy(true); setErr("");
     try { await onCreate(style, destinations ? { phone: toPhone, docs: toDocs } : undefined); onClose(); }
     catch (e) {
       if (e?.needsTap) setReady(e.file);
-      else setErr(e?.message === "docs" ? "Couldn't add it to Documents (the upload didn't finish). Check your connection and try again." : "Couldn't make the PDF. Try again.");
+      else setErr(e?.message === "docs" ? "Couldn't add it to Paperwork (the upload didn't finish). Check your connection and try again." : "Couldn't make the PDF. Try again.");
     }
     setBusy(false);
   };
@@ -187,7 +187,7 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
         {destinations && (<>
           {label("WHERE IT GOES")}
           <div className="flex flex-col gap-2">
-            {[[toPhone, setToPhone, "Save to my phone", "Share sheet on phones, a download on computers."], [toDocs, setToDocs, destinations.docsLabel, "Everyone with access to this profile on the event can open it."]].map(([on, set, l, sub]) => (
+            {[[toPhone, setToPhone, "Save to my phone", "Share sheet on phones, a download on computers."], [toDocs, setToDocs, destinations.docsLabel, "The venue side and the manager / artist side can open it there."]].map(([on, set, l, sub]) => (
               <button key={l} type="button" role="switch" aria-checked={on} onClick={() => set(!on)} className="flex items-center gap-3 text-left px-3 py-2.5 rounded-xl bg-[#0a0a0a] border border-[#232323]">
                 <span className="w-10 h-6 rounded-full relative shrink-0 transition-colors" style={{ background: on ? G : "#333" }}>
                   <span className="absolute top-0.5 w-5 h-5 rounded-full bg-[#0d0d0d] transition-all" style={{ left: on ? 18 : 2 }} />

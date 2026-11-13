@@ -24,7 +24,7 @@ import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
-import { useEventBusiness, saveDeal, dealSummary } from "@/lib/eventBusiness";
+import { useEventBusiness, saveDeal, dealSummary, fileRecord } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
 import SectionPhotoButton from "@/components/showpilot/SectionPhotoButton";
 import { sectionPhoto, ownSectionPhoto } from "@/lib/sectionPhotos";
@@ -1238,32 +1238,32 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       <FolderOpen className="w-3.5 h-3.5" /> LOAD TEMPLATE
     </button>
   ) : null;
-  // Create PDFs -> this profile's Documents on the event: Venue saves to
-  // venue_documents, Artist / Manager to manager_info.documents (job 313).
+  // Create PDFs -> the event's Paperwork, under Other (job 319). Since job
+  // 171 the event's files live in Paperwork; the old Documents lists aren't
+  // shown anywhere, so PDFs added there seemed to vanish. Same as the phone.
   const addPdfToDocs = async (file) => {
-    const folder = role === "venue" ? "venue" : "manager";
-    const path = `gig_docs/${gig.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name.replace(/[^\w .()\-]+/g, "_")}`;
     // Never hang (job 316): give up after 30 seconds and say so.
-    const timeout = new Promise((resolve) => setTimeout(() => resolve({ error: new Error("timed out") }), 30_000));
-    const { error } = await Promise.race([supabase.storage.from("input-files").upload(path, file, { contentType: "application/pdf" }), timeout]);
-    if (error) { console.error(error); return false; }
-    const { data } = supabase.storage.from("input-files").getPublicUrl(path);
-    const doc = { url: data.publicUrl, name: file.name, type: "application/pdf" };
-    if (role === "venue") p.update("venue_documents", [...(gig.venue_documents || []), doc]);
-    else setMi("documents", [...(mi.documents || []), doc]);
-    return true;
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), 30_000));
+    try {
+      await Promise.race([fileRecord(gig.id, { kind: "other", title: file.name.replace(/\.pdf$/i, ""), file }), timeout]);
+      return true;
+    } catch (e) { console.error(e); return false; }
   };
   // Pin to board (job 314): this profile's pins, saved with its own info.
   const ownPinList = (role === "venue" ? gig.venue_info?.pins : mi.pins) || [];
-  const togglePin = (type) => {
+  // Saved straight away (job 319) so the board shows it without SAVE.
+  const togglePin = async (type) => {
     const list = Array.isArray(ownPinList) ? ownPinList : [];
     const next = list.some((x) => x.type === type) ? list.filter((x) => x.type !== type) : [...list, { type, at: new Date().toISOString() }];
-    if (role === "venue") setVi("pins", next); else setMi("pins", next);
+    if (p.saveField) {
+      try { await p.saveField(role === "venue" ? "venue_info" : "manager_info", "pins", next); }
+      catch (e) { console.error(e); }
+    } else if (role === "venue") setVi("pins", next); else setMi("pins", next);
   };
   const pdfSheet = pdfMaker && pdfsOn ? (
     <PdfMaker gig={gig} role={role} color={color} runOfShow={buildRunOfShow(gig)} canRsvps={role === "manager" && !!onOpenFanPage}
       ownPins={(Array.isArray(ownPinList) ? ownPinList : []).map((x) => x.type)} onTogglePin={ed ? togglePin : null}
-      onAddToDocs={ed ? addPdfToDocs : null} docsLabel={`Add to ${ROLE_TITLE[role]} Documents on the event`}
+      onAddToDocs={ed && gig.id ? addPdfToDocs : null} docsLabel="Add to the event's Paperwork (Other)"
       initial={typeof pdfMaker === "string" ? pdfMaker : null} onClose={() => setPdfMaker(null)} />
   ) : null;
   const featureDcas = [

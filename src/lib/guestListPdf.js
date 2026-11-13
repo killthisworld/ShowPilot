@@ -202,7 +202,10 @@ export class NeedsTap extends Error {
 }
 export async function saveOrShare(file) {
   try {
-    if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return "shared"; }
+    // Share sheet on phones / tablets only; a computer just downloads it
+    // (job 319: desktop Opera's share sheet left Create PDF spinning).
+    const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+    if (touch && navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return "shared"; }
   } catch (e) {
     if (e?.name === "AbortError") return "";
     if (e?.name === "NotAllowedError") throw new NeedsTap(file);

@@ -259,8 +259,27 @@ export function useRoleProfile({ role, token, onChanged }) {
     onChanged?.();
   };
 
+  // One field saved straight away (job 319): pins and PDFs added to
+  // Documents used to wait for SAVE, so they were lost if nobody tapped it.
+  // Reads the latest copy first and changes only that field, so it never
+  // writes back someone else's older info. where: "venue_info",
+  // "manager_info" or "venue_documents" (key ignored).
+  const saveField = async (where, key, value) => {
+    const { data: fresh, error: readErr } = await supabase.rpc("get_shared_gig", { p_token: token });
+    if (readErr || !fresh) throw readErr || new Error("couldn't read the event");
+    let section, updates, local;
+    if (where === "venue_documents") { section = "venue"; updates = { venue_documents: value }; local = (g) => ({ ...g, venue_documents: value }); }
+    else if (where === "venue_info") { section = "venue"; updates = { venue_info: { ...(fresh.venue_info || {}), [key]: value } }; local = (g) => ({ ...g, venue_info: { ...(g.venue_info || {}), [key]: value } }); }
+    else { section = "manager"; updates = { ...(fresh.manager_info || {}), [key]: value }; local = (g) => ({ ...g, manager_info: { ...(g.manager_info || {}), [key]: value } }); }
+    const { error } = await supabase.rpc("update_gig_section", { p_token: token, p_section: section, p_updates: updates });
+    if (error) throw error;
+    setGig(local);
+    await markLinkedAndAccepted();
+    onChanged?.();
+  };
+
   return {
-    savePhoto, markPage,
+    savePhoto, markPage, saveField,
     user, checkingAuth, gig, permissions, loading, notFound, saving, saved,
     expandedBands, toggleExpanded, canEdit, editable, canEditSection,
     update, updateSection, updateEngineerRole, updateBand, addBand, removeBand, setActMembers,

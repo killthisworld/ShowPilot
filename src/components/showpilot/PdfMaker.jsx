@@ -81,7 +81,7 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
     if (where.docs && onAddToDocs) {
       const ok = await onAddToDocs(file);
       if (!ok) { setNote(""); throw new Error("docs"); }
-      setNote(`Added "${file.name}" to Documents.`);
+      setNote(`Added "${file.name}" to Paperwork (Other).`);
     } else if (where.phone && !blocked) setNote(`Made "${file.name}".`);
     if (blocked) throw blocked;
   };
@@ -95,7 +95,7 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
           <h2 className="flex-1 text-[22px] font-bold leading-none">Create PDFs</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-white/60 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
-        <p className="mt-2 mb-0 text-[14px] text-white/55">{title}. Pick a sheet, style it, then save it or add it to the event's Documents.{onTogglePin ? " Pin a sheet to keep it live on the event's home for everyone on the event." : ""}</p>
+        <p className="mt-2 mb-0 text-[14px] text-white/55">{title}. Pick a sheet, style it, then save it or add it to the event's Paperwork.{onTogglePin ? " Pin a sheet to keep it live on the event's home for everyone on the event." : ""}</p>
         {note && <p className="mt-3 mb-0 flex items-center gap-2 text-[14px]" style={{ color }}><Check className="w-4 h-4" /> {note}</p>}
         <div className="mt-4 flex flex-col gap-2">
           {types.map((t) => {
@@ -122,7 +122,7 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
             );
           })}
         </div>
-        <p className="mt-3 mb-0 text-[12.5px] text-white/40" style={{ fontFamily: SCENE_MONO }}>Contact sheets and door lists aren't added to Documents unless you switch it on, since they hold phone numbers and emails.</p>
+        <p className="mt-3 mb-0 text-[12.5px] text-white/40" style={{ fontFamily: SCENE_MONO }}>Contact sheets and door lists aren't added to Paperwork unless you switch it on, since they hold phone numbers and emails.</p>
       </div>
     </div>
     {current && (

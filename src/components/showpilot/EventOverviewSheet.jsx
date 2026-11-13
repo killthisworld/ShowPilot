@@ -13,6 +13,7 @@ import DaySheet from "@/components/showpilot/DaySheet";
 import SettlementSheet from "@/components/showpilot/SettlementSheet";
 import MerchSheet from "@/components/showpilot/MerchSheet";
 import LineupEditor from "@/components/showpilot/LineupEditor";
+import PinnedBoard from "@/components/showpilot/PinnedBoard";
 import { usePreferences } from "@/hooks/usePreferences";
 import { feedRows, canWorkSection } from "@/lib/eventFeed";
 import { roleStatus } from "@/lib/inviteGroups";
@@ -168,6 +169,10 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
             open; the owner (and the venue side, for the website) can add or
             change them right here. */}
         <EventLinks gig={gig} perms={perms} box={box} color={color} onSaved={(patch) => setGig((g) => ({ ...g, ...patch }))} />
+
+        {/* Pinned sheets (jobs 314 / 317 / 319): the same board as the
+            event home on a computer. Tap a page to preview and save it. */}
+        <PinnedBoard gig={gig} />
 
         {/* The day sheet and the guest list, for everyone on the event
             (job 73, On the road). */}
