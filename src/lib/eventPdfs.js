@@ -100,26 +100,24 @@ function sheetPdf({ title, lines = [], blocks = [], style = DEFAULT_PDF_STYLE, f
       const size = n > 22 ? 17 : n > 16 ? 20 : n > 12 ? 24 : n > 8 ? 30 : 36;
       for (const it of b.items || []) {
         if (it.brk) {
-          // A break (job 315): stop, don't go straight into the next song. A
-          // full-width band, unnumbered, so the DJ and the stage see it coming.
-          const bh = Math.max(26, size * 1.05);
-          room(bh + 10);
-          tint(0.14); doc.rect(M, y - size * 0.72, W - 2 * M, bh, "F");
-          doc.setFont("helvetica", "bold"); doc.setFontSize(Math.max(14, size * 0.62)); ink(0.9);
-          doc.text(pdfSafe([it.title || "Break", it.note].filter(has).join("  ·  ")).toUpperCase(), W / 2, y - size * 0.72 + bh / 2 + Math.max(14, size * 0.62) * 0.35, { align: "center" });
-          y += bh + size * 0.35;
+          // A break (job 315): stop, don't go straight into the next song.
+          // Two thick lines across the page, nothing else.
+          const t = Math.max(3, size * 0.12), gap = Math.max(4, size * 0.16);
+          room(t * 2 + gap + size * 0.9);
+          const top = y - size * 0.55;
+          tint(1); doc.rect(M, top, W - 2 * M, t, "F"); doc.rect(M, top + t + gap, W - 2 * M, t, "F");
+          y = top + t * 2 + gap + size * 1.15;
           continue;
         }
         doc.setFont("helvetica", "bold"); doc.setFontSize(size);
         const tlines = wrap(it.title, W - 2 * M - size * 2.2);
-        const noteH = has(it.note) ? size * 0.55 + 4 : 0;
+        const noteH = 0; // notes were dropped from set lists (job 315)
         const h = tlines.length * size * 1.08 + noteH + size * 0.45;
         room(h);
         ink(0.45); doc.text(String(it.n), M + size * 1.5, y, { align: "right" });
         ink(1); tlines.forEach((ln, j) => doc.text(ln, M + size * 2.1, y + j * size * 1.08));
         let yy = y + (tlines.length - 1) * size * 1.08;
-        if (has(it.note)) { doc.setFont("helvetica", "normal"); doc.setFontSize(size * 0.55); ink(0.7); yy += size * 0.62; doc.text(wrap(it.note, W - 2 * M - size * 2.2)[0], M + size * 2.1, yy); }
-        y = yy + size * 1.0 + (has(it.note) ? 2 : 0);
+        y = yy + size * 1.0;
       }
       if (!n) { doc.setFont("helvetica", "normal"); doc.setFontSize(12); ink(0.6); doc.text("No songs yet.", M, y); y += 20; }
       continue;
@@ -220,7 +218,7 @@ export function setlistPdf(gig, setlists, act, style) {
     const all = (s.songs || []).filter((x) => x.kind === "break" || has(x.title));
     const count = all.filter((x) => x.kind !== "break").length;
     let num = 0;
-    const items = all.map((x) => (x.kind === "break" ? { brk: true, title: has(x.title) ? x.title : "Break", note: x.notes } : { n: ++num, title: x.title, note: x.notes }));
+    const items = all.map((x) => (x.kind === "break" ? { brk: true } : { n: ++num, title: x.title }));
     blocks.push({ type: "big", heading: `${s.act}  ·  ${count} song${count === 1 ? "" : "s"}`, items });
   });
   if (!blocks.length) blocks.push({ type: "big", heading: act || "Set list", items: [] });
