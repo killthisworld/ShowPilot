@@ -819,9 +819,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       // Set list (job 313): songs in order per act; Create PDF up top.
       ...(template ? [] : [{
         key: "setlist", label: "Set list",
-        summary: (() => { const n = (mi.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => x.title).length, 0); return n ? `${n} song${n === 1 ? "" : "s"}` : "Songs in order"; })(),
-        state: (mi.setlists || []).some((s) => (s.songs || []).some((x) => x.title)) ? "done" : "empty",
-        headAction: () => ((mi.setlists || []).some((s) => (s.songs || []).some((x) => x.title)) ? (
+        summary: (() => { const n = (mi.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => x.kind !== "break" && x.title).length, 0); return n ? `${n} song${n === 1 ? "" : "s"}` : "Songs in order"; })(),
+        state: (mi.setlists || []).some((s) => (s.songs || []).some((x) => x.kind !== "break" && x.title)) ? "done" : "empty",
+        headAction: () => ((mi.setlists || []).some((s) => (s.songs || []).some((x) => x.kind !== "break" && x.title)) ? (
           <button type="button" onClick={() => setPdfMaker("setlist")} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em]" style={{ background: "#111", border: `1px solid ${color}88`, color }}>
             <FileText className="w-3.5 h-3.5" /> CREATE PDF
           </button>

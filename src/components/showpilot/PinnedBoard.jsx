@@ -42,11 +42,13 @@ function SheetBody({ type, gig }) {
     return acts.length ? acts.map((a, i) => <Row key={a.name} left={a.time || `#${i + 1}`} right={a.name} sub={[a.headliner ? "Headliner" : "", a.length].filter(Boolean).join(" · ")} />) : <p className="text-[14px] text-white/45 m-0">No acts yet.</p>;
   }
   if (type === "setlist") {
-    const lists = (mi.setlists || []).filter((s) => (s.songs || []).some((x) => String(x.title || "").trim()));
+    const lists = (mi.setlists || []).filter((s) => (s.songs || []).some((x) => x.kind !== "break" && String(x.title || "").trim()));
     return lists.length ? lists.map((s) => (
       <div key={s.act} className="mb-2 last:mb-0">
         <div className="text-[12px] tracking-[0.12em] text-white/50 mb-1" style={{ fontFamily: SCENE_MONO }}>{String(s.act).toUpperCase()}</div>
-        {(s.songs || []).filter((x) => String(x.title || "").trim()).map((x, i) => <Row key={x.id || i} left={String(i + 1)} right={x.title} sub={x.notes} />)}
+        {(() => { let num = 0; return (s.songs || []).filter((x) => x.kind === "break" || String(x.title || "").trim()).map((x, i) => (x.kind === "break"
+          ? <div key={x.id || i} className="my-1 px-2 py-1.5 rounded-md text-center text-[13px] font-bold tracking-[0.1em] uppercase" style={{ background: "rgba(248,113,113,0.12)", color: "#F87171" }}>{[x.title || "Break", x.notes].filter((v) => v && String(v).trim()).join(" · ")}</div>
+          : <Row key={x.id || i} left={String(++num)} right={x.title} sub={x.notes} />)); })()}
       </div>
     )) : <p className="text-[14px] text-white/45 m-0">No songs yet.</p>;
   }

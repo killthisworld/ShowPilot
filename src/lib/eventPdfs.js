@@ -96,9 +96,20 @@ function sheetPdf({ title, lines = [], blocks = [], style = DEFAULT_PDF_STYLE, f
       doc.setFont("helvetica", "bold"); doc.setFontSize(16); ink(0.65);
       if (b.heading) { doc.text(pdfSafe(b.heading).toUpperCase(), M, y); y += 14; }
       tint(0.25); doc.rect(M, y, W - 2 * M, 1.2, "F"); y += 26;
-      const n = (b.items || []).length;
+      const n = (b.items || []).filter((it) => !it.brk).length;
       const size = n > 22 ? 17 : n > 16 ? 20 : n > 12 ? 24 : n > 8 ? 30 : 36;
       for (const it of b.items || []) {
+        if (it.brk) {
+          // A break (job 315): stop, don't go straight into the next song. A
+          // full-width band, unnumbered, so the DJ and the stage see it coming.
+          const bh = Math.max(26, size * 1.05);
+          room(bh + 10);
+          tint(0.14); doc.rect(M, y - size * 0.72, W - 2 * M, bh, "F");
+          doc.setFont("helvetica", "bold"); doc.setFontSize(Math.max(14, size * 0.62)); ink(0.9);
+          doc.text(pdfSafe([it.title || "Break", it.note].filter(has).join("  ·  ")).toUpperCase(), W / 2, y - size * 0.72 + bh / 2 + Math.max(14, size * 0.62) * 0.35, { align: "center" });
+          y += bh + size * 0.35;
+          continue;
+        }
         doc.setFont("helvetica", "bold"); doc.setFontSize(size);
         const tlines = wrap(it.title, W - 2 * M - size * 2.2);
         const noteH = has(it.note) ? size * 0.55 + 4 : 0;
@@ -201,12 +212,16 @@ export function schedulePdf(gig, runOfShow, style) {
 
 // setlists: manager_info.setlists; act: one act's name, or null for all.
 export function setlistPdf(gig, setlists, act, style) {
-  const lists = (Array.isArray(setlists) ? setlists : []).filter((s) => (!act || s.act === act) && (s.songs || []).some((x) => has(x.title)));
+  const lists = (Array.isArray(setlists) ? setlists : []).filter((s) => (!act || s.act === act) && (s.songs || []).some((x) => x.kind !== "break" && has(x.title)));
   const blocks = [];
   lists.forEach((s, i) => {
     if (i) blocks.push({ type: "page" });
-    const songs = (s.songs || []).filter((x) => has(x.title));
-    blocks.push({ type: "big", heading: `${s.act}  ·  ${songs.length} song${songs.length === 1 ? "" : "s"}`, items: songs.map((x, j) => ({ n: j + 1, title: x.title, note: x.notes })) });
+    // Breaks (kind "break") sit between songs and aren't numbered (job 315).
+    const all = (s.songs || []).filter((x) => x.kind === "break" || has(x.title));
+    const count = all.filter((x) => x.kind !== "break").length;
+    let num = 0;
+    const items = all.map((x) => (x.kind === "break" ? { brk: true, title: has(x.title) ? x.title : "Break", note: x.notes } : { n: ++num, title: x.title, note: x.notes }));
+    blocks.push({ type: "big", heading: `${s.act}  ·  ${count} song${count === 1 ? "" : "s"}`, items });
   });
   if (!blocks.length) blocks.push({ type: "big", heading: act || "Set list", items: [] });
   return sheetPdf({ title: eventTitle(gig), lines: eventLines(gig, "Set list"), style, fileLabel: act && lists.length === 1 ? `${act} Set List` : "Set List", blocks });
@@ -234,7 +249,7 @@ export function contactsPdf(gig, style) {
 
 export const pdfCounts = (gig) => ({
   acts: (gig.bands || []).filter((b) => b.band_name).length,
-  songs: (gig.manager_info?.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => has(x.title)).length, 0),
+  songs: (gig.manager_info?.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => x.kind !== "break" && has(x.title)).length, 0),
   guests: (gig.manager_info?.guests || []).filter((g) => has(g.name)).length,
 });
 

@@ -19,7 +19,7 @@ import { lineupPdf, schedulePdf, setlistPdf, contactsPdf, pdfCounts, readPins, P
 export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [], canRsvps = false, onAddToDocs, docsLabel = "Add to this event's Documents", initial = null, onClose, ownPins = [], onTogglePin = null }) {
   const counts = pdfCounts(gig);
   const title = gig.event_name || gig.band_name || "Event";
-  const songActs = useMemo(() => (gig.manager_info?.setlists || []).filter((s) => (s.songs || []).some((x) => String(x.title || "").trim())).map((s) => s.act), [gig.manager_info?.setlists]);
+  const songActs = useMemo(() => (gig.manager_info?.setlists || []).filter((s) => (s.songs || []).some((x) => x.kind !== "break" && String(x.title || "").trim())).map((s) => s.act), [gig.manager_info?.setlists]);
   const [setAct, setSetAct] = useState(null); // null = all acts
   const [pick, setPick] = useState(typeof initial === "string" ? initial : null);
   const [rsvps, setRsvps] = useState(null);
