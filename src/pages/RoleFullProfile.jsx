@@ -74,7 +74,9 @@ export function useRoleProfile({ role, token, onChanged }) {
           supabase.rpc("get_gig_section_permissions", { p_token: token }),
         ]);
         if (gigRes.error || !gigRes.data) { setNotFound(true); setLoading(false); return; }
-        setGig({ ...gigRes.data, bands: (gigRes.data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
+        // share_token: get_shared_gig leaves it out; Create PDFs' Day-of
+        // package needs it (job 320).
+        setGig({ ...gigRes.data, share_token: token, bands: (gigRes.data.bands || []).map((b, i) => ({ ...b, sort_order: i })) });
         setPermissions(permsRes.data || { is_owner: false, my_roles: [], claimed_roles: [], invited_roles: [], granted_sections: [] });
       } catch (e) {
         console.error(e);

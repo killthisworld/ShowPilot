@@ -47,7 +47,9 @@ export default function EventTasks() {
       supabase.rpc("get_gig_section_permissions", { p_token: token }),
       supabase.auth.getUser(),
     ]);
-    setGig(g.data || null);
+    // get_shared_gig leaves out the event's own token; the tools need it
+    // (pins, Day-of package).
+    setGig(g.data ? { ...g.data, share_token: token } : null);
     setPerms(p.data || null);
     setUserId(u.data?.user?.id || null);
     setLoading(false);
