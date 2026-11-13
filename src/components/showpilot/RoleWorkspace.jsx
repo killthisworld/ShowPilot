@@ -4,10 +4,12 @@ import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import TimeSelect from "@/components/showpilot/TimeSelect";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronLeft, ChevronRight, FolderOpen, Plus, Save, Trash2, UserPlus, MapPin, Truck, Clock, Wifi, Speaker, Coffee, FileText, MessageSquare, FileSignature, UserRound, ListOrdered, ListChecks, Plane, Ticket, Shirt, SlidersHorizontal, Lightbulb, Link2, Mail, Handshake, MessagesSquare, CalendarClock, ListMusic } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import SetListEditor from "@/components/showpilot/SetListEditor";
+import PdfMaker from "@/components/showpilot/PdfMaker";
 import LoadTemplateButton from "@/components/showpilot/LoadTemplateButton";
 import { TEMPLATE_TABS, VENUE_PARTS, templateFromGig, applyTemplate, suggestTemplateName } from "@/lib/roleTemplates";
 import CustomFieldsView from "@/components/showpilot/CustomFieldsView";
@@ -48,7 +50,7 @@ const PAGE_ICONS = {
   address: MapPin, load_in: Truck, schedule: Clock, wifi_power: Wifi, house_gear: Speaker,
   hospitality: Coffee, documents: FileText, deal: Handshake, link_email: Mail, replies: MessagesSquare, task_presets: ListChecks, advance: CalendarClock, advance_sched: CalendarClock, requests: MessageSquare, paperwork: FileSignature,
   contact: UserRound, lineup: ListOrdered, advance: ListChecks, travel: Plane, guests: Ticket,
-  merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2,
+  merch: Shirt, audio: SlidersHorizontal, lighting: Lightbulb, event_link: Link2, setlist: ListMusic,
 };
 
 const ROLE_TITLE = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio", lighting: "Lighting" };
@@ -215,6 +217,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Task summary (TaskSheet) open over the workspace, by task id.
   const [openTaskId, setOpenTaskId] = useState(null);
   const [guestPdfOpen, setGuestPdfOpen] = useState(false); // Guest list's PDF style screen (job 307)
+  const [pdfMaker, setPdfMaker] = useState(null); // Create PDFs (job 313): null, true, or a type to open on
   // FX / Artist Notes window (job 205), opened from an act's row by its set time.
   const [fxTarget, setFxTarget] = useState(null);
   const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
@@ -813,6 +816,20 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
           </>
         ),
       },
+      // Set list (job 313): songs in order per act; Create PDF up top.
+      ...(template ? [] : [{
+        key: "setlist", label: "Set list",
+        summary: (() => { const n = (mi.setlists || []).reduce((a, s) => a + (s.songs || []).filter((x) => x.title).length, 0); return n ? `${n} song${n === 1 ? "" : "s"}` : "Songs in order"; })(),
+        state: (mi.setlists || []).some((s) => (s.songs || []).some((x) => x.title)) ? "done" : "empty",
+        headAction: () => ((mi.setlists || []).some((s) => (s.songs || []).some((x) => x.title)) ? (
+          <button type="button" onClick={() => setPdfMaker("setlist")} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em]" style={{ background: "#111", border: `1px solid ${color}88`, color }}>
+            <FileText className="w-3.5 h-3.5" /> CREATE PDF
+          </button>
+        ) : null),
+        render: () => (
+          <SetListEditor acts={(gig.bands || []).map((b) => b.band_name).filter(Boolean)} setlists={mi.setlists} onChange={(v) => setMi("setlists", v)} editable={!off} color={color} />
+        ),
+      }]),
       docsTab(mi.documents, (docs) => setMi("documents", docs), "manager"),
       requestsTab("manager"),
     ];
@@ -887,8 +904,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Manager and Artist each get their half of the manager pages; Audio and
   // Lighting each get their own crew page. A template (one section saved
   // whole) still uses every page of its section.
-  const MANAGER_PAGES = ["contact", "advance", "guests", "documents", "requests"];
-  const ARTIST_PAGES = ["lineup", "travel", "merch", "requests"];
+  const MANAGER_PAGES = ["contact", "advance", "guests", "setlist", "documents", "requests"];
+  const ARTIST_PAGES = ["lineup", "setlist", "travel", "merch", "requests"];
   const builders = {
     venue: venueTabs,
     manager: () => (template ? managerTabs() : managerTabs().filter((t) => MANAGER_PAGES.includes(t.key))),
@@ -1215,12 +1232,39 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const webTabs = tabs.filter((t) => !t.feature);
   const eventFormOn = tabs.some((t) => t.key === "event_link" && t.feature);
   const scheduleOn = tabs.some((t) => t.key === "schedule" && t.feature);
+  const pdfsOn = !template && !!gig.id && (role === "venue" || role === "manager" || role === "band");
+  const tplHeadBtn = canLoadTpl && pdfsOn ? (
+    <button type="button" onClick={() => setTplOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-[10px] text-[12px] font-bold tracking-[0.06em] text-white/80 hover:text-white" style={{ background: "#111", border: "1px solid #ffffff44" }}>
+      <FolderOpen className="w-3.5 h-3.5" /> LOAD TEMPLATE
+    </button>
+  ) : null;
+  // Create PDFs -> this profile's Documents on the event: Venue saves to
+  // venue_documents, Artist / Manager to manager_info.documents (job 313).
+  const addPdfToDocs = async (file) => {
+    const folder = role === "venue" ? "venue" : "manager";
+    const path = `gig_docs/${gig.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name.replace(/[^\w .()\-]+/g, "_")}`;
+    const { error } = await supabase.storage.from("input-files").upload(path, file, { contentType: "application/pdf" });
+    if (error) { console.error(error); return false; }
+    const { data } = supabase.storage.from("input-files").getPublicUrl(path);
+    const doc = { url: data.publicUrl, name: file.name, type: "application/pdf" };
+    if (role === "venue") p.update("venue_documents", [...(gig.venue_documents || []), doc]);
+    else setMi("documents", [...(mi.documents || []), doc]);
+    return true;
+  };
+  const pdfSheet = pdfMaker && pdfsOn ? (
+    <PdfMaker gig={gig} role={role} color={color} runOfShow={buildRunOfShow(gig)} canRsvps={role === "manager" && !!onOpenFanPage}
+      onAddToDocs={ed ? addPdfToDocs : null} docsLabel={`Add to ${ROLE_TITLE[role]} Documents on the event`}
+      initial={typeof pdfMaker === "string" ? pdfMaker : null} onClose={() => setPdfMaker(null)} />
+  ) : null;
   const featureDcas = [
     eventFormOn ? { key: "event_form", label: "Event Form", color, onClick: () => (layout === "pages" ? reveal("event_link") : setActive("event_link")) } : null,
     scheduleOn ? { key: "schedule", label: "Schedule", color, onClick: () => (layout === "pages" ? reveal("schedule") : setActive("schedule")) } : null,
     role === "band" && ed && gig.id ? { key: "dj", label: "DJ Tools", color: "#FDE047", onClick: () => (onOpenDj ? onOpenDj() : navigate(`/dj?show=${gig.id}`)) } : null,
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
-    canLoadTpl ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
+    // Create PDFs (job 313) takes the bottom right on Venue / Artist /
+    // Manager; Load template moves to the page header there (tplHeadBtn).
+    pdfsOn ? { key: "pdfs", label: "Create PDFs", color, corner: 3, icon: <FileText className="w-full h-full" />, onClick: () => setPdfMaker(true) } : null,
+    canLoadTpl && !pdfsOn ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
     // Links (desktop, Audio / Lighting web): this event's intake links, which
     // on desktop live here instead of in Settings (Oct 26).
     linksOn ? { key: "links", label: "Links", color: "#60A5FA", onClick: () => setLinksOpen(true) } : null,
@@ -1310,7 +1354,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
+          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}{pdfSheet}
           <div ref={blockRef} className="text-white flex flex-col gap-3" style={{ fontFamily: SCENE_FONT }}>
             {page ? (
               <>
@@ -1318,6 +1362,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   <>
                     {/* No page status in the header (job 305); a page's own button
                         (e.g. the guest list's Create PDF) sits by Mark as done. */}
+                    {tplHeadBtn}
                     {page.headAction?.()}
                     {markDoneBtn(page)}
                     {topSave}
@@ -1362,7 +1407,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
+        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}{pdfSheet}
         <div ref={blockRef} className="rounded-2xl bg-[#111] text-white" style={{ fontFamily: SCENE_FONT, border: `1px solid ${selected ? color + "99" : "#1f1f1f"}`, boxShadow: selected ? `0 0 0 1px ${color}33, 0 0 18px ${color}22` : undefined, scrollMarginTop: 12 }}>
           <div className="flex items-center gap-1 pr-2">
             <button type="button" onClick={() => setBlockOpen((o) => !o)} aria-expanded={blockOpen} className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3.5 text-left">
@@ -1456,7 +1501,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       return (
         <>
           {web}
-          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
+          {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}{pdfSheet}
           <div className="flex flex-col gap-5 text-white" style={{ fontFamily: SCENE_FONT }}>
             {!p.user && (
               <p className="text-[15px] text-white/55 bg-[#111] border border-[#1f1f1f] rounded-[10px] px-4 py-3">Sign in to see what's needed from you and to open your own section.</p>
@@ -1505,12 +1550,13 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     return (
       <>
         {web}
-        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
+        {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}{pdfSheet}
         <div className="flex flex-col gap-4 text-white" style={{ fontFamily: SCENE_FONT }}>
           {tabChips}
           <div className="flex items-center gap-3">
             <h2 className="text-[24px] font-bold leading-none">{current?.label}</h2>
             <span className="ml-auto" />
+            {tplHeadBtn}
             {current?.headAction?.()}
             {current && markDoneBtn(current)}
             {includeToggle(current)}
@@ -1662,7 +1708,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   return (
     <Shell modal={modal} onClose={onClose}>
       {header}
-      {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}
+      {taskSheet}{tplPicker}{linksSheet}{fxSheet}{stageSheet}{pdfSheet}
 
       <div className="flex-1 min-h-0 grid grid-cols-[300px_minmax(0,1fr)_380px]">
         <div role="tablist" aria-orientation="vertical" className="min-h-0 overflow-y-auto border-r border-[#1c1c1c] px-5 py-4">

@@ -42,7 +42,10 @@ function pageImage(file) {
 // picture with the color faded over it) and the font color, see it on a
 // small page, then Create PDF. The last colors are remembered on this
 // device; the picture is not.
-export default function PdfStyleSheet({ title = "Guest list", eventName = "", onCreate, onClose }) {
+// destinations (job 313, Create PDFs): { docsLabel, docsDefault } shows two
+// switches, Save to my phone and Add to the event's Documents, and onCreate
+// gets (style, { phone, docs }).
+export default function PdfStyleSheet({ title = "Guest list", eventName = "", onCreate, onClose, destinations = null, extra = null, previewLine = "24 people · 18 names" }) {
   const kept = readKept();
   const [bg, setBg] = useState(kept?.bg || DEFAULT_PDF_STYLE.bg);
   const [font, setFont] = useState(kept?.font || DEFAULT_PDF_STYLE.font);
@@ -50,6 +53,8 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
   const [mode, setMode] = useState("color");
   const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [toPhone, setToPhone] = useState(true);
+  const [toDocs, setToDocs] = useState(!!destinations?.docsDefault);
   const [err, setErr] = useState("");
   const fileRef = useRef(null);
 
@@ -76,9 +81,10 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
   const style = { bg, font, fade, image: mode === "picture" ? image : null };
   const create = async () => {
     if (mode === "picture" && !image) { setErr("Choose a picture first, or pick Color."); return; }
+    if (destinations && !toPhone && !toDocs) { setErr("Pick where the PDF goes: your phone, Documents, or both."); return; }
     try { localStorage.setItem(KEEP, JSON.stringify({ bg, font, fade })); } catch { /* fine */ }
     setBusy(true); setErr("");
-    try { await onCreate(style); onClose(); }
+    try { await onCreate(style, destinations ? { phone: toPhone, docs: toDocs } : undefined); onClose(); }
     catch { setErr("Couldn't make the PDF. Try again."); }
     setBusy(false);
   };
@@ -107,7 +113,7 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
       <div className="relative p-[9%] text-left" style={{ color: font, fontFamily: "Helvetica, Arial, sans-serif" }}>
         <div className="font-bold text-[11px] leading-tight truncate">{eventName || "Your event"}</div>
         <div className="text-[6px] opacity-70 mt-0.5">{title}</div>
-        <div className="font-bold text-[7px] mt-1.5">24 people · 18 names</div>
+        <div className="font-bold text-[7px] mt-1.5">{previewLine}</div>
         <div className="mt-1.5 h-[7px] rounded-[1px]" style={{ background: font, opacity: 0.12 }} />
         {Array.from({ length: 9 }, (_, i) => (
           <div key={i} className="relative flex items-center gap-1 h-[8px] mt-[1px]">
@@ -168,6 +174,20 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
           {custom(font, setFont, "Any font color")}
         </div>
 
+        {extra}
+        {destinations && (<>
+          {label("WHERE IT GOES")}
+          <div className="flex flex-col gap-2">
+            {[[toPhone, setToPhone, "Save to my phone", "Share sheet on phones, a download on computers."], [toDocs, setToDocs, destinations.docsLabel, "Everyone with access to this profile on the event can open it."]].map(([on, set, l, sub]) => (
+              <button key={l} type="button" role="switch" aria-checked={on} onClick={() => set(!on)} className="flex items-center gap-3 text-left px-3 py-2.5 rounded-xl bg-[#0a0a0a] border border-[#232323]">
+                <span className="w-10 h-6 rounded-full relative shrink-0 transition-colors" style={{ background: on ? G : "#333" }}>
+                  <span className="absolute top-0.5 w-5 h-5 rounded-full bg-[#0d0d0d] transition-all" style={{ left: on ? 18 : 2 }} />
+                </span>
+                <span className="min-w-0"><span className="block text-[15px] font-semibold">{l}</span><span className="block text-[13px] text-white/50">{sub}</span></span>
+              </button>
+            ))}
+          </div>
+        </>)}
         {err && <p className="mt-3 mb-0 text-[14px] text-[#FF6B6B]">{err}</p>}
         <div className="mt-5 flex items-center gap-3">
           <button type="button" onClick={() => { setBg(DEFAULT_PDF_STYLE.bg); setFont(DEFAULT_PDF_STYLE.font); setMode("color"); setFade(DEFAULT_PDF_STYLE.fade); }} className="text-[14px] text-white/55 hover:text-white">Plain black on white</button>
