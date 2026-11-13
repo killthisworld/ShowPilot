@@ -559,8 +559,6 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
   useAutosave({ id: `slot-${s.id}`, value: name, saved: s.artist_name || "", save: (v) => onUpdate({ artist_name: v.trim() }), ...auto });
   const st = STATUS[s.status] || STATUS.waiting;
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
-  const withFiles = tracks.filter((t) => t.file_id && files[t.file_id]);
-  const total = withFiles.reduce((sum, t) => sum + (Number(files[t.file_id].duration_sec) || 0), 0);
   const statusText = s.status === "waiting" || !s.status ? st.label : `${st.label} · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`;
   const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[118px] min-w-[118px] shrink-0 tabular-nums outline-none focus:border-[#8CFF3D]/60";
   const stop = (e) => e.stopPropagation();
@@ -593,9 +591,11 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
             {setTimeLabel(s.set_start, s.set_end) || "Set time?"}
           </button>
         )}
-        <span className="flex-1 min-w-0 flex items-center gap-2 text-[13px] whitespace-nowrap overflow-hidden" style={{ color: st.color }}>
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.color }} />
-          <span className="max-sm:sr-only">{statusText}</span>{withFiles.length ? <span className="text-white/40 max-sm:hidden">{` · ${withFiles.length} WAV${total ? ` · ${formatDuration(total)}` : ""}`}</span> : null}
+        {/* Just the dot (Jay 2026-11-13: no "Sent · 1 track" text; the DJ sees
+            what came in by opening the act). Grey not opened, blue started,
+            green sent. */}
+        <span className="flex-1 min-w-0 flex items-center" title={statusText} aria-label={statusText}>
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: st.color }} />
         </span>
         <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-[#333] text-white/85 hover:text-white whitespace-nowrap">
