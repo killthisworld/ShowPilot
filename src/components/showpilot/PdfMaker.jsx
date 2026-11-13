@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CalendarClock, Check, ChevronRight, ListMusic, ListOrdered, Pin, PinOff, Ticket, UserRound, Users, X } from "lucide-react";
+import { CalendarClock, Check, ChevronRight, KeyRound, ListMusic, ListOrdered, Pin, PinOff, Ticket, UserRound, Users, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import DayPackageSheet from "@/components/showpilot/DayPackageSheet";
 import { guestListPdf, saveOrShare } from "@/lib/guestListPdf";
 import { lineupPdf, schedulePdf, setlistPdf, contactsPdf, pdfCounts, readPins, PIN_TYPES } from "@/lib/eventPdfs";
 
@@ -24,6 +25,7 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
   const [pick, setPick] = useState(typeof initial === "string" ? initial : null);
   const [rsvps, setRsvps] = useState(null);
   const [note, setNote] = useState("");
+  const [dayPack, setDayPack] = useState(false); // Day-of package links (job 320)
 
   useEffect(() => {
     if (!canRsvps || !gig.id) return;
@@ -97,6 +99,14 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
         </div>
         <p className="mt-2 mb-0 text-[14px] text-white/55">{title}. Pick a sheet, style it, then save it or add it to the event's Paperwork.{onTogglePin ? " Pin a sheet to keep it live on the event's home for everyone on the event." : ""}</p>
         {note && <p className="mt-3 mb-0 flex items-center gap-2 text-[14px]" style={{ color }}><Check className="w-4 h-4" /> {note}</p>}
+        {/* Day-of package (job 320): these sheets as one live link, for people not on Show Pilot. */}
+        {onTogglePin && gig.share_token && (
+          <button type="button" onClick={() => setDayPack(true)} className="mt-4 w-full min-h-[56px] rounded-xl px-3.5 flex items-center gap-3 text-left" style={{ background: "#8CFF3D14", border: "1px solid #8CFF3D55" }}>
+            <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#8CFF3D22", color: "#8CFF3D" }}><KeyRound className="w-5 h-5" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-[16px] font-bold">Day-of package</span><span className="block text-[13px] text-white/55">Send these sheets as one live link: door, crew, security</span></span>
+            <ChevronRight className="w-5 h-5 text-white/40 shrink-0" />
+          </button>
+        )}
         <div className="mt-4 flex flex-col gap-2">
           {types.map((t) => {
             const Icon = t.icon;
@@ -129,5 +139,6 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
       <PdfStyleSheet title={current.label} eventName={title} previewLine={current.sub} onCreate={create} onClose={() => setPick(null)}
         destinations={onAddToDocs ? { docsLabel, docsDefault: current.docs } : null} />
     )}
+    {dayPack && <DayPackageSheet gig={gig} color={color} onClose={() => setDayPack(false)} />}
   </>, document.body);
 }

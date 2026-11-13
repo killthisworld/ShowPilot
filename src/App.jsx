@@ -30,6 +30,7 @@ import EventLink from '@/pages/EventLink';
 import BookingPackage from '@/pages/BookingPackage';
 import PackageView from '@/pages/PackageView';
 import VenuePackageView from '@/pages/VenuePackageView';
+import DayPackage from '@/pages/DayPackage';
 import TechAskView from '@/pages/TechAskView';
 import Bookings from '@/pages/Bookings';
 import PilotCardView from '@/pages/PilotCardView';
@@ -99,6 +100,8 @@ const AuthenticatedApp = () => {
       <Route path="/t/:code" element={<TechAskView />} />
       {/* A venue's template sent as a package (job 298). */}
       <Route path="/vp/:code" element={<VenuePackageView />} />
+      {/* Day-of package (job 320): a web of the event's sheets, by link. */}
+      <Route path="/dp/:code" element={<DayPackage />} />
       <Route path="/opener-intake" element={<OpenerIntake />} />
       <Route path="/logbook/public" element={<PublicLogbook />} />
       <Route path="/gig/shared" element={<SharedGig />} />

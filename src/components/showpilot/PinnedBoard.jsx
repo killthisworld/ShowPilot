@@ -31,7 +31,7 @@ function Row({ left, right, sub, strong }) {
 const Empty = ({ children }) => <p className="text-[14px] m-0" style={{ color: DIM }}>{children}</p>;
 
 // The sheet as a printed page (black on white), same content as the PDF.
-function Page({ type, gig }) {
+export function Page({ type, gig }) {
   const vi = gig.venue_info || {}, mi = gig.manager_info || {};
   const head = (
     <div className="mb-3">
@@ -99,7 +99,7 @@ function buildPdf(type, gig, style) {
 }
 
 // The preview window: the page, Save PDF (plain), Style, Edit.
-function Preview({ pin, gig, editable, onEdit, onClose }) {
+export function Preview({ pin, gig, editable, onEdit, onClose }) {
   const [ready, setReady] = useState(null);
   const [styling, setStyling] = useState(false);
   const [msg, setMsg] = useState("");
