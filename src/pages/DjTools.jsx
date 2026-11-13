@@ -466,7 +466,8 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
     <div className="flex flex-col gap-4" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* The event in one line; Edit details opens its fields. */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        {/* On a phone the event name takes its own line (job 73). */}
+        <div className="min-w-0 flex-1 max-sm:basis-full">
           <h2 className="text-[30px] font-bold leading-tight truncate" style={{ fontFamily: SCENE_FONT }}>{title || request.title}</h2>
           <div className="text-[12px] tracking-[0.06em] text-white/55 truncate" style={{ fontFamily: SCENE_MONO }}>
             {[dateLabel, (venue || request.venue || "").toUpperCase()].filter(Boolean).join(" · ")}
@@ -571,11 +572,14 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
   return (
     <li className="rounded-xl border bg-[#141414] transition-colors" style={{ borderColor: open ? DJ_COLOR + "55" : "#232323" }}>
       {/* Clicking the row (not its controls) opens the act's tracks. */}
-      <div className="flex items-center gap-2 xl:gap-3 px-3 xl:px-3.5 py-2.5 cursor-pointer" onClick={() => setOpen((o) => !o)}>
+      {/* On a phone the row wraps: number + name, then time, status dot,
+          Copy link and the menu (job 73). */}
+      <div className="flex max-sm:flex-wrap items-center gap-2 xl:gap-3 px-3 xl:px-3.5 py-2.5 cursor-pointer" onClick={() => setOpen((o) => !o)}>
         <span className="text-[15px] font-semibold tabular-nums w-6" style={{ color: DJ_COLOR, fontFamily: SCENE_MONO }}>{String(i + 1).padStart(2, "0")}</span>
         <input id={`slot-name-${s.id}`} onClick={stop}
-          className="bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-[#8CFF3D]/60 rounded-md px-2 py-1.5 text-white text-[16px] font-semibold w-[170px] xl:w-[240px] min-w-0 shrink outline-none"
+          className="bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-[#8CFF3D]/60 rounded-md px-2 py-1.5 text-white text-[16px] font-semibold w-[170px] xl:w-[240px] min-w-0 shrink outline-none max-sm:flex-1 max-sm:w-auto"
           placeholder="Act name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
+        <span className="basis-full h-0 sm:hidden" aria-hidden />
         {editTime ? (
           <span className="flex items-center gap-1.5" onClick={stop}>
             <input id={`slot-start-${s.id}`} type="time" aria-label="Set starts" autoFocus className={timeIn} value={s.set_start || ""} onChange={(e) => onUpdate({ set_start: e.target.value || null })} />
@@ -591,7 +595,7 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
         )}
         <span className="flex-1 min-w-0 flex items-center gap-2 text-[13px] whitespace-nowrap overflow-hidden" style={{ color: st.color }}>
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.color }} />
-          {statusText}{withFiles.length ? <span className="text-white/40">{` · ${withFiles.length} WAV${total ? ` · ${formatDuration(total)}` : ""}`}</span> : null}
+          <span className="max-sm:sr-only">{statusText}</span>{withFiles.length ? <span className="text-white/40 max-sm:hidden">{` · ${withFiles.length} WAV${total ? ` · ${formatDuration(total)}` : ""}`}</span> : null}
         </span>
         <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-[#333] text-white/85 hover:text-white whitespace-nowrap">

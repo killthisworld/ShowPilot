@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import RemindersBox from "@/components/showpilot/RemindersBox";
+import EventPhoneTools from "@/components/showpilot/EventPhoneTools";
 import { eventTitle } from "@/lib/eventTitle";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Check, ClipboardList, Plus } from "lucide-react";
@@ -131,6 +132,10 @@ export default function EventTasks() {
           <Link to={`/gig/web?token=${token}`} className="h-9 lg:h-10 px-3.5 rounded-[10px] flex items-center text-[14px] font-semibold bg-[#1a1a1a] border border-[#333] text-white/85 hover:text-white">Open web</Link>
         </div>
       </div>
+
+      {/* Create PDF and Documents for your side of the event (job 73,
+          Jay 2026-11-12), the same tools as desktop. */}
+      <div className="mx-4 lg:mx-6 mt-3 max-w-xl empty:hidden"><EventPhoneTools gig={gig} perms={perms} onChanged={load} /></div>
 
       {/* Your own reminders for this event (Jay 2026-11-12), on this phone. */}
       <div className="mx-4 lg:mx-6 mt-3 max-w-xl"><RemindersBox event={titleText} token={token} /></div>

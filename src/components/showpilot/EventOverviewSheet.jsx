@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
-import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight, DollarSign, Shirt } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight, DollarSign, Shirt, ListChecks, Disc3 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { normalizeLink, isTruncatedLink } from "@/lib/links";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
@@ -90,6 +91,8 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   // side, same as desktop's Performers.
   const [lineup, setLineup] = useState(false);
   const canLineup = !!user && !loading && !!perms && canWorkSection("manager", perms);
+  const navigate = useNavigate();
+  const openTasks = (gig.tasks || []).filter((t) => t.status !== "done").length;
   const rows = loading ? [] : feedRows(gig, perms, user?.id || null);
   const facts = [
     ["Doors", (vi.schedule || []).find((r) => /door/i.test(r.label || ""))?.time],
@@ -153,10 +156,21 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
             (job 73, On the road). */}
         {user && perms && (
           <div className={`${box} -mt-2 divide-y divide-[#1f1f1f] overflow-hidden`}>
-            {[["Day sheet", ClipboardList, () => setDaySheet(true)], ["Guest list", Users, () => setGuests(true)], ...(moneyOk ? [["Settlement", DollarSign, () => setSettle(true)]] : []), ...(sellsMerch && gig.id ? [["Merch", Shirt, () => setMerch(true)]] : [])].map(([name, Icon, open]) => (
+            {[
+              // Tasks: the event's task page, where your side also gets
+              // Create PDF and Documents (job 73, Jay 2026-11-12).
+              ["Tasks & documents", ListChecks, () => navigate(`/gig/tasks?token=${gig.share_token}`), openTasks ? `${openTasks} open` : ""],
+              ["Day sheet", ClipboardList, () => setDaySheet(true)], ["Guest list", Users, () => setGuests(true)],
+              ...(moneyOk ? [["Settlement", DollarSign, () => setSettle(true)]] : []),
+              ...(sellsMerch && gig.id ? [["Merch", Shirt, () => setMerch(true)]] : []),
+              // DJ Tools on a phone (job 73): set links for this event, as on
+              // the desktop Artist web's DJ Tools corner.
+              ...(sellsMerch && canLineup && gig.id ? [["DJ Tools", Disc3, () => navigate(`/dj?show=${gig.id}`)]] : []),
+            ].map(([name, Icon, open, note]) => (
               <button key={name} type="button" onClick={open} className="w-full min-h-[56px] px-3 flex items-center gap-2.5 text-left active:bg-[#1a1a1a]">
-                <Icon className="w-[18px] h-[18px] shrink-0" style={{ color }} />
+                <Icon className="w-[18px] h-[18px] shrink-0" style={{ color: name === "DJ Tools" ? "#FDE047" : color }} />
                 <span className="flex-1 text-[15px] font-semibold text-white">{name}</span>
+                {note && <span className="text-[12.5px] text-white/50">{note}</span>}
                 <ChevronRight className="w-4 h-4 text-white/40" />
               </button>
             ))}
