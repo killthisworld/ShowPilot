@@ -2,11 +2,22 @@ import { createPortal } from "react-dom";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Copy, Disc3, ExternalLink, FileAudio, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
 import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
+import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import { saveOrShare } from "@/lib/guestListPdf";
+import { setlistPdf } from "@/lib/eventPdfs";
+
+// Set list PDF for one act (job 318): the tracks they sent, in order, as
+// the same big-type sheet the Artist / Manager set list makes.
+const trackSetlistPdf = (request, actName, tracks, style) => setlistPdf(
+  { event_name: request.title, date: request.event_date, venue: request.venue },
+  [{ act: actName || "Act", songs: tracks.map((t, k) => ({ id: String(k), title: [t.title || "Untitled", t.artist].filter(Boolean).join(" - ") })) }],
+  actName || "Act", style,
+);
 
 const G = "#8CFF3D";
 const BLUE = "#60A5FA";
@@ -510,7 +521,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         {slots.length === 0 && <p className="text-white/45 text-sm py-1 m-0">Add each act in the order they play. Every act gets their own link.</p>}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">
           {slots.map((s, i) => (
-            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} auto={auto}
+            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto}
               onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)} />
           ))}
         </ol>
@@ -537,12 +548,13 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   );
 }
 
-function SlotRow({ s, i, count, files, eventTitle, auto, onUpdate, onRemove, onMove }) {
+function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRemove, onMove }) {
   const [open, setOpen] = useState(false);
   const [editTime, setEditTime] = useState(false);
   const [name, setName] = useState(s.artist_name || "");
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState("");
+  const [pdfOpen, setPdfOpen] = useState(false);
   useAutosave({ id: `slot-${s.id}`, value: name, saved: s.artist_name || "", save: (v) => onUpdate({ artist_name: v.trim() }), ...auto });
   const st = STATUS[s.status] || STATUS.waiting;
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
@@ -587,6 +599,7 @@ function SlotRow({ s, i, count, files, eventTitle, auto, onUpdate, onRemove, onM
         </button>
         <Menu label={`More for ${name || "this act"}`} items={[
           { label: shared === "copied" ? "Copied" : shared ? "Shared" : "Share link", icon: Share2, onClick: share },
+          ...(tracks.length ? [{ label: "Set list PDF", icon: FileText, onClick: () => setPdfOpen(true) }] : []),
           { label: "Open their page", icon: ExternalLink, onClick: () => window.open(`/dj/set/${s.token}`, "_blank", "noopener") },
           { label: "Move up", icon: ArrowUp, disabled: i === 0, onClick: () => onMove(-1) },
           { label: "Move down", icon: ArrowDown, disabled: i === count - 1, onClick: () => onMove(1) },
@@ -621,9 +634,20 @@ function SlotRow({ s, i, count, files, eventTitle, auto, onUpdate, onRemove, onM
             <div><div className="text-[10px] tracking-[0.12em] text-white/40" style={{ fontFamily: SCENE_MONO }}>CONTACT</div>
               <div className="mt-1 text-white/80 select-text">{s.contact || <span className="text-white/35">Nothing yet</span>}</div></div>
             {s.submitted_at && <div className="text-xs text-white/45" style={{ fontFamily: SCENE_MONO }}>SENT {new Date(s.submitted_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).toUpperCase()}</div>}
+            {tracks.length > 0 && (
+              <button type="button" onClick={() => setPdfOpen(true)}
+                className="self-start flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-semibold hover:bg-white/5" style={{ borderColor: DJ_COLOR + "66", color: DJ_COLOR }}>
+                <FileText className="w-3.5 h-3.5" /> Create set list PDF
+              </button>
+            )}
             {s.drive_folder_id && <a href={folderUrl(s.drive_folder_id)} target="_blank" rel="noreferrer" className="self-start flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[#2a2a2a] text-white/80 hover:text-white text-xs font-semibold"><FolderOpen className="w-3.5 h-3.5" /> Their folder in Drive</a>}
           </div>
         </div>
+      )}
+      {pdfOpen && (
+        <PdfStyleSheet title={`${name || "Act"} set list`} eventName={eventTitle} previewLine={`${tracks.length} track${tracks.length === 1 ? "" : "s"}`}
+          onCreate={async (style) => { await saveOrShare(trackSetlistPdf(request, name.trim(), tracks, style)); }}
+          onClose={() => setPdfOpen(false)} />
       )}
     </li>
   );
