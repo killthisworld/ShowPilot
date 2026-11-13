@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { supabase } from "@/api/supabaseClient";
 import { createPortal } from "react-dom";
 import { ArrowLeft, FileText, FolderOpen, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -60,6 +61,10 @@ export function workSides(perms, accountType) {
 // you work on neither side.
 export default function EventPhoneTools({ gig, perms, onChanged }) {
   const [pdfFor, setPdfFor] = useState(null);
+  // Pins this side made (Pin to board, job 314), saved straight away against
+  // a fresh read, one at a time, like desktop (job 73, 2026-11-13).
+  const [pinsLocal, setPinsLocal] = useState(null); // { venue: [...], manager: [...] } after a change
+  const pinQueue = useRef(Promise.resolve());
   const [papers, setPapers] = useState(false);
   const { user } = useAuth();
   const { preferences } = usePreferences();
@@ -68,6 +73,34 @@ export default function EventPhoneTools({ gig, perms, onChanged }) {
   const { biz, reload } = useEventBusiness(on ? gig.id : null, on);
   if (!on) return null;
   const color = SIDES[sides[0]].color;
+  const field = (side) => (side === "venue" ? "venue_info" : "manager_info");
+  const pinsOf = (side) => {
+    const l = pinsLocal?.[side] ?? gig[field(side)]?.pins;
+    return Array.isArray(l) ? l : [];
+  };
+  const togglePin = (side) => (type) => {
+    const pinning = !pinsOf(side).some((x) => x?.type === type);
+    const run = pinQueue.current.then(async () => {
+      const { data: fresh, error } = await supabase.rpc("get_shared_gig", { p_token: gig.share_token });
+      if (error || !fresh) throw error || new Error("couldn't read the event");
+      const info = fresh[field(side)] || {};
+      const l = (Array.isArray(info.pins) ? info.pins : []).filter((x) => x && x.type !== type);
+      const next = pinning ? [...l, { type, at: new Date().toISOString() }] : l;
+      const updates = side === "venue" ? { venue_info: { ...info, pins: next } } : { ...info, pins: next };
+      const { error: wErr } = await supabase.rpc("update_gig_section", { p_token: gig.share_token, p_section: side, p_updates: updates });
+      if (wErr) throw wErr;
+      setPinsLocal((m) => ({ ...(m || {}), [side]: next }));
+      onChanged?.();
+    });
+    pinQueue.current = run.catch((e) => console.error(e));
+    return run.catch(() => {});
+  };
+  // The gig as PdfMaker sees it, with pins just made here.
+  const gigWithPins = pinsLocal ? {
+    ...gig,
+    ...(pinsLocal.venue ? { venue_info: { ...(gig.venue_info || {}), pins: pinsLocal.venue } } : {}),
+    ...(pinsLocal.manager ? { manager_info: { ...(gig.manager_info || {}), pins: pinsLocal.manager } } : {}),
+  } : gig;
   const count = (biz?.records || []).length;
 
   // A PDF made here goes into Paperwork > Other, where the event's files live.
@@ -99,7 +132,8 @@ export default function EventPhoneTools({ gig, perms, onChanged }) {
         )}
       </div>
       {pdfFor && (
-        <PdfMaker gig={gig} role={SIDES[pdfFor].pdfRole} color={SIDES[pdfFor].color} runOfShow={buildRunOfShow(gig)}
+        <PdfMaker gig={gigWithPins} role={SIDES[pdfFor].pdfRole} color={SIDES[pdfFor].color} runOfShow={buildRunOfShow(gig)}
+          ownPins={pinsOf(pdfFor).map((x) => x?.type)} onTogglePin={togglePin(pdfFor)}
           onAddToDocs={biz?.can_view ? addToPaperwork : null} docsLabel="Add to the event's Paperwork (Other)" onClose={() => setPdfFor(null)} />
       )}
       {papers && <PaperworkSheet gig={gig} biz={biz} color={color} userId={user?.id} onChanged={() => { reload?.(); onChanged?.(); }} onClose={() => setPapers(false)} />}

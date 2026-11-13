@@ -1252,13 +1252,19 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // Pin to board (job 314): this profile's pins, saved with its own info.
   const ownPinList = (role === "venue" ? gig.venue_info?.pins : mi.pins) || [];
   // Saved straight away (job 319) so the board shows it without SAVE.
+  // Toggled against the latest saved list (job 73, 2026-11-13), so a second
+  // pin made before the first one saved doesn't erase it.
   const togglePin = async (type) => {
     const list = Array.isArray(ownPinList) ? ownPinList : [];
-    const next = list.some((x) => x.type === type) ? list.filter((x) => x.type !== type) : [...list, { type, at: new Date().toISOString() }];
+    const pinning = !list.some((x) => x.type === type);
+    const apply = (cur) => {
+      const l = (Array.isArray(cur) ? cur : []).filter((x) => x && x.type !== type);
+      return pinning ? [...l, { type, at: new Date().toISOString() }] : l;
+    };
     if (p.saveField) {
-      try { await p.saveField(role === "venue" ? "venue_info" : "manager_info", "pins", next); }
+      try { await p.saveField(role === "venue" ? "venue_info" : "manager_info", "pins", apply); }
       catch (e) { console.error(e); }
-    } else if (role === "venue") setVi("pins", next); else setMi("pins", next);
+    } else if (role === "venue") setVi("pins", apply(list)); else setMi("pins", apply(list));
   };
   const pdfSheet = pdfMaker && pdfsOn ? (
     <PdfMaker gig={gig} role={role} color={color} runOfShow={buildRunOfShow(gig)} canRsvps={role === "manager" && !!onOpenFanPage}

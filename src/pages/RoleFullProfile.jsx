@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
 import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
@@ -264,9 +264,22 @@ export function useRoleProfile({ role, token, onChanged }) {
   // Reads the latest copy first and changes only that field, so it never
   // writes back someone else's older info. where: "venue_info",
   // "manager_info" or "venue_documents" (key ignored).
-  const saveField = async (where, key, value) => {
+  // value can be a function of the field's latest saved value (pins: toggle
+  // one against the fresh list), and saves run one at a time, so pinning
+  // several sheets quickly never writes back an older list (job 73,
+  // 2026-11-13: not everything stayed pinned).
+  const saveQueue = useRef(Promise.resolve());
+  const saveField = (where, key, value) => {
+    const run = saveQueue.current.then(() => saveFieldNow(where, key, value));
+    saveQueue.current = run.catch(() => {});
+    return run;
+  };
+  const saveFieldNow = async (where, key, valueOrFn) => {
     const { data: fresh, error: readErr } = await supabase.rpc("get_shared_gig", { p_token: token });
     if (readErr || !fresh) throw readErr || new Error("couldn't read the event");
+    const value = typeof valueOrFn === "function"
+      ? valueOrFn(where === "venue_documents" ? fresh.venue_documents : (fresh[where] || {})[key])
+      : valueOrFn;
     let section, updates, local;
     if (where === "venue_documents") { section = "venue"; updates = { venue_documents: value }; local = (g) => ({ ...g, venue_documents: value }); }
     else if (where === "venue_info") { section = "venue"; updates = { venue_info: { ...(fresh.venue_info || {}), [key]: value } }; local = (g) => ({ ...g, venue_info: { ...(g.venue_info || {}), [key]: value } }); }
