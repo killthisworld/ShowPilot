@@ -73,13 +73,17 @@ export default function PdfMaker({ gig, role, color = "#8CFF3D", runOfShow = [],
   const create = async (style, where = { phone: true, docs: false }) => {
     const file = build(pick, style);
     if (!file) throw new Error("no file");
-    // Phone first: the share sheet needs the tap to still count.
-    if (where.phone) await saveOrShare(file);
+    // Phone first: the share sheet needs the tap to still count. If the
+    // phone refuses (job 316), Documents still gets it, then the style
+    // screen offers Save PDF for the phone.
+    let blocked = null;
+    if (where.phone) { try { await saveOrShare(file); } catch (e) { if (e?.needsTap) blocked = e; else throw e; } }
     if (where.docs && onAddToDocs) {
       const ok = await onAddToDocs(file);
-      if (!ok) throw new Error("docs");
+      if (!ok) { setNote(""); throw new Error("docs"); }
       setNote(`Added "${file.name}" to Documents.`);
-    } else if (where.phone) setNote(`Made "${file.name}".`);
+    } else if (where.phone && !blocked) setNote(`Made "${file.name}".`);
+    if (blocked) throw blocked;
   };
 
   // The style screen sits beside the list (not inside it), so a tap on its

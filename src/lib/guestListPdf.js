@@ -192,10 +192,21 @@ export function guestListPdf({ kind = "rsvps", rows: rawInput, eventName: rawEve
 
 // Hand a file over: the share sheet on phones (Save to Files, AirDrop),
 // else a download. Returns "shared", "downloaded" or "" (cancelled).
+//
+// Phones only open the share sheet straight after a tap. If making the PDF
+// took long enough for the phone to refuse (NotAllowedError, which looks like
+// a time-out), this throws NeedsTap with the finished file, and the style
+// screen offers Save PDF so the next tap opens the sheet (job 316).
+export class NeedsTap extends Error {
+  constructor(file) { super("needs-tap"); this.needsTap = true; this.file = file; }
+}
 export async function saveOrShare(file) {
   try {
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: file.name }); return "shared"; }
-  } catch (e) { if (e?.name === "AbortError") return ""; }
+  } catch (e) {
+    if (e?.name === "AbortError") return "";
+    if (e?.name === "NotAllowedError") throw new NeedsTap(file);
+  }
   const url = URL.createObjectURL(file);
   const a = document.createElement("a"); a.href = url; a.download = file.name;
   document.body.appendChild(a); a.click(); a.remove();

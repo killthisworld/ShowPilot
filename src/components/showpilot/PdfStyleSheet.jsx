@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FileText, ImagePlus, X } from "lucide-react";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { DEFAULT_PDF_STYLE } from "@/lib/guestListPdf";
+import { DEFAULT_PDF_STYLE, saveOrShare } from "@/lib/guestListPdf";
 
 const G = "#8CFF3D";
 const BGS = ["#FFFFFF", "#0D0D0D", "#10142E", "#F5EFE0", "#1B3A2A", "#3A0E2E"];
@@ -54,6 +54,7 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
   const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [toPhone, setToPhone] = useState(true);
+  const [ready, setReady] = useState(null); // a finished PDF the phone wouldn't share yet (job 316)
   const [toDocs, setToDocs] = useState(!!destinations?.docsDefault);
   const [err, setErr] = useState("");
   const fileRef = useRef(null);
@@ -85,8 +86,16 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
     try { localStorage.setItem(KEEP, JSON.stringify({ bg, font, fade })); } catch { /* fine */ }
     setBusy(true); setErr("");
     try { await onCreate(style, destinations ? { phone: toPhone, docs: toDocs } : undefined); onClose(); }
-    catch { setErr("Couldn't make the PDF. Try again."); }
+    catch (e) {
+      if (e?.needsTap) setReady(e.file);
+      else setErr(e?.message === "docs" ? "Couldn't add it to Documents (the upload didn't finish). Check your connection and try again." : "Couldn't make the PDF. Try again.");
+    }
     setBusy(false);
+  };
+  // The second tap: the share sheet opens straight away.
+  const saveReady = async () => {
+    try { await saveOrShare(ready); onClose(); }
+    catch { setErr("Couldn't open Save. Try again."); }
   };
 
   const swatch = (c, on, pick, label) => (
@@ -188,13 +197,20 @@ export default function PdfStyleSheet({ title = "Guest list", eventName = "", on
             ))}
           </div>
         </>)}
+        {ready && <p className="mt-3 mb-0 text-[14px]" style={{ color: G }}>Your PDF is ready. Tap Save PDF to keep it.</p>}
         {err && <p className="mt-3 mb-0 text-[14px] text-[#FF6B6B]">{err}</p>}
         <div className="mt-5 flex items-center gap-3">
           <button type="button" onClick={() => { setBg(DEFAULT_PDF_STYLE.bg); setFont(DEFAULT_PDF_STYLE.font); setMode("color"); setFade(DEFAULT_PDF_STYLE.fade); }} className="text-[14px] text-white/55 hover:text-white">Plain black on white</button>
           <span className="flex-1" />
-          <button type="button" onClick={create} disabled={busy} className="h-12 px-5 rounded-full flex items-center gap-2 text-[16px] font-bold text-[#0d0d0d] disabled:opacity-60" style={{ background: G }}>
-            <FileText className="w-5 h-5" /> {busy ? "Making..." : "Create PDF"}
-          </button>
+          {ready ? (
+            <button type="button" onClick={saveReady} className="h-12 px-5 rounded-full flex items-center gap-2 text-[16px] font-bold text-[#0d0d0d]" style={{ background: G }}>
+              <FileText className="w-5 h-5" /> Save PDF
+            </button>
+          ) : (
+            <button type="button" onClick={create} disabled={busy} className="h-12 px-5 rounded-full flex items-center gap-2 text-[16px] font-bold text-[#0d0d0d] disabled:opacity-60" style={{ background: G }}>
+              <FileText className="w-5 h-5" /> {busy ? "Making..." : "Create PDF"}
+            </button>
+          )}
         </div>
       </div>
     </div>,

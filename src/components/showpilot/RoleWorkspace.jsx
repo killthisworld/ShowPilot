@@ -1243,7 +1243,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   const addPdfToDocs = async (file) => {
     const folder = role === "venue" ? "venue" : "manager";
     const path = `gig_docs/${gig.id}/${folder}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name.replace(/[^\w .()\-]+/g, "_")}`;
-    const { error } = await supabase.storage.from("input-files").upload(path, file, { contentType: "application/pdf" });
+    // Never hang (job 316): give up after 30 seconds and say so.
+    const timeout = new Promise((resolve) => setTimeout(() => resolve({ error: new Error("timed out") }), 30_000));
+    const { error } = await Promise.race([supabase.storage.from("input-files").upload(path, file, { contentType: "application/pdf" }), timeout]);
     if (error) { console.error(error); return false; }
     const { data } = supabase.storage.from("input-files").getPublicUrl(path);
     const doc = { url: data.publicUrl, name: file.name, type: "application/pdf" };
