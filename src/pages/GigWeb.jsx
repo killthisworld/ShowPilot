@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { supabase } from "@/api/supabaseClient";
-import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList, Globe, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronRight, MessageCircle, User, UserPlus, Plus, Check, Archive, Trash2, X, Ticket, ExternalLink, ClipboardList, Globe, LogOut, MoreHorizontal } from "lucide-react";
 import InviteSheet from "@/components/showpilot/InviteSheet";
 import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import EventBanner from "@/components/showpilot/EventBanner";
@@ -208,6 +208,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [hubAnim, setHubAnim] = useState(0);
   const [webSlot, setWebSlot] = useState(null);
   const [actionSlot, setActionSlot] = useState(null); // tech phone header slot for the show buttons (job 135)
+  const [moreOpen, setMoreOpen] = useState(false); // phone header: Archive / Delete / Leave behind More (job 73)
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    const away = (e) => { if (!e.target.closest?.("[data-more-menu]")) setMoreOpen(false); };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [moreOpen]);
   // Bulletin board task summaries: the task open in TaskSheet, and where a
   // claim sends you (that profile's web, opened on its Current tasks node).
   const [openTaskId, setOpenTaskId] = useState(null);
@@ -545,6 +552,8 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <span className={cap} style={{ fontFamily: SCENE_MONO }}>FAN PAGE</span>
           </button>
         )}
+        {/* Desktop and tech phones keep the separate buttons. */}
+        {isDesktop || isTechProductionAccount ? (<>
         {permissions?.is_owner && (
           <>
             <button type="button" onClick={() => setShowArchiveConfirm(true)} disabled={archiving} aria-label="Archive gig" className={`${act} text-white/45 hover:text-white disabled:opacity-40`}>
@@ -562,6 +571,28 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <LogOut className="w-4 h-4" />
             <span className={cap} style={{ fontFamily: SCENE_MONO }}>LEAVE</span>
           </button>
+        )}
+        </>) : (permissions?.is_owner || (user && permissions)) && (
+          // On a phone the title needs the room (job 73): Archive, Delete and
+          // Leave sit behind More.
+          <span className="relative" data-more-menu>
+            <button type="button" onClick={() => setMoreOpen((o) => !o)} aria-expanded={moreOpen} aria-label="More for this event" className={`${act} text-white/55 hover:text-white`}>
+              <MoreHorizontal className="w-4 h-4" />
+              <span className={cap} style={{ fontFamily: SCENE_MONO }}>MORE</span>
+            </button>
+            {moreOpen && (
+              <>
+                <span role="menu" className="absolute right-0 top-full mt-1 z-[71] min-w-[180px] rounded-xl bg-[#1a1a1a] border border-[#2e2e2e] shadow-[0_12px_32px_rgba(0,0,0,0.6)] py-1 flex flex-col">
+                  {permissions?.is_owner ? (<>
+                    <button type="button" role="menuitem" disabled={archiving} onClick={() => { setMoreOpen(false); setShowArchiveConfirm(true); }} className="min-h-[44px] px-3.5 flex items-center gap-2.5 text-[14.5px] text-white/85 text-left disabled:opacity-40"><Archive className="w-4 h-4" />Archive event</button>
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); setShowDeleteConfirm(true); }} className="min-h-[44px] px-3.5 flex items-center gap-2.5 text-[14.5px] text-red-400 text-left"><Trash2 className="w-4 h-4" />Delete event</button>
+                  </>) : (
+                    <button type="button" role="menuitem" onClick={() => { setMoreOpen(false); setShowLeaveConfirm(true); }} className="min-h-[44px] px-3.5 flex items-center gap-2.5 text-[14.5px] text-red-400 text-left"><LogOut className="w-4 h-4" />Leave event</button>
+                  )}
+                </span>
+              </>
+            )}
+          </span>
         )}
       </div>
     );

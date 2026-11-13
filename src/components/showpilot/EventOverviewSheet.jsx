@@ -24,6 +24,15 @@ const G = "#8CFF3D";
 const AMBER = "#FF6A00";
 const ROLE_COLOR = { venue: "#60A5FA", manager: "#F87171", band: "#F87171", engineer: "#8CFF3D", lighting: "#8CFF3D" };
 const SECTION_LABEL = { venue: "Venue", manager: "Manager", engineer: "Audio / Lighting" };
+// The event web glyph (same as the console strips' Open web button).
+const WebIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 4L19.6 9.5L16.7 18.5H7.3L4.4 9.5Z" />
+    <path d="M12 12L12 4M12 12L19.6 9.5M12 12L16.7 18.5M12 12L7.3 18.5M12 12L4.4 9.5" />
+    <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+    {[[12, 4], [19.6, 9.5], [16.7, 18.5], [7.3, 18.5], [4.4, 9.5]].map(([x, y]) => <circle key={x + "-" + y} cx={x} cy={y} r="1.7" fill="currentColor" />)}
+  </svg>
+);
 const has = (v) => v != null && String(v).trim() !== "";
 
 // The company phone's event Overview (job 73): what the Calendar opens when
@@ -128,6 +137,14 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
         <button type="button" onClick={onClose} aria-label="Back to the calendar" className="absolute left-4 w-11 h-11 rounded-full bg-black/55 text-white flex items-center justify-center" style={{ top: "max(14px, env(safe-area-inset-top))" }}>
           <ArrowLeft className="w-5 h-5" />
         </button>
+        {/* The full event web (job 73, Jay 2026-11-12): the Overview stays the
+            quick view; every desktop page is one tap away in the web. */}
+        {gig.share_token && (
+          <button type="button" onClick={() => navigate(`/gig/web?token=${gig.share_token}`)} aria-label="Open the full event web"
+            className="absolute right-4 h-11 pl-3 pr-3.5 rounded-full bg-black/55 text-white flex items-center gap-2 text-[14px] font-semibold" style={{ top: "max(14px, env(safe-area-inset-top))" }}>
+            <WebIcon size={18} />Web
+          </button>
+        )}
         {gig.event_type && (
           <span className="self-start text-[10px] tracking-[0.1em] px-2 py-[3px] rounded mb-2" style={{ fontFamily: SCENE_MONO, color, background: "rgba(0,0,0,0.55)", border: `1px solid ${color}66` }}>{gig.event_type.toUpperCase()}</span>
         )}

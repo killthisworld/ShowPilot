@@ -669,8 +669,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                     <span className="w-6 text-right text-[18px] font-bold tabular-nums" style={{ color }}>{i + 1}</span>
                     {p.canEdit && (
                       <span className="flex flex-col">
-                        <button type="button" aria-label="Move earlier" disabled={i === 0} onClick={() => { const list = [...gig.bands]; [list[i - 1], list[i]] = [list[i], list[i - 1]]; p.update("bands", list); }} className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5" /></button>
-                        <button type="button" aria-label="Move later" disabled={i === gig.bands.length - 1} onClick={() => { const list = [...gig.bands]; [list[i + 1], list[i]] = [list[i], list[i + 1]]; p.update("bands", list); }} className="p-0.5 text-white/40 hover:text-white disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5" /></button>
+                        <button type="button" aria-label="Move earlier" disabled={i === 0} onClick={() => { const list = [...gig.bands]; [list[i - 1], list[i]] = [list[i], list[i - 1]]; p.update("bands", list); }} className="p-0.5 max-lg:p-2 text-white/40 hover:text-white disabled:opacity-20"><ArrowUp className="w-3.5 h-3.5 max-lg:w-4 max-lg:h-4" /></button>
+                        <button type="button" aria-label="Move later" disabled={i === gig.bands.length - 1} onClick={() => { const list = [...gig.bands]; [list[i + 1], list[i]] = [list[i], list[i + 1]]; p.update("bands", list); }} className="p-0.5 max-lg:p-2 text-white/40 hover:text-white disabled:opacity-20"><ArrowDown className="w-3.5 h-3.5 max-lg:w-4 max-lg:h-4" /></button>
                       </span>
                     )}
                   </div>

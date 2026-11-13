@@ -110,7 +110,7 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
         return (
           <section key={kind} className="rounded-[12px] border border-[#242424] bg-[#121212] overflow-hidden">
             <div className="flex items-center gap-2.5 px-3 py-2.5">
-              <button type="button" onClick={() => toggle(kind)} aria-expanded={isOpen} className="min-w-0 flex-1 flex items-center gap-2.5 text-left">
+              <button type="button" onClick={() => toggle(kind)} aria-expanded={isOpen} className="min-w-0 flex-1 min-h-[40px] flex items-center gap-2.5 text-left">
                 <ChevronDown className="w-4 h-4 shrink-0 text-white/50 transition-transform" style={{ transform: isOpen ? "rotate(180deg)" : undefined }} />
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: docs.length || (kind === "deal" && deal?.status === "accepted") ? G : "rgba(255,255,255,0.22)" }} />
                 <h3 className="min-w-0 text-[16px] font-semibold leading-tight truncate">
