@@ -31,6 +31,7 @@ import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import PinnedBoard from "@/components/showpilot/PinnedBoard";
+import EventInviteView from "@/pages/EventInviteView";
 
 export const ROLE_COLORS = {
   Headliner: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-400/40" },
@@ -861,8 +862,11 @@ export default function SharedGig() {
   // 143) - before, it only happened on their first Save here, so most
   // invites stayed "waiting". The server allows one person per invite.
   const acceptedFor = useRef(null);
+  // A venue's invite that's still open shows as a web first (job 322): they
+  // join when they press Accept the show there, not just by opening it.
+  const venueInviteView = !!inviteToken && inviteInfo?.invited_role === "venue" && !inviteInfo.is_owner && !inviteInfo.yours && !inviteInfo.taken && inviteInfo.status === "pending";
   useEffect(() => {
-    if (!inviteToken || !user?.id || !resolvedToken || !gig?.id) return;
+    if (!inviteToken || !user?.id || !resolvedToken || !gig?.id || venueInviteView) return;
     const key = `${inviteToken}:${user.id}`;
     if (acceptedFor.current === key) return;
     acceptedFor.current = key;
@@ -883,7 +887,7 @@ export default function SharedGig() {
       if (perms) setPermissions(perms);
       if (data?.status === "accepted") setInviteState("accepted");
     })();
-  }, [inviteToken, user?.id, resolvedToken, gig?.id]);
+  }, [inviteToken, user?.id, resolvedToken, gig?.id, venueInviteView]);
   const inviteRoleLabel = inviteInfo ? (ACCOUNT_TYPE_STYLES[inviteInfo.invited_role]?.label || inviteInfo.invited_role) : "";
 
   const update = (field, val) => setGig((g) => ({ ...g, [field]: val }));
@@ -1218,6 +1222,10 @@ export default function SharedGig() {
         </div>
       </div>
     );
+  }
+
+  if (venueInviteView) {
+    return <EventInviteView invite={inviteInfo} gig={gig} shareToken={resolvedToken} inviteToken={inviteToken} user={user} />;
   }
 
   const title = eventTitle(gig);
