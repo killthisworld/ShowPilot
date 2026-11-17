@@ -13,6 +13,7 @@ import { buildEventTypeOptions, addCustomEventType, ADD_NEW_VALUE } from "@/lib/
 import { uploadIconImage } from "@/lib/eventIcons";
 import { autoFillNewEvent } from "@/lib/templatePage";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
+import NewEventWeb from "@/pages/NewEventWeb";
 
 
 // Maps each account type to the section it always owns on any event it
@@ -24,7 +25,18 @@ const ACCOUNT_TYPE_TO_SECTION = {
   manager: "manager",
 };
 
+// Manager / artist accounts make events as a web (job 321); venues keep
+// this page until their version of the web is designed.
 export default function NewEventForNonTech() {
+  const { preferences, loading } = usePreferences();
+  if (loading && !preferences) {
+    return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>;
+  }
+  if (["manager", "band"].includes(preferences?.account_type)) return <NewEventWeb />;
+  return <NewEventForm />;
+}
+
+function NewEventForm() {
   const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   const { preferences, reload } = usePreferences();

@@ -185,7 +185,8 @@ export function SenderCircle({ center, color, desktop }) {
   );
 }
 
-// circles: [{ key, label, short?, hint?, required?, done, body: () => node }]
+// circles: [{ key, label, short?, hint?, required?, done, body: () => node,
+//   icon?: node | photo?: url | initials?: text, ring?: color }] (icon / photo: job 321)
 // corner: { label, icon: Component, done?, body: () => node } for the top right (Additional services).
 // cornerBL: the same, for the bottom left (Tracks; job 224).
 export default function IntakeKeyWeb({
@@ -304,17 +305,40 @@ export default function IntakeKeyWeb({
       {circles.map((c, i) => {
         const ang = -Math.PI / 2 + (i * 2 * Math.PI) / N;
         const on = pane === c.key;
+        // A circle can show what it is (job 321): an icon, or a person's /
+        // profile's photo (initials until there is one), with its name
+        // underneath. Without either it's the name inside, as before.
+        const face = c.photo || c.initials ? "photo" : c.icon ? "icon" : null;
+        const ring = c.ring || (c.done ? GREEN : "rgba(255,255,255,0.28)");
         return (
           <button key={c.key} type="button" onClick={() => setPane(on ? "start" : c.key)} aria-pressed={on} aria-label={`${c.label}, ${c.done ? "done" : "not filled in yet"}`}
             className="absolute rounded-full flex items-center justify-center p-0 -translate-x-1/2 -translate-y-1/2"
             style={{
               left: `${50 + 37 * Math.cos(ang)}%`, top: `${50 + 37 * Math.sin(ang)}%`, width: `${nodeSize}%`, height: `${nodeSize}%`,
-              background: c.done ? GREEN : "rgba(21,21,21,0.92)", color: c.done ? "#0d0d0d" : "#f2f2f2",
-              border: `${on ? 2.5 : 1.5}px solid ${on ? "#FFFFFF" : c.done ? GREEN : "rgba(255,255,255,0.28)"}`,
-              boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : c.done ? `0 0 14px ${GREEN}66` : "none",
+              background: face === "photo" ? "#141414" : c.done ? GREEN : "rgba(21,21,21,0.92)", color: c.done && face !== "photo" ? "#0d0d0d" : "#f2f2f2",
+              border: `${on ? 2.5 : face === "photo" ? 2.5 : 1.5}px solid ${on ? "#FFFFFF" : face === "photo" ? ring : c.done ? GREEN : "rgba(255,255,255,0.28)"}`,
+              boxShadow: on ? "0 0 18px rgba(255,255,255,0.45)" : c.done ? `0 0 14px ${face === "photo" ? ring : GREEN}66` : "none",
               ...collapseStyle(off, i),
             }}>
-            <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{c.short || shortLabel(c.label)}</span>
+            {face === "photo" ? (
+              <span className="absolute inset-0 rounded-full overflow-hidden flex items-center justify-center">
+                {c.photo
+                  ? <img src={c.photo} alt="" className="w-full h-full object-cover" />
+                  : <span className={`${desktop ? "text-[22px]" : "text-[16px]"} font-bold leading-none`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color: ring }}>{c.initials}</span>}
+              </span>
+            ) : face === "icon" ? (
+              <span aria-hidden="true" className="w-[40%] h-[40%] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">{c.icon}</span>
+            ) : (
+              <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{c.short || shortLabel(c.label)}</span>
+            )}
+            {face === "photo" && c.done && (
+              <span aria-hidden="true" className="absolute -right-[4%] -top-[4%] w-[30%] h-[30%] rounded-full flex items-center justify-center" style={{ background: GREEN }}>
+                <Check className="w-[70%] h-[70%] text-[#0d0d0d]" strokeWidth={3.5} />
+              </span>
+            )}
+            {face && (
+              <span aria-hidden="true" className={`absolute left-1/2 top-full mt-1 -translate-x-1/2 w-[150%] text-center ${desktop ? "text-[12.5px]" : "text-[10.5px]"} font-semibold leading-tight truncate pointer-events-none`} style={{ color: on ? "#fff" : "rgba(255,255,255,0.78)", textShadow: "0 1px 4px rgba(0,0,0,0.9)" }}>{c.short || shortLabel(c.label)}</span>
+            )}
           </button>
         );
       })}
