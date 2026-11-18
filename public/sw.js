@@ -7,7 +7,7 @@
 // app keeps its own copy of the day sheet, contacts and guest list.
 
 const VERSION = "sp-shell-v3";
-const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png", "/icon-512.png"];
+const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png?v=3", "/icon-512.png?v=3"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -61,8 +61,8 @@ self.addEventListener("push", (event) => {
     body: d.body || "",
     tag: d.tag || undefined,
     renotify: !!d.tag,
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    icon: "/icon-192.png?v=3",
+    badge: "/icon-192.png?v=3",
     data: { url: d.url || "/" },
   }));
 });

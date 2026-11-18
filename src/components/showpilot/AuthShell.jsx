@@ -24,7 +24,7 @@ export default function AuthShell({ children, width = 420, compact = false }) {
 
       <div className={`flex flex-col items-center ${compact ? "gap-2 mb-5" : "gap-3 mb-7"}`}>
         <img
-          src="/icon-512.png"
+          src="/icon-512.png?v=3"
           alt=""
           width={64}
           height={64}

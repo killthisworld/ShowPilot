@@ -45,7 +45,7 @@ export default function About() {
 
       <div className="flex flex-col items-center text-center gap-6">
         <img
-          src="/icon-512.png"
+          src="/icon-512.png?v=3"
           alt="Show Pilot"
           width={112}
           height={112}

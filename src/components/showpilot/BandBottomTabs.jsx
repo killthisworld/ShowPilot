@@ -71,7 +71,7 @@ export default function BandBottomTabs() {
         })}
         {/* The Show Pilot logo (same art as the app icon) opens About. */}
         <Link to="/about" aria-label="About Show Pilot" className="mt-auto w-11 h-11 rounded-[11px] overflow-hidden shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
-          <img src="/icon-192.png" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
+          <img src="/icon-192.png?v=3" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
         </Link>
       </nav>
     </>
