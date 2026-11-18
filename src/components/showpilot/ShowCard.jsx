@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { isDateTbd } from "@/lib/dateRequest";
 import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { Calendar, MapPin, Star, Archive, Trash2, Building, Mic2 } from "lucide-react";
@@ -124,7 +125,7 @@ export default function ShowCard({ show, genreTagMap = {}, onArchive, onDeleteRe
           <div className="flex items-center gap-4 text-xs text-white/40">
             <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
-              {moment(show.date).format("MMM D, YYYY")}
+              {isDateTbd(show.date) ? "Date requested" : moment(show.date).format("MMM D, YYYY")}
             </span>
           </div>
           {show.genre_tags && show.genre_tags.length > 0 && (

@@ -21,6 +21,7 @@
 // times pre-filled from their template's schedule, each act invited (an
 // invite link per act), Sound / Lights from the house's side, House info from
 // their venue template (each part switchable), and co-hosts / a promoter.
+import { DATE_TBD } from "@/lib/dateRequest";
 import { supabase } from "@/api/supabaseClient";
 import { applyTemplate, MANAGER_PART_FIELDS, VENUE_PART_FIELDS, VENUE_PARTS, gigFromTemplate } from "@/lib/roleTemplates";
 import { artistFromTemplate } from "@/lib/showTemplates";
@@ -28,6 +29,9 @@ import { modeOf } from "@/lib/templatePage";
 import { fileRecord } from "@/lib/eventBusiness";
 
 export const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
+
+// Is the date part of the form done: a date picked, or months asked for (job 329).
+export const dateSettled = (f) => (f.dateMode === "request" ? (f.wants?.months || []).length > 0 : has(f.date));
 const filled = (v) => (Array.isArray(v) ? v.length > 0 : v && typeof v === "object" ? Object.keys(v).length > 0 : has(v));
 const norm = (s) => String(s || "").trim().toLowerCase();
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -55,6 +59,8 @@ export const venuePartLabel = (k) => VENUE_PARTS.find((p) => p.key === k)?.label
 
 export const emptyForm = () => ({
   date: "", loadIn: "", doors: "", onStage: "", curfew: "", name: "",
+  // "set" a settled date, or "request" one (months, nights, a note; job 329).
+  dateMode: "set", wants: { months: [], days: [], note: "" },
   venue: { name: "", city: "", state: "", pilotId: null, invite: true },
   acts: [], // [{ name, pilotId?, invite? }] in billing order, the first is the headliner (venues invite each)
   // soundTech / lightsTech: typed in when they aren't a Fellow Pilot (job 326).
@@ -177,6 +183,9 @@ const inviteUrl = (token) => `${window.location.origin}/gig/shared?invite=${toke
 // follow, and a failure there is a warning, not a lost event.
 // side: "manager" (manager / artist accounts) or "venue" (job 323).
 export async function createEventFromWeb(userId, sources, f, side = "manager") {
+  // A requested date has no times yet; the event gets the stand-in date and keeps the request (lib/dateRequest.js).
+  const requesting = f.dateMode === "request";
+  if (requesting) f = { ...f, loadIn: "", doors: "", onStage: "", curfew: "" };
   const venueSide = side === "venue";
   const warnings = [];
   const acts = f.acts.filter((a) => has(a.name)).map((a) => ({ ...a, name: a.name.trim() }));
@@ -227,7 +236,7 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
     venue: (venueSide ? house.name : f.venue.name).trim() || null,
     city: (venueSide ? house.city : f.venue.city).trim() || null,
     state: (venueSide ? house.state : f.venue.state).trim() || null,
-    date: f.date,
+    date: requesting ? DATE_TBD : f.date,
     ...(icon ? { icon_url: icon } : {}),
     included_sections: ["venue", "manager", "engineer"],
     status: "not_started",
@@ -240,6 +249,7 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
       ...(has(f.promo.facebook) ? { facebook_event: f.promo.facebook.trim() } : {}),
       // Made from the New event web (Bookings lists a venue's, job 323).
       made_with: "event_web",
+      ...(requesting ? { date_request: { months: f.wants.months || [], days: f.wants.days || [], note: (f.wants.note || "").trim() } } : {}),
     },
   }).select().single();
   if (error) throw error;

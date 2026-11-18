@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isDateTbd, dateText } from "@/lib/dateRequest";
 import { useNavigate } from "react-router-dom";
 import { Clock, Megaphone, SlidersHorizontal, Folder, FileText, Download, ExternalLink, MessageSquare, Mail, Lock } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -141,7 +142,7 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
       body: () => (
         <div className="flex flex-col gap-3">
           <Box>
-            <Row k="DATE">{dayText(gig.date) || "Not set"}</Row>
+            <Row k="DATE">{isDateTbd(gig.date) ? dateText(gig) : dayText(gig.date) || "Not set"}</Row>
             {schedule.map((r, i) => <Row key={r.id || i} k={(r.label || "Time").toUpperCase()}>{r.time || "-"}</Row>)}
           </Box>
           {bands.length > 0 && (
@@ -293,7 +294,7 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
   const place = [gig.venue, [gig.city, gig.state].filter(has).join(", ")].filter(has).join(" · ");
   const phone = sender?.contact_phone || "";
   const email = sender?.contact_email || "";
-  const message = `Hi ${firstName}, about ${gig.event_name || "the show"}${gig.date ? ` on ${dayText(gig.date)}` : ""}: `;
+  const message = `Hi ${firstName}, about ${gig.event_name || "the show"}${gig.date && !isDateTbd(gig.date) ? ` on ${dayText(gig.date)}` : ""}: `;
 
   return (
     <>
@@ -304,7 +305,7 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
         image={gig.icon_url || first?.photo_url || ""}
         fromLine={`${senderName} added you to a show`}
         title={gig.event_name || first?.band_name || "Your show"}
-        dateLine={[dayText(gig.date), place].filter(Boolean).join(" · ")}
+        dateLine={[isDateTbd(gig.date) ? dateText(gig) : dayText(gig.date), place].filter(Boolean).join(" · ")}
         actName=""
         unlockLabel="Open the show"
         center={{ name: senderName, photo: sender?.profile_photo_url || "", label: "Sent by", href: senderToken ? `/pilot/${senderToken}` : "" }}

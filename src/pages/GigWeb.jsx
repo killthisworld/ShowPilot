@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { isDateTbd, realDate, dateText } from "@/lib/dateRequest";
 import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import { eventTitle } from "@/lib/eventTitle";
 import { DIRECT_MESSAGES_OPEN, openRooms } from "@/lib/hiddenProfiles";
@@ -460,7 +461,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // profile nobody is invited to (and nothing is filled in for) stays unlit.
   const roles = ROLE_ORDER;
   const title = eventTitle(gig);
-  const dateLabel = gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
+  const dateLabel = isDateTbd(gig.date) ? dateText(gig) : gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
   // Sized down slightly from the original 340/170/128 to bring the board
   // up into view sooner - icon size is untouched (still a comfortable tap
@@ -1090,7 +1091,7 @@ function EventLinkInput({ icon: Icon, label, placeholder, value, onChange, onEnt
 function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = false }) {
   const { preferences } = usePreferences();
   const [eventName, setEventName] = useState(gig.event_name || "");
-  const [date, setDate] = useState(gig.date || "");
+  const [date, setDate] = useState(realDate(gig.date));
   // Event type, editable here too (the phone's shared event page has it).
   const [eventType, setEventType] = useState(gig.event_type || "");
   const typeOptions = [...new Set([...buildEventTypeOptions([], preferences?.custom_event_types, preferences?.hidden_event_types, gig.event_type), "Other"])];
@@ -1098,7 +1099,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
   const [saved, setSaved] = useState(false);
 
   useEffect(() => { setEventName(gig.event_name || ""); }, [gig.event_name]);
-  useEffect(() => { setDate(gig.date || ""); }, [gig.date]);
+  useEffect(() => { setDate(realDate(gig.date)); }, [gig.date]);
   useEffect(() => { setEventType(gig.event_type || ""); }, [gig.event_type]);
 
   // Ticket link and venue website, under the event icon (job 73). The ticket
@@ -1113,7 +1114,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
   useEffect(() => { setTicketLink(savedTicket); }, [savedTicket]);
   useEffect(() => { setVenueSite(savedSite); }, [savedSite]);
 
-  const detailsDirty = eventName !== (gig.event_name || "") || date !== (gig.date || "") || eventType !== (gig.event_type || "");
+  const detailsDirty = eventName !== (gig.event_name || "") || date !== realDate(gig.date) || eventType !== (gig.event_type || "");
   const ticketDirty = ticketLink.trim() !== savedTicket;
   const siteDirty = venueSite.trim() !== savedSite;
   const dirty = detailsDirty || ticketDirty || siteDirty;
@@ -1189,7 +1190,7 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
     setSaving(true);
     try {
       if (detailsDirty) {
-        const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || null, ...(eventType ? { event_type: eventType } : {}) } });
+        const { error } = await supabase.rpc("update_shared_gig", { p_token: token, p_updates: { event_name: eventName, date: date || (isDateTbd(gig.date) ? gig.date : null), ...(eventType ? { event_type: eventType } : {}) } });
         if (error) throw error;
       }
       if (ticketDirty) {

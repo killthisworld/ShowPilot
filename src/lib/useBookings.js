@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isDateTbd } from "@/lib/dateRequest";
 import { supabase } from "@/api/supabaseClient";
 
 // Booking packages for the company layout (job 246): the ones I sent and the
@@ -56,4 +57,4 @@ export default function useBookings(enabled = true) {
   return { data, loading: data === null, reload };
 }
 
-export const fmtDay = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "");
+export const fmtDay = (d) => (isDateTbd(d) ? "Date requested" : d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "");

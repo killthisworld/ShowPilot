@@ -230,7 +230,7 @@ const monthKeyLabel = (k) => { const [y, m] = k.split("-").map(Number); return `
 
 // Months as a dropdown (month + year, job 248): add as many as you like;
 // each one shows as a chip you can take off.
-export function DatesBody({ wants, setWants }) {
+export function DatesBody({ wants, setWants, noteFor = "THE VENUE", notePlaceholder = "" }) {
   const months = Array.isArray(wants.months) ? wants.months : [];
   const days = Array.isArray(wants.days) ? wants.days : [];
   const toggle = (list, key) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]);
@@ -279,7 +279,7 @@ export function DatesBody({ wants, setWants }) {
         </div>
         <span className="text-center text-[12.5px] text-white/50">Leave the nights blank if any night works.</span>
       </div>
-      <label><span className={label}>NOTE FOR THE VENUE</span><textarea rows={3} value={wants.note || ""} onChange={(e) => setWants({ ...wants, note: e.target.value })} placeholder="Touring the Southeast, routing through mid-March" className={`${inputCls} py-2.5 resize-none`} /></label>
+      <label><span className={label}>NOTE FOR {noteFor}</span><textarea rows={3} value={wants.note || ""} onChange={(e) => setWants({ ...wants, note: e.target.value })} placeholder={notePlaceholder || "Touring the Southeast, routing through mid-March"} className={`${inputCls} py-2.5 resize-none`} /></label>
     </div>
   );
 }

@@ -7,7 +7,9 @@ export function eventTitle(e) {
   if (name) return name;
   const place = String(e.venue || "").trim() || String(e.location || "").trim()
     || [e.city, e.state].filter(Boolean).join(", ");
-  const d = e.date ? new Date(String(e.date).slice(0, 10) + "T00:00:00") : null;
+  const d = e.date && !isDateTbd(e.date) ? new Date(String(e.date).slice(0, 10) + "T00:00:00") : null;
   const when = d && !isNaN(d) ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
   return place || when || "New event";
 }
+
+import { isDateTbd } from "@/lib/dateRequest";

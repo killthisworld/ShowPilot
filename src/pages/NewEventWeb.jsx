@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { DatesBody } from "@/components/showpilot/BookingFields";
+import { isDateTbd, requestLine } from "@/lib/dateRequest";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Clock, MapPin, Music, SlidersHorizontal, Megaphone, FileText, UserPlus, Building2, Check, X, Plus, MessageSquare, Mail, Copy, ArrowUp, Loader2, Upload } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -8,7 +10,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useGoBack } from "@/lib/navHistory";
 import {
   emptyForm, eventName, loadSources, actTemplate, onFileItems, uploadPromo, createEventFromWeb,
-  PROMO_FORMATS, has, venueFromSources, venueTimes, venueFileItems, uploadStagePlot,
+  PROMO_FORMATS, has, dateSettled, venueFromSources, venueTimes, venueFileItems, uploadStagePlot,
 } from "@/lib/newEventWeb";
 
 // New event as a web (job 321), for manager / artist accounts. The sender
@@ -159,16 +161,28 @@ export default function NewEventWeb({ side = "manager" }) {
       {pickAct && (
         <div className="pb-1">{actBody()}</div>
       )}
+      {/* Set the date if it's settled, or ask for one (months, nights, a note) like a booking package; job 329. */}
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Date">
+        <Choice on={f.dateMode !== "request"} color={ACCENT} onClick={() => set({ dateMode: "set" })}>Set the date</Choice>
+        <Choice on={f.dateMode === "request"} color={ACCENT} onClick={() => set({ dateMode: "request" })}>Request a date</Choice>
+      </div>
+      {f.dateMode === "request" ? (
+        <>
+          <DatesBody wants={f.wants} setWants={(w) => set({ wants: w })} noteFor={venueSide ? "THE ACT" : "THE VENUE"} notePlaceholder={venueSide ? "A Friday or Saturday in the spring, whichever you can do" : ""} />
+          <p className={note}>It's held as a request until the date is set. Set the date on the event when it's settled.</p>
+        </>
+      ) : (
       <label><span className={lab}>DATE</span>
         <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
       </label>
-      {[["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
+      )}
+      {f.dateMode !== "request" && [["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
         <div key={k}><span className={lab}>{l}</span><TimeSelect value={f[k]} onChange={(v) => set({ [k]: v })} color={ACCENT} label={`${l.toLowerCase()} time`} /></div>
       ))}
       <label><span className={lab}>EVENT NAME</span>
         <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={name || "Low Tide Radio at Clown House"} className={inputCls} />
       </label>
-      <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Load-in, doors and curfew start from your schedule in My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>
+      {f.dateMode !== "request" && <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Load-in, doors and curfew start from your schedule in My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>}
     </div>
   );
 
@@ -511,7 +525,7 @@ export default function NewEventWeb({ side = "manager" }) {
   const firstNamed = namedActs[0] || null;
   const firstPilot = venueSide && firstNamed ? pilotById(firstNamed.pilotId) : null;
   const circles = venueSide ? [
-    { key: "show", label: "Date & times", short: "Date & times", required: true, done: has(f.date), hint: "When it is", icon: <Clock />, body: showBody },
+    { key: "show", label: "Date & times", short: "Date & times", required: true, done: dateSettled(f), hint: "When it is", icon: <Clock />, body: showBody },
     { key: "act", label: firstNamed ? firstNamed.name + (namedActs.length > 1 ? ` +${namedActs.length - 1}` : "") : "The act", short: firstNamed ? firstNamed.name : "The act", done: namedActs.length > 0, hint: "Who's playing, and their invites",
       ...(firstNamed ? { photo: firstPilot?.profile_photo_url || "", initials: initialsOf(firstNamed.name), ring: RED } : { icon: <Music /> }), body: actBodyVenue },
     { key: "crew", label: "Sound / Lights", short: "Sound / Lights", done: crewDone, hint: "Who covers sound and lights", icon: <SlidersHorizontal />, body: crewBody },
@@ -520,7 +534,7 @@ export default function NewEventWeb({ side = "manager" }) {
     { key: "paper", label: "Paperwork", short: "Paperwork", done: paperCount > 0, hint: "Contract, insurance", icon: <FileText />, body: paperBody },
     { key: "people", label: "Co-hosts", short: "Co-hosts", done: f.people.length > 0, hint: "A co-host or promoter", icon: <UserPlus />, body: peopleBody },
   ] : [
-    { key: "show", label: "Date & times", short: "Date & times", required: true, done: has(f.date) && f.acts.length > 0, hint: pickAct ? "Who's playing, and when" : "When it is", icon: <Clock />, body: showBody },
+    { key: "show", label: "Date & times", short: "Date & times", required: true, done: dateSettled(f) && f.acts.length > 0, hint: pickAct ? "Who's playing, and when" : "When it is", icon: <Clock />, body: showBody },
     { key: "venue", label: f.venue.name.trim() || "Venue", short: f.venue.name.trim() || "Venue", done: has(f.venue.name), hint: "Where it is, and their invite",
       ...(has(f.venue.name) ? { photo: venuePilot?.profile_photo_url || "", initials: initialsOf(f.venue.name), ring: BLUE } : { icon: <MapPin /> }), body: venueBody },
     { key: "crew", label: "Sound / Lights", short: "Sound / Lights", done: crewDone, hint: "Who brings the engineer and the LD", icon: <SlidersHorizontal />, body: crewBody },
@@ -531,7 +545,7 @@ export default function NewEventWeb({ side = "manager" }) {
 
   const create = async () => {
     if (!user || sending) return;
-    if (!has(f.date)) { setError("Pick the date first."); return; }
+    if (!dateSettled(f)) { setError(f.dateMode === "request" ? "Add the months you're asking for first." : "Pick the date first."); return; }
     if (!venueSide && !f.acts.length) { setError("Add who's playing first (in Date & times)."); return; }
     setSending(true); setError("");
     try {
@@ -560,7 +574,7 @@ export default function NewEventWeb({ side = "manager" }) {
   // ---------- made: hand over the invite links ----------
   if (made && !sent) {
     const token = made.show.share_token;
-    const when = dayText(made.show.date);
+    const when = isDateTbd(made.show.date) ? requestLine(made.show.manager_info?.date_request) : dayText(made.show.date);
     const msg = (inv) => `${me.display_name || "I"} added you to ${made.show.event_name}${when ? ` on ${when}` : ""} on ShowPilot. Open it here: ${inv.url}`;
     const copy = async (inv) => {
       try { await navigator.clipboard.writeText(inv.url); setCopied(inv.id); setTimeout(() => setCopied((c) => (c === inv.id ? "" : c)), 1600); } catch { /* ignore */ }
@@ -607,12 +621,12 @@ export default function NewEventWeb({ side = "manager" }) {
         color={ACCENT}
         seed={user?.id || "new-event"}
         title={name || "New event"}
-        dateLine={f.date ? dayText(f.date) : "New event"}
+        dateLine={f.dateMode === "request" ? (requestLine(f.wants) ? `Requesting ${requestLine(f.wants)}` : "New event") : f.date ? dayText(f.date) : "New event"}
         actName=""
         center={{ name: (venueSide ? house?.name : "") || me.display_name || "You", photo: me.profile_photo_url || "", label: "You", href: me.card_share_token ? `/pilot/${me.card_share_token}` : "" }}
         circles={circles}
         onSend={create}
-        canSend={has(f.date) && (venueSide || f.acts.length > 0)}
+        canSend={dateSettled(f) && (venueSide || f.acts.length > 0)}
         sending={sending}
         sendLabel="Create event"
         error={error}

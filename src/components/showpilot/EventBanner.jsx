@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { isDateTbd, dateText } from "@/lib/dateRequest";
 import { eventTitle } from "@/lib/eventTitle";
 import { MapPin } from "lucide-react";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -12,7 +13,7 @@ import { sectionPhoto } from "@/lib/sectionPhotos";
 export default function EventBanner({ gig, imageUrl, title }) {
   const color = eventTypeColor(gig.event_type) || "#8CFF3D";
   const name = title || eventTitle(gig);
-  const when = gig.date ? new Date(gig.date + "T00:00:00") : null;
+  const when = gig.date && !isDateTbd(gig.date) ? new Date(gig.date + "T00:00:00") : null;
   const place = [gig.venue, [gig.city, gig.state].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   // No event picture: the venue's photo (job 163), else the headliner's /
   // an act's / the artist's photo (job 157).
@@ -37,7 +38,7 @@ export default function EventBanner({ gig, imageUrl, title }) {
       )}
       <h1 className="m-0 text-[30px] leading-[1.05] font-bold text-white tracking-[0.02em] break-words" style={{ fontFamily: SCENE_FONT }}>{name}</h1>
       <p className="m-0 mt-1.5 text-[12px] tracking-[0.08em] text-white/75 uppercase" style={{ fontFamily: SCENE_MONO }}>
-        {[when ? when.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "No date yet", gig.event_time].filter(Boolean).join(" · ")}
+        {[when ? when.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : (isDateTbd(gig.date) ? dateText(gig) : "No date yet"), gig.event_time].filter(Boolean).join(" · ")}
       </p>
       {place && (
         <p className="m-0 mt-1 flex items-center gap-1.5 text-[14px] text-white/80">

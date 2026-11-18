@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { isDateTbd } from "@/lib/dateRequest";
 import { eventTitle } from "@/lib/eventTitle";
 import { MapPin, Calendar, Star, Link2, Archive, Trash2 } from "lucide-react";
 import GigProgressBar from "./GigProgressBar";
@@ -98,7 +99,7 @@ export default function BandGigCard({ gig, progress, onOpen, onArchive, onDelete
             {gig.date && (
               <div className="flex items-center gap-1.5 text-white/40 text-xs mt-0.5">
                 <Calendar className="w-3 h-3 shrink-0" />
-                <span>{new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                <span>{isDateTbd(gig.date) ? "Date requested" : new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
               </div>
             )}
           </div>

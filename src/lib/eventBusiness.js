@@ -4,6 +4,7 @@
 // the venue side and the manager / artist side ever get this data (never
 // crew who only hold the share link). Files live in the private
 // `business-records` bucket under <show id>/.
+import { isDateTbd } from "@/lib/dateRequest";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { VENUE_CHECKLIST_ITEMS } from "@/components/showpilot/VenueInfoFields";
@@ -129,7 +130,7 @@ const money = (v) => {
   const s = String(v).trim();
   return /^[\d,.]+$/.test(s) ? `$${s}` : s;
 };
-export const fmtDate = (d) => (d ? new Date(String(d).length <= 10 ? `${d}T00:00:00` : d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
+export const fmtDate = (d) => (isDateTbd(d) ? "Date requested" : d ? new Date(String(d).length <= 10 ? `${d}T00:00:00` : d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
 export const fmtDateTime = (d) => (d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "");
 const rowsOf = (pairs) => pairs.filter(([, v]) => has(v)).map(([k, v]) => [k, String(v)]);
 const eventName = (gig) => gig.event_name || gig.band_name || "Show";
