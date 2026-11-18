@@ -653,6 +653,7 @@ const MERCH = { own: "Their own table + seller", venue: "They'd like the venue t
 
 // The Tech rider as the venue reads it (job 332): the same two tabs.
 function TechRiderRead({ d, actName = "" }) {
+  const [notesOpen, setNotesOpen] = useState(false);
   const [tab, setTab] = useState(() => (tabHas(d, "audio") || !tabHas(d, "lighting") ? "audio" : "lighting"));
   const t = techOf(d, tab);
   const [, name, who, short] = TECH_TABS.find(([k]) => k === tab);
@@ -685,29 +686,13 @@ function TechRiderRead({ d, actName = "" }) {
                   {files.map((f, i) => fileLink(f, i, "Stage plot"))}
                 </div>
               )}
-              {memberCount(d) > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <span className={label + " mb-0"}>MEMBERS AND INPUTS</span>
-                  {d.band_members.map((m, i) => (
-                    <div key={i} className="rounded-[12px] border border-[#242424] bg-[#101010] px-3 py-2 flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[14.5px] font-bold">{m.name || `Member ${i + 1}`}</div>
-                        <div className="text-[13px] text-white/65">{instrumentsOf(m).filter((x) => has(x.name)).map((x) => `${x.name}${x.mic_di ? ` (${x.mic_di})` : ""}${x.phantom_power ? " +48V" : ""}`).join(" · ") || "No inputs listed"}</div>
-                      </div>
-                      {m.bus_type && <span className="shrink-0 px-2 py-1 rounded-[8px] border border-[#333] text-[12px] font-semibold text-white/80">{m.bus_type}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
               {actHasNotes(d) && (
-                <div className="flex flex-col gap-1">
-                  <span className={label + " mb-0"}>NOTES</span>
-                  {has(d.general_notes) && <p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{d.general_notes}</p>}
-                  {(Array.isArray(d.artist_fx_notes) ? d.artist_fx_notes : []).filter((n) => has(n.notes)).map((n, i) => (
-                    <p key={i} className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap"><span className="font-semibold text-white">{n.artist_name}:</span> {n.notes}</p>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <ActNotesButton act={d} onClick={() => setNotesOpen(true)} />
+                  <span className="text-[13px] text-white/55">Notes from the act</span>
                 </div>
               )}
+              {notesOpen && <FxNotesWindow acts={[{ ...d, band_name: actName || d.band_name }]} target={0} onTarget={() => {}} actOnly={0} onClose={() => setNotesOpen(false)} />}
             </>
           ) : (
             <>
