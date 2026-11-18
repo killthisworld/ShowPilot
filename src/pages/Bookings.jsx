@@ -13,6 +13,8 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 // Booked. Side by side on a laptop, stacked on a phone. A venue sees what's
 // been sent to it; an artist / manager sees what they've sent. Booked events
 // on the venue's side get "Ask a tech".
+// Venues (job 323): New event makes an event and invites the act (the New
+// event web); those events sit in Booked beside booked packages.
 const RED = "#F87171";
 const BLUE = "#60A5FA";
 const GREEN = "#8CFF3D";
@@ -36,10 +38,45 @@ export default function Bookings() {
   const [asking, setAsking] = useState(null); // the booked item
   const [asks, setAsks] = useState({}); // show_id -> asks
   const canSend = ["manager", "band"].includes(preferences?.account_type);
+  const isVenue = preferences?.account_type === "venue";
+  // The venue's own events from the New event web, from today on, with how
+  // their act invites stand.
+  const [made, setMade] = useState([]);
+  useEffect(() => {
+    if (!isVenue) return undefined;
+    let gone = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const today = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      const { data: shows, error } = await supabase.from("shows").select("id, event_name, band_name, date, icon_url, share_token, archived")
+        .eq("owner_id", user.id).eq("manager_info->>made_with", "event_web").gte("date", today).order("date", { ascending: true });
+      if (error) { console.error(error); return; }
+      const list = (shows || []).filter((s) => !s.archived);
+      let invites = [];
+      if (list.length) {
+        const { data: inv } = await supabase.from("gig_invites").select("show_id, status, invited_role").in("show_id", list.map((s) => s.id)).eq("invited_role", "band");
+        invites = inv || [];
+      }
+      if (gone) return;
+      setMade(list.map((s) => {
+        const mine = invites.filter((i) => i.show_id === s.id);
+        const joined = mine.filter((i) => i.status === "accepted").length;
+        return {
+          side: "venue", status: "booked", code: `ev-${s.id}`, show_id: s.id, picked_date: s.date,
+          act_name: s.band_name || s.event_name, photo_url: s.icon_url || "",
+          sender_name: !mine.length ? "No act invited" : joined === mine.length ? (joined === 1 ? "Act joined" : "Acts joined") : `Invite sent${mine.length > 1 ? ` · ${joined} of ${mine.length} joined` : ""}`,
+          href: s.share_token ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`,
+        };
+      }));
+    })();
+    return () => { gone = true; };
+  }, [isVenue]);
 
   const items = [
     ...(data?.incoming || []).map((p) => ({ ...p, side: "venue", href: `/p/${p.code}` })),
     ...(data?.sent || []).map((p) => ({ ...p, side: "sender", href: `/book/${p.id}` })),
+    ...made,
   ];
   const by = (k) => items.filter((p) => colOf(p) === k);
   const passed = by("passed");
@@ -116,6 +153,9 @@ export default function Bookings() {
           {canSend && (
             <Link to="/book" className="ml-auto min-h-[44px] px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: RED, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />Book a date</Link>
           )}
+          {isVenue && (
+            <Link to="/event/new" state={{ from: "bookings" }} className="ml-auto shrink-0 whitespace-nowrap min-h-[44px] px-3.5 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: BLUE, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />New event</Link>
+          )}
         </div>
 
         {loading ? (
@@ -123,7 +163,7 @@ export default function Bookings() {
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-[#151515] border border-[#262626] p-6 text-center flex flex-col gap-2 items-center">
             <p className="m-0 text-base font-semibold">No bookings yet</p>
-            <p className="m-0 text-sm text-white/55">{canSend ? "Send a booking package to a venue and it shows up here, all the way to booked." : "Booking packages venues and acts send you show up here."}</p>
+            <p className="m-0 text-sm text-white/55">{canSend ? "Send a booking package to a venue and it shows up here, all the way to booked." : "Booking packages acts send you show up here, and events you make with New event."}</p>
           </div>
         ) : (
           <div className="grid gap-5 lg:grid-cols-3 lg:gap-4 items-start">
