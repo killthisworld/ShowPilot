@@ -184,6 +184,20 @@ export default function BookingPackage() {
   const actCircles = intakeCircles(helpers, { seen, card: { showCard: false } }).filter((c) => c.key !== "role");
   const byKey = Object.fromEntries(actCircles.map((c) => [c.key, c]));
   const hasMonths = (wants.months || []).length > 0;
+  // Tech rider > Audio (job 339): the ShowPilot stage plot from My Template,
+  // for the act in the centre (or your only act). "" when it worked, or why not.
+  const pullTemplatePlot = async () => {
+    const { data: rows, error: e } = await supabase.from("saved_templates").select("name, data").eq("owner_id", user.id).eq("category", "artist");
+    if (e) throw e;
+    const acts = (rows || []).map((r) => ({ ...(r.data || {}), band_name: r.data?.band_name || r.name || "" }));
+    const want = form.band_name.trim().toLowerCase();
+    const act = acts.find((a) => a.band_name.trim().toLowerCase() === want) || (acts.length === 1 ? acts[0] : null);
+    if (!act) return acts.length ? `None of your acts in My Template is called "${form.band_name}". Check the act's name in the centre.` : "No act in My Template yet. Build your stage plot there first.";
+    if (!(act.band_members || []).length) return `${act.band_name} has no stage plot in My Template yet. Build it there first.`;
+    dirty.current = true;
+    setForm((f) => ({ ...f, band_members: act.band_members, artist_fx_notes: f.artist_fx_notes?.length ? f.artist_fx_notes : act.artist_fx_notes || [], general_notes: f.general_notes || act.general_notes || "" }));
+    return "";
+  };
   // Writes that start from the latest form (uploads land late; job 332).
   const updateWith = (field, fn) => { dirty.current = true; setForm((f) => ({ ...f, [field]: fn(f[field]) })); };
   const P = { form, update: h.update, updateWith, uploadFile: h.uploadFile };
@@ -198,9 +212,8 @@ export default function BookingPackage() {
       done: !!seen.deal && dealHas(form), body: () => <DealBody {...P} /> },
     { key: "promo", label: "Promo", short: "Promo", required: false,
       done: !!seen.promo && promoHas(form), body: () => <PromoBody {...P} /> },
-    { key: "tech", label: "Tech rider", short: "Tech rider", hint: "Audio and lighting: your techs or the venue's, riders, stage plot, cues", required: false, icon: <SlidersHorizontal />,
-      done: !!seen.tech && techRiderHas(form), body: () => <TechRiderBody {...P} h={h} /> },
-    byKey.members && { ...byKey.members, required: false, hint: "Who plays what, and where they stand" },
+    { key: "tech", label: "Tech rider", short: "Tech rider", hint: "Audio and lighting: your techs or the venue's, riders, stage plot and inputs, cues", required: false, icon: <SlidersHorizontal />,
+      done: !!seen.tech && techRiderHas(form), body: () => <TechRiderBody {...P} h={h} pullTemplatePlot={pullTemplatePlot} /> },
     { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table, your hospitality rider", required: false,
       done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody {...P} /> },
     { key: "contact", label: "Your contact", short: "Contact", hint: "Name, title, phone and email", required: false,

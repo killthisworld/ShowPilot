@@ -8,6 +8,7 @@ import PilotCardView from "@/pages/PilotCardView";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
 import FxNotesWindow, { ActNotesButton, actHasNotes } from "@/components/showpilot/FxNotesWindow";
+import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
 
 // The booking package's own circles (job 246): Hospitality & merch, Promo,
 // Dates wanted, and the "Send to" corner. The act circles (Artist,
@@ -84,7 +85,7 @@ const techOf = (d, k) => (d?.tech && typeof d.tech[k] === "object" && d.tech[k])
 const tabHas = (d, k) => {
   const t = techOf(d, k);
   if ([t.who, t.name, t.phone, t.email, t.cues, t.notes].some(has)) return true;
-  if (k === "audio") return !!riderOf(d, "tech") || (d.stage_plot_files || []).length > 0 || actHasNotes(d);
+  if (k === "audio") return !!riderOf(d, "tech") || (d.stage_plot_files || []).length > 0 || (d.band_members || []).length > 0 || actHasNotes(d);
   return !!riderOf(d, "lighting") || !!riderOf(d, "cues");
 };
 export const techRiderHas = (form) => tabHas(form, "audio") || tabHas(form, "lighting");
@@ -104,7 +105,38 @@ function TechTabs({ tab, setTab, d }) {
     </div>
   );
 }
-export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
+// The ShowPilot stage plot (job 339): the act's members as laid out in My
+// Template, with their inputs. A card that opens the interactive plot.
+const memberCount = (d) => (Array.isArray(d.band_members) ? d.band_members : []).length;
+const inputCount = (d) => (Array.isArray(d.band_members) ? d.band_members : []).reduce((n, m) => n + instrumentsOf(m).filter((i) => has(i.name)).length, 0);
+function ShowPilotPlotCard({ d, actName, line, onRemove = null }) {
+  const [open, setOpen] = useState(false);
+  const n = memberCount(d), ins = inputCount(d);
+  const canOpen = hasStagePlot(d);
+  return (
+    <div className="flex items-center gap-3 min-h-[60px] rounded-[12px] border bg-[#101010] pl-3 pr-1.5 py-2" style={{ borderColor: `${GREEN}55` }}>
+      <span className="w-10 h-10 rounded-[10px] border bg-black shrink-0 flex items-center justify-center" style={{ borderColor: `${GREEN}55`, color: GREEN }}><StageIcon className="w-6 h-6" /></span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[14.5px] font-bold truncate">ShowPilot stage plot</span>
+        <span className="block text-[12.5px] text-white/55 leading-snug">{[line, `${n} member${n === 1 ? "" : "s"}`, `${ins} input${ins === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}</span>
+      </span>
+      {canOpen && <button type="button" onClick={() => setOpen(true)} className="min-h-[40px] px-3 rounded-[9px] border border-[#3a3a3a] text-[13px] font-semibold shrink-0">{onRemove ? "View" : "Open"}</button>}
+      {onRemove && <button type="button" onClick={onRemove} aria-label="Take the ShowPilot stage plot off" className="w-10 h-10 flex items-center justify-center text-white/45 shrink-0"><X className="w-4 h-4" /></button>}
+      {open && <StagePlotView acts={[{ ...d, band_name: actName || d.band_name || "The act" }]} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+export function TechRiderBody({ form, update, updateWith, uploadFile, h, pullTemplatePlot = null }) {
+  const [pulling, setPulling] = useState(false);
+  const [pullErr, setPullErr] = useState("");
+  const pull = async () => {
+    setPullErr("");
+    setPulling(true);
+    try { const msg = await pullTemplatePlot(); if (msg) setPullErr(msg); }
+    catch (x) { console.error(x); setPullErr("Couldn't load My Template. Check your signal and try again."); }
+    setPulling(false);
+  };
   const [tab, setTab] = useState("audio");
   const [pilots, setPilots] = useState([]);
   useEffect(() => { loadFellowPilots().then((p) => setPilots(techsFirst(p || []))).catch(() => {}); }, []);
@@ -150,6 +182,15 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
               <span className={`${label} flex-1 mb-0`}>STAGE PLOT</span>
               <ActNotesButton act={form} onClick={() => setNotesOpen(true)} />
             </div>
+            {/* Two ways (job 339): the ShowPilot stage plot from My Template, or a PDF. */}
+            {memberCount(form) > 0 ? (
+              <ShowPilotPlotCard d={form} actName={form.band_name} line="From My Template" onRemove={() => update("band_members", [])} />
+            ) : pullTemplatePlot && (
+              <button type="button" onClick={pull} disabled={pulling} className="min-h-[52px] rounded-[12px] border px-3 text-[14px] font-semibold flex items-center justify-center gap-2 disabled:opacity-60" style={{ borderColor: `${GREEN}66`, color: GREEN }}>
+                {pulling ? <Loader2 className="w-4 h-4 animate-spin" /> : <StageIcon className="w-5 h-5" />}Use my stage plot from My Template
+              </button>
+            )}
+            {pullErr && <p className="m-0 text-[12.5px] text-[#F87171]">{pullErr}</p>}
             {files.map((f, i) => (
               <div key={`${f.url}-${i}`} className="flex items-center gap-2 min-h-[44px] rounded-[10px] border border-[#2a2a2a] bg-[#101010] pl-3 pr-1">
                 <FileText className="w-4 h-4 shrink-0 text-white/55" />
@@ -159,11 +200,10 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
             ))}
             {h?.handleStagePlotUpload && (
               <>
-                <input ref={plotRef} type="file" accept="image/*,.pdf" multiple onChange={h.handleStagePlotUpload} className="hidden" />
-                <button type="button" onClick={() => plotRef.current?.click()} className="min-h-[44px] rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center justify-center gap-1.5" style={{ color: GREEN }}><Upload className="w-4 h-4" />{files.length ? "Add another" : "Upload your stage plot"}</button>
+                <input ref={plotRef} type="file" accept="application/pdf,.pdf,image/*" multiple onChange={h.handleStagePlotUpload} className="hidden" />
+                <button type="button" onClick={() => plotRef.current?.click()} className="min-h-[44px] rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center justify-center gap-1.5" style={{ color: GREEN }}><Upload className="w-4 h-4" />{files.length ? "Upload another PDF" : "Upload a stage plot PDF"}</button>
               </>
             )}
-            <span className="text-[12px] text-white/50">Or build it in Members & inputs.</span>
           </div>
           {notesOpen && (
             <FxNotesWindow acts={[form]} target={0} onTarget={() => {}} actOnly={0}
@@ -612,7 +652,7 @@ const instrumentsOf = (m) => (Array.isArray(m.instruments) ? m.instruments : m.i
 const MERCH = { own: "Their own table + seller", venue: "They'd like the venue to sell it", none: "No merch" };
 
 // The Tech rider as the venue reads it (job 332): the same two tabs.
-function TechRiderRead({ d }) {
+function TechRiderRead({ d, actName = "" }) {
   const [tab, setTab] = useState(() => (tabHas(d, "audio") || !tabHas(d, "lighting") ? "audio" : "lighting"));
   const t = techOf(d, tab);
   const [, name, who, short] = TECH_TABS.find(([k]) => k === tab);
@@ -638,7 +678,27 @@ function TechRiderRead({ d }) {
           {fileLink(rider, "rider", RIDER_KINDS[tab === "audio" ? "tech" : "lighting"])}
           {tab === "audio" ? (
             <>
-              {files.length > 0 && <div className="flex flex-col gap-1.5"><span className={label + " mb-0"}>STAGE PLOT</span>{files.map((f, i) => fileLink(f, i, "Stage plot"))}</div>}
+              {(memberCount(d) > 0 || files.length > 0) && (
+                <div className="flex flex-col gap-1.5">
+                  <span className={label + " mb-0"}>STAGE PLOT</span>
+                  {memberCount(d) > 0 && <ShowPilotPlotCard d={d} actName={actName} line="" />}
+                  {files.map((f, i) => fileLink(f, i, "Stage plot"))}
+                </div>
+              )}
+              {memberCount(d) > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <span className={label + " mb-0"}>MEMBERS AND INPUTS</span>
+                  {d.band_members.map((m, i) => (
+                    <div key={i} className="rounded-[12px] border border-[#242424] bg-[#101010] px-3 py-2 flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14.5px] font-bold">{m.name || `Member ${i + 1}`}</div>
+                        <div className="text-[13px] text-white/65">{instrumentsOf(m).filter((x) => has(x.name)).map((x) => `${x.name}${x.mic_di ? ` (${x.mic_di})` : ""}${x.phantom_power ? " +48V" : ""}`).join(" · ") || "No inputs listed"}</div>
+                      </div>
+                      {m.bus_type && <span className="shrink-0 px-2 py-1 rounded-[8px] border border-[#333] text-[12px] font-semibold text-white/80">{m.bus_type}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {actHasNotes(d) && (
                 <div className="flex flex-col gap-1">
                   <span className={label + " mb-0"}>NOTES</span>
@@ -682,13 +742,11 @@ export function ActCenterRead({ pkg }) {
 
 export function packageReadCircles(pkg, wantsText) {
   const d = pkg?.data || {};
-  const members = Array.isArray(d.band_members) ? d.band_members : [];
   const links = (Array.isArray(d.promo_links) ? d.promo_links : []).filter((l) => has(l.url));
   const imgs = d.promo_images || {};
   const promoIds = promoPicked(d).filter((id) => imgs[id]?.url);
   const hosp = d.hospitality || {};
   const merch = d.merch || {};
-  const inputs = members.reduce((n, m) => n + instrumentsOf(m).filter((i) => has(i.name)).length, 0);
   const deal = d.deal || {};
   const docs = (Array.isArray(d.deal_files) ? d.deal_files : []).filter((x) => has(x.url));
   const c = (key, label, short, done, body, extra = {}) => ({ key, label, short, done, body, ...extra });
@@ -746,22 +804,7 @@ export function packageReadCircles(pkg, wantsText) {
         {!promoHas(d) && <Empty>No promo sent.</Empty>}
       </div>
     )),
-    c("tech", "Tech rider", "Tech rider", techRiderHas(d), () => <TechRiderRead d={d} />, { icon: <SlidersHorizontal /> }),
-    c("members", "Members and inputs", "Members & inputs", members.length > 0, () => (members.length ? (
-      <div className="flex flex-col gap-2">
-        <span className="text-center text-[12.5px] text-white/55">{members.length} member{members.length === 1 ? "" : "s"} · {inputs} input{inputs === 1 ? "" : "s"}</span>
-        {members.map((m, i) => (
-          <div key={i} className="rounded-[12px] border border-[#242424] bg-[#101010] px-3 py-2.5 flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[15px] font-bold">{m.name || `Member ${i + 1}`}</div>
-              <div className="text-[13px] text-white/65">{instrumentsOf(m).filter((x) => has(x.name)).map((x) => `${x.name}${x.mic_di ? ` (${x.mic_di})` : ""}${x.phantom_power ? " +48V" : ""}`).join(" · ") || "No inputs listed"}</div>
-              {has(m.notes) && <div className="text-[12.5px] text-white/55 mt-0.5">{m.notes}</div>}
-            </div>
-            {m.bus_type && <span className="shrink-0 px-2 py-1 rounded-[8px] border border-[#333] text-[12px] font-semibold text-white/80">{m.bus_type}</span>}
-          </div>
-        ))}
-      </div>
-    ) : <Empty>No members listed yet.</Empty>)),
+    c("tech", "Tech rider", "Tech rider", techRiderHas(d), () => <TechRiderRead d={d} actName={pkg.act_name} />, { icon: <SlidersHorizontal /> }),
     c("hosp", "Hospitality and merch", "Hospitality", hospitalityHas(d), () => (hospitalityHas(d) ? (
       <div className="flex flex-col">
         <Row k="Meals" v={has(hosp.meals) ? String(hosp.meals) : ""} />
