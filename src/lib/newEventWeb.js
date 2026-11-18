@@ -16,8 +16,13 @@
 //   paperwork      business records (W9 as Other, agreement, insurance, other):
 //                  only the event's owner, venue side and manager side see them
 //   co-hosts       invite links (manager / band)
+//
+// Venues (job 323) get the same web from their side: the venue in the middle,
+// times pre-filled from their template's schedule, each act invited (an
+// invite link per act), Sound / Lights from the house's side, House info from
+// their venue template (each part switchable), and co-hosts / a promoter.
 import { supabase } from "@/api/supabaseClient";
-import { applyTemplate, MANAGER_PART_FIELDS } from "@/lib/roleTemplates";
+import { applyTemplate, MANAGER_PART_FIELDS, VENUE_PART_FIELDS, VENUE_PARTS, gigFromTemplate } from "@/lib/roleTemplates";
 import { artistFromTemplate } from "@/lib/showTemplates";
 import { modeOf } from "@/lib/templatePage";
 import { fileRecord } from "@/lib/eventBusiness";
@@ -42,10 +47,16 @@ export const MANAGER_PART_LABELS = {
   advance: "Advance checklist", travel: "Travel", guests: "Guest list", merch: "Merch", documents: "Documents",
 };
 
+// Venue parts that can come along from the venue template (the schedule is
+// the Date & times circle; deal, link setup, replies and the rest stay in the
+// template).
+export const VENUE_FILE_PARTS = ["address", "load_in", "wifi_power", "house_gear", "hospitality", "documents"];
+export const venuePartLabel = (k) => VENUE_PARTS.find((p) => p.key === k)?.label || k;
+
 export const emptyForm = () => ({
-  date: "", loadIn: "", doors: "", onStage: "", name: "",
+  date: "", loadIn: "", doors: "", onStage: "", curfew: "", name: "",
   venue: { name: "", city: "", state: "", pilotId: null, invite: true },
-  acts: [], // [{ name }] in billing order, the first is the headliner
+  acts: [], // [{ name, pilotId?, invite? }] in billing order, the first is the headliner (venues invite each)
   crew: { sound: "venue", lights: "venue", soundPilot: "", lightsPilot: "" },
   promo: { picked: [], files: {}, facebook: "" }, // files: format -> { url, name }
   onFile: {}, // item key -> false when switched off for this event
@@ -53,19 +64,19 @@ export const emptyForm = () => ({
   people: [], // [{ id, role: "manager" | "band", label, pilotId }]
 });
 
-export const eventName = (f) => {
+export const eventName = (f, venueName = "") => {
   if (has(f.name)) return f.name.trim();
   const act = f.acts[0]?.name?.trim();
-  const venue = f.venue.name.trim();
+  const venue = f.venue.name.trim() || venueName.trim();
   return act && venue ? `${act} at ${venue}` : act || venue || "";
 };
 
 // What the signed-in manager / artist brings: their card, their manager
 // template, their acts, their Fellow Pilots.
-export async function loadSources(userId) {
+export async function loadSources(userId, side = "manager") {
   const [me, mgr, acts, pilots] = await Promise.all([
     supabase.from("user_preferences").select("display_name, profile_photo_url, card_share_token, account_type, contact_phone, contact_email").eq("user_id", userId).maybeSingle(),
-    supabase.from("saved_templates").select("name, data, updated_at").eq("owner_id", userId).eq("category", "manager").order("updated_at", { ascending: false }).limit(1),
+    supabase.from("saved_templates").select("name, data, updated_at").eq("owner_id", userId).eq("category", side === "venue" ? "venue" : "manager").order("updated_at", { ascending: false }).limit(1),
     supabase.from("saved_templates").select("name, data").eq("owner_id", userId).eq("category", "artist"),
     supabase.from("fellow_pilots").select("id, pilot_user_id, display_name, job_title, contact_email, contact_phone, profile_photo_url").eq("owner_id", userId).order("display_name", { ascending: true }),
   ]);
@@ -75,15 +86,47 @@ export async function loadSources(userId) {
     const again = await supabase.from("user_preferences").select("display_name, profile_photo_url, card_share_token, account_type").eq("user_id", userId).maybeSingle();
     mine = again.data;
   }
+  const tpl = mgr.data?.[0] || null;
   return {
     me: mine || {},
-    managerTpl: mgr.data?.[0] || null,
-    acts: (acts.data || []).filter((t) => has(t.name)).map((t) => ({ name: t.name.trim(), data: t.data || {} })).sort((a, b) => a.name.localeCompare(b.name)),
+    managerTpl: side === "venue" ? null : tpl,
+    venueTpl: side === "venue" ? tpl : null,
+    acts: side === "venue" ? [] : (acts.data || []).filter((t) => has(t.name)).map((t) => ({ name: t.name.trim(), data: t.data || {} })).sort((a, b) => a.name.localeCompare(b.name)),
     pilots: pilots.data || [],
   };
 }
 
 export const actTemplate = (sources, name) => sources.acts.find((t) => norm(t.name) === norm(name)) || null;
+
+// The venue as its template has it: name, city, state, and the schedule.
+export function venueFromSources(sources) {
+  const t = sources.venueTpl;
+  const gig = t ? gigFromTemplate("venue", t.name, t.data || {}) : {};
+  return {
+    name: gig.venue || t?.name || sources.me?.display_name || "",
+    city: gig.city || "", state: gig.state || "",
+    schedule: Array.isArray(gig.venue_info?.schedule) ? gig.venue_info.schedule : [],
+  };
+}
+const timeFor = (schedule, re) => (schedule.find((r) => re.test(r.label || "")) || {}).time || "";
+// Times to start from: the venue template's load-in, doors and curfew.
+export function venueTimes(sources) {
+  const { schedule } = venueFromSources(sources);
+  return { loadIn: timeFor(schedule, /load[\s-]?in/i), doors: timeFor(schedule, /doors?/i), curfew: timeFor(schedule, /curfew/i) };
+}
+// House info from the venue template: each part that has something in it.
+export function venueFileItems(sources) {
+  const t = sources.venueTpl;
+  if (!t) return [];
+  const data = t.data || {};
+  const gig = gigFromTemplate("venue", t.name, data);
+  const sec = gig.venue_info || {};
+  return VENUE_FILE_PARTS.filter((part) => {
+    if (modeOf("venue", data, part) === "off") return false;
+    const f = VENUE_PART_FIELDS[part] || {};
+    return (f.gig || []).some((k) => filled(gig[k])) || (f.section || []).some((k) => filled(sec[k]));
+  }).map((part) => ({ key: `v_${part}`, label: venuePartLabel(part), sub: "From My Template" }));
+}
 
 // The things on file for this event, from their templates: each can be
 // switched off. [{ key, label, sub }]
@@ -120,24 +163,42 @@ const inviteUrl = (token) => `${window.location.origin}/gig/shared?invite=${toke
 // Make the event. Returns { show, invites: [{ id, label, role, url, phone, email }], warnings }.
 // The event row is made first; acts, the template, invites and paperwork
 // follow, and a failure there is a warning, not a lost event.
-export async function createEventFromWeb(userId, sources, f) {
+// side: "manager" (manager / artist accounts) or "venue" (job 323).
+export async function createEventFromWeb(userId, sources, f, side = "manager") {
+  const venueSide = side === "venue";
   const warnings = [];
-  const acts = f.acts.filter((a) => has(a.name)).map((a) => ({ name: a.name.trim() }));
+  const acts = f.acts.filter((a) => has(a.name)).map((a) => ({ ...a, name: a.name.trim() }));
   const first = acts[0] || null;
-  const firstTpl = first ? actTemplate(sources, first.name) : null;
+  const firstTpl = first && !venueSide ? actTemplate(sources, first.name) : null;
+  const pilot = (id) => (id ? sources.pilots.find((p) => p.id === id) || null : null);
   const promo = f.promo.picked.filter((id) => f.promo.files[id]?.url).map((id) => ({ format: id, ...f.promo.files[id] }));
   const square = promo.find((p) => p.format === "sq") || promo[0] || null;
   const photoOn = f.onFile.photo !== false;
   const icon = square?.url || (photoOn ? firstTpl?.data?.photo_url : "") || null;
-  const schedule = [["Load-in", f.loadIn], ["Doors", f.doors]].filter(([, t]) => has(t)).map(([label, time]) => ({ id: uid(), label, time }));
+  const house = venueSide ? venueFromSources(sources) : null;
+  // The run of the night. A venue starts from its template's schedule, with
+  // the times set here written over load-in, doors and curfew.
+  const times = [["Load-in", f.loadIn, /load[\s-]?in/i], ["Doors", f.doors, /doors?/i], ...(venueSide ? [["Curfew", f.curfew, /curfew/i]] : [])];
+  let schedule;
+  if (venueSide) {
+    schedule = (house.schedule || []).map((r) => ({ ...r, id: r.id || uid() }));
+    for (const [label, time, re] of times) {
+      const at = schedule.findIndex((r) => re.test(r.label || ""));
+      if (at >= 0) schedule[at] = { ...schedule[at], time: time || schedule[at].time };
+      else if (has(time)) schedule.push({ id: uid(), label, time });
+    }
+    schedule = schedule.filter((r) => has(r.time) || has(r.label));
+  } else {
+    schedule = times.filter(([, t]) => has(t)).map(([label, time]) => ({ id: uid(), label, time }));
+  }
 
   const { data: show, error } = await supabase.from("shows").insert({
     owner_id: userId,
-    event_name: eventName(f) || "New event",
+    event_name: eventName(f, house?.name || "") || "New event",
     band_name: first?.name || "",
-    venue: f.venue.name.trim() || null,
-    city: f.venue.city.trim() || null,
-    state: f.venue.state.trim() || null,
+    venue: (venueSide ? house.name : f.venue.name).trim() || null,
+    city: (venueSide ? house.city : f.venue.city).trim() || null,
+    state: (venueSide ? house.state : f.venue.state).trim() || null,
     date: f.date,
     ...(icon ? { icon_url: icon } : {}),
     included_sections: ["venue", "manager", "engineer"],
@@ -148,32 +209,46 @@ export async function createEventFromWeb(userId, sources, f) {
       crew: { sound: f.crew.sound, lights: f.crew.lights },
       ...(promo.length ? { promo } : {}),
       ...(has(f.promo.facebook) ? { facebook_event: f.promo.facebook.trim() } : {}),
+      // Made from the New event web (Bookings lists a venue's, job 323).
+      made_with: "event_web",
     },
   }).select().single();
   if (error) throw error;
 
-  // Their manager template: contact always (it's them, in the middle), the
-  // other parts unless switched off here.
-  const data = sources.managerTpl?.data;
+  // Their template. Manager: contact always (it's them, in the middle), the
+  // other parts unless switched off here. Venue: the house info parts left on,
+  // then the schedule as set here.
+  const data = venueSide ? sources.venueTpl?.data : sources.managerTpl?.data;
   if (data) {
     try {
-      const parts = new Set(["contact"]);
-      for (const part of Object.keys(MANAGER_PART_LABELS)) if (f.onFile[`m_${part}`] !== false && modeOf("manager", data, part) !== "off") parts.add(part);
       const patch = {};
-      applyTemplate("manager", data, show, (k, v) => { patch[k] = v; }, parts);
-      patch.manager_info = { ...(show.manager_info || {}), ...(patch.manager_info || {}) };
+      if (venueSide) {
+        const parts = new Set(["schedule"]);
+        for (const part of VENUE_FILE_PARTS) if (f.onFile[`v_${part}`] !== false && modeOf("venue", data, part) !== "off") parts.add(part);
+        applyTemplate("venue", data, show, (k, v) => { patch[k] = v; }, parts);
+        patch.venue_info = { ...(show.venue_info || {}), ...(patch.venue_info || {}), ...(schedule.length ? { schedule } : {}) };
+        // The name, city and state are already the template's.
+        delete patch.venue; delete patch.city; delete patch.state;
+      } else {
+        const parts = new Set(["contact"]);
+        for (const part of Object.keys(MANAGER_PART_LABELS)) if (f.onFile[`m_${part}`] !== false && modeOf("manager", data, part) !== "off") parts.add(part);
+        applyTemplate("manager", data, show, (k, v) => { patch[k] = v; }, parts);
+        patch.manager_info = { ...(show.manager_info || {}), ...(patch.manager_info || {}) };
+      }
       const { error: e } = await supabase.from("shows").update(patch).eq("id", show.id);
       if (e) throw e;
-    } catch (e) { console.error(e); warnings.push("Your template's info didn't all load. Add it from the event's Manager / Artist page."); }
+    } catch (e) { console.error(e); warnings.push(`Your template's info didn't all load. Add it from the event's ${venueSide ? "Venue" : "Manager / Artist"} page.`); }
   }
 
-  // The acts, each from its template.
+  // The acts: from their template (manager side), or just the name and their
+  // photo when picked from Fellow Pilots (a venue's invite fills in the rest).
   if (acts.length) {
     const rows = acts.map((a, i) => {
-      const t = actTemplate(sources, a.name);
+      const t = venueSide ? null : actTemplate(sources, a.name);
       const row = t ? artistFromTemplate(a.name, t.data) : { band_name: a.name };
-      if (f.onFile.plot === false) { row.band_members = []; row.stage_plot_url = ""; row.stage_plot_files = []; }
-      if (!photoOn) delete row.photo_url;
+      if (venueSide) { const p = pilot(a.pilotId); if (p?.profile_photo_url) row.photo_url = p.profile_photo_url; }
+      if (!venueSide && f.onFile.plot === false) { row.band_members = []; row.stage_plot_url = ""; row.stage_plot_files = []; }
+      if (!venueSide && !photoOn) delete row.photo_url;
       const len = Number(row.set_length_minutes);
       row.set_length_minutes = Number.isFinite(len) && len > 0 ? Math.round(len) : null;
       return { ...row, show_id: show.id, is_headliner: i === 0, sort_order: i, role: i === 0 ? "Headliner" : "Opener" };
@@ -182,12 +257,15 @@ export async function createEventFromWeb(userId, sources, f) {
     if (e) { console.error(e); warnings.push("The acts didn't save. Add them on the event's lineup."); }
   }
 
-  // Invite links: the venue, a tech they're bringing, co-hosts.
-  const pilot = (id) => sources.pilots.find((p) => p.id === id) || null;
+  // Invite links. Manager side: the venue, a tech they're bringing, co-hosts.
+  // Venue side: each act, a house tech, co-hosts.
   const asks = [];
-  if (has(f.venue.name) && f.venue.invite) asks.push({ role: "venue", label: f.venue.name.trim(), p: pilot(f.venue.pilotId) });
-  if (f.crew.sound === "ours" && f.crew.soundPilot) { const p = pilot(f.crew.soundPilot); if (p) asks.push({ role: "engineer", label: p.display_name || "Sound", p }); }
-  if (f.crew.lights === "ours" && f.crew.lightsPilot) { const p = pilot(f.crew.lightsPilot); if (p) asks.push({ role: "lighting", label: p.display_name || "Lights", p }); }
+  if (venueSide) {
+    for (const a of acts) if (a.invite !== false) { const p = pilot(a.pilotId); asks.push({ role: "band", label: a.name, p }); }
+  } else if (has(f.venue.name) && f.venue.invite) asks.push({ role: "venue", label: f.venue.name.trim(), p: pilot(f.venue.pilotId) });
+  const bring = venueSide ? "venue" : "ours";
+  if (f.crew.sound === bring && f.crew.soundPilot) { const p = pilot(f.crew.soundPilot); if (p) asks.push({ role: "engineer", label: p.display_name || "Sound", p }); }
+  if (f.crew.lights === bring && f.crew.lightsPilot) { const p = pilot(f.crew.lightsPilot); if (p) asks.push({ role: "lighting", label: p.display_name || "Lights", p }); }
   for (const x of f.people) { const p = pilot(x.pilotId); asks.push({ role: x.role, label: (x.label || "").trim() || p?.display_name || (x.role === "band" ? "Opening act" : "Co-host"), p }); }
   let invites = [];
   if (asks.length) {
@@ -201,7 +279,7 @@ export async function createEventFromWeb(userId, sources, f) {
   // Paperwork, filed for the owner, the venue side and the manager side.
   const files = [
     f.paper.w9 && { kind: "other", title: "W9", file: f.paper.w9 },
-    f.paper.agreement && { kind: "agreement", title: "Performance agreement", file: f.paper.agreement },
+    f.paper.agreement && { kind: "agreement", title: venueSide ? "Contract" : "Performance agreement", file: f.paper.agreement },
     f.paper.coi && { kind: "coi", title: "Certificate of insurance", file: f.paper.coi },
     ...f.paper.other.map((file) => ({ kind: "other", title: file.name.replace(/\.[a-z0-9]+$/i, ""), file })),
   ].filter(Boolean);

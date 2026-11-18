@@ -25,14 +25,15 @@ const ACCOUNT_TYPE_TO_SECTION = {
   manager: "manager",
 };
 
-// Manager / artist accounts make events as a web (job 321); venues keep
-// this page until their version of the web is designed.
+// Manager / artist accounts make events as a web (job 321), venues too from
+// their side (job 323). This form is left for any other account type.
 export default function NewEventForNonTech() {
   const { preferences, loading } = usePreferences();
   if (loading && !preferences) {
     return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>;
   }
   if (["manager", "band"].includes(preferences?.account_type)) return <NewEventWeb />;
+  if (preferences?.account_type === "venue") return <NewEventWeb side="venue" />;
   return <NewEventForm />;
 }
 
