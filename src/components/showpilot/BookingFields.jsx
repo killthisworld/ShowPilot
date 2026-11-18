@@ -809,6 +809,7 @@ export function packageReadCircles(pkg, wantsText) {
         <Row k="Email" v={d.submitter_email ? <a href={`mailto:${d.submitter_email}`} style={{ color: GREEN }}>{d.submitter_email}</a> : ""} />
       </div>
     )),
-  // A section they left empty isn't shown at all (less to look at).
-  ].filter((x) => x.done || ["dates", "contact"].includes(x.key));
+  // Every circle the act could fill in is always there (job 345), so the
+  // venue sees what was sent and what wasn't; an empty one says so.
+  ].map((x) => (x.done || x.key === "dates" ? x : { ...x, body: () => <Empty>Not sent.</Empty> }));
 }

@@ -411,6 +411,7 @@ export default function IntakeKeyWeb({
             </span>
             <span className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{it.label}</span>
             {!readOnly && !it.done && it.required && <span className="shrink-0 text-[10px] tracking-[0.1em] text-white/55" style={mono}>NEEDED</span>}
+            {readOnly && !it.done && it.id !== "center" && <span className="shrink-0 ml-auto text-[10px] tracking-[0.1em] text-white/40" style={mono}>NOT SENT</span>}
           </button>
         ))}
       </div>
