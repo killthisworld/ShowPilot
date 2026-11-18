@@ -14,8 +14,11 @@ const COND = "'Barlow Condensed', sans-serif";
 const fmt = (key, opts = { weekday: "short", month: "short", day: "numeric" }) => new Date(`${key}T00:00:00`).toLocaleDateString("en-US", opts);
 const reduced = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
 
-export function ConfirmDates({ pkg, venueName, busy, error, onConfirm }) {
-  const offers = Array.isArray(pkg.offers) ? pkg.offers : [];
+// Used both ways (job 347): the act picking from the venue's dates, and the venue
+// picking from the act's dates. `offers`, `tag`, `title`, `message` and `note`
+// override the act-side wording; `onCounter` adds "Send other dates instead".
+export function ConfirmDates({ pkg, venueName, busy, error, onConfirm, offers: offersProp = null, tag = "", title = "", message = null, note = "", onCounter = null, counterLabel = "Send other dates instead" }) {
+  const offers = Array.isArray(offersProp) ? offersProp : Array.isArray(pkg.offers) ? pkg.offers : [];
   const [pick, setPick] = useState(offers[0]?.date || "");
   return (
     <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center lg:items-center px-4 py-6 lg:px-10">
@@ -23,8 +26,8 @@ export function ConfirmDates({ pkg, venueName, busy, error, onConfirm }) {
         <div className="flex items-center gap-3">
           <span className="w-12 h-12 rounded-full shrink-0 border-2" style={{ borderColor: BLUE, background: "#1b2433" }} aria-hidden="true" />
           <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: MONO, color: BLUE }}>{(venueName || "THE VENUE").toUpperCase()} REPLIED</span>
-            <h1 className="text-[32px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: COND }}>They can do {offers.length} date{offers.length === 1 ? "" : "s"}</h1>
+            <span className="text-[11px] tracking-[0.12em]" style={{ fontFamily: MONO, color: BLUE }}>{tag || `${(venueName || "THE VENUE").toUpperCase()} REPLIED`}</span>
+            <h1 className="text-[32px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: COND }}>{title || `They can do ${offers.length} date${offers.length === 1 ? "" : "s"}`}</h1>
           </div>
         </div>
         <div role="radiogroup" aria-label="Dates offered" className="flex flex-col gap-2.5 lg:grid lg:gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(offers.length, 1)}, minmax(0, 1fr))` }}>
@@ -46,12 +49,13 @@ export function ConfirmDates({ pkg, venueName, busy, error, onConfirm }) {
             );
           })}
         </div>
-        {pkg.venue_message && <div className="rounded-[12px] border border-[#262626] bg-[#151515] px-3.5 py-3 text-[14px] text-white/80">"{pkg.venue_message}"{venueName ? ` · ${venueName}` : ""}</div>}
+        {(message !== null ? message : pkg.venue_message) && <div className="rounded-[12px] border border-[#262626] bg-[#151515] px-3.5 py-3 text-[14px] text-white/80">"{message !== null ? message : pkg.venue_message}"{venueName ? ` · ${venueName}` : ""}</div>}
         {error && <p className="text-center text-[14px] text-red-400">{error}</p>}
         <button type="button" disabled={!pick || busy} onClick={() => onConfirm(pick)} className="mt-2 min-h-[54px] lg:w-[420px] lg:self-center rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
           {busy ? "Booking…" : pick ? `Confirm ${fmt(pick)}` : "Pick a date"}
         </button>
-        <p className="text-center text-[12.5px] text-white/50">Confirming makes the event on {venueName || "the venue"}'s side with your info filled in, and puts it on your calendar.</p>
+        {onCounter && <button type="button" disabled={busy} onClick={onCounter} className="min-h-[50px] lg:w-[420px] lg:self-center rounded-[12px] border border-[#333] text-[15px] font-semibold text-white/85 disabled:opacity-50">{counterLabel}</button>}
+        <p className="text-center text-[12.5px] text-white/50">{note || `Confirming makes the event on ${venueName || "the venue"}'s side with your info filled in, and puts it on your calendar.`}</p>
       </div>
     </div>
   );

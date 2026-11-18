@@ -6,12 +6,13 @@ import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { fetchMyArtistProfile } from "@/lib/roleTemplates";
 import { useActForm } from "@/lib/useActForm";
-import { savePackage, sendPackage, loadPackage, loadPublicPackage, wantsLine, packageUrl, PACKAGE_RED } from "@/lib/bookingPackage";
+import { savePackage, sendPackage, counterPackage, loadPackage, loadPublicPackage, wantsLine, packageUrl, PACKAGE_RED } from "@/lib/bookingPackage";
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import OfferDates from "@/components/showpilot/OfferDates";
 import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas, techRiderHas, TechRiderBody, ContactBody, contactDone, ActCenterBody } from "@/components/showpilot/BookingFields";
+import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesWantedBody, datesHave, SendToBody, sendToDone, DealBody, dealHas, techRiderHas, TechRiderBody, ContactBody, contactDone, ActCenterBody } from "@/components/showpilot/BookingFields";
 import { useGoBack } from "@/lib/navHistory";
 import BookSteps from "@/components/showpilot/BookSteps";
 import { loadActTemplates, packageFromTemplate, saveBookingTemplate, sameAct } from "@/lib/bookingTemplate";
@@ -60,6 +61,7 @@ export default function BookingPackage() {
   const [answer, setAnswer] = useState(null); // { status, offers, venue_message, venueName, show_id, picked_date }
   const [booked, setBooked] = useState(null); // { share_token, date } once confirmed here
   const [confirming, setConfirming] = useState(false);
+  const [countering, setCountering] = useState(false); // sending other dates back (job 347)
   const dirty = useRef(false);
   // Book a date in three steps (job 349): the acts in My Templates, the one
   // picked, and whether the web is open (See what's inside).
@@ -101,8 +103,8 @@ export default function BookingPackage() {
             setWants({ months: [], days: [], note: "", ...(row.wants || {}) });
             setTo({ name: row.to_name || "", email: row.to_email || "", phone: row.to_phone || "" });
             setSeen(Object.fromEntries(["center", "members", "tech", "deal", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
-            if (["sent", "offered", "declined", "booked"].includes(row.status) && row.code) setCode(row.code);
-            if (["offered", "declined", "booked"].includes(row.status)) {
+            if (["sent", "offered", "countered", "declined", "booked"].includes(row.status) && row.code) setCode(row.code);
+            if (["offered", "countered", "declined", "booked"].includes(row.status)) {
               let venueName = row.to_name || "";
               try { const pub = await loadPublicPackage(row.code); venueName = pub?.venue?.name || venueName; } catch {}
               let share = "";
@@ -110,7 +112,7 @@ export default function BookingPackage() {
                 const { data: lg } = await supabase.from("linked_gigs").select("share_token").eq("user_id", user.id).eq("show_id", row.show_id).maybeSingle();
                 share = lg?.share_token || "";
               }
-              if (!gone) setAnswer({ status: row.status, offers: row.offers || [], venue_message: row.venue_message || "", venueName, show_id: row.show_id, picked_date: row.picked_date, share });
+              if (!gone) setAnswer({ status: row.status, offers: row.offers || [], venue_message: row.venue_message || "", offers_from: row.offers_from || "venue", venueName, show_id: row.show_id, picked_date: row.picked_date, share });
             }
           }
         } catch (e) {
@@ -205,7 +207,7 @@ export default function BookingPackage() {
   const helpers = { ...h, noSetLength: true, fillFromProfile: { onClick: fillFromTemplate, loading: loadingTemplate } };
   const actCircles = intakeCircles(helpers, { seen, card: { showCard: false } }).filter((c) => c.key !== "role");
   const byKey = Object.fromEntries(actCircles.map((c) => [c.key, c]));
-  const hasMonths = (wants.months || []).length > 0;
+  const hasMonths = datesHave(wants);
   // Tech rider > Audio (job 339): the ShowPilot stage plot from My Template,
   // for the act in the centre (or your only act). "" when it worked, or why not.
   const pullTemplatePlot = async () => {
@@ -254,7 +256,7 @@ export default function BookingPackage() {
   // and your digital card are the centre.
   const circles = [
     { key: "dates", label: "Dates wanted", short: "Dates wanted", hint: "When you'd like to play", required: true,
-      done: hasMonths, body: () => <DatesBody wants={wants} setWants={setWantsD} /> },
+      done: hasMonths, body: () => <DatesWantedBody wants={wants} setWants={setWantsD} /> },
     { key: "deal", label: "Deal & docs", short: "Deal & docs", hint: "Your draw, the deal you're after, and documents (W9, contract, insurance)", required: false,
       done: !!seen.deal && dealHas(form), body: () => <DealBody {...P} /> },
     { key: "promo", label: "Promo", short: "Promo", required: false,
@@ -353,6 +355,20 @@ export default function BookingPackage() {
     setConfirming(false);
   };
   // Passed: the same package to another venue, as a new one.
+  // The act sends other dates after the venue's offer (job 347).
+  const sendCounter = async (dates, message) => {
+    setConfirming(true);
+    setError("");
+    try {
+      await counterPackage(pkgId, dates, message);
+      setCountering(false);
+      setAnswer((a) => ({ ...a, status: "countered", offers: dates, venueOffers: a?.offers_from === "venue" ? a.offers : a?.venueOffers }));
+    } catch (e) {
+      console.error(e);
+      setError("Couldn't send those. Try again.");
+    }
+    setConfirming(false);
+  };
   const sendElsewhere = async () => {
     try {
       const row = await savePackage({ act: form.band_name, data: toData(form), wants, to: { name: "", email: "", phone: "" } });
@@ -364,8 +380,28 @@ export default function BookingPackage() {
     const share = booked?.share_token || answer?.share || "";
     return <BookedBurst seed={pkgId || "package"} actName={form.band_name} venueName={answer?.venueName || to.name} date={booked?.date || answer?.picked_date} openHref={share ? `/gig/web?token=${share}` : ""} />;
   }
+  if (answer?.status === "offered" && countering) {
+    return (
+      <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-6 lg:px-10 lg:py-10">
+        <div className="w-full max-w-[460px] lg:max-w-[1080px]">
+          <OfferDates mode="act" wants={wants} actName={form.band_name} submitting={confirming} error={error}
+            onSubmit={sendCounter} onBack={() => setCountering(false)} backLabel={`Back to ${answer.venueName || "their"} dates`} />
+        </div>
+      </div>
+    );
+  }
   if (answer?.status === "offered") {
-    return <ConfirmDates pkg={answer} venueName={answer.venueName} busy={confirming} error={error} onConfirm={confirm} />;
+    return <ConfirmDates pkg={answer} venueName={answer.venueName} busy={confirming} error={error} onConfirm={confirm} onCounter={() => setCountering(true)} />;
+  }
+  if (answer?.status === "countered") {
+    return (
+      <IntakeSent seed={pkgId || "package"} title={`Waiting on ${answer.venueName || to.name || "the venue"}`} line={`You sent ${answer.offers.map((o) => new Date(`${o.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })).join(", ")}. When they confirm one, the event is made on their calendar and yours.`}>
+        <div className="mt-6 flex flex-col gap-2.5">
+          <button type="button" onClick={() => { setAnswer({ ...answer, status: "offered", offers: answer.venueOffers || [] }); setCountering(true); }} className="min-h-[52px] rounded-[12px] border border-[#333] text-white font-bold text-[16px]">Change the dates</button>
+          <a href="/" className="block mt-1 text-center text-[14px] text-white/60 underline">Back to ShowPilot</a>
+        </div>
+      </IntakeSent>
+    );
   }
   if (answer?.status === "declined") {
     return (

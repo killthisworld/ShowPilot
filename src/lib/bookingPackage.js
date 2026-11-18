@@ -29,7 +29,12 @@ const monthLabel = (key) => {
 };
 
 // "Mar or Apr 2027 · Thu to Sat", "Any time · Fridays", "Mar 2027".
+const fmtShort = (key) => new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+export const wantedDates = (wants = {}) => (Array.isArray(wants.dates) ? wants.dates.filter((d) => d?.date) : []);
+
 export function wantsLine(wants = {}) {
+  const specific = wantedDates(wants);
+  if (specific.length) return specific.map((d) => fmtShort(d.date)).join(", ");
   const months = Array.isArray(wants.months) ? wants.months.filter(Boolean) : [];
   let when = "";
   if (months.includes("any")) when = "Any time";
@@ -82,6 +87,20 @@ export async function listMyPackages() {
 
 export async function loadPublicPackage(code) {
   const { data, error } = await supabase.rpc("get_booking_package_public", { p_code: code });
+  if (error) throw error;
+  return data;
+}
+
+// The act sends other dates after the venue's offer (job 347).
+export async function counterPackage(id, offers, message) {
+  const { data, error } = await supabase.rpc("counter_booking_package", { p_id: id, p_offers: offers || [], p_message: message || "" });
+  if (error) throw error;
+  return data;
+}
+
+// The venue confirms one of the dates the act sent (job 347).
+export async function venueConfirmPackage(code, date) {
+  const { data, error } = await supabase.rpc("venue_confirm_booking_package", { p_code: code, p_date: date });
   if (error) throw error;
   return data;
 }

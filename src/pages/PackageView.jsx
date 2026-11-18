@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { CalendarDays } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { loadPublicPackage, wantsLine, PACKAGE_RED } from "@/lib/bookingPackage";
+import { loadPublicPackage, venueConfirmPackage, wantedDates, wantsLine, PACKAGE_RED } from "@/lib/bookingPackage";
+import { ConfirmDates } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { packageReadCircles, ActCenterRead } from "@/components/showpilot/BookingFields";
 import OfferDates from "@/components/showpilot/OfferDates";
@@ -66,7 +67,22 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
     }
     setBusy(false);
   };
-  const startOffer = () => setStep(user ? "offer" : "join");
+  // The act's specific dates (first look) or its counter: confirm one or offer others (job 347).
+  const theirDates = pkg ? (pkg.status === "countered" ? (pkg.offers || []) : pkg.status === "sent" ? wantedDates(pkg.wants) : []) : [];
+  const startOffer = () => setStep(user ? (theirDates.length ? "pick" : "offer") : "join");
+  const confirmDate = async (date) => {
+    setBusy(true);
+    setError("");
+    try {
+      await venueConfirmPackage(code, date);
+      await load();
+      setStep("web");
+    } catch (e) {
+      console.error(e);
+      setError(/another account/.test(e?.message || "") ? "Someone else at the venue already answered this." : "Couldn't book that. Try again.");
+    }
+    setBusy(false);
+  };
 
   if (pkg === undefined || (isLoadingAuth && !previewPkg)) {
     return <div className="min-h-screen bg-[#05060d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#F87171]/30 border-t-[#F87171] rounded-full animate-spin" /></div>;
@@ -92,13 +108,24 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
     );
   }
 
+  if (step === "pick" && theirDates.length) {
+    return (
+      <ConfirmDates pkg={pkg} venueName={senderName} busy={busy} error={error} onConfirm={confirmDate}
+        offers={theirDates} tag={`${senderName.toUpperCase()} ${pkg.status === "countered" ? "SENT NEW DATES" : "WANTS"}`}
+        title={`${theirDates.length} date${theirDates.length === 1 ? "" : "s"} to pick from`}
+        message={pkg.status === "countered" ? (pkg.sender_message || "") : (pkg.wants?.note || "")}
+        onCounter={() => setStep("offer")} counterLabel="Offer other dates instead"
+        note="Confirming books it: the event is made on your calendar with their info filled in." />
+    );
+  }
+
   if (step === "offer") {
     return (
       <div className="min-h-[100dvh] bg-[#0d0d0d] text-white flex justify-center px-4 py-6 lg:px-10 lg:py-10">
         <div className="w-full max-w-[460px] lg:max-w-[1080px]">
           <OfferDates wants={pkg.wants} booked={booked} actName={pkg.act_name} submitting={busy} error={error}
             initial={pkg.is_venue ? { offers: pkg.offers, message: pkg.venue_message } : null}
-            onSubmit={(offers, message) => respond(offers, message, false)} onBack={() => setStep("web")} />
+            onSubmit={(offers, message) => respond(offers, message, false)} onBack={() => setStep(theirDates.length ? "pick" : "web")} />
         </div>
       </div>
     );
@@ -198,8 +225,8 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
       )}
       onSend={answeredElsewhere || previewPkg ? () => {} : startOffer}
       canSend={!answeredElsewhere}
-      sendLabel={answeredElsewhere ? "Another account answered this" : pkg.is_venue && pkg.status === "offered" ? "Change the dates" : "Offer dates"}
-      belowSend={!answeredElsewhere && pkg.status === "sent" ? (
+      sendLabel={answeredElsewhere ? "Another account answered this" : pkg.is_venue && pkg.status === "offered" ? "Change the dates" : pkg.status === "countered" ? "See their new dates" : theirDates.length ? "Confirm or offer dates" : "Offer dates"}
+      belowSend={!answeredElsewhere && (pkg.status === "sent" || pkg.status === "countered") ? (
         <button type="button" onClick={() => { if (!previewPkg) setStep(user ? "decline" : "join"); }} className="min-h-[46px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold text-white/75">Not this time</button>
       ) : null}
     />

@@ -7,6 +7,7 @@ import { loadFellowPilots, techsFirst } from "@/lib/assignTech";
 import PilotCardView from "@/pages/PilotCardView";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
+import TimeSelect from "@/components/showpilot/TimeSelect";
 import FxNotesWindow, { ActNotesButton, actHasNotes } from "@/components/showpilot/FxNotesWindow";
 import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
 
@@ -626,6 +627,59 @@ export function DatesBody({ wants, setWants, noteFor = "THE VENUE", notePlacehol
     </div>
   );
 }
+
+// ---------- Dates wanted: months and nights, or exact dates (job 347) ----------
+// Exact dates are for an act that already knows the nights: the venue can
+// confirm one straight away. wants.dates = [{ date, set_time, load_in }].
+function ExactDates({ wants, setWants, noteFor }) {
+  const dates = Array.isArray(wants.dates) ? wants.dates : [];
+  const [pick, setPick] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const setDates = (list) => setWants({ ...wants, months: [], days: [], dates: list });
+  const add = () => { if (pick && pick >= today && !dates.some((d) => d.date === pick) && dates.length < 10) { setDates([...dates, { date: pick, set_time: "", load_in: "" }].sort((a, b) => a.date.localeCompare(b.date))); setPick(""); } };
+  const patch = (date, p) => setDates(dates.map((d) => (d.date === date ? { ...d, ...p } : d)));
+  const fmtDay = (k) => new Date(`${k}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <span className={label}>ADD A DATE</span>
+        <div className="flex gap-2">
+          <input type="date" aria-label="Date" min={today} value={pick} onChange={(e) => setPick(e.target.value)} className={`${inputCls} flex-1`} />
+          <button type="button" onClick={add} disabled={!pick || pick < today || dates.length >= 10} className="shrink-0 min-h-[44px] px-4 rounded-lg text-[14px] font-bold disabled:opacity-40" style={{ background: GREEN, color: "#0d0d0d" }}>Add</button>
+        </div>
+        <span className="text-[12.5px] text-white/50">Up to 10. The venue can confirm one, or offer other nights.</span>
+      </div>
+      {dates.map((d) => (
+        <div key={d.date} className="rounded-[12px] border border-[#2a2a2a] bg-[#101010] px-3 py-2.5 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex-1 text-[14.5px] font-bold">{fmtDay(d.date)}</span>
+            <button type="button" onClick={() => setDates(dates.filter((x) => x.date !== d.date))} aria-label={`Remove ${fmtDay(d.date)}`} className="w-9 h-9 flex items-center justify-center text-white/55"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <div><span className={label}>WE'D GO ON AT</span><TimeSelect value={d.set_time || ""} onChange={(v) => patch(d.date, { set_time: v })} color={GREEN} label={`Set time ${fmtDay(d.date)}`} /></div>
+            <div><span className={label}>LOAD-IN</span><TimeSelect value={d.load_in || ""} onChange={(v) => patch(d.date, { load_in: v })} color={GREEN} label={`Load-in ${fmtDay(d.date)}`} /></div>
+          </div>
+        </div>
+      ))}
+      <label><span className={label}>NOTE FOR {noteFor}</span><textarea rows={3} value={wants.note || ""} onChange={(e) => setWants({ ...wants, note: e.target.value })} className={`${inputCls} py-2.5`} /></label>
+    </div>
+  );
+}
+
+export function DatesWantedBody({ wants, setWants, noteFor = "THE VENUE", notePlaceholder = "" }) {
+  const [mode, setMode] = useState(() => (Array.isArray(wants.dates) && wants.dates.length ? "exact" : "month"));
+  const seg = (v, text) => (
+    <button type="button" role="tab" aria-selected={mode === v} onClick={() => { if (v !== mode) { setMode(v); setWants({ ...wants, months: [], days: [], dates: [] }); } }}
+      className="flex-1 min-h-[40px] rounded-full text-[13.5px] font-bold" style={mode === v ? { background: GREEN, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.7)" }}>{text}</button>
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <div role="tablist" aria-label="How to ask" className="flex gap-1 p-1 rounded-full border border-[#2a2a2a] bg-[#0b0b0b]">{seg("month", "Months and nights")}{seg("exact", "Exact dates")}</div>
+      {mode === "exact" ? <ExactDates wants={wants} setWants={setWants} noteFor={noteFor} /> : <DatesBody wants={wants} setWants={setWants} noteFor={noteFor} notePlaceholder={notePlaceholder} />}
+    </div>
+  );
+}
+export const datesHave = (wants = {}) => (Array.isArray(wants.months) && wants.months.length > 0) || (Array.isArray(wants.dates) && wants.dates.length > 0);
 
 // ---------- Send to (corner) ----------
 export function SendToBody({ to, setTo, formatPhone = (v) => v }) {

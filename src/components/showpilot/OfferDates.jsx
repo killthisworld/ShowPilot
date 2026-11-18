@@ -15,7 +15,10 @@ const label = "block text-[11px] tracking-[0.12em] text-white/55 mb-1.5";
 const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 const DOW_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-export default function OfferDates({ wants = {}, booked = new Set(), initial = null, actName, submitting = false, error = "", onSubmit, onBack }) {
+// Up to 10 dates, each with its own times (job 347). `mode` "act" is the act
+// sending other dates back (no billing, its own wording).
+const MAX = 10;
+export default function OfferDates({ wants = {}, booked = new Set(), initial = null, actName, submitting = false, error = "", onSubmit, onBack, mode = "venue", backLabel = "Back to their package" }) {
   const firstMonth = useMemo(() => {
     const ms = (wants.months || []).filter((k) => k !== "any").sort();
     const now = new Date();
@@ -29,8 +32,9 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
   const [view, setView] = useState(firstMonth);
   const first = initial?.offers?.[0] || {};
   const [picked, setPicked] = useState(() => (initial?.offers || []).map((o) => o.date));
-  const [setTime, setSetTime] = useState(first.set_time || "");
-  const [loadIn, setLoadIn] = useState(first.load_in || "");
+  // Each date has its own times; a newly picked night starts with the last one's.
+  const [times, setTimes] = useState(() => Object.fromEntries((initial?.offers || []).map((o) => [o.date, { set_time: o.set_time || "", load_in: o.load_in || "" }])));
+  const setTimeFor = (key, patch) => setTimes((t) => ({ ...t, [key]: { ...(t[key] || {}), ...patch } }));
   const [billing, setBilling] = useState(first.billing || "Headliner");
   const [message, setMessage] = useState(initial?.message || "");
 
@@ -41,7 +45,13 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
   const wantDays = Array.isArray(wants.days) ? wants.days : [];
   const wantMonths = Array.isArray(wants.months) ? wants.months : [];
   const monthWanted = wantMonths.includes("any") || wantMonths.includes(`${y}-${String(m + 1).padStart(2, "0")}`);
-  const toggle = (key) => setPicked((p) => (p.includes(key) ? p.filter((k) => k !== key) : p.length < 3 ? [...p, key].sort() : p));
+  const toggle = (key) => setPicked((p) => {
+    if (p.includes(key)) return p.filter((k) => k !== key);
+    if (p.length >= MAX) return p;
+    const last = p[p.length - 1];
+    if (!times[key]) setTimes((t) => ({ ...t, [key]: { set_time: t[last]?.set_time || "", load_in: t[last]?.load_in || "" } }));
+    return [...p, key].sort();
+  });
   const cells = [];
   for (let i = 0; i < lead; i++) cells.push(null);
   for (let d = 1; d <= days; d++) {
@@ -49,7 +59,7 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
     const date = new Date(y, m, d);
     const past = date < today;
     const isBooked = booked.has(key);
-    const want = monthWanted && (wantDays.length === 0 || wantDays.includes(DOW_KEYS[date.getDay()]));
+    const want = (Array.isArray(wants.dates) && wants.dates.some((x) => x.date === key)) || (monthWanted && (wantDays.length === 0 || wantDays.includes(DOW_KEYS[date.getDay()])));
     cells.push({ d, key, past, isBooked, want, on: picked.includes(key) });
   }
   const n = picked.length;
@@ -58,8 +68,8 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
   return (
     <div className="flex flex-col gap-4 lg:gap-6">
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] tracking-[0.14em]" style={{ fontFamily: MONO, color: BLUE }}>OFFER DATES TO {(actName || "THEM").toUpperCase()}</span>
-        <h1 className="text-[34px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Pick up to 3</h1>
+        <span className="text-[11px] tracking-[0.14em]" style={{ fontFamily: MONO, color: BLUE }}>{mode === "act" ? "SEND OTHER DATES" : `DATES THAT WORK FOR ${(actName || "THEM").toUpperCase()}`}</span>
+        <h1 className="text-[34px] lg:text-[44px] font-bold leading-none" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{mode === "act" ? "Which nights work?" : "Pick every night that works"}</h1>
       </div>
 
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8 lg:items-start">
@@ -92,21 +102,30 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
 
       <div className="flex flex-col gap-4 lg:sticky lg:top-6">
       <div className="hidden lg:flex items-center justify-between">
-        <span className={label + " mb-0"} style={{ fontFamily: MONO }}>DATES YOU'RE OFFERING</span>
-        <span className="text-[12px] text-white/50" style={{ fontFamily: MONO }}>{n} / 3</span>
+        <span className={label + " mb-0"} style={{ fontFamily: MONO }}>{mode === "act" ? "DATES YOU'RE SENDING" : "DATES YOU'RE OFFERING"}</span>
+        <span className="text-[12px] text-white/50" style={{ fontFamily: MONO }}>{n} / {MAX}</span>
       </div>
       {n === 0 && <p className="hidden lg:block m-0 text-[14px] text-white/45 rounded-[12px] border border-dashed border-[#2a2a2a] px-3 py-3 text-center">Tap nights on the calendar.</p>}
 
       {n > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+        <div className="flex flex-col gap-2">
           {picked.map((k) => (
-            <button key={k} type="button" onClick={() => toggle(k)} aria-label={`Remove ${fmt(k)}`} className="min-h-[40px] pl-3 pr-2 rounded-full text-[13.5px] font-bold flex items-center gap-1.5" style={{ background: `${BLUE}22`, color: "#93C5FD", border: `1px solid ${BLUE}66` }}>{fmt(k)}<X className="w-3.5 h-3.5" /></button>
+            <div key={k} className="rounded-[12px] border bg-[#151515] px-3 py-2.5 flex flex-col gap-2" style={{ borderColor: `${BLUE}55` }}>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-[14.5px] font-bold" style={{ color: "#93C5FD" }}>{fmt(k)}</span>
+                <button type="button" onClick={() => toggle(k)} aria-label={`Remove ${fmt(k)}`} className="w-9 h-9 rounded-full flex items-center justify-center text-white/55"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <div><span className={label} style={{ fontFamily: MONO }}>{mode === "act" ? "WE'D GO ON AT" : "THEY'D GO ON AT"}</span><TimeSelect value={times[k]?.set_time || ""} onChange={(v) => setTimeFor(k, { set_time: v })} color={BLUE} label={`Set time ${fmt(k)}`} /></div>
+                <div><span className={label} style={{ fontFamily: MONO }}>LOAD-IN</span><TimeSelect value={times[k]?.load_in || ""} onChange={(v) => setTimeFor(k, { load_in: v })} color={BLUE} label={`Load-in ${fmt(k)}`} /></div>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
       <div className="rounded-[14px] border border-[#262626] bg-[#151515] p-4 flex flex-col gap-4">
-        <div>
+        {mode !== "act" && <div>
           <span className={label} style={{ fontFamily: MONO }}>BILLING</span>
           <div className="flex gap-2 flex-wrap">
             {["Opener", "Support", "Headliner"].map((b) => (
@@ -114,11 +133,7 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
                 style={billing === b ? { borderColor: RED, background: `${RED}22`, color: "#FCA5A5" } : { borderColor: "#333", color: "rgba(255,255,255,0.7)" }}>{b}</button>
             ))}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-4">
-          <div><span className={label} style={{ fontFamily: MONO }}>THEY'D GO ON AT</span><TimeSelect value={setTime} onChange={setSetTime} color={BLUE} label="Set time" /></div>
-          <div><span className={label} style={{ fontFamily: MONO }}>LOAD-IN</span><TimeSelect value={loadIn} onChange={setLoadIn} color={BLUE} label="Load-in" /></div>
-        </div>
+        </div>}
         <label>
           <span className={label} style={{ fontFamily: MONO }}>NOTE FOR THEM (OPTIONAL)</span>
           <textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Friday usually draws better." className="w-full min-h-[44px] px-3 py-2.5 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white text-base placeholder:text-white/30 outline-none focus:border-white/40 resize-none" />
@@ -126,11 +141,11 @@ export default function OfferDates({ wants = {}, booked = new Set(), initial = n
       </div>
 
       {error && <p className="text-center text-[14px] text-red-400">{error}</p>}
-      <button type="button" disabled={!n || submitting} onClick={() => onSubmit(picked.map((date) => ({ date, set_time: setTime, load_in: loadIn, billing })), message)}
+      <button type="button" disabled={!n || submitting} onClick={() => onSubmit(picked.map((date) => ({ date, set_time: times[date]?.set_time || "", load_in: times[date]?.load_in || "", billing: mode === "act" ? "" : billing })), message)}
         className="min-h-[54px] rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: BLUE, color: "#0d0d0d" }}>
-        {submitting ? "Sending…" : n ? `Offer ${n} date${n === 1 ? "" : "s"}` : "Pick a date"}
+        {submitting ? "Sending…" : n ? `${mode === "act" ? "Send" : "Offer"} ${n} date${n === 1 ? "" : "s"}` : "Pick a date"}
       </button>
-      {onBack && <button type="button" onClick={onBack} className="min-h-[44px] text-[14px] text-white/60">Back to their package</button>}
+      {onBack && <button type="button" onClick={onBack} className="min-h-[44px] text-[14px] text-white/60">{backLabel}</button>}
       </div>
       </div>
     </div>
