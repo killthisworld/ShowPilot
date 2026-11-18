@@ -156,13 +156,13 @@ export default function NewEventWeb({ side = "manager" }) {
       <label><span className={lab}>DATE</span>
         <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
       </label>
-      {[["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["ON STAGE", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
+      {[["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
         <div key={k}><span className={lab}>{l}</span><TimeSelect value={f[k]} onChange={(v) => set({ [k]: v })} color={ACCENT} label={`${l.toLowerCase()} time`} /></div>
       ))}
       <label><span className={lab}>EVENT NAME</span>
         <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={name || "Low Tide Radio at Clown House"} className={inputCls} />
       </label>
-      <p className={note}>{firstAct?.name ? `On stage is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Load-in, doors and curfew start from your schedule in My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>
+      <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Load-in, doors and curfew start from your schedule in My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>
     </div>
   );
 

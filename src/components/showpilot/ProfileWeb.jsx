@@ -235,7 +235,7 @@ export default function ProfileWeb({
             >
               {/* An icon feature (the Audio web's Stage plot, job 278) is just
                   its icon, on black. */}
-              {d.icon ? <span className="flex items-center justify-center" style={{ width: Math.round(46 * k), height: Math.round(46 * k), color: d.color }}>{d.icon}</span> : <>
+              {d.icon ? <span className="flex items-center justify-center" style={{ width: Math.round((d.iconSize || 46) * k), height: Math.round((d.iconSize || 46) * k), color: d.color }}>{d.icon}</span> : <>
               {(() => {
                 const FeatIcon = circleIconFor(d.key, d.label);
                 return <FeatIcon aria-hidden="true" strokeWidth={2.2} style={{ width: Math.round(18 * k), height: Math.round(18 * k), color: d.color, filter: `drop-shadow(0 0 4px ${d.color})` }} />;

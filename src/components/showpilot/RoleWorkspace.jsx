@@ -1292,7 +1292,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
     role === "manager" && onOpenFanPage ? { key: "fan", label: "Fan page", color: "#E4E0FF", onClick: onOpenFanPage } : null,
     // Create PDFs (job 313) takes the bottom right on Venue / Artist /
     // Manager; Load template moves to the page header there (tplHeadBtn).
-    pdfsOn ? { key: "pdfs", label: "Create PDFs", color, corner: 3, icon: <FileText className="w-full h-full" />, onClick: () => setPdfMaker(true) } : null,
+    pdfsOn ? { key: "pdfs", label: "Create PDFs", color, corner: 3, iconSize: 28, icon: <FileText className="w-full h-full" />, onClick: () => setPdfMaker(true) } : null,
     canLoadTpl && !pdfsOn ? { key: "tpl", label: "Load template", color: "#FFFFFF", onClick: () => setTplOpen(true) } : null,
     // Links (desktop, Audio / Lighting web): this event's intake links, which
     // on desktop live here instead of in Settings (Oct 26).
@@ -1398,7 +1398,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                   </>
                 )}
                 <h2 className="text-[26px] font-bold leading-none">{page.label}</h2>
-                <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">
+                <div className="flex flex-col gap-4 min-w-0 overflow-x-auto pt-2 -mt-2">
                   {page.key === "tasks" ? page.render() : <fieldset disabled={!ed} className="contents">{page.render()}</fieldset>}
                 </div>
               </>
@@ -1467,7 +1467,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       <ChevronDown className="w-4 h-4 shrink-0 text-white/35 transition-transform" style={{ transform: on ? "rotate(180deg)" : undefined }} />
                     </button>
                     {on && (
-                      <div className="px-3.5 pb-3.5 flex flex-col gap-4 min-w-0 overflow-x-auto">
+                      <div className="px-3.5 pb-3.5 flex flex-col gap-4 min-w-0 overflow-x-auto pt-2 -mt-2">
                         {t.key === "tasks" ? t.render() : <fieldset disabled={!ed} className="contents">{t.render()}</fieldset>}
                       </div>
                     )}
@@ -1590,7 +1590,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             {current && markDoneBtn(current)}
             {includeToggle(current)}
           </div>
-          <div className="flex flex-col gap-4 min-w-0 overflow-x-auto">{current?.render()}</div>
+          <div className="flex flex-col gap-4 min-w-0 overflow-x-auto pt-2 -mt-2">{current?.render()}</div>
           {templateTools}
           <div className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-[#1c1c1c]">
             {side.action && (
