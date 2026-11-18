@@ -833,6 +833,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 }}
               >
                 <CirclePhoto url={sectionPhoto(n.role, gig)} />
+                <RoleGlyph style={n.style} size={15} photo={!!sectionPhoto(n.role, gig)} />
                 <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: ROLE_CODES[n.role].length > 5 ? 13 : 15 }}>{ROLE_CODES[n.role]}</span>
                 <span className="relative w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
@@ -1398,6 +1399,13 @@ function MyIconControl({ gig, myIcon, onChanged }) {
 // a status LED (lit = claimed, ring = invited, dark = nobody yet), a meter
 // filled to how much of that section is done, and its open tasks. Click a
 // strip to open that profile, same as its node on the web.
+// The profile's own icon (venue pin, artist note, headphones, bulb) at the top of its circle on the web.
+function RoleGlyph({ style, size, photo }) {
+  const Icon = style?.icon;
+  if (!Icon) return null;
+  return <Icon aria-hidden="true" strokeWidth={2.2} className="relative shrink-0" style={{ width: size, height: size, color: style.color, filter: photo ? "drop-shadow(0 1px 2px rgba(0,0,0,0.9))" : undefined }} />;
+}
+
 function ProfileStrips({ nodes, tasks, onSelectRole }) {
   return (
     <div className="grid gap-1.5 p-1.5 rounded-[10px] bg-[#0a0a0a] border border-[#1f1f1f]" style={{ gridTemplateColumns: `repeat(${nodes.length}, minmax(0, 1fr))`, fontFamily: SCENE_MONO }}>
@@ -1876,6 +1884,7 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             }}
           >
             <CirclePhoto url={sectionPhoto(nd.role, gig)} />
+            <RoleGlyph style={nd.style} size={Math.round(22 * k)} photo={!!sectionPhoto(nd.role, gig)} />
             <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(12, Math.round((ROLE_CODES[nd.role].length > 5 ? 14.5 : 20) * k)) }}>{ROLE_CODES[nd.role]}</span>
             <span className="relative h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />

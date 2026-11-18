@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { circleIconFor } from "@/lib/circleIcons";
 import { createPortal } from "react-dom";
 import { Lock, Check, CheckCircle, CalendarDays, X, Plane } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
@@ -294,7 +295,7 @@ export default function IntakeKeyWeb({
         </button>
       )}
       {extraBoxes.map(([id, c, pos]) => {
-        const Icon = c.icon;
+        const Icon = c.icon || circleIconFor(c.key || id, c.label);
         return (
           <button key={id} type="button" onClick={() => setPane(pane === id ? "start" : id)} aria-pressed={pane === id} className={`${cornerCls} ${pos} ${off ? "so-gone" : ""}`}
             style={c.done ? { borderColor: GREEN, background: GREEN, color: "#0d0d0d" } : { borderColor: color, background: pane === id ? `${color}33` : "rgba(17,17,17,0.85)" }}>
@@ -308,7 +309,9 @@ export default function IntakeKeyWeb({
         // A circle can show what it is (job 321): an icon, or a person's /
         // profile's photo (initials until there is one), with its name
         // underneath. Without either it's the name inside, as before.
-        const face = c.photo || c.initials ? "photo" : c.icon ? "icon" : null;
+        // No icon given: pick one from the circle's key / name (lib/circleIcons.js), so no circle is bare.
+        const FallbackIcon = circleIconFor(c.key, c.label);
+        const face = c.photo || c.initials ? "photo" : "icon";
         const ring = c.ring || (c.done ? GREEN : "rgba(255,255,255,0.28)");
         return (
           <button key={c.key} type="button" onClick={() => setPane(on ? "start" : c.key)} aria-pressed={on} aria-label={`${c.label}, ${c.done ? "done" : "not filled in yet"}`}
@@ -327,7 +330,7 @@ export default function IntakeKeyWeb({
                   : <span className={`${desktop ? "text-[22px]" : "text-[16px]"} font-bold leading-none`} style={{ fontFamily: "'Barlow Condensed', sans-serif", color: ring }}>{c.initials}</span>}
               </span>
             ) : face === "icon" ? (
-              <span aria-hidden="true" className="w-[40%] h-[40%] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">{c.icon}</span>
+              <span aria-hidden="true" className="w-[40%] h-[40%] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">{c.icon || <FallbackIcon />}</span>
             ) : (
               <span className={`${desktop ? "text-[13px]" : "text-[10px]"} font-bold leading-[1.05] text-center px-1 line-clamp-2`}>{c.short || shortLabel(c.label)}</span>
             )}

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { circleIconFor } from "@/lib/circleIcons";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { EventTypeGlyph } from "@/components/showpilot/EventTypeIcon";
 import { eventTypeColor } from "@/lib/eventTypes";
@@ -164,7 +165,11 @@ export default function ProfileWeb({
                 boxShadow: on ? `0 0 16px ${color}66` : "none",
               }}
             >
-              <span className="rounded-full" style={{ width: 7, height: 7, background: on ? "#0d0d0d" : DOT[t.state] || DOT.empty }} />
+              {(() => {
+                // What the circle is for (lib/circleIcons.js), in the state's color: green done, orange partly, grey not started.
+                const TabIcon = circleIconFor(t.key, t.label);
+                return <TabIcon aria-hidden="true" strokeWidth={2.2} style={{ width: Math.round(15 * k), height: Math.round(15 * k), color: on ? "#0d0d0d" : DOT[t.state] || DOT.empty }} />;
+              })()}
               <span className="font-bold leading-none tracking-[0.02em] px-0.5 text-center whitespace-nowrap" style={{ fontSize: Math.round((shortTabLabel(t).length > 9 ? 9 : shortTabLabel(t).length > 7 ? 10 : 11.5) * k) }}>{shortTabLabel(t)}</span>
             </button>
           );
@@ -231,7 +236,10 @@ export default function ProfileWeb({
               {/* An icon feature (the Audio web's Stage plot, job 278) is just
                   its icon, on black. */}
               {d.icon ? <span className="flex items-center justify-center" style={{ width: Math.round(46 * k), height: Math.round(46 * k), color: d.color }}>{d.icon}</span> : <>
-              <span className="rounded-full" style={{ width: Math.round(34 * k), height: 3, background: d.color, boxShadow: `0 0 8px ${d.color}` }} />
+              {(() => {
+                const FeatIcon = circleIconFor(d.key, d.label);
+                return <FeatIcon aria-hidden="true" strokeWidth={2.2} style={{ width: Math.round(18 * k), height: Math.round(18 * k), color: d.color, filter: `drop-shadow(0 0 4px ${d.color})` }} />;
+              })()}
               <span className="font-bold leading-none text-center" style={{ fontSize: Math.round(11.5 * k) }}>{d.label}</span>
               </>}
               {d.badge > 0 && (
