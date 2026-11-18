@@ -24,6 +24,22 @@ import {
 // start from, each act invited, Sound / Lights from the house's side, House
 // info from the venue template, a contract instead of a W9, co-hosts and a
 // promoter.
+// A stage plot file, shown (job 335): the picture itself, tap to open it full size;
+// a PDF is a tile that opens it.
+function PlotPreview({ file }) {
+  if (!file?.url) return null;
+  const isImage = String(file.type || "").startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(file.name || file.url);
+  return isImage ? (
+    <a href={file.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${file.name || "the stage plot"}`} className="block rounded-[10px] overflow-hidden border border-[#2a2a2a] bg-black">
+      <img src={file.url} alt={file.name || "Stage plot"} className="w-full max-h-[220px] object-contain" />
+    </a>
+  ) : (
+    <a href={file.url} target="_blank" rel="noopener noreferrer" className="min-h-[56px] rounded-[10px] border border-[#2a2a2a] bg-[#0b0b0b] px-3 flex items-center gap-2.5 text-[14px] font-semibold">
+      <FileText className="w-5 h-5 text-white/50 shrink-0" /><span className="truncate">{file.name || "Stage plot (PDF)"}</span><span className="ml-auto text-[12.5px] text-white/55">Open</span>
+    </a>
+  );
+}
+
 const RED = "#F87171";
 const BLUE = ACCOUNT_TYPE_STYLES.venue.color;
 const GREEN = "#8CFF3D";
@@ -311,6 +327,14 @@ export default function NewEventWeb({ side = "manager" }) {
   // The stage plot for the venue's engineer (job 331): the act's from My
   // Template (switch it off for this show), and / or a file uploaded here.
   const plotItem = fileItems.find((it) => it.key === "plot");
+  // What My Template already has for the first act, shown so you can see it.
+  const plotTpl = src && !venueSide && firstAct ? actTemplate(src, firstAct.name) : null;
+  const tplPlotFiles = (() => {
+    const d = plotTpl?.data || {};
+    const files = Array.isArray(d.stage_plot_files) ? d.stage_plot_files.filter((x) => x?.url) : [];
+    if (files.length) return files;
+    return d.stage_plot_url ? [{ url: d.stage_plot_url, name: "Stage plot", type: "image/png" }] : [];
+  })();
   const plotOn = f.onFile.plot !== false;
   const pickPlot = () => plotInput.current?.click();
   const onPlotFile = async (e) => {
@@ -334,12 +358,26 @@ export default function NewEventWeb({ side = "manager" }) {
           </span>
           <Toggle on={plotOn} label="Send our stage plot and inputs" onClick={() => set((cur) => ({ onFile: { ...cur.onFile, plot: !plotOn } }))} />
         </div>
-      ) : <p className={note + " m-0"}>No stage plot in My Template yet. Upload one for this show, or add it to your act in My Template for every show.</p>}
+      ) : <p className={note + " m-0"}>No stage plot in My Template yet. Upload one here and it can be kept in My Template for every show.</p>}
+      {plotItem && plotOn && tplPlotFiles.length > 0 && (
+        <div className="flex flex-col gap-2">{tplPlotFiles.map((file, i) => <PlotPreview key={file.url + i} file={file} />)}</div>
+      )}
       {f.stagePlot ? (
+        <div className="flex flex-col gap-2">
+          <PlotPreview file={f.stagePlot} />
+          {plotTpl?.id ? (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 min-w-0 text-[13.5px] text-white/75">Keep it in My Template for every show</span>
+              <Toggle on={f.stagePlotSave !== false} label="Keep this stage plot in My Template" onClick={() => set({ stagePlotSave: f.stagePlotSave === false })} />
+            </div>
+          ) : (
+            <p className={note + " m-0"}>{firstAct?.name ? `${firstAct.name} isn't in My Template yet, so this stage plot is for this show only.` : "Add who's playing to keep it in My Template."}</p>
+          )}
         <div className="flex items-center gap-2 min-h-[44px]">
           <span className="flex-1 min-w-0 text-[14px] truncate">{f.stagePlot.name}</span>
           <button type="button" onClick={pickPlot} className="min-h-[40px] px-3 rounded-[9px] border border-[#3a3a3a] text-[13px] font-semibold">Replace</button>
           <button type="button" onClick={() => set({ stagePlot: null })} aria-label="Remove the stage plot file" className="w-10 h-10 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>
+        </div>
         </div>
       ) : (
         <button type="button" onClick={pickPlot} disabled={busy === "plot"} className="min-h-[44px] rounded-[10px] border border-dashed border-[#3a3a3a] text-[14px] font-semibold text-white/85 flex items-center justify-center gap-1.5 disabled:opacity-60">

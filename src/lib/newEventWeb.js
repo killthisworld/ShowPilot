@@ -72,6 +72,7 @@ export const emptyForm = () => ({
   // A stage plot uploaded here (manager side, when the venue does sound;
   // job 331): { url, name, type }, added to the headliner's plot files.
   stagePlot: null,
+  stagePlotSave: true, // also keep an uploaded stage plot in the act's My Template (job 335)
 });
 
 export const eventName = (f, venueName = "") => {
@@ -87,7 +88,7 @@ export async function loadSources(userId, side = "manager") {
   const [me, mgr, acts, pilots] = await Promise.all([
     supabase.from("user_preferences").select("display_name, profile_photo_url, card_share_token, account_type, contact_phone, contact_email").eq("user_id", userId).maybeSingle(),
     supabase.from("saved_templates").select("name, data, updated_at").eq("owner_id", userId).eq("category", side === "venue" ? "venue" : "manager").order("updated_at", { ascending: false }).limit(1),
-    supabase.from("saved_templates").select("name, data").eq("owner_id", userId).eq("category", "artist"),
+    supabase.from("saved_templates").select("id, name, data").eq("owner_id", userId).eq("category", "artist"),
     supabase.from("fellow_pilots").select("id, pilot_user_id, display_name, job_title, contact_email, contact_phone, profile_photo_url, card_share_token").eq("owner_id", userId).order("display_name", { ascending: true }),
   ]);
   // contact_phone / contact_email may not exist on user_preferences: retry plain.
@@ -101,7 +102,7 @@ export async function loadSources(userId, side = "manager") {
     me: mine || {},
     managerTpl: side === "venue" ? null : tpl,
     venueTpl: side === "venue" ? tpl : null,
-    acts: side === "venue" ? [] : (acts.data || []).filter((t) => has(t.name)).map((t) => ({ name: t.name.trim(), data: t.data || {} })).sort((a, b) => a.name.localeCompare(b.name)),
+    acts: side === "venue" ? [] : (acts.data || []).filter((t) => has(t.name)).map((t) => ({ id: t.id, name: t.name.trim(), data: t.data || {} })).sort((a, b) => a.name.localeCompare(b.name)),
     pilots: pilots.data || [],
   };
 }
@@ -294,6 +295,22 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
       return { ...row, show_id: show.id, is_headliner: i === 0, sort_order: i, role: i === 0 ? "Headliner" : "Opener" };
     });
     const { error: e } = await supabase.from("show_bands").insert(rows);
+    // An uploaded stage plot also goes into the act's My Template, so every show has it (job 335).
+    if (!venueSide && f.stagePlot?.url && f.stagePlotSave !== false) {
+      const t = actTemplate(sources, acts[0].name);
+      if (t?.id) {
+        try {
+          const d = t.data || {};
+          const files = Array.isArray(d.stage_plot_files) ? d.stage_plot_files : [];
+          if (!files.some((x) => x.url === f.stagePlot.url)) {
+            const isImage = String(f.stagePlot.type || "").startsWith("image/");
+            const next = { ...d, stage_plot_files: [...files, f.stagePlot], ...(isImage && !d.stage_plot_url ? { stage_plot_url: f.stagePlot.url } : {}) };
+            const { error: te } = await supabase.from("saved_templates").update({ data: next, updated_at: new Date().toISOString() }).eq("id", t.id);
+            if (te) throw te;
+          }
+        } catch (err) { console.error(err); warnings.push("The stage plot is on this event but didn't save to My Template. Add it there to keep it for every show."); }
+      }
+    }
     if (e) { console.error(e); warnings.push("The acts didn't save. Add them on the event's lineup."); }
   }
 
