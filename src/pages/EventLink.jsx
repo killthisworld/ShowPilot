@@ -6,6 +6,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import IntakeRating from "@/components/showpilot/IntakeRating";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
+import { usePreviewView, PreviewToggle, PhoneFrame, inPreviewFrame } from "@/components/showpilot/PreviewView";
 import { SenderCircle, PlaneProgress, SEND_OFF_CSS, useSendOff, collapseStyle, SendOffCenter, DesktopFit } from "@/components/showpilot/IntakeKeyWeb";
 import { fetchPublicLink, getStoredToken, isAnswered, saveResponse, uploadActFile, askType, LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { supabase } from "@/api/supabaseClient";
@@ -233,6 +234,8 @@ export default function EventLink() {
   // never loads or saves an act's answers.
   const preview = new URLSearchParams(window.location.search).get("preview") === "1";
   PREVIEW = preview;
+  const [pview, setPview] = usePreviewView();
+  const framed = preview && inPreviewFrame();
   const [info, setInfo] = useState(undefined); // undefined loading, null not found
   const [actName, setActName] = useState("");
   const [answers, setAnswers] = useState({});
@@ -313,10 +316,20 @@ export default function EventLink() {
   }
 
   const previewBar = preview ? (
-    <div className="sticky top-2 z-10 rounded-[12px] px-4 py-3 text-[14px] font-semibold text-[#0d0d0d]" style={{ background: BLUE }}>
-      Preview: this is what acts see. Nothing you type here is saved or sent.
+    <div className="sticky top-2 z-10 rounded-[12px] px-4 py-3 text-[14px] font-semibold text-[#0d0d0d] flex items-center gap-3" style={{ background: BLUE }}>
+      <span className="flex-1 min-w-0">Preview: this is what acts see. Nothing you type here is saved or sent.</span>
+      {!framed && <PreviewToggle view={pview} setView={setPview} />}
     </div>
   ) : null;
+  // The same page as a phone: in its own phone-sized frame (job 346).
+  if (preview && !framed && pview === "phone") {
+    return (
+      <>
+        <div className="fixed top-0 inset-x-0 z-[70] px-3 pt-3">{previewBar}</div>
+        <PhoneFrame title="Phone preview" src={`${window.location.pathname}?preview=1&frame=1`} />
+      </>
+    );
+  }
 
   const sendQuestion = async () => {
     const qs = drafts.map((d) => d.trim()).filter(Boolean);

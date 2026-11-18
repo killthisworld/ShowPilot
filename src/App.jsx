@@ -27,6 +27,7 @@ import SharedShow from '@/pages/SharedShow';
 import TourManagerIntake from '@/pages/TourManagerIntake';
 import IntakeShortLink from '@/pages/IntakeShortLink';
 import EventLink from '@/pages/EventLink';
+import PackagePreviewFrame from "@/pages/PreviewFrame";
 import BookingPackage from '@/pages/BookingPackage';
 import PackageView from '@/pages/PackageView';
 import VenuePackageView from '@/pages/VenuePackageView';
@@ -92,6 +93,7 @@ const AuthenticatedApp = () => {
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/intake/:code" element={<IntakeShortLink />} />
       <Route path="/v/:code" element={<EventLink />} />
+      <Route path="/preview-frame/package" element={<PackagePreviewFrame />} />
       {/* Booking package (job 246): the artist / manager builds and sends it. */}
       <Route path="/book" element={<BookingPackage />} />
       <Route path="/book/:id" element={<BookingPackage />} />

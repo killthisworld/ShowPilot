@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { circleIconFor } from "@/lib/circleIcons";
 import { createPortal } from "react-dom";
 import { Lock, Check, CheckCircle, CalendarDays, X, Plane, ChevronLeft } from "lucide-react";
@@ -53,7 +53,16 @@ export function DesktopFit({ reserved = 250, top = null, web, below = null, pane
   // The page's own width (no scrollbar), capped like the rest of the app.
   const vw = Math.min(1400, (typeof document !== "undefined" && document.documentElement.clientWidth) || w);
   const avail = vw - PAD;
-  const tall = Math.max(340, Math.min(720, h - reserved));
+  // Whatever else the page holds (title, buttons, notices) takes room the
+  // guess above can't know, so after drawing, the web gives back whatever
+  // the page runs past the window by (job 346). A new window size starts over.
+  const [give, setGive] = useState(0);
+  useEffect(() => { setGive(0); }, [w, h, reserved, panelKey]);
+  useLayoutEffect(() => {
+    const over = document.documentElement.scrollHeight - window.innerHeight;
+    if (over > 1 && over < 500) setGive((g) => Math.min(400, g + over));
+  });
+  const tall = Math.max(340, Math.min(720, h - reserved - give));
   const size = Math.max(340, Math.min(tall, avail - GAP - 340));
   const panelW = Math.max(320, Math.min(440, avail - GAP - size));
   const body = panel || idle;
