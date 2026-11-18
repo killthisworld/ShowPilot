@@ -8,9 +8,13 @@
   --display:'Barlow Condensed','Inter',sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.55;overflow-x:hidden}
+html{-webkit-text-size-adjust:100%;overflow-x:clip}
+/* Smooth jumps for the menu links on desktop only: on phones (iOS Safari)
+   smooth scrolling and a clipped body can fight the finger and jump. */
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: no-preference){html{scroll-behavior:smooth}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.55;overflow-x:clip}
+/* Older browsers without overflow: clip. */
+@supports not (overflow-x: clip){html,body{overflow-x:hidden}}
 img{display:block;max-width:100%;height:auto}
 p,h1,h2,h3,ul,ol,dl,dd,figure{margin:0}
 a{color:var(--green)}a:hover{color:#b6ff85}
@@ -195,10 +199,14 @@ h3{font-size:28px;line-height:1.05}
 .plan{display:flex;flex-direction:column;gap:18px;padding:30px;border-radius:20px;background:rgba(13,13,13,.88);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);box-shadow:inset 0 2px 0 var(--c)}
 .plan h3{display:flex;align-items:center;gap:10px;font-size:26px}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);flex:0 0 auto}
-.prices{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
-.price-box{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;padding:12px 16px 14px;border-radius:14px;background:#0a0a0a;border:1px solid var(--line)}
+.prices{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border:0;padding:0;margin:0;min-width:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.price-box{position:relative;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;padding:12px 16px 14px 46px;border-radius:14px;background:#0a0a0a;border:1.5px solid var(--line);cursor:pointer;transition:border-color .15s,background .15s}
+.price-box:hover{border-color:rgba(255,255,255,.3)}
+.price-box input{position:absolute;left:16px;top:16px;width:18px;height:18px;margin:0;accent-color:var(--c)}
+.price-box:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 9%,#0a0a0a);box-shadow:0 0 18px color-mix(in srgb,var(--c) 18%,transparent)}
+.price-box:has(input:focus-visible){outline:2px solid #fff;outline-offset:2px}
 .price-box .pl{flex-basis:100%}
-.price-box.yr{border-color:color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 7%,#0a0a0a)}
 .price-box .pl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--ink-3)}
 .price-box.yr .pl{color:var(--c)}
 .price-box strong{font-family:var(--display);font-weight:700;font-size:40px;line-height:1;color:#fff;white-space:nowrap}
@@ -208,6 +216,7 @@ h3{font-size:28px;line-height:1.05}
 .plan li{position:relative;padding-left:28px;font-size:15px;color:var(--ink-2)}
 .plan li::before{content:"";position:absolute;left:2px;top:5px;width:12px;height:7px;border-left:2.2px solid var(--c);border-bottom:2.2px solid var(--c);transform:rotate(-45deg)}
 .plan .btn{margin-top:auto}
+.plan-cta{width:100%}
 
 /* Call to action */
 .cta{padding:120px 0;text-align:center;background:radial-gradient(ellipse 620px 320px at 50% 55%,rgba(140,255,61,.10),transparent 70%)}
@@ -227,7 +236,7 @@ h3{font-size:28px;line-height:1.05}
 @media (max-width:1020px){
   .hero-grid,.tour,.split{grid-template-columns:minmax(0,1fr)}
   .hero-shot{padding-bottom:30px;margin-left:6%}
-  .tour-list{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;scrollbar-width:none}
+  .tour-list{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:4px;scrollbar-width:none;overscroll-behavior-x:contain}
   .tour-list::-webkit-scrollbar{display:none}
   .tour-tab{flex:0 0 auto;grid-template-columns:auto auto;padding:10px 14px 12px;border-color:var(--line)}
   .tour-tab .tt{font-size:18px;white-space:nowrap}
@@ -251,9 +260,13 @@ h3{font-size:28px;line-height:1.05}
   .strip dd{font-size:19px}
   .strip dt{font-size:9.5px;letter-spacing:.1em}
   .tour-stage{padding:14px;min-height:0}
-  .slide{padding-bottom:12px;height:clamp(240px,96vw,400px)}
+  .slide{padding-bottom:12px;height:clamp(300px,118vw,480px)}
   .slide .browser{width:100%}
+  /* On a phone, show the app's own phone screen when there is one. */
   .slide .phone.side{display:none}
+  .slide:has(.phone.side) .browser{display:none}
+  .slide:has(.phone.side) .phone.side{display:block;position:static;height:100%;width:auto;max-width:none}
+  .slide:has(.phone.side) .phone.side img{height:100%;width:auto}
   .slide .browser.tall{width:78%}
   .seats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .seats .tab{flex:0 0 auto;font-size:18px;min-height:46px}

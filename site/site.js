@@ -4,6 +4,13 @@
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var narrow = function () { return window.matchMedia('(max-width: 1020px)').matches; };
   var DUR = 6500;
+  // While someone is scrolling or touching the page, the slideshow waits, so
+  // a slide change never happens under their finger (phones).
+  var lastInput = 0;
+  var busy = function () { return Date.now() - lastInput < 1500; };
+  ['scroll', 'touchstart', 'touchmove', 'wheel'].forEach(function (ev) {
+    window.addEventListener(ev, function () { lastInput = Date.now(); }, { passive: true });
+  });
 
   // One tour (one profile's features).
   function Tour(el) {
@@ -16,7 +23,7 @@
     var schedule = function () {
       clearTimeout(timer);
       if (!active || stopped || hovering || document.hidden) return;
-      timer = setTimeout(function () { show(cur + 1); }, DUR);
+      timer = setTimeout(function () { if (busy()) { schedule(); return; } show(cur + 1); }, DUR);
     };
     var show = function (i, focus) {
       cur = (i + tabs.length) % tabs.length;
@@ -30,9 +37,12 @@
       });
       if (count) count.textContent = (cur < 9 ? '0' : '') + (cur + 1);
       if (focus) tabs[cur].focus();
+      // Keep the current feature name in view in the sideways row on phones.
+      // Only that row moves (scrollLeft), never the page.
       if (narrow() && active) {
-        var list = tabs[cur].parentNode;
-        list.scrollTo({ left: tabs[cur].offsetLeft - 20, behavior: reduce ? 'auto' : 'smooth' });
+        var list = tabs[cur].parentNode, t = tabs[cur];
+        var left = t.getBoundingClientRect().left - list.getBoundingClientRect().left;
+        if (left < 0 || left + t.offsetWidth > list.clientWidth) list.scrollLeft += left - 16;
       }
       schedule();
     };
@@ -95,4 +105,14 @@
     } else pick(current);
   }
 
+  // Plans: pick monthly or yearly, and Create account carries the choice.
+  document.querySelectorAll('[data-plan]').forEach(function (set) {
+    var role = set.getAttribute('data-plan');
+    var cta = document.querySelector('[data-plan-cta="' + role + '"]');
+    set.addEventListener('change', function (e) {
+      var bill = e.target.value;
+      cta.href = 'https://showpilot.space/register?role=' + role + '&billing=' + bill;
+      cta.querySelector('[data-bill-label]').textContent = bill === 'yearly' ? 'Yearly' : 'Monthly';
+    });
+  });
 })();

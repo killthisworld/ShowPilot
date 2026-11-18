@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="/shots/event-web.webp" type="image/webp">
-<link rel="stylesheet" href="/styles.css?v=5">
+<link rel="stylesheet" href="/styles.css?v=7">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -227,26 +227,29 @@
     <div class="head wide">
       <p class="kicker">PRICING</p>
       <h2>Priced by the seat you sit in.</h2>
-      <p class="sub">Each profile has its own plan. Pay monthly, or pay yearly and save 10%.</p>
+      <p class="sub">Each profile has its own plan. Pick monthly, or yearly and save 10%, then create your account.</p>
     </div>
     <div class="grid-3 plans">
       <article class="plan" style="--c:#60A5FA">
         <h3><span class="dot"></span>Venue</h3>
-        <div class="prices"><p class="price-box"><span class="pl">MONTHLY</span><strong>$25–$50</strong><span class="pu">a month</span></p><p class="price-box yr"><span class="pl">YEARLY · SAVE 10%</span><strong>$270–$540</strong><span class="pu">a year · $22.50–$45 a month</span></p></div>
+        <fieldset class="prices" data-plan="venue"><legend class="sr">Billing for venue</legend><label class="price-box"><input type="radio" name="bill-venue" value="monthly" checked><span class="pl">MONTHLY</span><strong>$25–$50</strong><span class="pu">a month</span></label><label class="price-box yr"><input type="radio" name="bill-venue" value="yearly"><span class="pl">YEARLY · SAVE 10%</span><strong>$270–$540</strong><span class="pu">a year · $22.50–$45 a month</span></label></fieldset>
         <p class="how">Set by your room's capacity and how many shows you run a year.</p>
         <ul><li>A page for every event at your room</li><li>Invite acts and techs, and ask techs if they're free</li><li>Venue templates, deal terms, paperwork and PDFs</li></ul>
+        <a class="btn primary plan-cta" data-plan-cta="venue" href="https://showpilot.space/register?role=venue&amp;billing=monthly">Create account · <span data-bill-label>Monthly</span></a>
       </article>
       <article class="plan" style="--c:#EF4444">
         <h3><span class="dot"></span>Artist / Manager</h3>
-        <div class="prices"><p class="price-box"><span class="pl">MONTHLY</span><strong>$15</strong><span class="pu">a month</span></p><p class="price-box yr"><span class="pl">YEARLY · SAVE 10%</span><strong>$162</strong><span class="pu">a year · $13.50 a month</span></p></div>
+        <fieldset class="prices" data-plan="band"><legend class="sr">Billing for artist</legend><label class="price-box"><input type="radio" name="bill-artist" value="monthly" checked><span class="pl">MONTHLY</span><strong>$15</strong><span class="pu">a month</span></label><label class="price-box yr"><input type="radio" name="bill-artist" value="yearly"><span class="pl">YEARLY · SAVE 10%</span><strong>$162</strong><span class="pu">a year · $13.50 a month</span></label></fieldset>
         <p class="how">Includes 1 act. Add $5 a month for each extra act you book or manage. Booking is part of this plan.</p>
         <ul><li>Act templates with your stage plot and inputs</li><li>Book a date, lineups, set times and advance</li><li>DJ Tools for set links and WAV uploads</li></ul>
+        <a class="btn primary plan-cta" data-plan-cta="band" href="https://showpilot.space/register?role=band&amp;billing=monthly">Create account · <span data-bill-label>Monthly</span></a>
       </article>
       <article class="plan" style="--c:#8CFF3D">
         <h3><span class="dot"></span>Audio engineer / Lighting tech</h3>
-        <div class="prices"><p class="price-box"><span class="pl">MONTHLY</span><strong>$10</strong><span class="pu">a month</span></p><p class="price-box yr"><span class="pl">YEARLY · SAVE 10%</span><strong>$108</strong><span class="pu">a year · $9 a month</span></p></div>
+        <fieldset class="prices" data-plan="engineer"><legend class="sr">Billing for tech</legend><label class="price-box"><input type="radio" name="bill-tech" value="monthly" checked><span class="pl">MONTHLY</span><strong>$10</strong><span class="pu">a month</span></label><label class="price-box yr"><input type="radio" name="bill-tech" value="yearly"><span class="pl">YEARLY · SAVE 10%</span><strong>$108</strong><span class="pu">a year · $9 a month</span></label></fieldset>
         <p class="how">Send your link with your referral code. When someone joins with it, you get a month free.</p>
         <ul><li>Every show you work, with stage plots, cues and notes</li><li>Fellow pilots' wallets and your pilot card</li><li>Logbook of the shows you've worked</li></ul>
+        <a class="btn primary plan-cta" data-plan-cta="engineer" href="https://showpilot.space/register?role=engineer&amp;billing=monthly">Create account · <span data-bill-label>Monthly</span></a>
       </article>
     </div>
   </div>
@@ -277,6 +280,6 @@
   <p class="wrap fine">Screens on this page use a made-up demo event. Names, places and photos are examples.</p>
 </footer>
 
-<script src="/site.js?v=5" defer></script>
+<script src="/site.js?v=6" defer></script>
 </body>
 </html>
