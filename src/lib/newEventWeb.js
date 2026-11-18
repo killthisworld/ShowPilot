@@ -57,7 +57,8 @@ export const emptyForm = () => ({
   date: "", loadIn: "", doors: "", onStage: "", curfew: "", name: "",
   venue: { name: "", city: "", state: "", pilotId: null, invite: true },
   acts: [], // [{ name, pilotId?, invite? }] in billing order, the first is the headliner (venues invite each)
-  crew: { sound: "venue", lights: "venue", soundPilot: "", lightsPilot: "" },
+  // soundTech / lightsTech: typed in when they aren't a Fellow Pilot (job 326).
+  crew: { sound: "venue", lights: "venue", soundPilot: "", lightsPilot: "", soundTech: { name: "", phone: "", email: "" }, lightsTech: { name: "", phone: "", email: "" } },
   promo: { picked: [], files: {}, facebook: "" }, // files: format -> { url, name }
   onFile: {}, // item key -> false when switched off for this event
   paper: { w9: null, agreement: null, coi: null, other: [] }, // File objects, filed on create
@@ -78,7 +79,7 @@ export async function loadSources(userId, side = "manager") {
     supabase.from("user_preferences").select("display_name, profile_photo_url, card_share_token, account_type, contact_phone, contact_email").eq("user_id", userId).maybeSingle(),
     supabase.from("saved_templates").select("name, data, updated_at").eq("owner_id", userId).eq("category", side === "venue" ? "venue" : "manager").order("updated_at", { ascending: false }).limit(1),
     supabase.from("saved_templates").select("name, data").eq("owner_id", userId).eq("category", "artist"),
-    supabase.from("fellow_pilots").select("id, pilot_user_id, display_name, job_title, contact_email, contact_phone, profile_photo_url").eq("owner_id", userId).order("display_name", { ascending: true }),
+    supabase.from("fellow_pilots").select("id, pilot_user_id, display_name, job_title, contact_email, contact_phone, profile_photo_url, card_share_token").eq("owner_id", userId).order("display_name", { ascending: true }),
   ]);
   // contact_phone / contact_email may not exist on user_preferences: retry plain.
   let mine = me.data;
@@ -192,6 +193,22 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
     schedule = times.filter(([, t]) => has(t)).map(([label, time]) => ({ id: uid(), label, time }));
   }
 
+  // The techs this side is bringing go straight onto the event's Audio /
+  // Lighting spots (job 326): a Fellow Pilot's card, or what was typed in.
+  const bringing = venueSide ? "venue" : "ours";
+  const techOf = (k) => {
+    if (f.crew[k] !== bringing) return null;
+    const p = pilot(f.crew[`${k}Pilot`]);
+    if (p) return { contact_name: p.display_name || "", contact_phone: p.contact_phone || "", contact_email: p.contact_email || "", card_user_id: p.pilot_user_id || null, card_share_token: p.card_share_token || null };
+    const t = f.crew[`${k}Tech`] || {};
+    return has(t.name) ? { contact_name: t.name.trim(), contact_phone: (t.phone || "").trim(), contact_email: (t.email || "").trim() } : null;
+  };
+  const engineerInfo = {};
+  const audioTech = techOf("sound");
+  const lightTech = techOf("lights");
+  if (audioTech) engineerInfo.audio = audioTech;
+  if (lightTech) engineerInfo.lighting = lightTech;
+
   const { data: show, error } = await supabase.from("shows").insert({
     owner_id: userId,
     event_name: eventName(f, house?.name || "") || "New event",
@@ -204,6 +221,7 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
     included_sections: ["venue", "manager", "engineer"],
     status: "not_started",
     venue_info: schedule.length ? { schedule } : {},
+    ...(Object.keys(engineerInfo).length ? { engineer_info: engineerInfo } : {}),
     manager_info: {
       ...(first && has(f.onStage) ? { set_times: { [first.name]: f.onStage } } : {}),
       crew: { sound: f.crew.sound, lights: f.crew.lights },

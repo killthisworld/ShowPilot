@@ -32,6 +32,7 @@ import { isPageMarkedDone } from "@/lib/donePages";
 import EventLinksSheet from "@/components/showpilot/EventLinksSheet";
 import { isDesktopNow } from "@/lib/showRoute";
 import EventLinkBuilder from "@/components/showpilot/EventLinkBuilder";
+import TechAssign from "@/components/showpilot/TechAssign";
 
 // Desktop workspace for one company role's section of an event (venue,
 // manager/artist), laid out like Fan page
@@ -521,6 +522,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // ======== AUDIO / LIGHTING ========
   const engineerTabs = () => {
     const lightsToo = !!ei.lighting?.same_as_audio;
+    // The venue side and the manager / artist side can put a tech on the
+    // event too (job 326): a Fellow Pilot's card, or a name, phone and email.
+    const canAssign = !template && !!p.token && !!p.user && (!!p.permissions?.is_owner || !!p.canEditSection?.("venue") || !!p.canEditSection?.("manager"));
     const crewTab = (key, label, hint) => {
       const info = ei[key] || {};
       const setE = (k, v) => p.updateEngineerRole(key, k, v);
@@ -538,11 +542,20 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
             {same ? (
               <p className="text-white/55 text-[14px]">The audio engineer is running lights too.</p>
             ) : (<>
-            <In label="Name" value={info.contact_name} onChange={(v) => setE("contact_name", v)} disabled={off} placeholder="Name" />
-            <Grid>
-              <In label="Phone" value={info.contact_phone} onChange={(v) => setE("contact_phone", v)} disabled={off} placeholder="Phone" />
-              <In label="Email" value={info.contact_email} onChange={(v) => setE("contact_email", v)} disabled={off} placeholder="Email" />
-            </Grid>
+            {off && canAssign ? (
+              <TechAssign role={key} info={info} token={p.token} editable={false} color={color}
+                onSaved={(next) => Object.entries((next || {})[key] || {}).forEach(([k, v]) => setE(k, v))} />
+            ) : (<>
+              {!off && canAssign && (
+                <TechAssign role={key} info={info} token={p.token} editable color={color}
+                  onLocal={(t) => Object.entries(t).forEach(([k, v]) => setE(k, v))} />
+              )}
+              <In label="Name" value={info.contact_name} onChange={(v) => setE("contact_name", v)} disabled={off} placeholder="Name" />
+              <Grid>
+                <In label="Phone" value={info.contact_phone} onChange={(v) => setE("contact_phone", v)} disabled={off} placeholder="Phone" />
+                <In label="Email" value={info.contact_email} onChange={(v) => setE("contact_email", v)} disabled={off} placeholder="Email" />
+              </Grid>
+            </>)}
             {/* Digital card, same as the phone's event page: connect your
                 ShowPilot card to this crew spot, and anyone can open it. */}
             {!off && p.user && (
@@ -555,7 +568,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                 {info.card_user_id === p.user.id ? <><Check className="w-4 h-4" /> Digital card connected</> : "Connect my digital card"}
               </button>
             )}
-            {info.card_user_id && <PilotCardLink userId={info.card_user_id} color={color} />}
+            {info.card_user_id && <PilotCardLink userId={info.card_user_id} token={info.card_share_token} name={info.contact_name} color={color} />}
             {/* Audio engineer running lights too (job 207): the same setting as
                 "Same as audio engineer" on the Lighting tech tab. */}
             {key === "audio" && (!off || lightsToo) && (
@@ -1991,14 +2004,17 @@ function TemplateTools({ role, color, gig, update, userId, onLoadVenue = null })
 }
 
 // "View <name>'s ShowPilot card" for the person connected to a crew spot.
-function PilotCardLink({ userId, color }) {
-  const [card, setCard] = useState(null);
+// token: the card's link when it's known (a Fellow Pilot's card, job 326);
+// otherwise it's looked up, which only works for your own card.
+function PilotCardLink({ userId, token = null, name = "", color }) {
+  const [card, setCard] = useState(token ? { card_share_token: token, display_name: name } : null);
   useEffect(() => {
+    if (token) { setCard({ card_share_token: token, display_name: name }); return undefined; }
     let alive = true;
     supabase.from("user_preferences").select("display_name, card_share_token").eq("user_id", userId).maybeSingle()
       .then(({ data }) => { if (alive) setCard(data || null); });
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, token, name]);
   if (!card?.card_share_token) return null;
   return (
     <a href={`/pilot/${card.card_share_token}`} target="_blank" rel="noopener noreferrer" className="self-start text-[14px] font-semibold hover:underline" style={{ color }}>

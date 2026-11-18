@@ -257,12 +257,30 @@ export default function NewEventWeb({ side = "manager" }) {
             <Choice on={f.crew[k] === "venue"} color={BLUE} onClick={() => setCrew({ [k]: "venue", ...(venueSide ? {} : { [pk]: "" }) })}>{venueSide ? "House provides" : "Venue provides"}</Choice>
           </div>
           {f.crew[k] === (venueSide ? "venue" : "ours") ? (
-            sources.pilots.length > 0 ? (
-              <select value={f.crew[pk]} onChange={(e) => setCrew({ [pk]: e.target.value })} aria-label={`Your ${who}`} className={selectCls}>
-                <option value="">{venueSide ? `Pick your ${who} later` : `Invite your ${who} later`}</option>
-                {sources.pilots.map((p) => <option key={p.id} value={p.id}>{p.display_name}{p.job_title ? ` · ${p.job_title}` : ""}</option>)}
-              </select>
-            ) : <p className={note}>Invite your {who} from the event once it's made. They get their own circle.</p>
+            <div className="flex flex-col gap-2">
+              {sources.pilots.length > 0 && (
+                <select value={f.crew[pk]} onChange={(e) => setCrew({ [pk]: e.target.value })} aria-label={`Your ${who}`} className={selectCls}>
+                  <option value="">{`Pick your ${who}'s card`}</option>
+                  {sources.pilots.map((p) => <option key={p.id} value={p.id}>{p.display_name}{p.job_title ? ` · ${p.job_title}` : ""}</option>)}
+                </select>
+              )}
+              {!f.crew[pk] && (() => {
+                const tk = `${k}Tech`;
+                const t = f.crew[tk] || {};
+                const setT = (patch) => setCrew({ [tk]: { ...t, ...patch } });
+                return (
+                  <div className="flex flex-col gap-2">
+                    <span className={lab + " mb-0"}>{sources.pilots.length ? "OR TYPE THEM IN" : `YOUR ${who.toUpperCase()}`}</span>
+                    <input value={t.name || ""} onChange={(e) => setT({ name: e.target.value })} placeholder="Name" aria-label={`Your ${who}'s name`} className={inputCls} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={t.phone || ""} onChange={(e) => setT({ phone: e.target.value })} placeholder="Phone" type="tel" inputMode="tel" aria-label={`Your ${who}'s phone`} className={inputCls} />
+                      <input value={t.email || ""} onChange={(e) => setT({ email: e.target.value })} placeholder="Email" type="email" inputMode="email" autoCapitalize="none" aria-label={`Your ${who}'s email`} className={inputCls} />
+                    </div>
+                  </div>
+                );
+              })()}
+              <p className={note}>{f.crew[pk] ? "Their card goes on the event, and they get an invite link." : "Optional. They go on the event's Audio / Lighting page."}</p>
+            </div>
           ) : <p className={note}>{venueSide ? "The act brings their own. They'll show up on the event when they join." : "The venue assigns one of their techs."}</p>}
         </div>
       ))}

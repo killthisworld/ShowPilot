@@ -114,6 +114,8 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
   const promo = (Array.isArray(mi.promo) ? mi.promo : []).filter((p) => p?.url);
   const photos = bands.filter((b) => has(b.photo_url)).map((b) => ({ url: b.photo_url, name: `${b.band_name} photo` }));
   const crew = mi.crew || {};
+  // Who's on it, when the act's side already put them on (job 326).
+  const techName = (k) => ((gig.engineer_info || {})[k === "sound" ? "audio" : "lighting"] || {}).contact_name || "";
   const yours = ["sound", "lights"].filter((k) => crew[k] === "venue");
   const setTimes = mi.set_times || {};
   const schedule = (vi.schedule || []).filter((r) => has(r.time) || has(r.label));
@@ -206,7 +208,7 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
             {["sound", "lights"].map((k) => (
               <Row key={k} k={k.toUpperCase()}>
                 {crew[k] === "venue" ? <span style={{ color: BLUE }}>You provide · assign one of your techs once you accept</span>
-                  : crew[k] === "ours" ? `${firstName}'s side brings their own`
+                  : crew[k] === "ours" ? `${firstName}'s side brings their own${techName(k) ? ` · ${techName(k)}` : ""}`
                   : <span className="text-white/55">Not decided yet</span>}
               </Row>
             ))}
