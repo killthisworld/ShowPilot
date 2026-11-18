@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
 import { ArrowLeft, MapPin, Phone, Mail, Check, Ticket, Globe, ExternalLink, Pencil, LogOut, Trash2, Users, ClipboardList, ChevronRight, DollarSign, Shirt, ListChecks, Disc3 } from "lucide-react";
@@ -42,7 +42,12 @@ const has = (v) => v != null && String(v).trim() !== "";
 // contacts, and what's still open - plus the fan page ticket. No event web
 // on a phone (that's the desktop's job); open items get done on Needs me.
 // The owner and the Manager / Artist side can edit the lineup from here.
-export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
+// Leaving the overview for a page (tasks, DJ Tools, the event web) remembers
+// which event and how far down it was, so Back lands on the same spot (job 336).
+export const OVERVIEW_RETURN_KEY = "sp.overviewReturn";
+
+export default function EventOverviewSheet({ gig: base, onClose, onRemoved, restoreTop = 0 }) {
+  const rootRef = useRef(null);
   const { user } = useAuth();
   const [gig, setGig] = useState(base);
   const [perms, setPerms] = useState(null);
@@ -101,7 +106,15 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   // side, same as desktop's Performers.
   const [lineup, setLineup] = useState(false);
   const canLineup = !!user && !loading && !!perms && canWorkSection("manager", perms);
-  const navigate = useNavigate();
+  const nav = useNavigate();
+  const navigate = (path) => {
+    try { sessionStorage.setItem(OVERVIEW_RETURN_KEY, JSON.stringify({ token: gig.share_token, top: rootRef.current?.scrollTop || 0 })); } catch { /* private mode */ }
+    nav(path);
+  };
+  // Back from a page: scroll to where the tapped row was, once the rows are in.
+  useEffect(() => {
+    if (!loading && restoreTop && rootRef.current) rootRef.current.scrollTop = restoreTop;
+  }, [loading, restoreTop]);
   const openTasks = (gig.tasks || []).filter((t) => t.status !== "done").length;
   const rows = loading ? [] : feedRows(gig, perms, user?.id || null);
   const facts = [
@@ -126,7 +139,7 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved }) {
   const box = "rounded-xl border border-[#242424] bg-[#121212]";
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] bg-[#0d0d0d] overflow-y-auto overscroll-contain" role="dialog" aria-modal="true" aria-label={`${title} overview`} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div ref={rootRef} className="fixed top-0 left-0 right-0 bottom-[calc(68px+max(12px,env(safe-area-inset-bottom)))] lg:bottom-0 lg:left-[84px] z-[40] bg-[#0d0d0d] overflow-y-auto overscroll-contain" role="dialog" aria-modal="true" aria-label={`${title} overview`} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Photo header */}
       <div className="relative isolate overflow-hidden min-h-[220px] flex flex-col justify-end px-5 pb-4" style={{ paddingTop: "max(16px, env(safe-area-inset-top))" }}>
         {gig.icon_url ? (

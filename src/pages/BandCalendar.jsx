@@ -16,7 +16,7 @@ import StatusStrip from "@/components/showpilot/StatusStrip";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import DayPhotoBands, { hasDayPhotos } from "@/components/showpilot/DayPhotoBands";
 import FanPageButton from "@/components/showpilot/FanPageButton";
-import EventOverviewSheet from "@/components/showpilot/EventOverviewSheet";
+import EventOverviewSheet, { OVERVIEW_RETURN_KEY } from "@/components/showpilot/EventOverviewSheet";
 import TourView from "@/components/showpilot/TourView";
 import ActSwitcher from "@/components/showpilot/ActSwitcher";
 import { useActGigs } from "@/lib/acts";
@@ -45,6 +45,7 @@ export default function BandCalendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   // Phone: the event Overview opened from the day list (job 73).
   const [overviewGig, setOverviewGig] = useState(null);
+  const [restoreTop, setRestoreTop] = useState(0);
   // Dates (job 73, On the road stage 5; was "Tours"): upcoming dates in order, tours and single dates.
   const [tours, setTours] = useState(false);
   const [dayModalKey, setDayModalKey] = useState(null);
@@ -79,7 +80,16 @@ export default function BandCalendar() {
       }
 
       const ownedGigs = (owned || []).map((s) => ({ ...s, is_owned: true }));
-      setGigs([...ownedGigs, ...linkedGigs]);
+      const all = [...ownedGigs, ...linkedGigs];
+      setGigs(all);
+      // Back from a page opened out of an overview: reopen that overview where it was (job 336).
+      try {
+        const raw = sessionStorage.getItem(OVERVIEW_RETURN_KEY);
+        sessionStorage.removeItem(OVERVIEW_RETURN_KEY);
+        const back = raw && JSON.parse(raw);
+        const hit = back && all.find((g) => g.share_token === back.token);
+        if (hit) { setRestoreTop(back.top || 0); setOverviewGig(hit); }
+      } catch { /* none saved */ }
       setLoading(false);
     };
     load();
@@ -445,7 +455,7 @@ export default function BandCalendar() {
       )}
 
       {tours && <TourView gigs={gigs} onOpen={(g) => { setTours(false); setOverviewGig(g); }} onClose={() => setTours(false)} />}
-      {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => setOverviewGig(null)} onRemoved={(g) => setGigs((list) => list.filter((x) => x.share_token !== g.share_token))} />}
+      {overviewGig && <EventOverviewSheet gig={overviewGig} onClose={() => { setOverviewGig(null); setRestoreTop(0); }} restoreTop={restoreTop} onRemoved={(g) => setGigs((list) => list.filter((x) => x.share_token !== g.share_token))} />}
 
       <BandBottomTabs />
     </div>
