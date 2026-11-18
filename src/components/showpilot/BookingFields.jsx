@@ -7,6 +7,7 @@ import { loadFellowPilots, techsFirst } from "@/lib/assignTech";
 import PilotCardView from "@/pages/PilotCardView";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
+import FxNotesWindow, { ActNotesButton, actHasNotes } from "@/components/showpilot/FxNotesWindow";
 
 // The booking package's own circles (job 246): Hospitality & merch, Promo,
 // Dates wanted, and the "Send to" corner. The act circles (Artist,
@@ -75,13 +76,15 @@ const riderOf = (d, kind) => (d?.riders && d.riders[kind]?.url ? d.riders[kind] 
 // form.tech = { audio: { who: "own" | "venue", name, phone, email, card_token },
 //               lighting: { who, name, phone, email, card_token, cues, notes } }
 // Audio also has the stage plot (form.stage_plot_files, the same files as
-// Members & inputs) and the engineer notes (form.general_notes).
+// Members & inputs) with the notes icon beside it (job 337): the act's notes
+// window, General (form.general_notes) + a chip per member (artist_fx_notes),
+// as in My Templates. No separate engineer notes box.
 export const TECH_TABS = [["audio", "Audio", "SOUND ENGINEER", "engineer"], ["lighting", "Lighting", "LIGHTING TECH", "LD"]];
 const techOf = (d, k) => (d?.tech && typeof d.tech[k] === "object" && d.tech[k]) || {};
 const tabHas = (d, k) => {
   const t = techOf(d, k);
   if ([t.who, t.name, t.phone, t.email, t.cues, t.notes].some(has)) return true;
-  if (k === "audio") return !!riderOf(d, "tech") || (d.stage_plot_files || []).length > 0 || has(d.general_notes);
+  if (k === "audio") return !!riderOf(d, "tech") || (d.stage_plot_files || []).length > 0 || actHasNotes(d);
   return !!riderOf(d, "lighting") || !!riderOf(d, "cues");
 };
 export const techRiderHas = (form) => tabHas(form, "audio") || tabHas(form, "lighting");
@@ -110,6 +113,7 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
   const setT = (patch) => writer(update, updateWith, form)("tech", (cur) => ({ ...(cur || {}), [tab]: { ...((cur || {})[tab] || {}), ...patch } }));
   const files = form.stage_plot_files || [];
   const plotRef = useRef(null);
+  const [notesOpen, setNotesOpen] = useState(false);
   const sideBtn = (v, text) => {
     const c = chip(t.who === v);
     return <button type="button" aria-pressed={t.who === v} onClick={() => setT({ who: t.who === v ? "" : v })} className={`${c.className} flex-1`} style={c.style}>{text}</button>;
@@ -142,7 +146,10 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
       {tab === "audio" ? (
         <>
           <div className="flex flex-col gap-1.5">
-            <span className={label}>STAGE PLOT</span>
+            <div className="flex items-center gap-2">
+              <span className={`${label} flex-1 mb-0`}>STAGE PLOT</span>
+              <ActNotesButton act={form} onClick={() => setNotesOpen(true)} />
+            </div>
             {files.map((f, i) => (
               <div key={`${f.url}-${i}`} className="flex items-center gap-2 min-h-[44px] rounded-[10px] border border-[#2a2a2a] bg-[#101010] pl-3 pr-1">
                 <FileText className="w-4 h-4 shrink-0 text-white/55" />
@@ -158,7 +165,11 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h }) {
             )}
             <span className="text-[12px] text-white/50">Or build it in Members & inputs.</span>
           </div>
-          <label><span className={label}>NOTES FOR THE ENGINEER</span><textarea rows={3} value={form.general_notes || ""} onChange={(e) => update("general_notes", e.target.value)} placeholder="Two vocal mics, in-ears for the drummer, no fog near the board" className={`${inputCls} py-2.5 resize-none`} /></label>
+          {notesOpen && (
+            <FxNotesWindow acts={[form]} target={0} onTarget={() => {}} actOnly={0}
+              onActPatch={(_, patch) => Object.entries(patch).forEach(([k, v]) => update(k, v))}
+              onSave={() => setNotesOpen(false)} onClose={() => setNotesOpen(false)} />
+          )}
         </>
       ) : (
         <>
@@ -363,15 +374,12 @@ export function DealBody({ form, update, updateWith, uploadFile }) {
       })}
     </div>
   );
+  // Simplified (job 337, Jay 2026-11-18): the deal first, then the numbers,
+  // then the rest. No Recent shows (an older package's note is just not shown).
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-2">
-        <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
-        <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
-      </div>
-      <label><span className={label}>RECENT SHOWS</span><textarea rows={2} value={deal.recent || ""} onChange={(e) => set("recent", e.target.value)} placeholder="The Earl, Atlanta - 180 people, Oct" className={`${inputCls} py-2.5 resize-none`} /></label>
       <div className="flex flex-col gap-2">
-        <span className={label}>THE DEAL YOU'RE LOOKING FOR</span>
+        <span className={label}>THE DEAL</span>
         {choice(DEAL_ASKS, "ask")}
         {(deal.ask === "flat" || deal.ask === "vs" || deal.ask === "door") && (
           <div className="grid grid-cols-2 gap-2">
@@ -380,7 +388,11 @@ export function DealBody({ form, update, updateWith, uploadFile }) {
           </div>
         )}
       </div>
-      <label><span className={label}>TICKET PRICE YOU'D SUGGEST</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15 adv / $18 door" className={inputCls} /></label>
+      <div className="grid grid-cols-2 gap-2">
+        <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
+        <label><span className={label}>TICKET PRICE</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15" className={inputCls} /></label>
+      </div>
+      <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
       <div className="flex flex-col gap-2"><span className={label}>AGES</span>{choice(AGES, "age")}</div>
       <div className="flex flex-col gap-2">
         <span className={label}>BACKLINE</span>
@@ -393,7 +405,7 @@ export function DealBody({ form, update, updateWith, uploadFile }) {
 }
 export const dealHas = (form) => {
   const d = form.deal || {};
-  return [d.hometown, d.draw, d.recent, d.ask, d.ticket_price, d.age].some(has) || (Array.isArray(d.backline) && d.backline.length > 0)
+  return [d.hometown, d.draw, d.ask, d.ticket_price, d.age].some(has) || (Array.isArray(d.backline) && d.backline.length > 0)
     || (Array.isArray(form.deal_files) && form.deal_files.length > 0);
 };
 
@@ -444,7 +456,7 @@ export function PromoBody({ form, update, updateWith, uploadFile }) {
   return (
     <div className="flex flex-col gap-4">
       <input ref={ref} type="file" accept="image/*" className="hidden" onChange={onFile} />
-      <span className={label + " mb-0"}>WHAT SIZES DO YOU HAVE?</span>
+      <span className={label + " mb-0"}>SIZES</span>
       <div className="flex flex-wrap gap-2">
         {PROMO_FORMATS.map((p) => {
           const on = picked.includes(p.id);
@@ -458,9 +470,8 @@ export function PromoBody({ form, update, updateWith, uploadFile }) {
           );
         })}
       </div>
-      {picked.length === 0 ? (
-        <p className="m-0 rounded-[12px] border border-dashed border-[#333] px-3 py-4 text-center text-[13px] text-white/55">Pick the sizes you have. Each one gets its own upload, and you can edit it to fit.</p>
-      ) : (
+      {/* No "pick the sizes" explainer (job 337): nothing shows until a size is picked. */}
+      {picked.length > 0 && (
         <div className="flex flex-wrap gap-3 items-end">
           {picked.map((id) => {
             const p = PROMO_FORMATS.find((x) => x.id === id);
@@ -490,7 +501,7 @@ export function PromoBody({ form, update, updateWith, uploadFile }) {
       )}
       {err && <p className="m-0 text-[12.5px] text-[#F87171]">{err}</p>}
       <div className="flex flex-col gap-2.5">
-        <span className={label}>LINKS FOR THE VENUE TO PROMOTE YOU</span>
+        <span className={label}>LINKS</span>
         {links.map((r, i) => {
           const href = linkHref(r.url);
           return (
@@ -628,7 +639,15 @@ function TechRiderRead({ d }) {
           {tab === "audio" ? (
             <>
               {files.length > 0 && <div className="flex flex-col gap-1.5"><span className={label + " mb-0"}>STAGE PLOT</span>{files.map((f, i) => fileLink(f, i, "Stage plot"))}</div>}
-              {has(d.general_notes) && <div className="flex flex-col gap-1"><span className={label + " mb-0"}>NOTES FOR THE ENGINEER</span><p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{d.general_notes}</p></div>}
+              {actHasNotes(d) && (
+                <div className="flex flex-col gap-1">
+                  <span className={label + " mb-0"}>NOTES</span>
+                  {has(d.general_notes) && <p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{d.general_notes}</p>}
+                  {(Array.isArray(d.artist_fx_notes) ? d.artist_fx_notes : []).filter((n) => has(n.notes)).map((n, i) => (
+                    <p key={i} className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap"><span className="font-semibold text-white">{n.artist_name}:</span> {n.notes}</p>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -690,11 +709,10 @@ export function packageReadCircles(pkg, wantsText) {
     c("deal", "Deal & docs", "Deal & docs", dealHas(d), () => (
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
-          <Row k="Based in" v={deal.hometown} />
-          <Row k="Expected draw" v={has(deal.draw) ? `${deal.draw} people` : ""} />
-          <Row k="Recent shows" v={deal.recent} />
           <Row k="Deal" v={dealAskLine(deal)} />
+          <Row k="Expected draw" v={has(deal.draw) ? `${deal.draw} people` : ""} />
           <Row k="Tickets" v={deal.ticket_price} />
+          <Row k="Based in" v={deal.hometown} />
           <Row k="Ages" v={textOf(AGES, deal.age)} />
           <Row k="Backline" v={backlineLine(deal)} />
         </div>
