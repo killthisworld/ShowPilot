@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MapPin, Music, Headphones, Briefcase, Lightbulb, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
@@ -7,6 +7,7 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { setPendingAccountType } from "@/lib/pendingAccountType";
 import { isProfileOpen } from "@/lib/hiddenProfiles";
+import ProfileShowcase from "@/components/showpilot/ProfileShowcase";
 import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, AuthFoot } from "@/components/showpilot/AuthShell";
 
 // Colors come from accountTypeStyle so a role looks the same here as it
@@ -69,6 +70,12 @@ export default function Register() {
   const { toast } = useToast();
 
   const role = ROLES.find((r) => r.value === accountType);
+  // On a phone the panel opens below the card that was tapped; bring it into view.
+  const showcaseRef = useRef(null);
+  const pick = (value) => {
+    setAccountType(value);
+    setTimeout(() => { try { showcaseRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch { /* older browsers */ } }, 60);
+  };
   const color = role ? roleColor(role.value) : "#8CFF3D";
 
   const handleSubmit = async (e) => {
@@ -109,8 +116,11 @@ export default function Register() {
     return (
       <AuthShell width={780} compact>
         <AuthPanel>
-          <AuthHead step="STEP 1 OF 2" title="What do you do?" sub="Pick the one that fits. Show Pilot sets itself up around your work." />
+          <AuthHead step="STEP 1 OF 2" title="What do you do?" sub="Tap one to see what it includes. Show Pilot sets itself up around your work." />
           <div className="px-6 pt-4 pb-5 space-y-4">
+            <p className="text-sm text-white/65 leading-snug rounded-md px-3 py-2" style={{ background: "#FDE04714", border: "1px solid #FDE04755" }}>
+              <span className="font-bold" style={{ color: "#FDE047" }}>DJ?</span> Pick Artist. It includes DJ Tools.
+            </p>
             {ROLE_GROUPS.map((group) => (
               <div key={group.label}>
                 <div className="text-[11px] tracking-[0.14em] text-white/40 mb-2" style={{ fontFamily: SCENE_MONO }}>{group.label.toUpperCase()}</div>
@@ -124,7 +134,7 @@ export default function Register() {
                         key={r.value}
                         type="button"
                         aria-pressed={on}
-                        onClick={() => setAccountType(r.value)}
+                        onClick={() => pick(r.value)}
                         onDoubleClick={() => { setAccountType(r.value); setStep(2); }}
                         className="text-left rounded-lg px-3 py-2.5 flex items-center gap-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                         style={{
@@ -143,6 +153,11 @@ export default function Register() {
                     );
                   })}
                 </div>
+                {role && group.roles.some((r) => r.value === role.value) && (
+                  <div ref={showcaseRef}>
+                    <ProfileShowcase role={role.value} label={role.label} color={color} />
+                  </div>
+                )}
               </div>
             ))}
             <div className="pt-1">
