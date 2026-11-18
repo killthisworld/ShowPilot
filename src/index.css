@@ -97,3 +97,10 @@
 @media (min-width: 1024px) {
   body.has-rail #root { padding-left: 84px; }
 }
+
+/* Windows that scroll up and down (sheets, panels): no sideways drift, and
+   scrolling to the end doesn't carry on into the page behind (job 334). */
+[role="dialog"].overflow-y-auto {
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}

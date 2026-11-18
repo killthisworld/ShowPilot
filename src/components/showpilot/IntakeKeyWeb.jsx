@@ -64,7 +64,7 @@ export function DesktopFit({ reserved = 250, top = null, web, below = null, pane
         <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>
         <div className="shrink-0" style={{ width: panelW }}>
           {body && (
-            <div key={panel ? panelKey : "idle"} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overscroll-contain" style={{ maxHeight: size }}>
+            <div key={panel ? panelKey : "idle"} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y" style={{ maxHeight: size }}>
               {body}
             </div>
           )}
@@ -455,7 +455,7 @@ export default function IntakeKeyWeb({
   const showModal = pane === "show" && show ? createPortal(
     <div className="fixed inset-0 flex items-center justify-center p-4 text-white" style={{ zIndex: 60 }}>
       <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-      <div role="dialog" aria-modal="true" aria-label={showLabel} className="ikw-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-5">
+      <div role="dialog" aria-modal="true" aria-label={showLabel} className="ikw-in relative w-full max-w-[520px] max-h-[88dvh] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y rounded-[18px] border border-[#2a2a2a] bg-[#141414] p-5">
         <button type="button" onClick={close} aria-label="Close" className="absolute right-2 top-2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-white/80"><X className="w-5 h-5" /></button>
         {show()}
       </div>
@@ -496,7 +496,7 @@ export default function IntakeKeyWeb({
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>
           <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/45" />
-          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : centerOpen ? centerPane.label : openBox?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
+          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : centerOpen ? centerPane.label : openBox?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-center relative h-8 mb-1">
               <span className="w-10 h-1 rounded-full bg-[#3a3a3a]" aria-hidden="true" />
               <button type="button" onClick={close} aria-label="Close" className="absolute right-0 top-0 w-10 h-10 flex items-center justify-center text-white/60"><X className="w-5 h-5" /></button>
