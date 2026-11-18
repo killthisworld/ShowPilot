@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { circleIconFor } from "@/lib/circleIcons";
 import { createPortal } from "react-dom";
-import { Lock, Check, CheckCircle, CalendarDays, X, Plane } from "lucide-react";
+import { Lock, Check, CheckCircle, CalendarDays, X, Plane, ChevronLeft } from "lucide-react";
 import SkyKey from "@/components/showpilot/SkyKey";
 import NightSky from "@/components/showpilot/NightSky";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -194,7 +194,7 @@ export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
   actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
-  sent = false, onSentOff = null, startOpen = false, belowSend = null, readOnly = false, unlockLabel = "Unlock my web", showLabel = "The show",
+  sent = false, onSentOff = null, startOpen = false, belowSend = null, onBack = null, readOnly = false, unlockLabel = "Unlock my web", showLabel = "The show",
 }) {
   const desktop = useIsDesktop();
   // Submitted: play the send-off, then the page shows the thanks (job 200).
@@ -417,6 +417,12 @@ export default function IntakeKeyWeb({
       {belowSend}
     </div>
   );
+  // A Back button in the top left (job 329), for webs opened from inside the app (New event).
+  const backBtn = onBack ? (
+    <button type="button" onClick={onBack} aria-label="Back" className={`shrink-0 flex items-center gap-1 min-h-[44px] -ml-2 pl-1.5 pr-3 rounded-[10px] text-[15px] font-semibold text-white/75 hover:text-white ${off ? "so-gone" : ""}`}>
+      <ChevronLeft className="w-5 h-5" />Back
+    </button>
+  ) : null;
   const header = (big) => (
     <div className={`flex items-start gap-3 ${off ? "so-gone" : ""}`}>
       <div className="flex-1 min-w-0">
@@ -447,7 +453,7 @@ export default function IntakeKeyWeb({
         <div className="ikw-in relative px-8 py-6" style={{ zIndex: 1 }}>
           {/* Fits the window; the web stays put and a circle opens beside it (job 202). */}
           <DesktopFit
-            top={<><div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div>{header(true)}</>}
+            top={<><div className="flex items-center gap-3">{backBtn}<div className="text-[18px] font-bold tracking-[0.04em]" style={{ color: GREEN, fontFamily: "'Barlow Condensed', sans-serif" }}>SHOWPILOT</div></div>{header(true)}</>}
             idle={off ? null : idleBody}
             reserved={250 + (error ? 28 : 0)}
             web={web}
@@ -465,6 +471,7 @@ export default function IntakeKeyWeb({
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={seed} dim={0.25} />
       <div className="ikw-in relative px-4 pt-4 pb-8 flex flex-col gap-3" style={{ zIndex: 1 }}>
+        {backBtn}
         {header(false)}
         <div className="flex-1 flex flex-col justify-center gap-4 min-h-[calc(100dvh-140px)]">
           {web}

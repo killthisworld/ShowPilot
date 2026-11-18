@@ -572,9 +572,7 @@ export default function NewEventWeb({ side = "manager" }) {
         error={error}
         sent={sent}
         onSentOff={() => setSent(false)}
-        belowSend={(
-          <button type="button" onClick={() => goBack()} className="min-h-[44px] text-[14px] font-semibold text-white/60">Cancel</button>
-        )}
+        onBack={() => goBack()}
       />
     </>
   );
