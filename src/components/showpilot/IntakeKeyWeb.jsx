@@ -143,7 +143,9 @@ export function PlaneProgress({ done = 0, total = 0, big = false, color = "#8CFF
 
 // The sender in the middle of the web (job 196): their picture and name,
 // tapping opens their digital card.
-export function SenderCircle({ center, color, desktop }) {
+// onOpen (job 332): the centre opens its own window on the web instead (the
+// act and the sender's card on a booking package).
+export function SenderCircle({ center, color, desktop, onOpen = null }) {
   const c = center || {};
   const inner = c.photo ? (
     <>
@@ -177,6 +179,7 @@ export function SenderCircle({ center, color, desktop }) {
   }, [cardToken]);
   const openCard = () => { try { window.history.pushState({ ...(window.history.state || {}), spCard: 1 }, ""); } catch {} setCardOpen(true); };
   const closeCard = () => { if (window.history.state?.spCard) window.history.back(); else setCardOpen(false); };
+  if (onOpen) return <button type="button" onClick={onOpen} aria-label={`${c.name || "The act"}: ${c.openLabel || "artist and digital card"}`} className={cls} style={style}>{inner}</button>;
   if (!cardToken) return <div className={cls} style={style}>{inner}</div>;
   return (
     <>
@@ -190,6 +193,8 @@ export function SenderCircle({ center, color, desktop }) {
 //   icon?: node | photo?: url | initials?: text, ring?: color }] (icon / photo: job 321)
 // corner: { label, icon: Component, done?, body: () => node } for the top right (Additional services).
 // cornerBL: the same, for the bottom left (Tracks; job 224).
+// center.pane (job 332): { label, hint?, required?, done?, body: () => node }.
+//   Tapping the centre opens it like a circle (pane "center").
 export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
   actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
@@ -212,6 +217,8 @@ export default function IntakeKeyWeb({
   const N = circles.length;
   const done = circles.filter((c) => c.done).length;
   const cur = circles.find((c) => c.key === pane) || null;
+  const centerPane = center?.pane || null;
+  const centerOpen = pane === "center" && !!centerPane;
   const curIdx = cur ? circles.indexOf(cur) : -1;
   const close = () => setPane("start");
   const save = () => { if (cur) onSave?.(cur.key); close(); };
@@ -345,7 +352,7 @@ export default function IntakeKeyWeb({
           </button>
         );
       })}
-      <SendOffCenter off={off} color={color}><SenderCircle center={center} color={color} desktop={desktop} /></SendOffCenter>
+      <SendOffCenter off={off} color={color}><SenderCircle center={center} color={color} desktop={desktop} onOpen={centerPane ? () => setPane(pane === "center" ? "start" : "center") : null} /></SendOffCenter>
     </div>
   );
 
@@ -367,6 +374,13 @@ export default function IntakeKeyWeb({
       {saveBtn}
     </div>
   );
+  const centerBody = centerOpen && (
+    <div className="flex flex-col gap-3">
+      {panelHead(centerPane.label, readOnly ? "" : centerPane.done ? "DONE" : centerPane.required ? "NEEDED" : "OPTIONAL", readOnly ? null : centerPane.hint)}
+      <div className="text-left">{centerPane.body()}</div>
+      {readOnly ? saveBtn : <button type="button" onClick={() => { onSave?.("center"); close(); }} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px]" style={{ background: GREEN, color: "#0d0d0d" }}>Save</button>}
+    </div>
+  );
   const cornerBody = openBox && (
     <div className="flex flex-col gap-3">
       {panelHead(openBox.label, readOnly ? "" : openBox.done ? "DONE" : openBox.required ? "NEEDED" : "OPTIONAL", null)}
@@ -376,6 +390,7 @@ export default function IntakeKeyWeb({
   );
   // Laptop: what's in the web, beside it, until a circle is opened (job 247).
   const idleItems = [
+    ...(centerPane ? [{ id: "center", label: centerPane.label, done: !!centerPane.done, required: !!centerPane.required }] : []),
     ...circles.map((c) => ({ id: c.key, label: c.label, done: c.done, required: c.required })),
     ...extraBoxes.map(([id, c]) => ({ id, label: c.label, done: c.done, required: c.required })),
   ];
@@ -410,7 +425,7 @@ export default function IntakeKeyWeb({
       {/* Always a green Submit (job 197); with something still needed it
           opens that circle instead of sending. */}
       {(
-        <button type="button" onClick={() => { if (ready) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (need) setPane(need.key); else if (corner && corner.required && !corner.done) setPane("corner"); } }} disabled={sending} aria-label={ready ? sendLabel : `${sendLabel}: fill in ${[...needLeft.map((c) => c.short || c.label), ...(corner && corner.required && !corner.done ? [corner.label] : [])].join(", ")} first`} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={ready ? { background: GREEN, color: "#0d0d0d" } : { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" }}>
+        <button type="button" onClick={() => { if (ready) onSend(); else { const need = circles.find((c) => c.required && !c.done); if (centerPane && centerPane.required && !centerPane.done) setPane("center"); else if (need) setPane(need.key); else if (corner && corner.required && !corner.done) setPane("corner"); } }} disabled={sending} aria-label={ready ? sendLabel : `${sendLabel}: fill in ${[...(centerPane && centerPane.required && !centerPane.done ? [centerPane.label] : []), ...needLeft.map((c) => c.short || c.label), ...(corner && corner.required && !corner.done ? [corner.label] : [])].join(", ")} first`} className="w-full min-h-[52px] rounded-[12px] font-bold text-[16px] flex items-center justify-center gap-2 disabled:opacity-50 transition-colors" style={ready ? { background: GREEN, color: "#0d0d0d" } : { background: "#1f1f1f", color: "rgba(255,255,255,0.45)", border: "1px solid #333" }}>
           {sending ? "Sending…" : <><CheckCircle className="w-4 h-4" />{sendLabel}</>}
         </button>
       )}
@@ -458,7 +473,7 @@ export default function IntakeKeyWeb({
             reserved={250 + (error ? 28 : 0)}
             web={web}
             below={sendRow}
-            panel={off ? null : cur ? circleBody : openBox ? cornerBody : null}
+            panel={off ? null : cur ? circleBody : centerOpen ? centerBody : openBox ? cornerBody : null}
             panelKey={pane}
           />
         </div>
@@ -466,7 +481,7 @@ export default function IntakeKeyWeb({
       </div>
     );
   }
-  const sheetOpen = (!!cur || !!openBox) && !off;
+  const sheetOpen = (!!cur || centerOpen || !!openBox) && !off;
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={seed} dim={0.25} />
@@ -481,12 +496,12 @@ export default function IntakeKeyWeb({
       {sheetOpen && (
         <div className="fixed inset-0" style={{ zIndex: 20 }}>
           <button type="button" aria-label="Close" onClick={close} className="absolute inset-0 bg-black/45" />
-          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : openBox?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
+          <div role="dialog" aria-modal="true" aria-label={cur ? cur.label : centerOpen ? centerPane.label : openBox?.label} className="absolute left-0 right-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[22px] border-t border-[#2a2a2a] bg-[#151515] px-4 pt-2 pb-[max(20px,env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,0.6)]">
             <div className="flex items-center justify-center relative h-8 mb-1">
               <span className="w-10 h-1 rounded-full bg-[#3a3a3a]" aria-hidden="true" />
               <button type="button" onClick={close} aria-label="Close" className="absolute right-0 top-0 w-10 h-10 flex items-center justify-center text-white/60"><X className="w-5 h-5" /></button>
             </div>
-            {cur ? circleBody : cornerBody}
+            {cur ? circleBody : centerOpen ? centerBody : cornerBody}
           </div>
         </div>
       )}

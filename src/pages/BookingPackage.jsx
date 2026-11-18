@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, MessageSquare, Mail, Copy, Check, Eye } from "lucide-react";
+import { Send, MessageSquare, Mail, Copy, Check, Eye, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,7 +11,8 @@ import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas, RiderFile, techRiderHas } from "@/components/showpilot/BookingFields";
+import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas, techRiderHas, TechRiderBody, ContactBody, contactDone, ActCenterBody } from "@/components/showpilot/BookingFields";
+import { useGoBack } from "@/lib/navHistory";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
 // as a web, the dates they want, and who it goes to, then sends it with the
@@ -23,6 +24,8 @@ const EMPTY = {
   stage_plot_url: "", stage_plot_files: [], general_notes: "",
   submitter_name: "", submitter_phone: "", submitter_email: "",
   photo_url: "", promo_links: [], hospitality: {}, merch: {}, deal: {}, riders: {},
+  // Job 332: contact title, promo by size, the tech rider, deal documents.
+  submitter_title: "", promo_picked: [], promo_images: {}, tech: {}, deal_files: [],
 };
 // The act's info as the package keeps it (everything but the name).
 const toData = (form) => {
@@ -33,6 +36,7 @@ const toData = (form) => {
 export default function BookingPackage() {
   const { id: routeId } = useParams();
   const navigate = useNavigate();
+  const goBack = useGoBack("/bookings");
   const { user, isLoadingAuth } = useAuth();
   const { toast } = useToast();
   const [pkgId, setPkgId] = useState(routeId || null);
@@ -82,7 +86,7 @@ export default function BookingPackage() {
             setForm({ ...EMPTY, ...(row.data || {}), band_name: row.act_name || "" });
             setWants({ months: [], days: [], note: "", ...(row.wants || {}) });
             setTo({ name: row.to_name || "", email: row.to_email || "", phone: row.to_phone || "" });
-            setSeen(Object.fromEntries(["artist", "members", "plot", "notes", "deal", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
+            setSeen(Object.fromEntries(["center", "members", "tech", "deal", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
             if (["sent", "offered", "declined", "booked"].includes(row.status) && row.code) setCode(row.code);
             if (["offered", "declined", "booked"].includes(row.status)) {
               let venueName = row.to_name || "";
@@ -109,6 +113,7 @@ export default function BookingPackage() {
         setForm((f) => ({
           ...f,
           submitter_name: mgr.contact_name || prefs?.display_name || "",
+          submitter_title: mgr.contact_title || (prefs?.account_type === "band" ? "Artist" : prefs?.account_type === "manager" ? "Manager" : ""),
           submitter_phone: mgr.contact_phone || f.submitter_phone || "",
           submitter_email: mgr.contact_email || user.email || "",
           ...(act ? {
@@ -121,7 +126,7 @@ export default function BookingPackage() {
             photo_url: act.photo_url || f.photo_url,
           } : {}),
         }));
-        if (act) setSeen((s) => ({ ...s, artist: true, members: true, notes: true, contact: true, promo: !!act.photo_url }));
+        if (act) setSeen((s) => ({ ...s, center: true, members: true, tech: true, contact: true }));
       }
       setLoading(false);
     })();
@@ -177,35 +182,38 @@ export default function BookingPackage() {
   const actCircles = intakeCircles(helpers, { seen, card: { showCard: false } }).filter((c) => c.key !== "role");
   const byKey = Object.fromEntries(actCircles.map((c) => [c.key, c]));
   const hasMonths = (wants.months || []).length > 0;
-  // The order a venue reads it in (job 289): who they are, how they look and
-  // sound, the deal, when, hospitality, who to call; the audio side last.
+  // Writes that start from the latest form (uploads land late; job 332).
+  const updateWith = (field, fn) => { dirty.current = true; setForm((f) => ({ ...f, [field]: fn(f[field]) })); };
+  const P = { form, update: h.update, updateWith, uploadFile: h.uploadFile };
+  // Clockwise in the order the venue books (job 332): when, the deal and its
+  // paperwork, how it'll sell, the tech side (who does sound and lights, the
+  // riders, stage plot, cues), the members, hospitality, who to call. The act
+  // and your digital card are the centre.
   const circles = [
-    byKey.artist && { ...byKey.artist, label: "Artist", short: "Artist", hint: "Name and genre" },
-    { key: "promo", label: "Promo", short: "Promo", hint: "Your picture and links the venue can share", required: false,
-      done: !!seen.promo && promoHas(form), body: () => <PromoBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
-    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
-      done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
     { key: "dates", label: "Dates wanted", short: "Dates wanted", hint: "When you'd like to play", required: true,
       done: hasMonths, body: () => <DatesBody wants={wants} setWants={setWantsD} /> },
-    // Everything a venue needs to book (job 331): hospitality and the
-    // hospitality rider, then the audio side (members, stage plot, the tech
-    // rider and notes).
+    { key: "deal", label: "Deal & docs", short: "Deal & docs", hint: "Your draw, the deal you're after, and documents (W9, contract, insurance)", required: false,
+      done: !!seen.deal && dealHas(form), body: () => <DealBody {...P} /> },
+    { key: "promo", label: "Promo", short: "Promo", hint: "Pick your sizes, upload and fit each one, and add links", required: false,
+      done: !!seen.promo && promoHas(form), body: () => <PromoBody {...P} /> },
+    { key: "tech", label: "Tech rider", short: "Tech rider", hint: "Audio and lighting: your techs or the venue's, riders, stage plot, cues", required: false, icon: <SlidersHorizontal />,
+      done: !!seen.tech && techRiderHas(form), body: () => <TechRiderBody {...P} h={h} /> },
+    byKey.members && { ...byKey.members, required: false, hint: "Who plays what, and where they stand" },
     { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table, your hospitality rider", required: false,
-      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
-    byKey.contact,
-    byKey.members && { ...byKey.members, required: false, hint: "Who plays what, and your stage plot" },
-    byKey.plot,
-    byKey.notes && {
-      ...byKey.notes, label: "Tech rider and notes", short: "Tech rider", hint: "Your tech rider, and notes for the engineer",
-      done: byKey.notes.done || techRiderHas(form),
-      body: () => (
-        <div className="flex flex-col gap-4">
-          <RiderFile form={form} update={h.update} uploadFile={h.uploadFile} kind="tech" />
-          {byKey.notes.body()}
-        </div>
-      ),
-    },
+      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody {...P} /> },
+    { key: "contact", label: "Your contact", short: "Contact", hint: "Name, title, phone and email", required: false,
+      done: contactDone(form), body: () => <ContactBody form={form} update={h.update} formatPhone={h.formatPhone} /> },
   ].filter(Boolean);
+  // The centre: the act (name, genre, picture) and your digital card.
+  const centerPane = {
+    label: "The act & your card", hint: "Who's playing, and the card that goes with the package", required: true,
+    done: !!form.band_name.trim(),
+    body: () => (
+      <ActCenterBody form={form} update={h.update} uploadFile={h.uploadFile}
+        artistBody={byKey.artist ? byKey.artist.body() : null}
+        card={{ token: me?.card_share_token || "", name: me?.display_name || "", photo: me?.profile_photo_url || "", line: "Open your digital card" }} />
+    ),
+  };
   const toDone = sendToDone(to);
   const canSend = !!form.band_name.trim() && hasMonths && toDone;
 
@@ -322,10 +330,12 @@ export default function BookingPackage() {
       dateLine={to.name ? `To ${to.name}${wantsLine(wants) ? ` · ${wantsLine(wants)}` : ""}` : "Pick who it goes to"}
       actName={form.band_name}
       center={{
-        name: me?.display_name || "You", photo: me?.profile_photo_url || "",
-        label: me?.account_type === "band" ? "Artist" : "Mgmt",
-        href: me?.card_share_token ? `/pilot/${me.card_share_token}` : "",
+        name: form.band_name || me?.display_name || "The act", photo: form.photo_url || me?.profile_photo_url || "",
+        label: form.band_name ? "The act" : me?.account_type === "band" ? "Artist" : "Mgmt",
+        openLabel: "the act and your digital card",
+        pane: centerPane,
       }}
+      onBack={goBack}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
       corner={{ label: "Send to", icon: Send, required: true, done: toDone, body: () => <SendToBody to={to} setTo={setToD} formatPhone={h.formatPhone} /> }}

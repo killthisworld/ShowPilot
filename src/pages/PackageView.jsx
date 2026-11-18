@@ -5,7 +5,7 @@ import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { loadPublicPackage, wantsLine, PACKAGE_RED } from "@/lib/bookingPackage";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
-import { packageReadCircles } from "@/components/showpilot/BookingFields";
+import { packageReadCircles, ActCenterRead } from "@/components/showpilot/BookingFields";
 import OfferDates from "@/components/showpilot/OfferDates";
 
 // A booking package, as the venue opens it (job 246, step 2): the key opens
@@ -170,9 +170,11 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
       dateLine={wl ? `Wants ${wl}` : ""}
       actName=""
       center={{
-        name: senderName, photo: pkg.sender?.photo || "",
+        // The act in the middle (job 332); it opens the act and the sender's card.
+        name: pkg.act_name || senderName, photo: pkg.data?.photo_url || pkg.sender?.photo || "",
         label: pkg.sender?.type === "band" ? "Artist" : "Mgmt",
-        href: pkg.sender?.card ? `/pilot/${pkg.sender.card}` : "",
+        openLabel: "the act and who sent it",
+        pane: { label: "The act", body: () => <ActCenterRead pkg={pkg} /> },
       }}
       circles={circles}
       showLabel="Dates wanted"
