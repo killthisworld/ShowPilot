@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Clock, MapPin, Music, SlidersHorizontal, Megaphone, Folder, FileText, UserPlus, Building2, Check, X, Plus, MessageSquare, Mail, Copy, ArrowUp, Loader2, Upload } from "lucide-react";
+import { Clock, MapPin, Music, SlidersHorizontal, Megaphone, FileText, UserPlus, Building2, Check, X, Plus, MessageSquare, Mail, Copy, ArrowUp, Loader2, Upload } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import IntakeKeyWeb, { IntakeSent, useIsDesktop } from "@/components/showpilot/IntakeKeyWeb";
 import TimeSelect from "@/components/showpilot/TimeSelect";
@@ -8,7 +8,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useGoBack } from "@/lib/navHistory";
 import {
   emptyForm, eventName, loadSources, actTemplate, onFileItems, uploadPromo, createEventFromWeb,
-  PROMO_FORMATS, has, venueFromSources, venueTimes, venueFileItems,
+  PROMO_FORMATS, has, venueFromSources, venueTimes, venueFileItems, uploadStagePlot,
 } from "@/lib/newEventWeb";
 
 // New event as a web (job 321), for manager / artist accounts. The sender
@@ -89,6 +89,7 @@ export default function NewEventWeb({ side = "manager" }) {
   const promoInput = useRef(null);
   const promoFor = useRef("");
   const paperInput = useRef(null);
+  const plotInput = useRef(null);
   const paperFor = useRef("");
 
   useEffect(() => {
@@ -118,7 +119,6 @@ export default function NewEventWeb({ side = "manager" }) {
   const pilotById = (id) => sources.pilots.find((p) => p.id === id) || null;
   const venuePilot = pilotById(f.venue.pilotId);
   const firstAct = f.acts[0] || null;
-  const firstTpl = firstAct ? actTemplate(sources, firstAct.name) : null;
   const uploads = f.promo.picked.filter((id) => f.promo.files[id]?.url);
   const paperCount = ["w9", "agreement", "coi"].filter((k) => f.paper[k]).length + f.paper.other.length;
   const name = eventName(f, house?.name || "");
@@ -151,8 +151,14 @@ export default function NewEventWeb({ side = "manager" }) {
   };
 
   // ---------- circle bodies ----------
+  // Manager / artist (job 331): no act circle. One act in My Templates is
+  // simply on; with none or several, who's playing is picked here.
+  const pickAct = !venueSide && sources.acts.length !== 1;
   const showBody = () => (
     <div className="flex flex-col gap-4">
+      {pickAct && (
+        <div className="pb-1">{actBody()}</div>
+      )}
       <label><span className={lab}>DATE</span>
         <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
       </label>
@@ -282,8 +288,50 @@ export default function NewEventWeb({ side = "manager" }) {
               <p className={note}>{f.crew[pk] ? "Their card goes on the event, and they get an invite link." : "Optional. They go on the event's Audio / Lighting page."}</p>
             </div>
           ) : <p className={note}>{venueSide ? "The act brings their own. They'll show up on the event when they join." : "The venue assigns one of their techs."}</p>}
+          {!venueSide && k === "sound" && f.crew.sound === "venue" && stagePlotPart()}
         </div>
       ))}
+    </div>
+  );
+
+  // The stage plot for the venue's engineer (job 331): the act's from My
+  // Template (switch it off for this show), and / or a file uploaded here.
+  const plotItem = fileItems.find((it) => it.key === "plot");
+  const plotOn = f.onFile.plot !== false;
+  const pickPlot = () => plotInput.current?.click();
+  const onPlotFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !user) return;
+    if (file.size > MAX_FILE) { setError("That file is over 15 MB. Try a smaller copy."); return; }
+    setBusy("plot");
+    try { const up = await uploadStagePlot(user.id, file); set({ stagePlot: up }); }
+    catch (err) { console.error(err); setError("The stage plot didn't upload. Check your signal and try again."); }
+    setBusy("");
+  };
+  const stagePlotPart = () => (
+    <div className="flex flex-col gap-2 mt-1 rounded-[12px] border border-[#262626] bg-[#101010] p-3">
+      <span className={lab + " mb-0"}>STAGE PLOT FOR THEIR ENGINEER</span>
+      {plotItem ? (
+        <div className="flex items-center gap-2">
+          <span className="flex-1 min-w-0" style={{ opacity: plotOn ? 1 : 0.5 }}>
+            <span className="block text-[14.5px] font-semibold">Send our stage plot & inputs</span>
+            <span className="block text-[12.5px] text-white/55 truncate">{plotOn ? `From My Template · ${plotItem.sub}` : "Not on this event"}</span>
+          </span>
+          <Toggle on={plotOn} label="Send our stage plot and inputs" onClick={() => set((cur) => ({ onFile: { ...cur.onFile, plot: !plotOn } }))} />
+        </div>
+      ) : <p className={note + " m-0"}>No stage plot in My Template yet. Upload one for this show, or add it to your act in My Template for every show.</p>}
+      {f.stagePlot ? (
+        <div className="flex items-center gap-2 min-h-[44px]">
+          <span className="flex-1 min-w-0 text-[14px] truncate">{f.stagePlot.name}</span>
+          <button type="button" onClick={pickPlot} className="min-h-[40px] px-3 rounded-[9px] border border-[#3a3a3a] text-[13px] font-semibold">Replace</button>
+          <button type="button" onClick={() => set({ stagePlot: null })} aria-label="Remove the stage plot file" className="w-10 h-10 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>
+        </div>
+      ) : (
+        <button type="button" onClick={pickPlot} disabled={busy === "plot"} className="min-h-[44px] rounded-[10px] border border-dashed border-[#3a3a3a] text-[14px] font-semibold text-white/85 flex items-center justify-center gap-1.5 disabled:opacity-60">
+          {busy === "plot" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{plotItem ? "Or upload a different one" : "Upload a stage plot"}
+        </button>
+      )}
     </div>
   );
 
@@ -472,22 +520,19 @@ export default function NewEventWeb({ side = "manager" }) {
     { key: "paper", label: "Paperwork", short: "Paperwork", done: paperCount > 0, hint: "Contract, insurance", icon: <FileText />, body: paperBody },
     { key: "people", label: "Co-hosts", short: "Co-hosts", done: f.people.length > 0, hint: "A co-host or promoter", icon: <UserPlus />, body: peopleBody },
   ] : [
-    { key: "show", label: "Date & times", short: "Date & times", required: true, done: has(f.date), hint: "When it is", icon: <Clock />, body: showBody },
+    { key: "show", label: "Date & times", short: "Date & times", required: true, done: has(f.date) && f.acts.length > 0, hint: pickAct ? "Who's playing, and when" : "When it is", icon: <Clock />, body: showBody },
     { key: "venue", label: f.venue.name.trim() || "Venue", short: f.venue.name.trim() || "Venue", done: has(f.venue.name), hint: "Where it is, and their invite",
       ...(has(f.venue.name) ? { photo: venuePilot?.profile_photo_url || "", initials: initialsOf(f.venue.name), ring: BLUE } : { icon: <MapPin /> }), body: venueBody },
-    { key: "act", label: firstAct ? firstAct.name + (f.acts.length > 1 ? ` +${f.acts.length - 1}` : "") : "The act", short: firstAct ? firstAct.name : "The act", required: true, done: f.acts.length > 0, hint: "Who's playing",
-      ...(firstAct ? { photo: firstTpl?.data?.photo_url || "", initials: initialsOf(firstAct.name), ring: RED } : { icon: <Music /> }), body: actBody },
     { key: "crew", label: "Sound / Lights", short: "Sound / Lights", done: crewDone, hint: "Who brings the engineer and the LD", icon: <SlidersHorizontal />, body: crewBody },
-    { key: "promo", label: "Promo", short: "Promo", done: uploads.length > 0 || has(f.promo.facebook), hint: "This show only", icon: <Megaphone />, body: promoBody },
-    { key: "files", label: "On file", short: "On file", done: fileItems.some((it) => f.onFile[it.key] !== false), hint: "From My Template, on every event", icon: <Folder />, body: filesBody },
-    { key: "paper", label: "Paperwork", short: "Paperwork", done: paperCount > 0, hint: "W9, agreement, insurance", icon: <FileText />, body: paperBody },
+    // Create event stays simple (job 331): promo, paperwork and the rest are
+    // added on the event afterwards; Book a date carries the full package.
     { key: "people", label: "Co-hosts", short: "Co-hosts", done: f.people.length > 0, hint: "Anyone else on it", icon: <UserPlus />, body: peopleBody },
   ];
 
   const create = async () => {
     if (!user || sending) return;
     if (!has(f.date)) { setError("Pick the date first."); return; }
-    if (!venueSide && !f.acts.length) { setError("Add who's playing first."); return; }
+    if (!venueSide && !f.acts.length) { setError("Add who's playing first (in Date & times)."); return; }
     setSending(true); setError("");
     try {
       const out = await createEventFromWeb(user.id, sources, f, side);
@@ -504,6 +549,7 @@ export default function NewEventWeb({ side = "manager" }) {
     <>
       <input ref={promoInput} type="file" accept="image/*" className="hidden" onChange={onPromoFile} />
       <input ref={paperInput} type="file" accept={PAPER_ACCEPT} className="hidden" onChange={onPaperFile} />
+      <input ref={plotInput} type="file" accept="image/*,application/pdf" className="hidden" onChange={onPlotFile} />
     </>
   );
 

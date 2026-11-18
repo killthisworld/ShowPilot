@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { cropImage } from "@/lib/cropImage";
-import { Plus, X, ExternalLink, ImagePlus, Trash2 } from "lucide-react";
+import { Plus, X, ExternalLink, ImagePlus, Trash2, Upload, FileText } from "lucide-react";
 import { LINK_KINDS, guessLinkKind, linkHref } from "@/lib/eventLink";
 import { DAYS } from "@/lib/bookingPackage";
 
@@ -17,8 +17,54 @@ const chip = (on) => ({
 });
 const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 
+// ---------- Rider files (job 331): a tech rider and a hospitality rider ----------
+// form.riders = { tech: { url, name, type }, hospitality: { url, name, type } }
+export const RIDER_KINDS = { tech: "Tech rider", hospitality: "Hospitality rider" };
+export function RiderFile({ form, update, uploadFile, kind }) {
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const riders = form.riders || {};
+  const file = riders[kind];
+  const name = RIDER_KINDS[kind];
+  const onFile = async (e) => {
+    const picked = e.target.files?.[0];
+    e.target.value = "";
+    if (!picked) return;
+    setErr("");
+    if (picked.size > 15 * 1024 * 1024) { setErr("That file is over 15 MB. Try a smaller copy."); return; }
+    setBusy(true);
+    try {
+      const url = await uploadFile(picked);
+      update("riders", { ...(form.riders || {}), [kind]: { url, name: picked.name, type: picked.type || "" } });
+    } catch (x) { console.error(x); setErr("It didn't upload. Check your signal and try again."); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className={label}>{name.toUpperCase()} (PDF OR PICTURE)</span>
+      <input ref={ref} type="file" accept="image/*,application/pdf,.pdf,.doc,.docx" className="hidden" onChange={onFile} />
+      {file?.url ? (
+        <div className="flex items-center gap-2 min-h-[44px] rounded-[10px] border border-[#2a2a2a] bg-[#101010] pl-3 pr-1">
+          <FileText className="w-4 h-4 shrink-0 text-white/55" />
+          <a href={file.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate text-[14px] font-semibold" style={{ color: GREEN }}>{file.name || name}</a>
+          <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="min-h-[40px] px-3 text-[13px] font-semibold text-white/75">{busy ? "Uploading…" : "Replace"}</button>
+          <button type="button" onClick={() => { const next = { ...(form.riders || {}) }; delete next[kind]; update("riders", next); }} aria-label={`Remove the ${name.toLowerCase()}`} className="w-10 h-10 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>
+        </div>
+      ) : (
+        <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="min-h-[44px] rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60" style={{ color: GREEN }}>
+          <Upload className="w-4 h-4" />{busy ? "Uploading…" : `Upload your ${name.toLowerCase()}`}
+        </button>
+      )}
+      {err && <p className="text-[12.5px] text-[#F87171] m-0">{err}</p>}
+    </div>
+  );
+}
+const riderOf = (d, kind) => (d?.riders && d.riders[kind]?.url ? d.riders[kind] : null);
+export const techRiderHas = (form) => !!riderOf(form, "tech");
+
 // ---------- Hospitality & merch ----------
-export function HospitalityBody({ form, update }) {
+export function HospitalityBody({ form, update, uploadFile }) {
   const hosp = form.hospitality || {};
   const merch = form.merch || {};
   const setH = (k, v) => update("hospitality", { ...hosp, [k]: v });
@@ -43,12 +89,13 @@ export function HospitalityBody({ form, update }) {
           <input value={merch.split || ""} onChange={(e) => setM("split", e.target.value)} placeholder="Split, e.g. 80 / 20 soft goods" aria-label="Merch split" className={inputCls} />
         )}
       </div>
+      {uploadFile && <RiderFile form={form} update={update} uploadFile={uploadFile} kind="hospitality" />}
     </div>
   );
 }
 export const hospitalityHas = (form) => {
   const h = form.hospitality || {}, m = form.merch || {};
-  return [h.meals, h.guests, h.dietary, h.drinks, m.table, m.split].some(has);
+  return [h.meals, h.guests, h.dietary, h.drinks, m.table, m.split].some(has) || !!riderOf(form, "hospitality");
 };
 
 // ---------- Deal and draw: what a venue weighs before it books (job 248) ----------
@@ -93,6 +140,7 @@ export function DealBody({ form, update }) {
         <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
         <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
       </div>
+      <label><span className={label}>RECENT SHOWS</span><textarea rows={2} value={deal.recent || ""} onChange={(e) => set("recent", e.target.value)} placeholder="The Earl, Atlanta - 180 people, Oct" className={`${inputCls} py-2.5 resize-none`} /></label>
       <div className="flex flex-col gap-2">
         <span className={label}>THE DEAL YOU'RE LOOKING FOR</span>
         {choice(DEAL_ASKS, "ask")}
@@ -102,6 +150,13 @@ export function DealBody({ form, update }) {
             {(deal.ask === "door" || deal.ask === "vs") && <label><span className={label}>DOOR %</span><input type="number" inputMode="numeric" min="0" max="100" value={deal.door_percent ?? ""} onChange={(e) => set("door_percent", e.target.value === "" ? "" : Number(e.target.value))} placeholder="70" className={inputCls} /></label>}
           </div>
         )}
+      </div>
+      <label><span className={label}>TICKET PRICE YOU'D SUGGEST</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15 adv / $18 door" className={inputCls} /></label>
+      <div className="flex flex-col gap-2"><span className={label}>AGES</span>{choice(AGES, "age")}</div>
+      <div className="flex flex-col gap-2">
+        <span className={label}>BACKLINE</span>
+        {choice(BACKLINE, "backline", true)}
+        {(() => { const c = chip(!!deal.share_backline); return <div className="flex justify-center"><button type="button" aria-pressed={!!deal.share_backline} onClick={() => set("share_backline", !deal.share_backline)} className={c.className} style={c.style}>Happy to share with other acts</button></div>; })()}
       </div>
     </div>
   );
@@ -266,10 +321,13 @@ export function packageReadCircles(pkg, wantsText) {
   const c = (key, label, short, done, body) => ({ key, label, short, done, body });
   // A venue reads it in this order (job 289): who they are, how they look and
   // sound, the deal, when, hospitality, who to call; the audio side last.
-  // Only what a venue needs to decide (job 301): who, how they look and
-  // sound, the deal, when, who to call. Members, stage plot, notes and
-  // hospitality come later, through the intake forms.
-  const CORE = ["artist", "promo", "deal", "dates", "contact"];
+  // Everything a venue needs to book is back in (job 331): members, stage
+  // plot, notes and riders as well.
+  const riderLink = (kind) => {
+    const r = riderOf(d, kind);
+    return r ? <a href={r.url} target="_blank" rel="noreferrer" className="mt-2 w-full min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><FileText className="w-4 h-4 shrink-0" />{RIDER_KINDS[kind]}<span className="text-white/50 font-normal truncate">{r.name}</span></a> : null;
+  };
+  const techRider = riderOf(d, "tech");
   return [
     c("artist", "Artist", "Artist", true, () => (
       <div className="flex flex-col">
@@ -312,6 +370,7 @@ export function packageReadCircles(pkg, wantsText) {
         <Row k="Drinks & green room" v={hosp.drinks} />
         <Row k="Merch" v={MERCH[merch.table] || ""} />
         <Row k="Split" v={merch.split} />
+        {riderLink("hospitality")}
       </div>
     ) : <Empty>Nothing asked for.</Empty>)),
     c("contact", "Their contact", "Contact", [d.submitter_name, d.submitter_phone, d.submitter_email].some(has), () => (
@@ -340,13 +399,14 @@ export function packageReadCircles(pkg, wantsText) {
         {files.map((f, i) => <a key={i} href={f.url} target="_blank" rel="noreferrer" className="min-h-[44px] rounded-[10px] border border-[#2a2a2a] px-3 flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: GREEN }}><ExternalLink className="w-4 h-4 shrink-0" /><span className="truncate">{f.name || "Stage plot"}</span></a>)}
       </div>
     ) : <Empty>No stage plot sent.</Empty>)),
-    c("notes", "Notes for the engineer", "Notes", has(d.general_notes) || members.some((m) => has(m.notes)), () => (
+    c("notes", techRider ? "Tech rider and notes" : "Notes for the engineer", techRider ? "Tech rider" : "Notes", !!techRider || has(d.general_notes) || members.some((m) => has(m.notes)), () => (
       <div className="flex flex-col gap-2 text-[14.5px] text-white/85 whitespace-pre-wrap">
+        {riderLink("tech")}
         {has(d.general_notes) && <p>{d.general_notes}</p>}
         {members.filter((m) => has(m.notes)).map((m, i) => <p key={i}><span className="font-bold">{m.name}:</span> {m.notes}</p>)}
-        {!has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
+        {!techRider && !has(d.general_notes) && !members.some((m) => has(m.notes)) && <Empty>No notes.</Empty>}
       </div>
     )),
   // A section they left empty isn't shown at all (less to look at).
-  ].filter((x) => CORE.includes(x.key) && (x.done || ["artist", "dates", "contact"].includes(x.key)));
+  ].filter((x) => x.done || ["artist", "dates", "contact"].includes(x.key));
 }

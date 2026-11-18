@@ -11,7 +11,7 @@ import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
-import { PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas } from "@/components/showpilot/BookingFields";
+import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas, RiderFile, techRiderHas } from "@/components/showpilot/BookingFields";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
 // as a web, the dates they want, and who it goes to, then sends it with the
@@ -22,7 +22,7 @@ const EMPTY = {
   band_name: "", set_length_minutes: "", genre_tags: [], band_members: [],
   stage_plot_url: "", stage_plot_files: [], general_notes: "",
   submitter_name: "", submitter_phone: "", submitter_email: "",
-  photo_url: "", promo_links: [], hospitality: {}, merch: {}, deal: {},
+  photo_url: "", promo_links: [], hospitality: {}, merch: {}, deal: {}, riders: {},
 };
 // The act's info as the package keeps it (everything but the name).
 const toData = (form) => {
@@ -114,10 +114,14 @@ export default function BookingPackage() {
           ...(act ? {
             band_name: act.band_name || "",
             genre_tags: act.genre_tags || f.genre_tags,
+            band_members: act.band_members || f.band_members,
+            stage_plot_url: act.stage_plot_url || f.stage_plot_url,
+            stage_plot_files: act.stage_plot_files || f.stage_plot_files,
+            general_notes: act.general_notes || f.general_notes,
             photo_url: act.photo_url || f.photo_url,
           } : {}),
         }));
-        if (act) setSeen((s) => ({ ...s, artist: true, contact: true, promo: !!act.photo_url }));
+        if (act) setSeen((s) => ({ ...s, artist: true, members: true, notes: true, contact: true, promo: !!act.photo_url }));
       }
       setLoading(false);
     })();
@@ -179,14 +183,28 @@ export default function BookingPackage() {
     byKey.artist && { ...byKey.artist, label: "Artist", short: "Artist", hint: "Name and genre" },
     { key: "promo", label: "Promo", short: "Promo", hint: "Your picture and links the venue can share", required: false,
       done: !!seen.promo && promoHas(form), body: () => <PromoBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
-    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw and the deal you're after", required: false,
+    { key: "deal", label: "Deal and draw", short: "Deal & draw", hint: "What you draw, the deal you're after, tickets, ages, backline", required: false,
       done: !!seen.deal && dealHas(form), body: () => <DealBody form={form} update={h.update} /> },
     { key: "dates", label: "Dates wanted", short: "Dates wanted", hint: "When you'd like to play", required: true,
       done: hasMonths, body: () => <DatesBody wants={wants} setWants={setWantsD} /> },
+    // Everything a venue needs to book (job 331): hospitality and the
+    // hospitality rider, then the audio side (members, stage plot, the tech
+    // rider and notes).
+    { key: "hosp", label: "Hospitality and merch", short: "Hospitality", hint: "Meals, guests, merch table, your hospitality rider", required: false,
+      done: !!seen.hosp && hospitalityHas(form), body: () => <HospitalityBody form={form} update={h.update} uploadFile={h.uploadFile} /> },
     byKey.contact,
-    // Members, stage plot, notes and hospitality aren't asked here (job 301):
-    // a venue books on the act, the deal and the dates; the rest comes
-    // through the intake forms once it's booked.
+    byKey.members && { ...byKey.members, required: false, hint: "Who plays what, and your stage plot" },
+    byKey.plot,
+    byKey.notes && {
+      ...byKey.notes, label: "Tech rider and notes", short: "Tech rider", hint: "Your tech rider, and notes for the engineer",
+      done: byKey.notes.done || techRiderHas(form),
+      body: () => (
+        <div className="flex flex-col gap-4">
+          <RiderFile form={form} update={h.update} uploadFile={h.uploadFile} kind="tech" />
+          {byKey.notes.body()}
+        </div>
+      ),
+    },
   ].filter(Boolean);
   const toDone = sendToDone(to);
   const canSend = !!form.band_name.trim() && hasMonths && toDone;

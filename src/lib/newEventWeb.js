@@ -63,6 +63,9 @@ export const emptyForm = () => ({
   onFile: {}, // item key -> false when switched off for this event
   paper: { w9: null, agreement: null, coi: null, other: [] }, // File objects, filed on create
   people: [], // [{ id, role: "manager" | "band", label, pilotId }]
+  // A stage plot uploaded here (manager side, when the venue does sound;
+  // job 331): { url, name, type }, added to the headliner's plot files.
+  stagePlot: null,
 });
 
 export const eventName = (f, venueName = "") => {
@@ -157,6 +160,14 @@ export async function uploadPromo(userId, file, format) {
   const { error } = await supabase.storage.from("profile-photos").upload(path, file, { contentType: file.type || undefined });
   if (error) throw error;
   return { url: supabase.storage.from("profile-photos").getPublicUrl(path).data.publicUrl, name: file.name };
+}
+
+// A stage plot file (image or PDF), public like the ones in My Templates.
+export async function uploadStagePlot(userId, file) {
+  const path = `events/${userId}/${Date.now()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error } = await supabase.storage.from("stage-plots").upload(path, file, { contentType: file.type || undefined });
+  if (error) throw error;
+  return { url: supabase.storage.from("stage-plots").getPublicUrl(path).data.publicUrl, name: file.name, type: file.type || "" };
 }
 
 const inviteUrl = (token) => `${window.location.origin}/gig/shared?invite=${token}`;
@@ -266,6 +277,7 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
       const row = t ? artistFromTemplate(a.name, t.data) : { band_name: a.name };
       if (venueSide) { const p = pilot(a.pilotId); if (p?.profile_photo_url) row.photo_url = p.profile_photo_url; }
       if (!venueSide && f.onFile.plot === false) { row.band_members = []; row.stage_plot_url = ""; row.stage_plot_files = []; }
+      if (!venueSide && i === 0 && f.stagePlot?.url) row.stage_plot_files = [...(row.stage_plot_files || []), f.stagePlot];
       if (!venueSide && !photoOn) delete row.photo_url;
       const len = Number(row.set_length_minutes);
       row.set_length_minutes = Number.isFinite(len) && len > 0 ? Math.round(len) : null;
