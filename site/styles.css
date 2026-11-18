@@ -99,32 +99,41 @@ h3{font-size:28px;line-height:1.05}
 
 /* Feature tour */
 .tour{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:28px;align-items:start}
+.tour[hidden]{display:none}
+.tour-side{display:flex;flex-direction:column;gap:16px}
+.seat{padding:4px 4px 0;display:flex;flex-direction:column;gap:8px}
+.seat-name{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;color:var(--c)}
+.seat-pitch{font-size:15.5px;color:var(--ink-2)}
+.seat-price{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--c)}
+.seats .tab{min-height:52px;font-size:21px}
 .tour-list{display:flex;flex-direction:column;gap:6px}
 .tour-tab{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;align-items:start;text-align:left;padding:14px 16px 16px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer;font:inherit;overflow:hidden}
 .tour-tab:hover{background:rgba(255,255,255,.03)}
 .tour-tab .n{font-family:var(--mono);font-size:12px;color:var(--ink-3);padding-top:6px}
 .tour-tab .tt{font-family:var(--display);font-weight:700;font-size:23px;line-height:1.1;color:var(--ink-2);display:flex;flex-direction:column;gap:6px}
 .tour-tab small{display:none;font-family:'Inter',sans-serif;font-weight:400;font-size:14.5px;line-height:1.5;color:var(--ink-3)}
-.tour-tab[aria-selected="true"]{background:var(--panel);border-color:rgba(140,255,61,.35);box-shadow:inset 3px 0 0 var(--green)}
-.tour-tab[aria-selected="true"] .n{color:var(--green)}
+.tour-tab[aria-selected="true"]{background:var(--panel);border-color:color-mix(in srgb,var(--c,var(--green)) 40%,transparent);box-shadow:inset 3px 0 0 var(--c,var(--green))}
+.tour-tab[aria-selected="true"] .n{color:var(--c,var(--green))}
 .tour-tab[aria-selected="true"] .tt{color:#fff}
 .tour-tab[aria-selected="true"] small{display:block}
+.tour-list{min-height:0}
 .meter{position:absolute;left:0;right:0;bottom:0;height:2px;background:transparent}
-.meter span{display:block;height:2px;width:0;background:var(--green)}
+.meter span{display:block;height:2px;width:0;background:var(--c,var(--green))}
 .tour-tab[aria-selected="true"] .meter span{animation:meter var(--dur,6.5s) linear forwards}
 .tour[data-paused] .tour-tab[aria-selected="true"] .meter span{animation-play-state:paused}
 .tour[data-stopped] .meter{display:none}
 @keyframes meter{to{width:100%}}
-.tour-stage{position:relative;padding:26px;border-radius:22px;border:1px solid var(--line);background-color:rgba(13,13,13,.8);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:22px 22px;min-height:540px;display:flex;flex-direction:column}
-.slide{position:relative;flex:1;display:flex;align-items:center;justify-content:center;padding-bottom:20px;animation:fade .45s ease}
+.tour-stage{position:relative;padding:26px;border-radius:22px;border:1px solid var(--line);background-color:rgba(13,13,13,.8);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:22px 22px;display:flex;flex-direction:column}
+.slide{position:relative;height:520px;display:flex;align-items:center;justify-content:center;padding-bottom:20px;animation:fade .45s ease;overflow:hidden}
 .slide[hidden]{display:none}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.slide{animation:none}}
 .slide .browser{width:86%;margin-right:auto}
 .slide .browser.wide{width:100%;margin:0}
+.slide .browser.tall{width:min(58%,420px);margin:0 auto}
 .slide .phone.side{position:absolute;right:0;bottom:0;width:26%;max-width:190px}
 .slide.two-phones{gap:22px}
-.slide.two-phones .phone{width:min(42%,250px)}
+.slide.two-phones .phone{width:min(38%,215px)}
 .slide.two-phones .phone:last-child{transform:translateY(26px)}
 .tour-nav{display:flex;align-items:center;gap:8px;padding-top:6px}
 .round{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#0a0a0a;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -135,6 +144,15 @@ h3{font-size:28px;line-height:1.05}
 .tour[data-paused] .round .i-pause,.tour[data-stopped] .round .i-pause{display:none}
 .tour-count{margin-left:auto;font-size:13px;color:var(--ink-3);letter-spacing:.08em}
 .tour-count b{color:var(--green);font-weight:600}
+
+/* Templates: make it once, book with it, load it when invited */
+.tpl-flow{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:stretch}
+.tpl-flow li{display:flex;flex-direction:column;gap:12px;padding:24px 24px 0;border-radius:20px;background:rgba(13,13,13,.85);border:1px solid var(--line);overflow:hidden}
+.tpl-flow li>p:not(.status){color:var(--ink-2)}
+.tpl-shot{margin-top:auto;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;max-height:330px}
+.tpl-shot img{object-fit:cover;object-position:top;width:100%;height:296px}
+.tpl-phone{margin:auto auto 0;width:min(70%,230px);border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;max-height:330px;overflow:hidden;padding-bottom:0}
+.tpl-phone img{border-bottom-left-radius:0;border-bottom-right-radius:0}
 
 /* How it works: a flight path */
 .flight{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;position:relative}
@@ -174,15 +192,17 @@ h3{font-size:28px;line-height:1.05}
 
 /* Pricing */
 .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:18px}
-.toggle{display:inline-flex;align-self:flex-start;gap:4px;padding:4px;border-radius:999px;background:#0d0d0d;border:1px solid var(--line-2)}
-.toggle .tab{border:0;background:transparent}
-.toggle .tab[aria-pressed="true"]{background:var(--green);color:#030303}
 .plan{display:flex;flex-direction:column;gap:18px;padding:30px;border-radius:20px;background:rgba(13,13,13,.88);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);box-shadow:inset 0 2px 0 var(--c)}
 .plan h3{display:flex;align-items:center;gap:10px;font-size:26px}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);flex:0 0 auto}
-.amount{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;color:var(--ink-3)}
-.amount strong{font-family:var(--display);font-weight:700;font-size:58px;line-height:1;color:#fff}
-.per{margin-top:-8px;font-family:var(--mono);font-size:13px;color:var(--c)}
+.prices{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.price-box{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:2px;padding:12px 16px 14px;border-radius:14px;background:#0a0a0a;border:1px solid var(--line)}
+.price-box .pl{flex-basis:100%}
+.price-box.yr{border-color:color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 7%,#0a0a0a)}
+.price-box .pl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--ink-3)}
+.price-box.yr .pl{color:var(--c)}
+.price-box strong{font-family:var(--display);font-weight:700;font-size:40px;line-height:1;color:#fff;white-space:nowrap}
+.price-box .pu{font-size:13px;color:var(--ink-3)}
 .how{font-size:15.5px;color:rgba(255,255,255,.8)}
 .plan ul{list-style:none;padding:16px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
 .plan li{position:relative;padding-left:28px;font-size:15px;color:var(--ink-2)}
@@ -213,6 +233,7 @@ h3{font-size:28px;line-height:1.05}
   .tour-tab .tt{font-size:18px;white-space:nowrap}
   .tour-tab small{display:none!important}
   .tour-tab .n{padding-top:3px}
+  .tpl-flow{grid-template-columns:minmax(0,1fr)}
 }
 /* Phone width */
 @media (max-width:760px){
@@ -230,11 +251,15 @@ h3{font-size:28px;line-height:1.05}
   .strip dd{font-size:19px}
   .strip dt{font-size:9.5px;letter-spacing:.1em}
   .tour-stage{padding:14px;min-height:0}
-  .slide{padding-bottom:12px}
+  .slide{padding-bottom:12px;height:clamp(240px,96vw,400px)}
   .slide .browser{width:100%}
   .slide .phone.side{display:none}
+  .slide .browser.tall{width:78%}
+  .seats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .seats .tab{flex:0 0 auto;font-size:18px;min-height:46px}
+  .seat-name{font-size:28px}
   .slide.two-phones{gap:12px}
-  .slide.two-phones .phone{width:47%;border-radius:28px;padding:6px}
+  .slide.two-phones .phone{width:min(44%,170px);border-radius:28px;padding:6px}
   .slide.two-phones .phone img{border-radius:23px}
   .slide.two-phones .phone:last-child{transform:none}
   .browser-bar{height:26px}
@@ -242,5 +267,6 @@ h3{font-size:28px;line-height:1.05}
   .flight{grid-template-columns:minmax(0,1fr)}
   .flight::before{left:37px;right:auto;top:24px;bottom:24px;border-top:0;border-left:1.5px dashed rgba(255,255,255,.16)}
   .panel{padding:22px}
+  .price-box strong{font-size:36px}
   .foot-nav{margin-left:0}
 }

@@ -9,3 +9,8 @@ app's build ignores this folder.
 
 Prices come from the project doc `claude/pricing.md`; profile wording mirrors
 `src/lib/profileShowcase.js`. Change them together.
+
+The "Inside the app" tour (a feature list for each profile) is generated:
+edit the lists in `scripts/build-site-tour.py` and run
+`python3 scripts/build-site-tour.py site/index.html site/index.html`.
+It rewrites only the part between `<!--TOUR-->` and `<!--/TOUR-->`.

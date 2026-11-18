@@ -1,18 +1,23 @@
-// get.showpilot.space (jobs 333, 338): the feature tour, the profile picker
-// and the monthly / yearly switch.
+// get.showpilot.space (jobs 333, 338, 341): a feature tour for each profile
+// (pick your seat, then tap a feature or let it play through).
 (function () {
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var narrow = function () { return window.matchMedia('(max-width: 1020px)').matches; };
+  var DUR = 6500;
 
-  // Feature tour: tabs that also play through on their own.
-  var tour = document.querySelector('[data-tour]');
-  if (tour) {
-    var tabs = Array.prototype.slice.call(tour.querySelectorAll('[role="tab"]'));
-    var count = tour.querySelector('[data-count]');
-    var playBtn = tour.querySelector('[data-play]');
-    var DUR = 6500;
-    var cur = 0, timer = null, stopped = reduce, hovering = false;
-    if (stopped) tour.setAttribute('data-stopped', '');
+  // One tour (one profile's features).
+  function Tour(el) {
+    var tabs = Array.prototype.slice.call(el.querySelectorAll('[role="tab"]'));
+    var count = el.querySelector('[data-count]');
+    var playBtn = el.querySelector('[data-play]');
+    var cur = 0, timer = null, stopped = reduce, hovering = false, active = false;
+    if (stopped) el.setAttribute('data-stopped', '');
 
+    var schedule = function () {
+      clearTimeout(timer);
+      if (!active || stopped || hovering || document.hidden) return;
+      timer = setTimeout(function () { show(cur + 1); }, DUR);
+    };
     var show = function (i, focus) {
       cur = (i + tabs.length) % tabs.length;
       tabs.forEach(function (t, k) {
@@ -20,34 +25,27 @@
         t.setAttribute('aria-selected', on ? 'true' : 'false');
         t.tabIndex = on ? 0 : -1;
         document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
-        // Restart the progress line on the new tab.
         var m = t.querySelector('.meter span');
         if (m) { m.style.animation = 'none'; void m.offsetWidth; m.style.animation = ''; }
       });
       if (count) count.textContent = (cur < 9 ? '0' : '') + (cur + 1);
       if (focus) tabs[cur].focus();
-      if (window.matchMedia('(max-width: 1020px)').matches) {
-        tabs[cur].scrollIntoView({ block: 'nearest', inline: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      if (narrow() && active) {
+        var list = tabs[cur].parentNode;
+        list.scrollTo({ left: tabs[cur].offsetLeft - 20, behavior: reduce ? 'auto' : 'smooth' });
       }
       schedule();
     };
-    var schedule = function () {
-      clearTimeout(timer);
-      if (stopped || hovering || document.hidden) return;
-      timer = setTimeout(function () { show(cur + 1); }, DUR);
-    };
-    var setPaused = function (p) {
-      if (p) tour.setAttribute('data-paused', ''); else tour.removeAttribute('data-paused');
-    };
     var stop = function () {
-      stopped = true; clearTimeout(timer); tour.setAttribute('data-stopped', '');
+      stopped = true; clearTimeout(timer); el.setAttribute('data-stopped', '');
       playBtn.setAttribute('aria-label', 'Play the slideshow');
     };
     var play = function () {
-      stopped = false; tour.removeAttribute('data-stopped');
+      stopped = false; el.removeAttribute('data-stopped');
       playBtn.setAttribute('aria-label', 'Pause the slideshow');
       show(cur);
     };
+    var setPaused = function (p) { if (p) el.setAttribute('data-paused', ''); else el.removeAttribute('data-paused'); };
 
     tabs.forEach(function (t, k) {
       t.addEventListener('click', function () { stop(); show(k); });
@@ -58,50 +56,43 @@
         if (e.key === 'End') { e.preventDefault(); stop(); show(tabs.length - 1, true); }
       });
     });
-    tour.querySelector('[data-prev]').addEventListener('click', function () { stop(); show(cur - 1); });
-    tour.querySelector('[data-next]').addEventListener('click', function () { stop(); show(cur + 1); });
+    el.querySelector('[data-prev]').addEventListener('click', function () { stop(); show(cur - 1); });
+    el.querySelector('[data-next]').addEventListener('click', function () { stop(); show(cur + 1); });
     playBtn.addEventListener('click', function () { if (stopped) play(); else stop(); });
-    tour.addEventListener('mouseenter', function () { hovering = true; setPaused(true); clearTimeout(timer); });
-    tour.addEventListener('mouseleave', function () { hovering = false; setPaused(false); schedule(); });
-    tour.addEventListener('focusin', function () { if (!stopped) { hovering = true; setPaused(true); clearTimeout(timer); } });
-    tour.addEventListener('focusout', function (e) { if (!tour.contains(e.relatedTarget)) { hovering = false; setPaused(false); schedule(); } });
+    el.addEventListener('mouseenter', function () { hovering = true; setPaused(true); clearTimeout(timer); });
+    el.addEventListener('mouseleave', function () { hovering = false; setPaused(false); schedule(); });
+    el.addEventListener('focusin', function () { if (!stopped) { hovering = true; setPaused(true); clearTimeout(timer); } });
+    el.addEventListener('focusout', function (e) { if (!el.contains(e.relatedTarget)) { hovering = false; setPaused(false); schedule(); } });
     document.addEventListener('visibilitychange', schedule);
 
-    // Only start playing once the tour is on screen.
+    return {
+      el: el,
+      start: function () { active = true; el.hidden = false; show(0); },
+      sleep: function () { active = false; clearTimeout(timer); el.hidden = true; },
+    };
+  }
+
+  var tours = {};
+  document.querySelectorAll('[data-tour]').forEach(function (el) { tours[el.getAttribute('data-tour')] = Tour(el); });
+  var seats = document.querySelectorAll('[data-seat]');
+  var current = seats.length ? seats[0].getAttribute('data-seat') : null;
+  var pick = function (key) {
+    current = key;
+    seats.forEach(function (s) { s.setAttribute('aria-pressed', s.getAttribute('data-seat') === key ? 'true' : 'false'); });
+    Object.keys(tours).forEach(function (k) { if (k !== key) tours[k].sleep(); });
+    tours[key].start();
+  };
+  seats.forEach(function (s) { s.addEventListener('click', function () { pick(s.getAttribute('data-seat')); }); });
+
+  // Start playing once the tour is on screen.
+  var section = document.getElementById('tour');
+  if (current && section) {
     if ('IntersectionObserver' in window) {
       var seen = false;
       new IntersectionObserver(function (es) {
-        es.forEach(function (e) { if (e.isIntersecting && !seen) { seen = true; show(0); } });
-      }, { threshold: 0.35 }).observe(tour);
-    } else show(0);
+        es.forEach(function (e) { if (e.isIntersecting && !seen) { seen = true; pick(current); } });
+      }, { threshold: 0.25 }).observe(section);
+    } else pick(current);
   }
 
-  // Who it's for: tap a profile to show what it includes.
-  var ptabs = document.querySelectorAll('.tabs .tab');
-  ptabs.forEach(function (tab) {
-    tab.style.setProperty('--c', tab.getAttribute('data-color'));
-    tab.addEventListener('click', function () {
-      var key = tab.getAttribute('data-profile');
-      ptabs.forEach(function (t) { t.setAttribute('aria-pressed', t === tab ? 'true' : 'false'); });
-      document.querySelectorAll('.panel').forEach(function (p) {
-        p.hidden = p.getAttribute('data-panel') !== key;
-      });
-    });
-  });
-
-  // Pricing: monthly or yearly (10% off).
-  var bills = document.querySelectorAll('[data-billing]');
-  bills.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var yearly = btn.getAttribute('data-billing') === 'yearly';
-      bills.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
-      document.querySelectorAll('.plan [data-m]').forEach(function (el) {
-        el.textContent = el.getAttribute(yearly ? 'data-y' : 'data-m');
-      });
-      document.querySelectorAll('.plan .per').forEach(function (el) {
-        el.textContent = el.getAttribute('data-y');
-        el.hidden = !yearly;
-      });
-    });
-  });
 })();
