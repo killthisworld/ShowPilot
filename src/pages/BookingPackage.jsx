@@ -13,6 +13,8 @@ import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesBody, SendToBody, sendToDone, DealBody, dealHas, techRiderHas, TechRiderBody, ContactBody, contactDone, ActCenterBody } from "@/components/showpilot/BookingFields";
 import { useGoBack } from "@/lib/navHistory";
+import BookSteps from "@/components/showpilot/BookSteps";
+import { loadActTemplates, packageFromTemplate, saveBookingTemplate, sameAct } from "@/lib/bookingTemplate";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
 // as a web, the dates they want, and who it goes to, then sends it with the
@@ -59,6 +61,13 @@ export default function BookingPackage() {
   const [booked, setBooked] = useState(null); // { share_token, date } once confirmed here
   const [confirming, setConfirming] = useState(false);
   const dirty = useRef(false);
+  // Book a date in three steps (job 349): the acts in My Templates, the one
+  // picked, and whether the web is open (See what's inside).
+  const [tplActs, setTplActs] = useState([]);
+  const [pickedAct, setPickedAct] = useState(null);
+  const [webOpen, setWebOpen] = useState(false);
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [tplMsg, setTplMsg] = useState("");
   const h = useActForm(form, (fn) => { dirty.current = true; setForm(fn); }, `booking_${user?.id || "anon"}`);
 
   // Signed in only: a package belongs to its sender.
@@ -78,12 +87,17 @@ export default function BookingPackage() {
         .select("display_name, profile_photo_url, card_share_token, account_type").eq("user_id", user.id).maybeSingle();
       if (gone) return;
       setMe(prefs || {});
+      let actList = [];
+      try { actList = await loadActTemplates(user.id); } catch (e) { console.error(e); }
+      if (gone) return;
+      setTplActs(actList);
       if (routeId) {
         try {
           const row = await loadPackage(routeId);
           if (gone) return;
           if (row) {
             setForm({ ...EMPTY, ...(row.data || {}), band_name: row.act_name || "" });
+            setPickedAct(actList.find((a) => sameAct(a.name, row.act_name))?.id || null);
             setWants({ months: [], days: [], note: "", ...(row.wants || {}) });
             setTo({ name: row.to_name || "", email: row.to_email || "", phone: row.to_phone || "" });
             setSeen(Object.fromEntries(["center", "members", "tech", "deal", "hosp", "promo", "dates", "contact"].map((k) => [k, true])));
@@ -128,6 +142,14 @@ export default function BookingPackage() {
           } : {}),
         }));
         if (act) setSeen((s) => ({ ...s, center: true, members: true, tech: true, contact: true }));
+        // One act: it's picked, with its booking template when it has one.
+        if (actList.length === 1) {
+          setPickedAct(actList[0].id);
+          if (actList[0].booking) {
+            setForm((f) => packageFromTemplate(actList[0], f, EMPTY));
+            setSeen((s) => ({ ...s, deal: true, promo: true, tech: true, hosp: true }));
+          }
+        }
       }
       setLoading(false);
     })();
@@ -198,6 +220,31 @@ export default function BookingPackage() {
     setForm((f) => ({ ...f, band_members: act.band_members, artist_fx_notes: f.artist_fx_notes?.length ? f.artist_fx_notes : act.artist_fx_notes || [], general_notes: f.general_notes || act.general_notes || "" }));
     return "";
   };
+  // Step 2 (job 349): pick an act; its booking template fills the rest.
+  const pickAct = (id) => {
+    const act = tplActs.find((a) => a.id === id);
+    if (!act) return;
+    dirty.current = true;
+    setPickedAct(id);
+    setTplMsg("");
+    setForm((f) => packageFromTemplate(act, f, EMPTY));
+    setSeen((s) => ({ ...s, center: true, members: true, contact: true, tech: true, ...(act.booking ? { deal: true, promo: true, hosp: true } : {}) }));
+  };
+  const saveAsTemplate = async () => {
+    setSavingTpl(true);
+    setTplMsg("");
+    try {
+      const how = await saveBookingTemplate(user.id, form, toData(form));
+      const list = await loadActTemplates(user.id);
+      setTplActs(list);
+      setPickedAct(list.find((a) => sameAct(a.name, form.band_name))?.id || null);
+      setTplMsg(how === "created" ? `Saved. ${form.band_name} is in My Templates now, with this package.` : `Saved. Next time, pick ${form.band_name} and it's all here.`);
+    } catch (e) {
+      console.error(e);
+      setTplMsg(e?.message && !/^[A-Z_]+$/.test(e.message) ? e.message : "Couldn't save it. Try again.");
+    }
+    setSavingTpl(false);
+  };
   // Writes that start from the latest form (uploads land late; job 332).
   const updateWith = (field, fn) => { dirty.current = true; setForm((f) => ({ ...f, [field]: fn(f[field]) })); };
   const P = { form, update: h.update, updateWith, uploadFile: h.uploadFile };
@@ -240,6 +287,8 @@ export default function BookingPackage() {
       const out = await sendPackage(row?.id || pkgId);
       setCode(out.code);
       setSent(true);
+      // From the steps there's no web to fly off: straight to the sent page.
+      if (!webOpen) setSentOff(true);
     } catch (e) {
       console.error(e);
       setError(/needs/.test(e?.message || "") ? `This still ${e.message.replace(/^needs/, "needs")}.` : "Couldn't send it. Try again.");
@@ -276,6 +325,18 @@ export default function BookingPackage() {
     <button type="button" onClick={() => setPreview(true)} className="min-h-[46px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold text-white/80 flex items-center justify-center gap-2">
       <Eye className="w-4 h-4" />View as {to.name || "the venue"}
     </button>
+  );
+  // Under Send on the web (job 349): keep this package as the act's template.
+  const webBelowSend = (
+    <>
+      {viewAsVenue}
+      {form.band_name.trim() && (
+        <button type="button" onClick={saveAsTemplate} disabled={savingTpl} className="min-h-[44px] text-[14px] font-semibold disabled:opacity-60" style={{ color: PACKAGE_RED }}>
+          {savingTpl ? "Saving…" : `Save as ${form.band_name}'s booking template`}
+        </button>
+      )}
+      {tplMsg && <p className="m-0 text-center text-[13px] text-white/70">{tplMsg}</p>}
+    </>
   );
 
   const confirm = async (date) => {
@@ -336,6 +397,19 @@ export default function BookingPackage() {
     );
   }
 
+  // A package not sent yet starts as three steps (job 349).
+  if (!webOpen && !code) {
+    return (
+      <BookSteps
+        form={form} wants={wants} setWants={setWantsD} to={to} setTo={setToD} formatPhone={h.formatPhone}
+        acts={tplActs} pickedId={pickedAct} onPick={pickAct}
+        canSend={canSend} onSend={onSend} sending={sending} error={error}
+        onOpenWeb={() => setWebOpen(true)} onPreview={() => setPreview(true)} onBack={goBack}
+        onSaveTemplate={saveAsTemplate} saving={savingTpl} saveMsg={tplMsg}
+      />
+    );
+  }
+
   return (
     <IntakeKeyWeb
       startOpen
@@ -350,7 +424,7 @@ export default function BookingPackage() {
         openLabel: "the act and your digital card",
         pane: centerPane,
       }}
-      onBack={goBack}
+      onBack={code ? goBack : () => setWebOpen(false)}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
       corner={{ label: "Send to", icon: Send, required: true, done: toDone, body: () => <SendToBody to={to} setTo={setToD} formatPhone={h.formatPhone} /> }}
@@ -361,7 +435,7 @@ export default function BookingPackage() {
       error={error}
       sent={sent}
       onSentOff={() => setSentOff(true)}
-      belowSend={viewAsVenue}
+      belowSend={webBelowSend}
     />
   );
 }
