@@ -6,7 +6,7 @@
 // Nothing else is touched: no API calls, no Supabase, no other sites. The
 // app keeps its own copy of the day sheet, contacts and guest list.
 
-const VERSION = "sp-shell-v2";
+const VERSION = "sp-shell-v3";
 const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
