@@ -14,6 +14,12 @@ export const HOLDERS = { venue: ["venue"], manager: ["manager"], band: ["band"],
 // Circle -> every account type that works its section (either half of a pair).
 export const SECTION_HOLDERS = { venue: ["venue"], manager: ["manager", "band"], band: ["manager", "band"], engineer: ["engineer", "lighting"], lighting: ["engineer", "lighting"] };
 
-export const WEB_LABELS = { venue: "Venue", manager: "Manager", band: "Artist", engineer: "Audio", lighting: "Lighting" };
+// The circles on the event web (job 340): Manager and Artist share one circle,
+// and so do Audio and Lighting, so the web has three. Each circle lists its
+// sides; the web shows only the sides that are actually on the event.
+export const WEB_CIRCLES = ["venue", "manager", "engineer"];
+export const CIRCLE_SIDES = { venue: ["venue"], manager: ["manager", "band"], engineer: ["engineer", "lighting"] };
+
+export const WEB_LABELS = { venue: "Venue", manager: "Management", band: "Artist", engineer: "Audio", lighting: "Lighting" };
 
 export const sectionOf = (role) => SECTION_OF[role] || role;

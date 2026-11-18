@@ -43,7 +43,7 @@ import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 import DjTools from "@/pages/DjTools";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { myOpenTasks } from "@/lib/myTasks";
-import { WEB_ROLES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
+import { WEB_ROLES, WEB_CIRCLES, CIRCLE_SIDES, WEB_LABELS, HOLDERS, SECTION_HOLDERS, sectionOf } from "@/lib/eventRoles";
 import PinnedBoard from "@/components/showpilot/PinnedBoard";
 
 // Short console-style codes for the role channel buttons.
@@ -322,7 +322,11 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const [focus, setFocus] = useState({ role: null, key: null, n: 0 });
   // DJ Tools opens as a box over the event, so closing it lands back on the Artist web.
   const [djOpen, setDjOpen] = useState(() => !tokenProp && params.get("dj") === "1");
-  const selectRole = (role, key = null) => {
+  // A circle's own key (manager, engineer) opens its default side; a side
+  // asked for by name (band, lighting, or exact) opens as asked (job 340).
+  const selectRole = (rawRole, key = null, exact = false) => {
+    const circle = rawRole && CIRCLE_SIDES[rawRole] && !exact ? nodes.find((n) => n.role === rawRole) : null;
+    const role = circle ? (circle.sides.includes(selectedRole) ? selectedRole : circle.sides[0]) : rawRole;
     const apply = () => {
       setSelectedRole(role);
       if (role) setFocus((f) => ({ role, key, n: f.n + 1 }));
@@ -459,7 +463,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
   // Every event always shows all three profiles, so the web stays even. A
   // profile nobody is invited to (and nothing is filled in for) stays unlit.
-  const roles = ROLE_ORDER;
+  const roles = WEB_CIRCLES;
   const title = eventTitle(gig);
   const dateLabel = isDateTbd(gig.date) ? dateText(gig) : gig.date ? new Date(gig.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
 
@@ -471,22 +475,46 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   // - not just profile-to-center - start adding their own lines to this
   // same web.
   const cx = 150, cy = 150, r = 112;
+  // Three circles (job 340): Venue, Artist / Management, Tech (Audio + Lighting).
+  // Each lists the sides that are on the event; opening it shows those sides.
+  const sideOn = (r) => roleClaimed(r, permissions) || roleInvited(r, permissions) || OWNER_ROLE[permissions?.owner_account_type] === r;
   const nodes = roles.map((role, i) => {
     const angle = (-90 + i * (360 / roles.length)) * (Math.PI / 180);
-    const baseStyle = ACCOUNT_TYPE_STYLES[role] || ACCOUNT_TYPE_STYLES.engineer;
-    // Same pages and rules as the profile's own pages, Mark as done included (job 172).
-    const percent = profilePercent(role, gig);
-    // The owner's own profile counts as on it (job 172).
-    const claimed = roleClaimed(role, permissions) || OWNER_ROLE[permissions?.owner_account_type] === role;
-    const notNeeded = !claimed && (permissions?.not_needed_roles || []).includes(role);
-    const invited = roleInvited(role, permissions);
-    const hasTasks = (gig.tasks || []).some((t) => t.section === sectionOf(role));
+    const all = CIRCLE_SIDES[role];
+    // Artist / Management: only the one that is on the event, so everyone sees
+    // which it is. Neither or both on: both sides. Tech always has both.
+    let sides = all;
+    if (role === "manager") {
+      const on = all.filter(sideOn);
+      if (on.length === 1) sides = on;
+    }
+    if (selectedRole && all.includes(selectedRole) && !sides.includes(selectedRole)) sides = all;
+    const pick = sides.includes(selectedRole) ? selectedRole : sides[0];
+    const baseStyle = ACCOUNT_TYPE_STYLES[pick] || ACCOUNT_TYPE_STYLES.engineer;
+    const infos = sides.map((r) => {
+      // Same pages and rules as the profile's own pages, Mark as done included (job 172).
+      const percent = profilePercent(r, gig);
+      // The owner's own profile counts as on it (job 172).
+      const claimed = roleClaimed(r, permissions) || OWNER_ROLE[permissions?.owner_account_type] === r;
+      return { percent, claimed, notNeeded: !claimed && (permissions?.not_needed_roles || []).includes(r), invited: roleInvited(r, permissions) };
+    });
+    const percent = Math.round(infos.reduce((a, x) => a + x.percent, 0) / infos.length);
+    const claimed = infos.some((x) => x.claimed);
+    const notNeeded = infos.every((x) => x.notNeeded);
+    const invited = infos.some((x) => x.invited);
+    const hasTasks = (gig.tasks || []).some((t) => t.section === role);
     // Lit = someone is on it, or something is filled in. Opening a profile
     // always shows its color so you know where you are.
     const lit = !notNeeded && (claimed || invited || percent > 0 || hasTasks);
-    const style = lit || role === selectedRole ? baseStyle : { ...baseStyle, color: UNLIT };
+    const label = role === "engineer" ? "Tech" : sides.map((r) => WEB_LABELS[r]).join(" / ");
+    const codes = sides.map((r) => ROLE_CODES[r]);
+    const style = { ...(lit || sides.includes(selectedRole) ? baseStyle : { ...baseStyle, color: UNLIT }), label };
     return {
       role,
+      sides,
+      label,
+      codes,
+      code: role === "engineer" ? "TECH" : codes.join(" / "),
       x: Math.round((cx + r * Math.cos(angle)) * 10) / 10,
       y: Math.round((cy + r * Math.sin(angle)) * 10) / 10,
       style,
@@ -498,7 +526,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     };
   });
 
-  const selectedNode = selectedRole ? nodes.find((n) => n.role === selectedRole) : null;
+  const selectedNode = selectedRole ? nodes.find((n) => n.sides.includes(selectedRole)) : null;
   const roleWeb = isRoleWeb(selectedRole);
   const hubM = spinMotion({ entering: !hubEntered, leaving });
 
@@ -820,13 +848,13 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
 
 
           {nodes.map((n) => {
-            const active = n.role === selectedRole;
+            const active = n.sides.includes(selectedRole);
             return (
               <button
                 key={n.role}
                 type="button"
                 onClick={() => selectRole(n.role)}
-                aria-label={`${SECTION_LABELS[n.role]}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
+                aria-label={`${n.label}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
                 className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0 overflow-hidden"
                 style={{
                   left: n.x, top: n.y, ...hubM.node(n.x - cx, n.y - cy), width: 72, height: 72, zIndex: 1,
@@ -835,7 +863,9 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               >
                 <CirclePhoto url={sectionPhoto(n.role, gig)} />
                 <RoleGlyph style={n.style} size={15} photo={!!sectionPhoto(n.role, gig)} />
-                <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: ROLE_CODES[n.role].length > 5 ? 13 : 15 }}>{ROLE_CODES[n.role]}</span>
+                {n.codes.map((c) => (
+                  <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: n.codes.length > 1 ? 10.5 : c.length > 5 ? 13 : 15 }}>{c}</span>
+                ))}
                 <span className="relative w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
@@ -879,6 +909,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <>
               <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
               <span className="text-white font-semibold text-base truncate">{SECTION_LABELS[selectedRole]}</span>
+              <SideSwitch node={selectedNode} selectedRole={selectedRole} selectRole={selectRole} />
               <span className="text-white/30 text-xs shrink-0 ml-auto">
                 {selectedNode.claimed ? "Claimed" : selectedNode.invited ? "Invited" : "Not invited"} · {selectedNode.percent}%
               </span>
@@ -1426,7 +1457,7 @@ function ProfileStrips({ nodes, tasks, onSelectRole }) {
             {/* Scribble strip */}
             <div className="flex items-center justify-center gap-1 px-1 py-1" style={{ background: c }}>
               <Icon className="hidden sm:block w-3.5 h-3.5 shrink-0" style={{ color: "#0d0d0d" }} />
-              <span className="text-[9px] sm:text-[10.5px] font-bold tracking-[0.02em] sm:tracking-[0.04em] truncate" style={{ color: "#0d0d0d" }}>{ROLE_CODES[n.role] || n.style.label}</span>
+              <span className="text-[9px] sm:text-[10.5px] font-bold tracking-[0.02em] sm:tracking-[0.04em] truncate" style={{ color: "#0d0d0d" }}>{n.code}</span>
             </div>
             {/* Status LED + fill + open tasks, one short row */}
             <div className="flex items-center justify-center gap-1.5 px-1 py-1.5">
@@ -1707,6 +1738,27 @@ function RoleTaskList({ tasks, editable, onComplete, onOpen, userId }) {
   );
 }
 
+// Audio | Lighting, or Artist | Management, at the top of an opened circle
+// (job 340). Only drawn when the circle has more than one side.
+function SideSwitch({ node, selectedRole, selectRole }) {
+  if (!node || node.sides.length < 2) return null;
+  return (
+    <div role="tablist" aria-label={`${node.label} sides`} className="flex items-center gap-1 shrink-0 p-0.5 rounded-lg bg-[#0d0d0d] border border-[#262626]">
+      {node.sides.map((r) => {
+        const on = r === selectedRole;
+        const c = ACCOUNT_TYPE_STYLES[r]?.color || node.style.color;
+        return (
+          <button key={r} type="button" role="tab" aria-selected={on} onClick={() => selectRole(r, null, true)}
+            className="h-7 px-2.5 rounded-md text-[12px] font-bold transition-colors"
+            style={on ? { background: c, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.6)" }}>
+            {WEB_LABELS[r]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // The Rooms tab - the group chat for whatever's selected (a role's room,
 // or General for the overview), plus, for a role, an inline roster of
 // just that role's people with a Message button each so a PM can be
@@ -1871,13 +1923,13 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
         ))}
       </svg>
       {pts.map((nd) => {
-        const active = nd.role === selectedRole;
+        const active = nd.sides.includes(selectedRole);
         return (
           <button
             key={nd.role}
             type="button"
             onClick={() => selectRole(nd.role)}
-            aria-label={`${SECTION_LABELS[nd.role]}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
+            aria-label={`${nd.label}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
             className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0 overflow-hidden"
             style={{
               left: `${nd.px}%`, top: `${nd.py}%`, ...m.node(((nd.px - 50) / 100) * size, ((nd.py - 50) / 100) * size), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
@@ -1886,7 +1938,9 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
           >
             <CirclePhoto url={sectionPhoto(nd.role, gig)} />
             <RoleGlyph style={nd.style} size={Math.round(22 * k)} photo={!!sectionPhoto(nd.role, gig)} />
-            <span className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(12, Math.round((ROLE_CODES[nd.role].length > 5 ? 14.5 : 20) * k)) }}>{ROLE_CODES[nd.role]}</span>
+            {nd.codes.map((c) => (
+              <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(11, Math.round((nd.codes.length > 1 ? 13 : c.length > 5 ? 14.5 : 20) * k)) }}>{c}</span>
+            ))}
             <span className="relative h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />
             </span>
@@ -2039,6 +2093,7 @@ function DesktopGigWeb({
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: selectedNode.style.color }} />
                     <span className="flex-1 min-w-0 text-white font-bold text-2xl leading-tight truncate">{SECTION_LABELS[selectedRole]}</span>
+                    <SideSwitch node={selectedNode} selectedRole={selectedRole} selectRole={selectRole} />
                     {/* The open profile's page status, Mark as done and SAVE land here (job 169). */}
                     <div ref={setHeadSlot} className="shrink-0 flex items-center gap-2.5" />
                   </div>
@@ -2097,7 +2152,7 @@ function DesktopGigWeb({
               log keeps its own width (clipped) so it never squashes. */}
           <div className="relative min-h-0 shrink-0 overflow-hidden" style={{ width: logOpen ? LOG_W : 56, transition: `width ${FOLD_MS}ms ${FOLD_EASE}` }}>
             <div className="absolute inset-y-0 right-0 flex flex-col" aria-hidden={!logOpen} style={{ width: LOG_W, opacity: logOpen ? 1 : 0, transform: logOpen ? "translateX(0)" : "translateX(24px)", transition: `opacity ${logOpen ? 260 : 160}ms ease ${logOpen ? 140 : 0}ms, transform ${FOLD_MS}ms ${FOLD_EASE}`, pointerEvents: logOpen ? "auto" : "none" }}>
-              <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={ROLE_CODES} onSelectRole={selectRole} selectedRole={selectedRole} onCollapse={() => toggleLog(false)} />
+              <FlightLog nodes={nodes} tasks={gig.tasks || []} activity={activity} codes={Object.fromEntries(nodes.map((n) => [n.role, n.code]))} onSelectRole={selectRole} selectedRole={selectedNode?.role} onCollapse={() => toggleLog(false)} />
             </div>
             <div className="absolute inset-y-0 right-0 w-[56px] flex flex-col" aria-hidden={logOpen} style={{ opacity: logOpen ? 0 : 1, transition: `opacity ${logOpen ? 120 : 240}ms ease ${logOpen ? 0 : 160}ms`, pointerEvents: logOpen ? "none" : "auto" }}>
               <FlightRail nodes={nodes} tasks={gig.tasks || []} activity={activity} onOpen={() => toggleLog(true)} />
