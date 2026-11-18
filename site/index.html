@@ -13,16 +13,18 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Show Pilot: every show on one page">
 <meta property="og:description" content="The venue, the acts and the techs on the same page for each event.">
-<meta property="og:image" content="https://get.showpilot.space/icon-512.png?v=3">
+<meta property="og:image" content="https://get.showpilot.space/shots/event-web.webp">
 <meta property="og:url" content="https://get.showpilot.space/">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="/shots/event-web.webp" type="image/webp">
+<link rel="stylesheet" href="/styles.css?v=3">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+<div class="sky" aria-hidden="true"><span class="sky-a"></span><span class="sky-b"></span><span class="sky-glow"></span></div>
 
 <header class="top">
   <div class="wrap top-row">
@@ -31,9 +33,9 @@
       <span>Show<em>Pilot</em></span>
     </a>
     <nav class="nav hide-sm" aria-label="Sections">
+      <a href="#tour">Inside the app</a>
       <a href="#how">How it works</a>
       <a href="#profiles">Who it's for</a>
-      <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
     </nav>
     <div class="top-cta">
@@ -46,62 +48,116 @@
 <main id="main">
 
 <section id="top" class="hero">
-  <div class="stars" aria-hidden="true"></div>
-  <div class="hero-glow" aria-hidden="true"></div>
-  <div class="wrap hero-row">
+  <div class="wrap hero-grid">
     <div class="hero-text">
-      <p class="kicker green">FOR VENUES · ARTISTS · MANAGERS · TECHS</p>
-      <h1>Every show.<br>One page<br>everyone's on.</h1>
+      <p class="kicker green"><span class="blip"></span>FOR VENUES · ARTISTS · MANAGERS · TECHS</p>
+      <h1>Every show.<br>One page everyone's on.</h1>
       <p class="lead">Show Pilot puts the venue, the acts and the techs on the same page for each event. Everyone fills in their part, and everyone sees what's done and what still needs an answer.</p>
       <div class="btn-row">
         <a class="btn primary" href="https://showpilot.space/register">Create your account</a>
-        <a class="btn ghost" href="#how">See how it works</a>
+        <a class="btn ghost" href="#tour">See inside the app</a>
       </div>
     </div>
-    <div class="hero-art">
-      <div class="web" role="img" aria-label="An event in the middle, with the venue, the manager or artist, and the audio and lighting techs joined to it">
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-          <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,.08)" stroke-width=".3"/>
-          <line x1="50" y1="50" x2="50" y2="13" stroke="#60A5FA" stroke-width=".5" stroke-opacity=".55"/>
-          <line x1="50" y1="50" x2="17" y2="70" stroke="#EF4444" stroke-width=".5" stroke-opacity=".55"/>
-          <line x1="50" y1="50" x2="83" y2="70" stroke="#8CFF3D" stroke-width=".5" stroke-opacity=".55"/>
-        </svg>
-        <div class="node center">
-          <span class="mono">FRI · NOV 13</span>
-          <strong>Your show</strong>
-          <span class="dim">7 of 10 done</span>
+    <div class="hero-shot">
+      <figure class="browser glow">
+        <div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div>
+        <img src="/shots/event-web.webp" width="1600" height="1000" alt="An event in Show Pilot on desktop: the event web with Venue, Manager, Artist, Audio and Lights around the event, the board with run of show and tasks, and the flight log showing how far along each profile is.">
+      </figure>
+      <figure class="phone hero-phone">
+        <img src="/shots/event-web-phone.webp" width="600" height="1298" alt="The same event on a phone: the event web and its status.">
+      </figure>
+    </div>
+  </div>
+  <div class="wrap">
+    <dl class="strip" aria-label="What an event shows at a glance">
+      <div><dt>ROLES CONFIRMED</dt><dd>3/5</dd></div>
+      <div><dt>OPEN TASKS</dt><dd>4</dd></div>
+      <div><dt>GIG READY</dt><dd class="green">72%</dd></div>
+      <div class="hide-sm"><dt>FLIGHT LOG</dt><dd><span class="plane">VENUE</span> EN ROUTE · <span class="plane g">AUDIO</span> LANDED</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section id="tour" class="band">
+  <div class="wrap stack-40">
+    <div class="head wide">
+      <p class="kicker">INSIDE THE APP</p>
+      <h2>Take a look around.</h2>
+      <p class="sub">Tap a feature to see it, or let it play through. These are real Show Pilot screens with a made-up demo event.</p>
+    </div>
+    <div class="tour" data-tour>
+      <div class="tour-list" role="tablist" aria-label="Features">
+        <button type="button" role="tab" class="tour-tab" id="t-web" aria-controls="p-web" aria-selected="true"><span class="n">01</span><span class="tt">One page per event<small>The event web: every profile around the show, and how ready each one is.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-tasks" aria-controls="p-tasks" aria-selected="false" tabindex="-1"><span class="n">02</span><span class="tt">Tasks with due dates<small>Hand out what needs doing, and see who has it and when it's due.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-rooms" aria-controls="p-rooms" aria-selected="false" tabindex="-1"><span class="n">03</span><span class="tt">Chat rooms<small>A room for everyone on the event, plus one for each profile.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-cal" aria-controls="p-cal" aria-selected="false" tabindex="-1"><span class="n">04</span><span class="tt">Calendar<small>Every event you're on, with its photo filling the day.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-day" aria-controls="p-day" aria-selected="false" tabindex="-1"><span class="n">05</span><span class="tt">Day sheets and PDFs<small>Send a day-of link to door staff or a driver. Each sheet saves as a PDF.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-log" aria-controls="p-log" aria-selected="false" tabindex="-1"><span class="n">06</span><span class="tt">Logbook and pilot card<small>Techs keep the shows they've worked and a card to share.</small></span><span class="meter"><span></span></span></button>
+        <button type="button" role="tab" class="tour-tab" id="t-dj" aria-controls="p-dj" aria-selected="false" tabindex="-1"><span class="n">07</span><span class="tt">DJ Tools<small>Set links for each DJ. WAVs land in your own Google Drive.</small></span><span class="meter"><span></span></span></button>
+      </div>
+
+      <div class="tour-stage">
+        <div class="slide" role="tabpanel" id="p-web" aria-labelledby="t-web">
+          <figure class="browser"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div><img src="/shots/event-web.webp" width="1600" height="1000" loading="lazy" alt="The event web on desktop with the board and flight log."></figure>
+          <figure class="phone side"><img src="/shots/event-web-phone.webp" width="600" height="1298" loading="lazy" alt="The event web on a phone."></figure>
         </div>
-        <div class="node venue">Venue</div>
-        <div class="node artist">Manager<br>/ Artist</div>
-        <div class="node tech">Audio /<br>Lighting</div>
+        <div class="slide" role="tabpanel" id="p-tasks" aria-labelledby="t-tasks" hidden>
+          <figure class="browser"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div><img src="/shots/tasks.webp" width="1600" height="1000" loading="lazy" alt="Tasks for an event, in a column for each profile, each with a due date and who has claimed it."></figure>
+          <figure class="phone side"><img src="/shots/tasks-phone.webp" width="600" height="1298" loading="lazy" alt="The same tasks on a phone."></figure>
+        </div>
+        <div class="slide" role="tabpanel" id="p-rooms" aria-labelledby="t-rooms" hidden>
+          <figure class="browser"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div><img src="/shots/rooms.webp" width="1600" height="1000" loading="lazy" alt="The event's General chat room with messages from the manager, the venue and the audio engineer."></figure>
+          <figure class="phone side"><img src="/shots/rooms-phone.webp" width="600" height="1298" loading="lazy" alt="The chat room on a phone."></figure>
+        </div>
+        <div class="slide" role="tabpanel" id="p-cal" aria-labelledby="t-cal" hidden>
+          <figure class="browser"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div><img src="/shots/calendar.webp" width="1600" height="1000" loading="lazy" alt="The month calendar with each event's photo filling its day."></figure>
+          <figure class="phone side"><img src="/shots/tech-home.webp" width="600" height="1298" loading="lazy" alt="The home screen on a phone: this week's shows and the month's events."></figure>
+        </div>
+        <div class="slide two-phones" role="tabpanel" id="p-day" aria-labelledby="t-day" hidden>
+          <figure class="phone"><img src="/shots/dayof.webp" width="600" height="1298" loading="lazy" alt="A day-of package: the event in the middle with its sheets around it."></figure>
+          <figure class="phone"><img src="/shots/dayof-sheet.webp" width="600" height="1298" loading="lazy" alt="The day-of schedule sheet with Save PDF."></figure>
+        </div>
+        <div class="slide two-phones" role="tabpanel" id="p-log" aria-labelledby="t-log" hidden>
+          <figure class="phone"><img src="/shots/logbook.webp" width="600" height="1298" loading="lazy" alt="The logbook: the month's shows as stars."></figure>
+          <figure class="phone"><img src="/shots/pilot-card.webp" width="600" height="1298" loading="lazy" alt="A pilot card with name, job title and contact details."></figure>
+        </div>
+        <div class="slide" role="tabpanel" id="p-dj" aria-labelledby="t-dj" hidden>
+          <figure class="browser wide"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div><img src="/shots/dj-tools.webp" width="1600" height="556" loading="lazy" alt="DJ Tools: a set link for a club night with the running order and which DJs have sent their set."></figure>
+        </div>
+        <div class="tour-nav">
+          <button type="button" class="round" data-prev aria-label="Previous feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button type="button" class="round" data-play aria-label="Pause the slideshow"><svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M15 6v12"/></svg><svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg></button>
+          <button type="button" class="round" data-next aria-label="Next feature"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+          <span class="tour-count mono" aria-live="polite"><b data-count>01</b> / 07</span>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<section id="how" class="band alt">
-  <div class="wrap stack-48">
+<section id="how" class="band">
+  <div class="wrap stack-40">
     <div class="head">
       <p class="kicker">HOW IT WORKS</p>
-      <h2>Three steps from booked to show day.</h2>
+      <h2>From booked to show day in three steps.</h2>
     </div>
-    <div class="grid-3">
-      <article class="card">
-        <p class="step">01</p>
+    <ol class="flight">
+      <li>
+        <p class="status blue">01 · BOARDING</p>
         <h3>Make the event</h3>
         <p>Date, times, venue and who's playing. Show Pilot gives the night its own page.</p>
-      </article>
-      <article class="card">
-        <p class="step">02</p>
+      </li>
+      <li>
+        <p class="status orange">02 · EN ROUTE</p>
         <h3>Send each person a link</h3>
         <p>The venue, the acts and the techs open their link and join their part of the event.</p>
-      </article>
-      <article class="card">
-        <p class="step">03</p>
+      </li>
+      <li>
+        <p class="status green">03 · LANDED</p>
         <h3>Everyone fills in their part</h3>
         <p>Load-in, set times, stage plots and deal terms land on the same page, with tasks and chat rooms to sort out what's left.</p>
-      </article>
-    </div>
+      </li>
+    </ol>
   </div>
 </section>
 
@@ -113,19 +169,19 @@
       <p class="sub">Pick yours to see what it includes. Every profile gets one page per event with everyone on it, tasks, chat rooms and a calendar.</p>
     </div>
     <div class="tabs" role="group" aria-label="Choose a profile">
-      <button type="button" class="tab" data-profile="venue" data-color="#60A5FA" aria-pressed="true">Venue</button>
-      <button type="button" class="tab" data-profile="band" data-color="#EF4444" aria-pressed="false">Artist / DJ</button>
-      <button type="button" class="tab" data-profile="manager" data-color="#EF4444" aria-pressed="false">Manager</button>
-      <button type="button" class="tab" data-profile="engineer" data-color="#8CFF3D" aria-pressed="false">Audio engineer</button>
-      <button type="button" class="tab" data-profile="lighting" data-color="#8CFF3D" aria-pressed="false">Lighting tech</button>
+      <button type="button" class="tab" data-profile="venue" data-color="#60A5FA" aria-pressed="true"><span class="dot"></span>Venue</button>
+      <button type="button" class="tab" data-profile="band" data-color="#EF4444" aria-pressed="false"><span class="dot"></span>Artist / DJ</button>
+      <button type="button" class="tab" data-profile="manager" data-color="#EF4444" aria-pressed="false"><span class="dot"></span>Manager</button>
+      <button type="button" class="tab" data-profile="engineer" data-color="#8CFF3D" aria-pressed="false"><span class="dot"></span>Audio engineer</button>
+      <button type="button" class="tab" data-profile="lighting" data-color="#8CFF3D" aria-pressed="false"><span class="dot"></span>Lighting tech</button>
     </div>
 
     <div class="panel" data-panel="venue" style="--c:#60A5FA">
       <div class="panel-side">
-        <p class="panel-name"><span class="dot"></span>Venue</p>
+        <p class="panel-name">Venue</p>
         <p class="pitch">Run every night at your room from one place, and have the acts and techs fill in what you need.</p>
         <p class="fit">Good fit for venues and rooms running a calendar of shows.</p>
-        <p class="price">$25–$50 a month, by capacity and shows a year</p>
+        <p class="price">$25–$50 A MONTH · BY CAPACITY AND SHOWS A YEAR</p>
         <a class="btn primary" href="https://showpilot.space/register">Start as a venue</a>
       </div>
       <ul class="items">
@@ -140,10 +196,10 @@
 
     <div class="panel" data-panel="band" style="--c:#EF4444" hidden>
       <div class="panel-side">
-        <p class="panel-name"><span class="dot"></span>Artist / DJ</p>
+        <p class="panel-name">Artist / DJ</p>
         <p class="pitch">Advance your shows, send techs what they need, and keep the road details in one place.</p>
         <p class="fit">Good fit for artists, bands, DJs and anyone playing the show.</p>
-        <p class="price">$15 a month, includes 1 act</p>
+        <p class="price">$15 A MONTH · INCLUDES 1 ACT</p>
         <a class="btn primary" href="https://showpilot.space/register">Start as an artist</a>
       </div>
       <ul class="items">
@@ -159,10 +215,10 @@
 
     <div class="panel" data-panel="manager" style="--c:#EF4444" hidden>
       <div class="panel-side">
-        <p class="panel-name"><span class="dot"></span>Manager</p>
+        <p class="panel-name">Manager</p>
         <p class="pitch">Run the artist side of the shows you manage, and keep fans in the loop.</p>
         <p class="fit">Good fit for managers, tour managers and anyone booking acts on someone's behalf.</p>
-        <p class="price">$15 a month, +$5 for each extra act you book or manage</p>
+        <p class="price">$15 A MONTH · +$5 FOR EACH EXTRA ACT</p>
         <a class="btn primary" href="https://showpilot.space/register">Start as a manager</a>
       </div>
       <ul class="items">
@@ -178,10 +234,10 @@
 
     <div class="panel" data-panel="engineer" style="--c:#8CFF3D" hidden>
       <div class="panel-side">
-        <p class="panel-name"><span class="dot"></span>Audio engineer</p>
+        <p class="panel-name">Audio engineer</p>
         <p class="pitch">Know what every show needs before you get there, and keep a record of the work you've done.</p>
         <p class="fit">Good fit for front-of-house, monitor and system techs. Made for your phone.</p>
-        <p class="price">$10 a month</p>
+        <p class="price">$10 A MONTH</p>
         <a class="btn primary" href="https://showpilot.space/register">Start as an engineer</a>
       </div>
       <ul class="items">
@@ -196,10 +252,10 @@
 
     <div class="panel" data-panel="lighting" style="--c:#8CFF3D" hidden>
       <div class="panel-side">
-        <p class="panel-name"><span class="dot"></span>Lighting tech</p>
+        <p class="panel-name">Lighting tech</p>
         <p class="pitch">Run lighting with everything you need for the show in front of you, on your phone.</p>
         <p class="fit">Good fit for lighting designers and operators. Made for your phone.</p>
-        <p class="price">$10 a month</p>
+        <p class="price">$10 A MONTH</p>
         <a class="btn primary" href="https://showpilot.space/register">Start as a lighting tech</a>
       </div>
       <ul class="items">
@@ -214,23 +270,6 @@
   </div>
 </section>
 
-<section id="features" class="band alt">
-  <div class="wrap stack-44">
-    <div class="head">
-      <p class="kicker">ON EVERY EVENT</p>
-      <h2>Everything the night needs, in one place.</h2>
-    </div>
-    <div class="grid-feat">
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span><div><h3>Tasks with due dates</h3><p>Hand out what needs doing on each event, and see who has it and when it's due.</p></div></article>
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></span><div><h3>Chat rooms</h3><p>Talk it through on the event, with the people who are on it.</p></div></article>
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg></span><div><h3>Calendar</h3><p>Every event you're on, with its photo in the day.</p></div></article>
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6"/></svg></span><div><h3>Day sheets and PDFs</h3><p>Turn an event into a day sheet or packet to send or print.</p></div></article>
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3zM8 8h6M8 12h6"/></svg></span><div><h3>Logbook and pilot card</h3><p>Techs keep a record of the shows they've worked and a card to share it.</p></div></article>
-      <article class="feat"><span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg></span><div><h3>DJ Tools</h3><p>Set links for DJs, with WAVs going straight into your own Google Drive.</p></div></article>
-    </div>
-  </div>
-</section>
-
 <section class="band">
   <div class="wrap split">
     <div class="split-text">
@@ -240,27 +279,13 @@
       <p class="sub">Add Show Pilot to your home screen and it opens like an app.</p>
     </div>
     <div class="split-art">
-      <div class="phone" role="img" aria-label="Show Pilot on a phone: tonight's show with its status and the next tasks">
-        <div class="screen">
-          <p class="ph-top"><img src="/icon-192.png?v=3" alt="" width="24" height="24">Tonight</p>
-          <div class="ph-event">
-            <span class="mono green">FRI · NOV 13 · DOORS 7:00</span>
-            <strong>Your show</strong>
-            <span class="dim">Load-in 4:00 PM · Curfew 11:30 PM</span>
-            <span class="bar"><span></span></span>
-          </div>
-          <p class="mono dim ph-label">YOUR TASKS</p>
-          <p class="ph-task done"><span class="box"></span><span>Send the stage plot</span><span class="mono">DONE</span></p>
-          <p class="ph-task today"><span class="box"></span><span>Confirm set times</span><span class="mono">TODAY</span></p>
-          <p class="ph-task"><span class="box"></span><span>Input list for the opener</span><span class="mono">NOV 12</span></p>
-        </div>
-      </div>
+      <figure class="phone"><img src="/shots/tech-home.webp" width="600" height="1298" loading="lazy" alt="Show Pilot's home screen on a phone: this week's shows and the month's events with their photos."></figure>
     </div>
   </div>
 </section>
 
-<section id="pricing" class="band alt">
-  <div class="wrap stack-44">
+<section id="pricing" class="band">
+  <div class="wrap stack-40">
     <div class="head wide">
       <p class="kicker">PRICING</p>
       <h2>Priced by the seat you sit in.</h2>
@@ -300,8 +325,6 @@
 </section>
 
 <section class="band cta">
-  <div class="stars" aria-hidden="true"></div>
-  <div class="cta-glow" aria-hidden="true"></div>
   <div class="wrap cta-inner">
     <img src="/icon-512.png?v=3" alt="" width="84" height="84" class="cta-icon">
     <h2>Fly your next show with Show Pilot.</h2>
@@ -325,8 +348,9 @@
       <a href="mailto:showpilot.team@gmail.com">showpilot.team@gmail.com</a>
     </nav>
   </div>
+  <p class="wrap fine">Screens on this page use a made-up demo event. Names, places and photos are examples.</p>
 </footer>
 
-<script src="/site.js" defer></script>
+<script src="/site.js?v=2" defer></script>
 </body>
 </html>
