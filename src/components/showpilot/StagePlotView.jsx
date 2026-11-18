@@ -54,6 +54,53 @@ export function useMyStageColors() {
   return colors;
 }
 
+// A received stage plot is the sender's: nobody moves people on it for real
+// (job 342). The audio engineer can lay it out his own way, kept on his own
+// account (user_preferences.stage_plot_layouts) and shown only to him.
+// Layouts are { [act key]: [{ i, x, y } or null for each member] }.
+let myLayouts; // undefined = not loaded yet
+let myIsAudio = false;
+const LAYOUTS_EVENT = "sp-stage-layouts";
+const layoutKey = (act, token) => (act?.id ? String(act.id) : `${token || ""}:${act?.sort_order ?? ""}:${act?.band_name || ""}`);
+export function useMyStageLayouts() {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    let off = false;
+    const sync = () => { if (!off) bump((n) => n + 1); };
+    window.addEventListener(LAYOUTS_EVENT, sync);
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("user_preferences").select("account_type, stage_plot_layouts").eq("user_id", user.id).maybeSingle();
+      myIsAudio = data?.account_type === "engineer";
+      myLayouts = data?.stage_plot_layouts || {};
+      sync();
+    })().catch(() => {});
+    return () => { off = true; window.removeEventListener(LAYOUTS_EVENT, sync); };
+  }, []);
+  return { isAudio: myIsAudio, layouts: myLayouts || {} };
+}
+// The act's members with the engineer's own layout laid over the sender's.
+const withLayout = (members, layout) => {
+  if (!Array.isArray(layout)) return members;
+  return members.map((m, i) => {
+    const e = layout.find((x) => x && x.i === i);
+    return e ? { ...m, stage_x: e.x, stage_y: e.y } : m;
+  });
+};
+async function saveMyLayout(key, positions) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "Sign in to save your layout.";
+  const { data: row, error: readErr } = await supabase.from("user_preferences").select("stage_plot_layouts").eq("user_id", user.id).maybeSingle();
+  if (readErr) return "Couldn't save that move. Try again.";
+  const next = { ...(row?.stage_plot_layouts || {}), [key]: positions };
+  const { error } = await supabase.from("user_preferences").upsert({ user_id: user.id, stage_plot_layouts: next }, { onConflict: "user_id" });
+  if (error) return "Couldn't save that move. Try again.";
+  myLayouts = next;
+  try { window.dispatchEvent(new CustomEvent(LAYOUTS_EVENT)); } catch {}
+  return null;
+}
+
 // The stage itself. `small` = the event page preview (no labels, not tappable).
 function Stage({ members, colors, picked, onPick, small = false }) {
   return (
@@ -131,7 +178,7 @@ function PersonCard({ m, i, colors, onClose }) {
 // Notes) and Save to my templates.
 //   onEditMembers(actIndex, list): can edit the lineup - + Add and details,
 //     every change saved straight away (async, returns an error or null).
-//   token + onActs only: can move people (set_stage_positions; job 252).
+//   audio engineer, no onEditMembers: can move people on his own copy (job 342).
 //   neither: look only; a member's line opens their card.
 export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null }) {
   const colors = useMyStageColors();
@@ -142,10 +189,15 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
   const [cur, setCur] = useState(tabs.some(({ i }) => i === start) ? start : tabs[0]?.i ?? 0);
   const act = acts[cur];
   const canEdit = !!onEditMembers;
-  const canPos = !!(token && onActs && act && (act.id || typeof act.sort_order === "number"));
+  // Only the audio engineer, only on a plot someone else sent, and only on his own copy (job 342).
+  const mine = useMyStageLayouts();
+  const canPos = !!(mine.isAudio && !canEdit && act && (act.id || typeof act.sort_order === "number"));
+  const lKey = layoutKey(act, token);
+  const shown = (act?.band_members || []);
+  const effective = canPos ? withLayout(shown, mine.layouts[lKey]) : shown;
   // The members as shown; follows the act, and moves / edits land here first.
-  const [list, setList] = useState(act?.band_members || []);
-  useEffect(() => { setList(act?.band_members || []); }, [cur, act?.band_members]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [list, setList] = useState(effective);
+  useEffect(() => { setList(effective); }, [cur, act?.band_members, canPos, mine.layouts[lKey]]); // eslint-disable-line react-hooks/exhaustive-deps
   const [status, setStatus] = useState({ saving: false, err: "", saved: false });
   const queue = React.useRef(Promise.resolve());
   // Each finished change saves straight away, one at a time, in order.
@@ -157,18 +209,12 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
       setStatus({ saving: false, err: err || "", saved: !err });
     });
   };
-  // Only positions (Audio / Lighting crew on someone else's event).
+  // The audio engineer's own layout: saved on his account, never on the sender's act.
   const savePositions = async (next) => {
-    const before = acts;
-    onActs(acts.map((a, k) => (k === cur ? { ...a, band_members: next } : a)));
     setStatus({ saving: true, err: "", saved: false });
-    const positions = next.map((m, i) => ({ i, x: placed(m) ? m.stage_x : null, y: placed(m) ? m.stage_y : null }));
-    const { error } = await supabase.rpc("set_stage_positions", { p_token: token, p_band: act.id ? { id: act.id } : { sort_order: act.sort_order, band_name: act.band_name || "" }, p_positions: positions });
-    if (error) {
-      console.error(error);
-      onActs(before);
-      setStatus({ saving: false, saved: false, err: /Only the owner/.test(error.message || "") ? "You can't move people on this act's stage." : "Couldn't save that move. Try again." });
-    } else setStatus({ saving: false, err: "", saved: true });
+    const positions = next.map((m, i) => (placed(m) ? { i, x: m.stage_x, y: m.stage_y } : null));
+    const err = await saveMyLayout(lKey, positions);
+    setStatus({ saving: false, saved: !err, err: err || "" });
   };
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
