@@ -44,10 +44,11 @@ section[id]{scroll-margin-top:76px}
 @keyframes blip{50%{opacity:.35}}
 @media (prefers-reduced-motion: reduce){.blip{animation:none}}
 h1,h2,h3{font-family:var(--display);font-weight:700;color:#fff;letter-spacing:.01em}
-h1{font-size:76px;line-height:.95}
+h1{font-size:68px;line-height:.98}
 h2{font-size:54px;line-height:1}
 h3{font-size:28px;line-height:1.05}
 .lead{font-size:19px;color:var(--ink-2);max-width:540px}
+.hero .lead{font-size:23px;color:var(--green);margin-top:18px}
 .sub{font-size:17px;color:var(--ink-2)}
 .head{display:flex;flex-direction:column;gap:12px;max-width:640px}
 .head.wide{max-width:720px}
@@ -132,13 +133,23 @@ h3{font-size:28px;line-height:1.05}
 .slide[hidden]{display:none}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.slide{animation:none}}
-.slide .browser{width:86%;margin-right:auto}
-.slide .browser.wide{width:100%;margin:0}
-.slide .browser.tall{width:min(58%,420px);margin:0 auto}
-.slide .phone.side{position:absolute;right:0;bottom:0;width:26%;max-width:190px}
-.slide.two-phones{gap:22px}
-.slide.two-phones .phone{width:min(38%,215px)}
-.slide.two-phones .phone:last-child{transform:translateY(26px)}
+/* Desktop / Mobile switch (job 350): each slide has both views. */
+.tour-bar{display:flex;align-items:center;justify-content:space-between;gap:14px 20px;flex-wrap:wrap}
+.viewsw{display:inline-flex;gap:4px;padding:4px;border-radius:999px;border:1.5px solid var(--line-2);background:rgba(13,13,13,.8)}
+.viewsw button{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:var(--ink-2);font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.04em;cursor:pointer}
+.viewsw button:hover{color:#fff}
+.viewsw button[aria-pressed="true"]{background:var(--green);color:#000}
+.viewsw svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.viewsw button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#tour[data-view="desktop"] .v-phone,#tour[data-view="mobile"] .v-desk{display:none}
+.v-desk,.v-phone{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.v-phone{gap:26px}
+.v-phone .phone{height:100%;width:auto}
+.v-phone .phone img{height:100%;width:auto}
+.v-phone.two .phone{height:auto;width:min(42%,232px)}
+.v-phone.two .phone img{width:100%;height:auto}
+.slide .browser{width:100%}
+.slide .browser.tall{width:min(58%,420px)}
 .tour-nav{display:flex;align-items:center;gap:8px;padding-top:6px}
 .round{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#0a0a0a;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .round:hover{border-color:rgba(255,255,255,.45)}
@@ -251,7 +262,7 @@ h3{font-size:28px;line-height:1.05}
   .top-row{gap:12px;height:66px}
   .brand{font-size:23px}
   .btn.sm{padding:0 14px;font-size:17px}
-  h1{font-size:50px}
+  h1{font-size:44px}
   h2,.cta-inner h2{font-size:40px}
   .hero{padding:48px 0 24px}
   .band{padding:68px 0}
@@ -261,20 +272,19 @@ h3{font-size:28px;line-height:1.05}
   .strip dt{font-size:9.5px;letter-spacing:.1em}
   .tour-stage{padding:14px;min-height:0}
   .slide{padding-bottom:12px;height:clamp(300px,118vw,480px)}
-  .slide .browser{width:100%}
-  /* On a phone, show the app's own phone screen when there is one. */
-  .slide .phone.side{display:none}
-  .slide:has(.phone.side) .browser{display:none}
-  .slide:has(.phone.side) .phone.side{display:block;position:static;height:100%;width:auto;max-width:none}
-  .slide:has(.phone.side) .phone.side img{height:100%;width:auto}
-  .slide .browser.tall{width:78%}
+  .slide .browser.tall{width:46%}
+  /* Desktop screens are wide, so the stage is shorter when they show. */
+  #tour[data-view="desktop"] .slide{height:clamp(230px,66vw,320px)}
+  .tour-bar{flex-direction:column;align-items:stretch}
+  .viewsw{align-self:flex-start}
+  .viewsw button{min-height:40px;font-size:17px}
+  .v-phone{gap:12px}
+  .v-phone .phone{border-radius:30px;padding:6px}
+  .v-phone .phone img{border-radius:25px}
+  .v-phone.two .phone{width:min(46%,180px)}
   .seats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .seats .tab{flex:0 0 auto;font-size:18px;min-height:46px}
   .seat-name{font-size:28px}
-  .slide.two-phones{gap:12px}
-  .slide.two-phones .phone{width:min(44%,170px);border-radius:28px;padding:6px}
-  .slide.two-phones .phone img{border-radius:23px}
-  .slide.two-phones .phone:last-child{transform:none}
   .browser-bar{height:26px}
   .browser-bar span{font-size:10px;padding:2px 10px}
   .flight{grid-template-columns:minmax(0,1fr)}

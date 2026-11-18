@@ -1,4 +1,4 @@
-// get.showpilot.space (jobs 333, 338, 341): a feature tour for each profile
+// get.showpilot.space (jobs 333, 338, 341, 350): a feature tour for each profile
 // (pick your seat, then tap a feature or let it play through).
 (function () {
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -94,8 +94,19 @@
   };
   seats.forEach(function (s) { s.addEventListener('click', function () { pick(s.getAttribute('data-seat')); }); });
 
-  // Start playing once the tour is on screen.
+  // Desktop / Mobile switch (job 350): shows the desktop or the phone screens
+  // for every profile. Starts on whichever matches the visitor's screen.
   var section = document.getElementById('tour');
+  var views = document.querySelectorAll('[data-view]:not(#tour)');
+  var setView = function (v) {
+    if (!section) return;
+    section.setAttribute('data-view', v);
+    views.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-view') === v ? 'true' : 'false'); });
+  };
+  setView(narrow() ? 'mobile' : 'desktop');
+  views.forEach(function (b) { b.addEventListener('click', function () { setView(b.getAttribute('data-view')); }); });
+
+  // Start playing once the tour is on screen.
   if (current && section) {
     if ('IntersectionObserver' in window) {
       var seen = false;
