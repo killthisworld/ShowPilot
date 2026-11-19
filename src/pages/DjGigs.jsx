@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import TicketCard from "@/components/showpilot/TicketCard";
@@ -12,8 +12,9 @@ import { DJ_COLOR } from "@/lib/djTools";
 // you're on, to keep track of them. DJs get added to events rather than
 // booking dates, so there's no Book a date or booking packages here: this
 // week on top, the months below, each event a small ticket with when it
-// is and its set (the sets in, or + Set to start one). The sets and their
-// links are on the Sets tab.
+// is and its set (the sets in, or + Set to start one). A filter on top
+// moves between years and months (job 372, Jay 2026-11-19), so past gigs
+// are here too. The sets and their links are on the Sets tab.
 const GREEN = "#8CFF3D";
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
@@ -22,12 +23,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 const daysTo = (d) => (d ? Math.round((new Date(`${d}T00:00:00`) - new Date(`${today()}T00:00:00`)) / 86400000) : null);
 const whenLabel = (d) => {
   const n = daysTo(d);
-  return n === null ? "" : n <= 0 ? "TONIGHT" : n === 1 ? "TOMORROW" : `IN ${n} DAYS`;
+  return n === null ? "" : n < 0 ? "PLAYED" : n === 0 ? "TONIGHT" : n === 1 ? "TOMORROW" : `IN ${n} DAYS`;
 };
 
 // The set on an event: sets in (opens the set), or + Set on your own event.
 function SetChip({ g, set, onSet, small = false }) {
-  if (!set && !g.mine) return null;
+  if (!set && (!g.mine || daysTo(g.date) < 0)) return null; // no new set for a night that's been played
   const go = (e) => { e.stopPropagation(); onSet(); };
   const h = small ? "min-h-[26px] px-2 text-[11.5px]" : "min-h-[32px] px-2.5 text-[12.5px]";
   if (!set) {
@@ -50,12 +51,12 @@ function GigTicket({ g, set, onOpen, onSet }) {
   const when = whenLabel(g.date);
   const sub = [g.venue.toUpperCase(), g.time ? g.time.toUpperCase() : ""].filter(Boolean).join(" · ");
   return (
-    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url} compact onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={48} notch={7}>
+    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url} compact dim={daysTo(g.date) < 0} onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={48} notch={7}>
       <div className="flex items-center gap-2.5">
         <div className="flex-1 min-w-0">
           <div className="text-[16.5px] leading-tight truncate" style={cond}>{g.name}</div>
           {sub && <div className="text-[10px] tracking-[0.08em] text-white/55 truncate" style={mono}>{sub}</div>}
-          {when && <div className="text-[10px] tracking-[0.1em] truncate" style={{ ...mono, color: daysTo(g.date) <= 7 ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{when}</div>}
+          {when && <div className="text-[10px] tracking-[0.1em] truncate" style={{ ...mono, color: daysTo(g.date) >= 0 && daysTo(g.date) <= 7 ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{when}</div>}
         </div>
         <SetChip g={g} set={set} onSet={onSet} />
       </div>
@@ -86,15 +87,14 @@ export default function DjGigs() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setGigs([]); return; }
-      const t = today();
       const [{ data: owned }, { data: links }, { data: reqs }] = await Promise.all([
-        supabase.from("shows").select("*").eq("owner_id", user.id).eq("archived", false).gte("date", t).order("date"),
+        supabase.from("shows").select("*").eq("owner_id", user.id).eq("archived", false).order("date"),
         supabase.from("linked_gigs").select("share_token").eq("user_id", user.id).eq("archived", false),
         supabase.from("dj_set_requests").select("id, show_id"),
       ]);
       const linked = (await Promise.all((links || []).map(async (l) => {
         const { data } = await supabase.rpc("get_shared_gig", { p_token: l.share_token });
-        return data && (!data.date || data.date >= t) ? { ...data, share_token: l.share_token, linked: true } : null;
+        return data ? { ...data, share_token: l.share_token, linked: true } : null;
       }))).filter(Boolean);
       const seen = new Set();
       const list = [...(owned || []).map((g) => ({ ...g, mine: true })), ...linked].filter((g) => (seen.has(g.id) ? false : seen.add(g.id))).map((g) => ({
@@ -127,6 +127,27 @@ export default function DjGigs() {
     return () => { gone = true; };
   }, []);
 
+  // The filter: a year, and all of it or one month.
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear);
+  const [month, setMonth] = useState(null); // "01".."12" or null for all
+  const years = useMemo(() => {
+    const ys = new Set([thisYear, ...(gigs || []).filter((g) => g.date).map((g) => Number(g.date.slice(0, 4)))]);
+    return [...ys].sort((x, y) => x - y);
+  }, [gigs, thisYear]);
+  const inYear = useMemo(() => (gigs || []).filter((g) => g.date && Number(g.date.slice(0, 4)) === year), [gigs, year]);
+  const perMonth = useMemo(() => { const m = {}; inYear.forEach((g) => { const k = g.date.slice(5, 7); m[k] = (m[k] || 0) + 1; }); return m; }, [inYear]);
+  const shown = month ? inYear.filter((g) => g.date.slice(5, 7) === month) : inYear;
+  const upcoming = (gigs || []).filter((g) => !g.date || g.date >= today()).length;
+  const stepYear = (d) => {
+    const i = years.indexOf(year) + d;
+    if (i >= 0 && i < years.length) { setYear(years[i]); setMonth(null); }
+  };
+  // Keep the chosen month chip (or All) in view on a phone.
+  const chips = useRef(null);
+  useEffect(() => { chips.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "center" }); }, [year, month, gigs]);
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
   const openSet = (g) => { const s = sets[g.id]; navigate(s ? `/dj?event=${s.id}` : `/dj?show=${g.id}`); };
 
   return (
@@ -135,17 +156,49 @@ export default function DjGigs() {
       <main className="relative z-[1] max-w-[1080px] mx-auto px-4 lg:px-8 pt-5 lg:pt-8 pb-[120px] lg:pb-12 flex flex-col gap-3">
         <div>
           <h1 className="m-0 text-[34px] leading-none" style={cond}>Gigs</h1>
-          {gigs?.length > 0 && <div className="mt-1 text-[11px] tracking-[0.14em] text-white/60" style={mono}>{gigs.length} COMING UP</div>}
+          {upcoming > 0 && <div className="mt-1 text-[11px] tracking-[0.14em] text-white/60" style={mono}>{upcoming} COMING UP</div>}
         </div>
         {gigs === null ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} /></div>
         ) : (
+          <>
+          {/* The filter: the year, then all months or one. */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => stepYear(-1)} disabled={years.indexOf(year) <= 0} aria-label="Year before"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 disabled:opacity-25 hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></button>
+              <span className="min-w-[64px] text-center text-[24px] leading-none" style={{ ...cond, color: DJ_COLOR }} aria-live="polite">{year}</span>
+              <button type="button" onClick={() => stepYear(1)} disabled={years.indexOf(year) >= years.length - 1} aria-label="Year after"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 disabled:opacity-25 hover:bg-white/10"><ChevronRight className="w-5 h-5" /></button>
+              <span className="ml-auto text-[11px] tracking-[0.12em] text-white/55" style={mono}>{inYear.length} GIG{inYear.length === 1 ? "" : "S"}</span>
+            </div>
+            <div ref={chips} className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap" role="tablist" aria-label="Month">
+              {[[null, "All"], ...MONTHS.map((m, i) => [String(i + 1).padStart(2, "0"), m])].map(([k, l]) => {
+                const on = month === k;
+                const n = k ? perMonth[k] || 0 : inYear.length;
+                return (
+                  <button key={l} type="button" role="tab" aria-selected={on} onClick={() => setMonth(k)} disabled={k && !n}
+                    className="shrink-0 min-h-[36px] px-3 rounded-full text-[13px] font-semibold flex items-center gap-1.5 border disabled:opacity-30"
+                    style={on ? { background: DJ_COLOR, color: "#0d0d0d", borderColor: DJ_COLOR } : { background: "rgba(13,14,20,0.85)", color: "rgba(255,255,255,0.85)", borderColor: "#2a2a2a" }}>
+                    {l}{k && n > 0 && <span className="text-[10.5px] tabular-nums opacity-70" style={mono}>{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {shown.length === 0 && (year !== thisYear || month) ? (
+            <p className="m-0 py-6 text-center text-[14px] text-white/50">No gigs in {month ? `${MONTHS[Number(month) - 1]} ` : ""}{year}.</p>
+          ) : (
           <DjWeekMonths
-            items={gigs}
+            items={shown}
+            showWeek={year === thisYear && !month}
+            openAll={!!month}
             empty="No gigs this week."
             week={(g) => <WeekGig g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} />}
             row={(g) => <GigTicket g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} onSet={() => openSet(g)} />}
           />
+          )}
+          </>
         )}
       </main>
       <BandBottomTabs />

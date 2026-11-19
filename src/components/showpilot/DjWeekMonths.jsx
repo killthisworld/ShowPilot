@@ -35,11 +35,12 @@ function weekRange() {
   return { from: iso(t), to: iso(sun), label: `${fmt(mon)} – ${fmt(sun)}` };
 }
 
-export default function DjWeekMonths({ items, week, row, empty = "Nothing this week." }) {
+export default function DjWeekMonths({ items, week, row, empty = "Nothing this week.", showWeek = true, openAll = false }) {
   const range = useMemo(weekRange, []);
   const thisWeek = items.filter((x) => x.date && x.date >= range.from && x.date <= range.to);
   return (
     <div className="flex flex-col gap-3">
+      {showWeek && (
       <section className="rounded-2xl border border-white/20 bg-[#0d0e14]/85 backdrop-blur p-3.5">
         <div className="flex items-center gap-2 mb-2.5">
           <CalendarDays className="w-3.5 h-3.5 text-white/45" />
@@ -52,8 +53,9 @@ export default function DjWeekMonths({ items, week, row, empty = "Nothing this w
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">{thisWeek.map((x) => <React.Fragment key={x.key}>{week(x)}</React.Fragment>)}</div>
         )}
       </section>
+      )}
       {items.length > 0 && (
-        <MonthGroups shows={items} color={DJ_COLOR}>
+        <MonthGroups key={openAll ? "all" : "some"} shows={items} color={DJ_COLOR} openAll={openAll}>
           {(list) => <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{list.map((x) => <React.Fragment key={x.key}>{row(x)}</React.Fragment>)}</div>}
         </MonthGroups>
       )}
