@@ -18,11 +18,15 @@
     var count = el.querySelector('[data-count]');
     var playBtn = el.querySelector('[data-play]');
     var cur = 0, timer = null, stopped = reduce, hovering = false, active = false;
+    // Plays only while most of the screens are in view (job 369): scrolled away, nothing on the
+    // page changes, so an iPhone never shifts what someone is reading.
+    var onScreen = false;
     if (stopped) el.setAttribute('data-stopped', '');
 
     var schedule = function () {
       clearTimeout(timer);
-      if (!active || stopped || hovering || document.hidden) return;
+      if (!active || !onScreen || stopped || hovering || document.hidden) return;
+      setPaused(false);
       timer = setTimeout(function () { if (busy()) { schedule(); return; } show(cur + 1); }, DUR);
     };
     var show = function (i, focus) {
@@ -39,10 +43,10 @@
       if (focus) tabs[cur].focus();
       // Keep the current feature name in view in the sideways row on phones.
       // Only that row moves (scrollLeft), never the page.
-      if (narrow() && active) {
+      if (narrow() && active && onScreen) {
         var list = tabs[cur].parentNode, t = tabs[cur];
         var left = t.getBoundingClientRect().left - list.getBoundingClientRect().left;
-        if (left < 0 || left + t.offsetWidth > list.clientWidth) list.scrollLeft += left - 16;
+        if (left < 0 || left + t.offsetWidth > list.clientWidth) list.scrollTo({ left: list.scrollLeft + left - 16, behavior: 'auto' });
       }
       schedule();
     };
@@ -80,12 +84,26 @@
       start: function () { active = true; el.hidden = false; show(0); },
       sleep: function () { active = false; clearTimeout(timer); el.hidden = true; },
       pause: function () { hovering = true; clearTimeout(timer); },
+      // In view again: start the current feature over; out of view: hold still.
+      seen: function (v) {
+        if (v === onScreen) return;
+        onScreen = v;
+        if (!active) return;
+        if (v) show(cur); else { clearTimeout(timer); setPaused(true); }
+      },
       resume: function () { hovering = false; schedule(); },
     };
   }
 
   var tours = {};
   document.querySelectorAll('[data-tour]').forEach(function (el) { tours[el.getAttribute('data-tour')] = Tour(el); });
+  // Each tour knows when its screens are on the page (job 369).
+  if ('IntersectionObserver' in window) {
+    var stageIO = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { var t = tours[e.target.closest('[data-tour]').getAttribute('data-tour')]; if (t) t.seen(e.isIntersecting && e.intersectionRatio >= 0.5); });
+    }, { threshold: [0, 0.5, 1] });
+    Object.keys(tours).forEach(function (k) { var st = tours[k].el.querySelector('.tour-stage'); if (st) stageIO.observe(st); });
+  } else Object.keys(tours).forEach(function (k) { tours[k].seen(true); });
   var seats = document.querySelectorAll('[data-seat]');
   var current = seats.length ? seats[0].getAttribute('data-seat') : null;
   var pick = function (key) {
