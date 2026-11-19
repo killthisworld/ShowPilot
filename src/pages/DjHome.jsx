@@ -14,6 +14,7 @@ import { DJ_COLOR, driveCall } from "@/lib/djTools";
 // are made and sent and the tracks come in.
 const RED = "#F87171";
 const GREEN = "#8CFF3D";
+const BLUE = "#60A5FA";
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
 
@@ -76,9 +77,14 @@ export default function DjHome() {
     setRequests(reqs || []);
     const ids = (reqs || []).map((r) => r.id);
     if (ids.length) {
-      const { data: st } = await supabase.from("dj_set_slots").select("request_id, status").in("request_id", ids);
+      // "*" so this works before and after link_sent_at is in (job 354).
+      const { data: st } = await supabase.from("dj_set_slots").select("*").in("request_id", ids);
       const m = {};
-      (st || []).forEach((x) => { const c = (m[x.request_id] = m[x.request_id] || { in: 0, started: 0, all: 0 }); c.all += 1; if (x.status === "submitted") c.in += 1; else if (x.status === "started") c.started += 1; });
+      (st || []).forEach((x) => {
+        const c = (m[x.request_id] = m[x.request_id] || { in: 0, started: 0, sent: 0, all: 0 });
+        c.all += 1;
+        if (x.status === "submitted") c.in += 1; else if (x.status === "started") c.started += 1; else if (x.link_sent_at) c.sent += 1;
+      });
       setCounts(m);
     } else setCounts({});
     // Your nights on the calendar that don't have a set yet.
@@ -157,11 +163,17 @@ export default function DjHome() {
             {Array.from({ length: Math.min(nc.all, 16) }).map((_, i) => {
               const scale = nc.all > 16 ? nc.all / 16 : 1;
               const k = i * scale;
-              const bg = k < nc.in ? GREEN : k < nc.in + nc.started ? DJ_COLOR : "#2a2a2a";
+              const bg = k < nc.in ? GREEN : k < nc.in + nc.started ? BLUE : k < nc.in + nc.started + nc.sent ? DJ_COLOR : "#2a2a2a";
               return <span key={i} className="h-2 flex-1 rounded" style={{ background: bg }} />;
             })}
           </div>
-          {nc.in < nc.all && <span className="text-[12.5px] text-white/60">{[nc.started ? `${nc.started} started` : "", `${nc.all - nc.in - nc.started} not in yet`].filter(Boolean).join(" · ")}</span>}
+          {nc.in < nc.all && (
+            <span className="text-[12.5px] text-white/60 flex flex-wrap gap-x-2.5">
+              {[[nc.started, "started", BLUE], [nc.sent, "link sent", DJ_COLOR], [nc.all - nc.in - nc.started - nc.sent, "no link yet", "#5c5c5c"]].filter(([n]) => n > 0).map(([n, w, c]) => (
+                <span key={w} className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />{n} {w}</span>
+              ))}
+            </span>
+          )}
         </div>
       ) : <span className="text-[13.5px] text-white/65">Add the running order, then send each performer their link.</span>}
       <span className="min-h-[44px] rounded-[11px] font-bold text-[15px] flex items-center justify-center gap-2" style={{ background: DJ_COLOR, color: "#0d0d0d" }}>

@@ -88,6 +88,9 @@ export async function listMyPackages() {
 export async function loadPublicPackage(code) {
   const { data, error } = await supabase.rpc("get_booking_package_public", { p_code: code });
   if (error) throw error;
+  // The sender sees when it was first opened (job 354). The server only
+  // counts someone other than the sender; nothing to wait for or report.
+  if (data) supabase.rpc("mark_booking_package_opened", { p_code: code }).then(({ error: e }) => { if (e) console.warn(e.message); });
   return data;
 }
 

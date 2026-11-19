@@ -1,8 +1,8 @@
 import { createPortal } from "react-dom";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
@@ -28,6 +28,11 @@ const STATUS = {
   started: { label: "Started", color: BLUE },
   submitted: { label: "Sent", color: G },
 };
+// Before anything comes in (job 354): has the link gone out yet?
+const LINK_SENT = { label: "Link sent", color: DJ_COLOR };
+const NO_LINK = { label: "No link yet", color: "#5c5c5c" };
+const slotState = (s) => (s.status && s.status !== "waiting" ? STATUS[s.status] || STATUS.waiting : s.link_sent_at ? LINK_SENT : NO_LINK);
+const sentDay = (iso) => { try { return new Date(iso).toLocaleDateString("en-US", { weekday: "short" }); } catch { return ""; } };
 // "8:45 PM" from "20:45".
 const time12 = (t) => {
   if (!t) return "";
@@ -238,12 +243,22 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
     await Promise.all(next.map((s, k) => supabase.from("dj_set_slots").update({ position: k + 1 }).eq("id", s.id)));
   };
 
+  // A link copied or shared counts as sent (job 354). Before the database
+  // has link_sent_at this quietly does nothing.
+  const markSent = async (ids, on = true) => {
+    const now = new Date().toISOString();
+    const want = slots.filter((x) => ids.includes(x.id) && (on ? !x.link_sent_at : !!x.link_sent_at)).map((x) => x.id);
+    if (!want.length) return;
+    setSlots((ss) => ss.map((x) => (want.includes(x.id) ? { ...x, link_sent_at: on ? now : null } : x)));
+    const { error: e } = await supabase.from("dj_set_slots").update({ link_sent_at: on ? now : null }).in("id", want);
+    if (e) console.error(e);
+  };
   const allLinksText = () => {
     const lines = slots.map((s, i) => `${i + 1}. ${s.artist_name || "Artist"}${s.set_start ? ` (${s.set_start}${s.set_end ? `–${s.set_end}` : ""})` : ""}: ${slotLink(s.token)}`);
     return `${selected.title}: send your set here\n\n${lines.join("\n")}`;
   };
-  const copyAll = async () => copyText(allLinksText());
-  const shareAll = async () => shareText({ title: `${selected.title}: send your set`, text: allLinksText() });
+  const copyAll = async () => { const ok = await copyText(allLinksText()); if (ok) markSent(slots.map((x) => x.id)); return ok; };
+  const shareAll = async () => { const r = await shareText({ title: `${selected.title}: send your set`, text: allLinksText() }); if (r) markSent(slots.map((x) => x.id)); return r; };
 
   const back = () => (embedded ? onClose?.() : goBack());
   useEffect(() => {
@@ -310,6 +325,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
               key={selected.id} request={selected} slots={slots} files={files} driveConnected={!!drive.connected}
               onUpdate={updateRequest} onDelete={deleteRequest} onAddSlot={addSlot} onUpdateSlot={updateSlot}
               onRemoveSlot={removeSlot} onMoveSlot={moveSlot} onCopyAll={copyAll} onShareAll={shareAll}
+              onMarkSent={markSent} dj={focus}
             />
           ) : null}
         </main>
@@ -441,7 +457,7 @@ function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
   );
 }
 
-function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDelete, onAddSlot, onUpdateSlot, onRemoveSlot, onMoveSlot, onCopyAll, onShareAll }) {
+function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDelete, onAddSlot, onUpdateSlot, onRemoveSlot, onMoveSlot, onCopyAll, onShareAll, onMarkSent, dj = false }) {
   const [title, setTitle] = useState(request.title);
   const [note, setNote] = useState(request.note || "");
   const [venue, setVenue] = useState(request.venue || "");
@@ -458,6 +474,9 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   useAutosave({ id: "note", value: note, saved: request.note || "", save: (v) => onUpdate({ note: v.trim() || null }), ...auto });
   const counts = useMemo(() => ({
     submitted: slots.filter((s) => s.status === "submitted").length,
+    started: slots.filter((s) => s.status === "started").length,
+    linkSent: slots.filter((s) => (!s.status || s.status === "waiting") && s.link_sent_at).length,
+    noLink: slots.filter((s) => (!s.status || s.status === "waiting") && !s.link_sent_at).length,
     total: slots.length,
   }), [slots]);
   const due = request.due_at ? new Date(request.due_at) : null;
@@ -493,6 +512,12 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           request.drive_folder_id && { label: "Event folder in Drive", icon: FolderOpen, onClick: () => window.open(folderUrl(request.drive_folder_id), "_blank", "noopener") },
         ]} />
       </div>
+      {/* The night's event, everything on it (job 354): the full Artist view. */}
+      {request.show_id && (
+        <Link to={`/show/${request.show_id}`} className="self-start -mt-2 min-h-[40px] flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: RED }}>
+          {dj ? "Full Artist view for this night" : "Open the event"}<ExternalLink className="w-3.5 h-3.5" />
+        </Link>
+      )}
 
       {editing && (
         <div className="rounded-2xl border border-[#222] bg-[#121212] p-4 grid gap-3">
@@ -523,11 +548,19 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           <span className="text-[18px] font-bold" style={{ fontFamily: SCENE_FONT }}>Running order</span>
           <span className="text-[11px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{counts.submitted} OF {counts.total} IN</span>
         </div>
+        {counts.total > 0 && counts.submitted < counts.total && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-white/60">
+            {[[counts.started, STATUS.started], [counts.linkSent, LINK_SENT], [counts.noLink, NO_LINK]].filter(([n]) => n > 0).map(([n, st]) => (
+              <span key={st.label} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: st.color }} />{n} {st.label.toLowerCase()}</span>
+            ))}
+          </div>
+        )}
         {slots.length === 0 && <p className="text-white/45 text-sm py-1 m-0">Add each act in the order they play. Every act gets their own link.</p>}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">
           {slots.map((s, i) => (
             <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto}
-              onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)} />
+              onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)}
+              onMarkSent={(on = true) => onMarkSent?.([s.id], on)} />
           ))}
         </ol>
         <button type="button" onClick={onAddSlot} className="self-start flex items-center gap-1.5 px-3.5 py-2.5 rounded-[10px] border border-dashed border-[#3a3a3a] text-white/70 hover:text-white hover:border-white/40 text-sm font-semibold">
@@ -553,7 +586,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   );
 }
 
-function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRemove, onMove }) {
+function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRemove, onMove, onMarkSent }) {
   const [open, setOpen] = useState(false);
   const [editTime, setEditTime] = useState(false);
   const [name, setName] = useState(s.artist_name || "");
@@ -561,14 +594,15 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
   const [shared, setShared] = useState("");
   const [pdfOpen, setPdfOpen] = useState(false);
   useAutosave({ id: `slot-${s.id}`, value: name, saved: s.artist_name || "", save: (v) => onUpdate({ artist_name: v.trim() }), ...auto });
-  const st = STATUS[s.status] || STATUS.waiting;
+  const st = slotState(s);
+  const waiting = !s.status || s.status === "waiting";
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
-  const statusText = s.status === "waiting" || !s.status ? st.label : `${st.label} · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`;
+  const statusText = waiting ? (s.link_sent_at ? `Link sent ${sentDay(s.link_sent_at)}` : st.label) : `${st.label} · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`;
   const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[118px] min-w-[118px] shrink-0 tabular-nums outline-none focus:border-[#8CFF3D]/60";
   const stop = (e) => e.stopPropagation();
   const share = async () => {
     const r = await shareText({ title: `${eventTitle}: send your set`, text: `${eventTitle}: send your set here${name ? ` (${name})` : ""}`, url: slotLink(s.token) });
-    if (r) { setShared(r); setTimeout(() => setShared(""), 1500); }
+    if (r) { setShared(r); setTimeout(() => setShared(""), 1500); onMarkSent?.(true); }
   };
 
   return (
@@ -591,22 +625,28 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
           </span>
         ) : (
           <button type="button" onClick={(e) => { stop(e); setEditTime(true); }} title="Set the time"
-            className="shrink-0 text-[13px] tabular-nums px-2 py-1 rounded-md hover:bg-white/5 w-[128px] xl:w-[150px] text-left whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: s.set_start ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>
+            className="shrink-0 text-[13px] tabular-nums px-2 py-1 rounded-md hover:bg-white/5 w-[128px] max-sm:w-auto xl:w-[150px] text-left whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: s.set_start ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>
             {setTimeLabel(s.set_start, s.set_end) || "Set time?"}
           </button>
         )}
         {/* Just the dot (Jay 2026-11-13: no "Sent · 1 track" text; the DJ sees
             what came in by opening the act). Grey not opened, blue started,
             green sent. */}
-        <span className="flex-1 min-w-0 flex items-center" title={statusText} aria-label={statusText}>
+        {/* Waiting on them (job 354): the dot says whether the link went out,
+            with a word, since nothing else on the row does. */}
+        <span className="flex-1 min-w-0 flex items-center gap-1.5" title={statusText} aria-label={statusText}>
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: st.color }} />
+          {waiting && <span className="text-[12px] whitespace-nowrap truncate" style={{ color: s.link_sent_at ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{st.label}</span>}
         </span>
-        <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}
+        <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); onMarkSent?.(true); } }}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-[#333] text-white/85 hover:text-white whitespace-nowrap">
           {copied ? <Check className="w-3.5 h-3.5" style={{ color: G }} /> : <Copy className="w-3.5 h-3.5" />} {copied ? "Copied" : "Copy link"}
         </button>
         <Menu label={`More for ${name || "this act"}`} items={[
           { label: shared === "copied" ? "Copied" : shared ? "Shared" : "Share link", icon: Share2, onClick: share },
+          ...(waiting ? [s.link_sent_at
+            ? { label: "Mark link not sent", icon: Undo2, onClick: () => onMarkSent?.(false) }
+            : { label: "Mark link as sent", icon: Send, onClick: () => onMarkSent?.(true) }] : []),
           ...(tracks.length ? [{ label: "Set list PDF", icon: FileText, onClick: () => setPdfOpen(true) }] : []),
           { label: "Open their page", icon: ExternalLink, onClick: () => window.open(`/dj/set/${s.token}`, "_blank", "noopener") },
           { label: "Move up", icon: ArrowUp, disabled: i === 0, onClick: () => onMove(-1) },

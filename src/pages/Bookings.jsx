@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import SentProgress from "@/components/showpilot/SentProgress";
 import { ChevronLeft, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
@@ -26,7 +27,8 @@ const COLS = [
 
 function colOf(p) {
   if (p.status === "booked") return "booked";
-  if (p.status === "offered") return "offered";
+  // Countered (job 347): new dates are on the table, like an offer.
+  if (p.status === "offered" || p.status === "countered") return "offered";
   if (p.status === "sent") return "incoming";
   return "passed";
 }
@@ -39,6 +41,11 @@ export default function Bookings() {
   const [asks, setAsks] = useState({}); // show_id -> asks
   const canSend = ["manager", "band"].includes(preferences?.account_type);
   const isVenue = preferences?.account_type === "venue";
+  // Board (where everything stands) or Sent (what you sent and how far
+  // along it is; job 354). Kept in the address so Back returns to it.
+  const [params, setParams] = useSearchParams();
+  const view = params.get("tab") === "sent" ? "sent" : "board";
+  const setView = (v) => setParams(v === "sent" ? { tab: "sent" } : {}, { replace: true });
   // The venue's own events from the New event web, from today on, with how
   // their act invites stand.
   const [made, setMade] = useState([]);
@@ -67,6 +74,8 @@ export default function Bookings() {
           act_name: s.band_name || s.event_name, photo_url: s.icon_url || "",
           sender_name: !mine.length ? "No act invited" : joined === mine.length ? (joined === 1 ? "Act joined" : "Acts joined") : `Invite sent${mine.length > 1 ? ` · ${joined} of ${mine.length} joined` : ""}`,
           href: s.share_token ? `/gig/web?token=${s.share_token}` : `/show/${s.id}`,
+          // For Sent (job 354).
+          id: s.id, name: s.band_name || s.event_name || "Your event", date: s.date, photo: s.icon_url || "", invited: mine.length, joined,
         };
       }));
     })();
@@ -158,8 +167,20 @@ export default function Bookings() {
           )}
         </div>
 
+        <div role="tablist" aria-label="Bookings view" className="grid grid-cols-2 gap-1 p-1 mb-5 rounded-xl bg-[#161616] border border-[#262626] lg:max-w-[360px]">
+          {[["board", "All bookings"], ["sent", "Sent"]].map(([k, text]) => (
+            <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
+              className="min-h-[42px] rounded-[9px] text-[15px] transition-colors"
+              style={view === k ? { background: isVenue ? BLUE : RED, color: "#0d0d0d", fontWeight: 700 } : { color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
+              {text}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>
+        ) : view === "sent" ? (
+          <SentProgress data={data} isVenue={isVenue} made={made} />
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-[#151515] border border-[#262626] p-6 text-center flex flex-col gap-2 items-center">
             <p className="m-0 text-base font-semibold">No bookings yet</p>
@@ -181,7 +202,7 @@ export default function Bookings() {
           </div>
         )}
 
-        {passed.length > 0 && (
+        {view === "board" && passed.length > 0 && (
           <details className="mt-6">
             <summary className="min-h-[44px] flex items-center text-sm font-bold tracking-[0.08em] text-white/50 cursor-pointer" style={{ fontFamily: SCENE_FONT }}>PASSED · {passed.length}</summary>
             <div className="grid gap-2.5 lg:grid-cols-3 mt-2">{passed.map(card)}</div>
