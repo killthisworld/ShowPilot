@@ -10,12 +10,12 @@ SHOT = {  # name -> (width, height)
     'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298),
     'dayof': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298),
     'dj-tools': (1600, 556), 'bookings': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
-    'stage-plot': (1600, 1131), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
+    'stage-plot': (1600, 1000), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
     'my-pilot': (1600, 1000), 'load-template': (1600, 1000), 'lighting-phone': (600, 1298),
     'load-template-phone': (600, 1298), 'template-stage': (1200, 1263),
     'bookings-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298),
     'dj-tools-phone': (600, 1298), 'stage-plot-phone': (600, 1298), 'wallets-phone': (600, 1298),
-    'template-stage-phone': (600, 1298), 'dayof-desk': (1600, 1000), 'logbook-desk': (1600, 1000),
+    'template-stage-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'dayof-desk': (1600, 1000), 'logbook-desk': (1600, 1000),
 }
 
 # Each feature: key, title, line, desktop shot, phone shot(s), alt text.
@@ -27,9 +27,9 @@ F = {
   'rooms': ('Chat rooms', 'A room for everyone on the event, plus one for each profile.', 'rooms', ['rooms-phone'], "The event's General chat room with messages from the manager, venue and engineer."),
   'calendar': ('Calendar', "Every event you're on, with its photo filling the day.", 'calendar', ['calendar-phone'], 'The month calendar with each event photo filling its day.'),
   'dayof': ('Day sheets and PDFs', 'Send a day-of link to door staff or a driver. Each sheet saves as a PDF.', 'dayof-desk', ['dayof', 'dayof-sheet'], 'A day-of package and its schedule sheet with Save PDF.'),
-  'book': ('Book a date from your template', 'Book a date fills itself from your template: the act, its picture and genres.', 'book-act', ['book-act-phone'], 'Book a date with the act filled in from My Templates.'),
+  'book': ('Book a date from your template', 'Book a date opens as a web around your act, with your contact and tech rider already filled in from your template.', 'book-act', ['book-act-phone'], 'Book a date as a web around the act: contact and tech rider already done from the template, the rest still to fill in.'),
   'stagetpl': ('Your stage plot, built once', 'Put each member on the stage with what they play. It goes with your template everywhere.', 'template-stage', ['template-stage-phone'], 'The stage builder in My Templates: each member placed on the stage with their instruments.'),
-  'rider': ('Tech rider with your stage plot', 'The stage plot and inputs from your template ride along with every booking.', 'book-rider', ['stage-plot-phone'], 'Book a date, Tech rider: the Show Pilot stage plot from My Template, 5 members and 7 inputs.'),
+  'rider': ('Tech rider with your stage plot', 'The stage plot and inputs from your template ride along with every booking.', 'book-rider', ['book-rider-phone'], 'Book a date, Tech rider: the Show Pilot stage plot from My Template, 5 members and 7 inputs.'),
   'dj': ('DJ Tools', 'Set links for each DJ. WAVs land in your own Google Drive.', 'dj-tools', ['dj-tools-phone'], 'DJ Tools: a set link with the running order and which DJs have sent their set.'),
   'console': ('Your shows like a console', 'Every show you work as a strip, with its tasks and status at a glance.', 'console', ['tech-home'], 'The audio console home: the coming week as channel strips, and the home screen on a phone.'),
   'stage': ('The interactive stage plot', "Each act's stage as they built it: who stands where, what they play, and how they monitor.", 'stage-plot', ['stage-plot-phone'], 'The stage plot for an act: members on the stage, and each one routed to IEM or wedge.'),
@@ -58,7 +58,8 @@ def img(name, alt, lazy=True):
     return f'<img src="/shots/{name}.webp" width="{w}" height="{h}"{" loading=\"lazy\"" if lazy else ""} alt="{E(alt)}">'
 
 def browser(name, alt, cls=''):
-    return (f'<figure class="browser{cls}"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div>'
+    w, h = SHOT[name]
+    return (f'<figure class="browser{cls}" style="--ar:{w / h:.3f}"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div>'
             f'{img(name, alt)}</figure>')
 
 def phone(name, alt, cls=''):
@@ -70,9 +71,7 @@ def slide(pid, i, fk, first):
     title, line, desk, phones, alt = F[fk]
     sid = f'p-{pid}-{i}'
     hid = '' if first else ' hidden'
-    wide = ' wide' if SHOT[desk][1] / SHOT[desk][0] < 0.5 else ''
-    tall = ' tall' if SHOT[desk][1] > SHOT[desk][0] else ''
-    d = browser(desk, alt, wide + tall)
+    d = browser(desk, alt)
     ps = phones[:2]
     m = ''.join(phone(n, (title + ' on a phone') if k == 0 else title) for k, n in enumerate(ps))
     two = ' two' if len(ps) > 1 else ''

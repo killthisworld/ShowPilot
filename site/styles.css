@@ -81,8 +81,8 @@ h3{font-size:28px;line-height:1.05}
 .browser-bar{display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;background:#111;border-bottom:1px solid var(--line)}
 .browser-bar i{width:10px;height:10px;border-radius:50%;background:#2a2a2a}
 .browser-bar span{margin:0 auto;transform:translateX(-24px);font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--ink-3);background:#0a0a0a;border:1px solid var(--line);padding:3px 14px;border-radius:999px}
-.phone{border-radius:40px;padding:9px;background:#161616;border:1px solid var(--line-2);box-shadow:0 30px 70px rgba(0,0,0,.7)}
-.phone img{border-radius:31px}
+.phone{border-radius:13.5% / 6.2%;padding:2.6%;background:#161616;border:1px solid var(--line-2);box-shadow:0 30px 70px rgba(0,0,0,.7)}
+.phone img{border-radius:11.5% / 5.3%}
 
 /* Hero */
 .hero{padding:76px 0 40px}
@@ -129,7 +129,7 @@ h3{font-size:28px;line-height:1.05}
 .tour[data-stopped] .meter{display:none}
 @keyframes meter{to{width:100%}}
 .tour-stage{position:relative;padding:26px;border-radius:22px;border:1px solid var(--line);background-color:rgba(13,13,13,.8);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px);background-size:22px 22px;display:flex;flex-direction:column}
-.slide{position:relative;height:520px;display:flex;align-items:center;justify-content:center;padding-bottom:20px;animation:fade .45s ease;overflow:hidden}
+.slide{--sh:520px;--pb:20px;--bar:36px;position:relative;height:var(--sh);display:flex;align-items:center;justify-content:center;padding-bottom:var(--pb);animation:fade .45s ease;overflow:hidden}
 .slide[hidden]{display:none}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){.slide{animation:none}}
@@ -146,10 +146,11 @@ h3{font-size:28px;line-height:1.05}
 .v-phone{gap:26px}
 .v-phone .phone{height:100%;width:auto}
 .v-phone .phone img{height:100%;width:auto}
-.v-phone.two .phone{height:auto;width:min(42%,232px)}
+.v-phone.two .phone{height:auto;width:min(44%,calc((var(--sh) - var(--pb)) * .4622))}
 .v-phone.two .phone img{width:100%;height:auto}
-.slide .browser{width:100%}
-.slide .browser.tall{width:min(58%,420px)}
+/* A desktop screen is as wide as fits both the stage's width and its height. */
+.slide .browser{width:min(100%,calc((var(--sh) - var(--pb) - var(--bar)) * var(--ar)));flex:0 0 auto}
+.slide .browser img{width:100%;height:auto}
 .tour-nav{display:flex;align-items:center;gap:8px;padding-top:6px}
 .round{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:#0a0a0a;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .round:hover{border-color:rgba(255,255,255,.45)}
@@ -162,12 +163,12 @@ h3{font-size:28px;line-height:1.05}
 
 /* Templates: make it once, book with it, load it when invited */
 .tpl-flow{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:stretch}
-.tpl-flow li{display:flex;flex-direction:column;gap:12px;padding:24px 24px 0;border-radius:20px;background:rgba(13,13,13,.85);border:1px solid var(--line);overflow:hidden}
+.tpl-flow li{display:flex;flex-direction:column;gap:12px;padding:24px;border-radius:20px;background:rgba(13,13,13,.85);border:1px solid var(--line);overflow:hidden}
 .tpl-flow li>p:not(.status){color:var(--ink-2)}
-.tpl-shot{margin-top:auto;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;max-height:330px}
-.tpl-shot img{object-fit:cover;object-position:top;width:100%;height:296px}
-.tpl-phone{margin:auto auto 0;width:min(70%,230px);border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0;max-height:330px;overflow:hidden;padding-bottom:0}
-.tpl-phone img{border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* Each card shows its whole screen, sized to fit a 330px-tall space. */
+.tpl-shot{margin:auto auto 0;width:min(100%,calc((330px - 36px) * var(--ar)))}
+.tpl-shot img{width:100%;height:auto}
+.tpl-phone{margin:auto auto 0;width:calc(330px * .4622)}
 
 /* How it works: a flight path */
 .flight{list-style:none;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;position:relative}
@@ -271,17 +272,14 @@ h3{font-size:28px;line-height:1.05}
   .strip dd{font-size:19px}
   .strip dt{font-size:9.5px;letter-spacing:.1em}
   .tour-stage{padding:14px;min-height:0}
-  .slide{padding-bottom:12px;height:clamp(300px,118vw,480px)}
-  .slide .browser.tall{width:46%}
+  .slide{--pb:12px;--sh:clamp(300px,118vw,480px);--bar:28px}
   /* Desktop screens are wide, so the stage is shorter when they show. */
-  #tour[data-view="desktop"] .slide{height:clamp(230px,66vw,320px)}
+  #tour[data-view="desktop"] .slide{--sh:clamp(230px,66vw,320px)}
   .tour-bar{flex-direction:column;align-items:stretch}
   .viewsw{align-self:flex-start}
   .viewsw button{min-height:40px;font-size:17px}
   .v-phone{gap:12px}
-  .v-phone .phone{border-radius:30px;padding:6px}
-  .v-phone .phone img{border-radius:25px}
-  .v-phone.two .phone{width:min(46%,180px)}
+  .v-phone.two .phone{width:min(47%,calc((var(--sh) - var(--pb)) * .4622))}
   .seats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   .seats .tab{flex:0 0 auto;font-size:18px;min-height:46px}
   .seat-name{font-size:28px}
