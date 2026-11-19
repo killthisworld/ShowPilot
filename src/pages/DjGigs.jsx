@@ -106,7 +106,8 @@ export default function DjGigs() {
         date: g.date || null,
         icon_url: g.icon_url || "",
         time: g.show_time || g.start_time || "",
-        href: g.linked && g.share_token ? `/gig/web?token=${g.share_token}` : `/show/${g.id}`,
+        // The DJ event page: banner, the set and the artists (job 375).
+        href: g.share_token ? `/dj/event?token=${g.share_token}` : `/show/${g.id}`,
       })).sort((a, b) => String(a.date || "9999").localeCompare(String(b.date || "9999")));
       const byShow = Object.fromEntries((reqs || []).filter((r) => r.show_id).map((r) => [r.show_id, r.id]));
       const reqIds = Object.values(byShow);

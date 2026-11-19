@@ -48,7 +48,7 @@ export default function BandBottomTabs() {
   // While the account loads, the last answer on this device (job 372), so
   // a DJ never sees the Artist tabs flash between pages.
   const dj = djNow(preferences);
-  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs")) : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
+  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs") && !pathname.startsWith("/dj/event")) : tab.path === "/dj/gigs" ? pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {
     document.body.classList.add("has-rail");
@@ -203,7 +203,7 @@ function DjPhoneBar({ preferences, pathname, search }) {
   const needBookings = (bookings?.needs || []).length;
   const view = pathname === "/" ? new URLSearchParams(search).get("view") : null;
   const activeKey = view === "chats" || pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats"
-    : pathname.startsWith("/dj/gigs") || pathname.startsWith("/bookings") ? "bookings"
+    : pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") || pathname.startsWith("/bookings") ? "bookings"
     : (pathname === "/" && !view) || pathname.startsWith("/dj") ? "sets"
     : pathname.startsWith("/me") ? "me" : null;
   const tab = (key, to, label, Icon, badge = 0, badgeColor = "#8CFF3D") => {
