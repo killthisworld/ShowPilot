@@ -14,7 +14,7 @@ import PackageView from "@/pages/PackageView";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { HospitalityBody, hospitalityHas, PromoBody, promoHas, DatesWantedBody, datesHave, SendToBody, sendToDone, DealBody, dealHas, techRiderHas, TechRiderBody, ContactBody, contactDone, ActCenterBody } from "@/components/showpilot/BookingFields";
 import { useGoBack } from "@/lib/navHistory";
-import BookSteps from "@/components/showpilot/BookSteps";
+import { ActPicker } from "@/components/showpilot/BookSteps";
 import { loadActTemplates, packageFromTemplate, saveBookingTemplate, sameAct } from "@/lib/bookingTemplate";
 
 // Booking package (job 246, step 1): an artist / manager fills in their act
@@ -63,11 +63,10 @@ export default function BookingPackage() {
   const [confirming, setConfirming] = useState(false);
   const [countering, setCountering] = useState(false); // sending other dates back (job 347)
   const dirty = useRef(false);
-  // Book a date in three steps (job 349): the acts in My Templates, the one
-  // picked, and whether the web is open (See what's inside).
+  // The acts in My Templates and the one picked (job 349). Book a date opens
+  // straight into the web (job 352); the picker is in the centre circle.
   const [tplActs, setTplActs] = useState([]);
   const [pickedAct, setPickedAct] = useState(null);
-  const [webOpen, setWebOpen] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
   const [tplMsg, setTplMsg] = useState("");
   const h = useActForm(form, (fn) => { dirty.current = true; setForm(fn); }, `booking_${user?.id || "anon"}`);
@@ -222,7 +221,7 @@ export default function BookingPackage() {
     setForm((f) => ({ ...f, band_members: act.band_members, artist_fx_notes: f.artist_fx_notes?.length ? f.artist_fx_notes : act.artist_fx_notes || [], general_notes: f.general_notes || act.general_notes || "" }));
     return "";
   };
-  // Step 2 (job 349): pick an act; its booking template fills the rest.
+  // Pick an act (job 349); its booking template fills the rest.
   const pickAct = (id) => {
     const act = tplActs.find((a) => a.id === id);
     if (!act) return;
@@ -273,9 +272,12 @@ export default function BookingPackage() {
     label: "The act & your card", hint: "Who's playing, and the card that goes with the package", required: true,
     done: !!form.band_name.trim(),
     body: () => (
+      <>
+      {tplActs.length > 1 && <div className="mb-4"><ActPicker acts={tplActs} pickedId={pickedAct} onPick={pickAct} /></div>}
       <ActCenterBody form={form} update={h.update} uploadFile={h.uploadFile}
         artistBody={byKey.artist ? byKey.artist.body() : null}
         card={{ token: me?.card_share_token || "", name: me?.display_name || "", photo: me?.profile_photo_url || "", line: "Open your digital card" }} />
+      </>
     ),
   };
   const toDone = sendToDone(to);
@@ -289,8 +291,6 @@ export default function BookingPackage() {
       const out = await sendPackage(row?.id || pkgId);
       setCode(out.code);
       setSent(true);
-      // From the steps there's no web to fly off: straight to the sent page.
-      if (!webOpen) setSentOff(true);
     } catch (e) {
       console.error(e);
       setError(/needs/.test(e?.message || "") ? `This still ${e.message.replace(/^needs/, "needs")}.` : "Couldn't send it. Try again.");
@@ -433,19 +433,6 @@ export default function BookingPackage() {
     );
   }
 
-  // A package not sent yet starts as three steps (job 349).
-  if (!webOpen && !code) {
-    return (
-      <BookSteps
-        form={form} wants={wants} setWants={setWantsD} to={to} setTo={setToD} formatPhone={h.formatPhone}
-        acts={tplActs} pickedId={pickedAct} onPick={pickAct}
-        canSend={canSend} onSend={onSend} sending={sending} error={error}
-        onOpenWeb={() => setWebOpen(true)} onPreview={() => setPreview(true)} onBack={goBack}
-        onSaveTemplate={saveAsTemplate} saving={savingTpl} saveMsg={tplMsg}
-      />
-    );
-  }
-
   return (
     <IntakeKeyWeb
       startOpen
@@ -460,7 +447,7 @@ export default function BookingPackage() {
         openLabel: "the act and your digital card",
         pane: centerPane,
       }}
-      onBack={code ? goBack : () => setWebOpen(false)}
+      onBack={goBack}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
       corner={{ label: "Send to", icon: Send, required: true, done: toDone, body: () => <SendToBody to={to} setTo={setToD} formatPhone={h.formatPhone} /> }}
