@@ -29,7 +29,8 @@ const TABS = [
 const DJ_TABS = [
   { path: "/", label: "Sets", icon: Disc3, sets: true },
   { path: "/?view=chats", label: "Chats", icon: MessageCircle, chats: true },
-  { path: "/bookings", label: "Bookings", icon: Handshake, bookings: true },
+  // DJs get their own Bookings: the gigs they're booked for (job 362).
+  { path: "/dj/gigs", label: "Bookings", icon: Handshake, bookings: true },
 ];
 
 // Phones: the company phone layout's bottom bar - Needs me / Calendar / + /
@@ -45,7 +46,7 @@ export default function BandBottomTabs() {
   const isDesktop = useIsDesktop();
   const onChats = pathname === "/" && new URLSearchParams(search).get("view") === "chats";
   const dj = isDjMode(preferences);
-  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || pathname.startsWith("/dj") : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
+  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs")) : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {
     document.body.classList.add("has-rail");
@@ -200,8 +201,8 @@ function DjPhoneBar({ preferences, pathname, search }) {
   const needBookings = (bookings?.needs || []).length;
   const view = pathname === "/" ? new URLSearchParams(search).get("view") : null;
   const activeKey = view === "chats" || pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats"
+    : pathname.startsWith("/dj/gigs") || pathname.startsWith("/bookings") ? "bookings"
     : (pathname === "/" && !view) || pathname.startsWith("/dj") ? "sets"
-    : pathname.startsWith("/bookings") ? "bookings"
     : pathname.startsWith("/me") ? "me" : null;
   const tab = (key, to, label, Icon, badge = 0, badgeColor = "#8CFF3D") => {
     const active = activeKey === key;
@@ -235,7 +236,7 @@ function DjPhoneBar({ preferences, pathname, search }) {
     >
       <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
         {tab("sets", "/", "Sets", Disc3)}
-        {tab("bookings", "/bookings", "Bookings", Handshake, needBookings, "#F87171")}
+        {tab("bookings", "/dj/gigs", "Bookings", Handshake, needBookings, "#F87171")}
         {tab("chats", "/?view=chats", "Chats", MessageCircle, unread)}
         {tab("me", "/me", "Me", "me")}
       </div>

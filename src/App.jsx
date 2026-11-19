@@ -58,6 +58,7 @@ import LinkedGigs from '@/pages/LinkedGigs';
 import About from '@/pages/About';
 import MePage from "@/pages/MePage";
 import DjTools from '@/pages/DjTools';
+import DjGigs from '@/pages/DjGigs';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
 import { NavTracker } from '@/lib/navHistory';
@@ -147,6 +148,7 @@ const AuthenticatedApp = () => {
         <Route path="/eventbrite/callback" element={<EventbriteCallback />} />
         <Route path="/me" element={<MePage />} />
         <Route path="/dj" element={<DjTools />} />
+        <Route path="/dj/gigs" element={<DjGigs />} />
         <Route path="/dj/drive/callback" element={<DjDriveCallback />} />
       </Route>
       {/* Custom fan links: showpilot.space/<name>. Every real page above wins; this only

@@ -2,12 +2,14 @@ import { createPortal } from "react-dom";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
 import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import DriveIcon from "@/components/showpilot/DriveIcon";
+import NightSky from "@/components/showpilot/NightSky";
 import { saveOrShare } from "@/lib/guestListPdf";
 import { setlistPdf } from "@/lib/eventPdfs";
 
@@ -119,7 +121,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
 
   const loadRequests = useCallback(async (initial = false) => {
     const { data, error: e } = await supabase.from("dj_set_requests").select("*").order("event_date", { ascending: true, nullsFirst: false }).order("created_at");
-    if (e) { setError("Couldn't load your set links."); return; }
+    if (e) { setError("Couldn't load your sets."); return; }
     setRequests(data || []);
     // How many artists have sent their set, per set link (for the list on the left).
     const ids = (data || []).map((r) => r.id);
@@ -194,7 +196,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
 
   const createRequest = async (vals) => {
     const { data, error: e } = await supabase.from("dj_set_requests").insert(vals).select().single();
-    if (e) { setError("Couldn't create that set link."); return; }
+    if (e) { setError("Couldn't make that set."); return; }
     setCreating(false);
     await loadRequests();
     setSelectedId(data.id);
@@ -279,12 +281,15 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
   if (loading) return box(<div className={`${embedded ? "h-full min-h-[300px]" : "min-h-screen"} bg-[#0d0d0d] flex items-center justify-center`}><Loader2 className="w-6 h-6 text-[#8CFF3D] animate-spin" /></div>);
 
   return box(
-    <div className={`${embedded ? "" : "min-h-screen"} bg-[#0d0d0d] text-white`} style={{ fontFamily: SCENE_FONT }}>
-      <header className="flex flex-wrap items-center gap-4 px-6 py-3.5 border-b border-[#1a1a1a]">
+    <div className={`${embedded ? "bg-[#0d0d0d]" : "relative min-h-screen bg-black"} text-white`} style={{ fontFamily: SCENE_FONT }}>
+      {/* The space background on the page (job 362); the box over an event keeps its plain one. */}
+      {!embedded && <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-sets" dim={0.45} /></div>}
+      <div className="relative z-[1]">
+      <header className="flex flex-wrap items-center gap-4 px-4 sm:px-6 py-3.5 border-b border-[#1a1a1a]">
         <button type="button" onClick={back} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
         <Disc3 className="w-7 h-7" style={{ color: DJ_COLOR }} />
         <h1 className="text-3xl font-bold leading-none tracking-wide">DJ Tools</h1>
-        <DriveBadge drive={drive} onConnect={connectDrive} onDisconnect={disconnectDrive} />
+        <div className="ml-auto"><DriveIcon drive={drive} onConnect={connectDrive} onDisconnect={disconnectDrive} /></div>
       </header>
 
       {error && (
@@ -293,14 +298,11 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
         </div>
       )}
 
-      <div className="grid gap-5 p-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] items-start">
+      <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] items-start">
         <aside className={`${focus ? "hidden lg:flex" : "flex"} flex-col gap-2`}>
           <button type="button" onClick={() => setCreating(true)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold tracking-[0.04em]" style={{ background: G, color: "#0d0d0d" }}>
-            <Plus className="w-4 h-4" /> New set link
+            <Plus className="w-4 h-4" /> New set
           </button>
-          {requests.length === 0 && !creating && (
-            <p className="text-white/45 text-sm px-1 py-3">Make a set link for an event, add the lineup, then send each artist their link. Their WAVs land in your Google Drive, already in order.</p>
-          )}
           {requests.map((r) => {
             const on = r.id === selectedId;
             return (
@@ -329,6 +331,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
             />
           ) : null}
         </main>
+      </div>
       </div>
     </div>,
   );
@@ -363,55 +366,6 @@ function Menu({ items, label = "More", align = "right" }) {
   );
 }
 
-// Google Drive status: one small chip in the header.
-function DriveBadge({ drive, onConnect, onDisconnect }) {
-  const [open, setOpen] = useState(false);
-  const [confirm, setConfirm] = useState(false);
-  if (drive.loading) return <div className="ml-auto"><Loader2 className="w-4 h-4 animate-spin text-white/40" /></div>;
-  if (drive.configured === false) {
-    return <div className="ml-auto text-xs text-white/45 max-w-xs text-right" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>Google Drive isn't switched on for Show Pilot yet. Track lists still work.</div>;
-  }
-  if (!drive.connected) {
-    return (
-      <div className="ml-auto flex items-center gap-2" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-        {drive.expired && (
-          <span className="px-3 py-1.5 rounded-full text-[13px] font-semibold border" style={{ color: AMBER, borderColor: AMBER + "66", background: AMBER + "14" }} title="Artists can't send WAVs until you reconnect">
-            ● Drive connection expired
-          </span>
-        )}
-        <button type="button" onClick={onConnect} className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-bold border" style={{ background: BLUE + "1F", borderColor: BLUE + "88", color: BLUE }}>
-          <FolderOpen className="w-4 h-4" /> {drive.expired ? "Reconnect" : "Connect Google Drive"}
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="ml-auto relative" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <button type="button" aria-expanded={open} onClick={() => { setOpen((o) => !o); setConfirm(false); }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[13px] font-semibold border hover:brightness-125" style={{ color: G, borderColor: G + "55" }}>
-        ● Drive connected{drive.email ? ` · ${drive.email}` : ""}
-        <ChevronDown className="w-3.5 h-3.5" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-10 z-30 w-[260px] rounded-xl bg-[#1a1a1a] border border-[#2e2e2e] shadow-xl p-2 flex flex-col gap-1">
-          {drive.folder_url && <a href={drive.folder_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-white/85 hover:bg-white/5"><FolderOpen className="w-4 h-4" /> Open the Show Pilot folder</a>}
-          {confirm ? (
-            <div className="px-2.5 py-2 text-sm flex flex-col gap-2">
-              <span className="text-white/60">Disconnect? Files stay in your Drive.</span>
-              <span className="flex gap-2">
-                <button type="button" onClick={() => { setOpen(false); setConfirm(false); onDisconnect(); }} className="px-2.5 py-1.5 rounded-lg text-red-300 border border-red-400/40">Disconnect</button>
-                <button type="button" onClick={() => setConfirm(false)} className="text-white/50">Keep</button>
-              </span>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setConfirm(true)} className="text-left px-2.5 py-2 rounded-lg text-sm text-white/50 hover:text-red-300 hover:bg-white/5">Disconnect Drive</button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
   const [showId, setShowId] = useState("");
   const [title, setTitle] = useState("");
@@ -425,26 +379,30 @@ function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
     if (s) { setTitle(s.event_name || s.band_name || ""); setDate(s.date || ""); setVenue(s.venue || ""); }
   };
   return (
+    // Less to read (job 362): pick the night, or type it in; picking one
+    // fills its name, date and venue, so only Sets due is left.
     <div className="rounded-2xl border border-[#222] bg-[#121212] p-5 max-w-2xl">
-      <h2 className="text-2xl font-bold">New set link</h2>
+      <h2 className="text-2xl font-bold">New set</h2>
       <div className="mt-4 grid gap-3">
         {myShows.length > 0 && (
           <label className="grid gap-1.5">
-            <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>FROM ONE OF YOUR EVENTS (OPTIONAL)</span>
+            <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NIGHT</span>
             <select id="new-show" className={input} value={showId} onChange={(e) => pick(e.target.value)}>
-              <option value="">Type the details instead</option>
+              <option value="">Type it in</option>
               {myShows.map((s) => <option key={s.id} value={s.id}>{[s.date, s.event_name || s.band_name, s.venue].filter(Boolean).join(" · ")}</option>)}
             </select>
           </label>
         )}
-        <label className="grid gap-1.5">
-          <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>EVENT NAME</span>
-          <input id="new-title" className={input} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Warehouse Night Vol. 3" />
-        </label>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>DATE</span><input id="new-date" type="date" className={input} value={date} onChange={(e) => setDate(e.target.value)} /></label>
-          <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>VENUE</span><input id="new-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} /></label>
-          <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>SETS DUE BY</span><input id="new-due" type="datetime-local" className={input} value={due} onChange={(e) => setDue(e.target.value)} /></label>
+        {!showId && (
+          <label className="grid gap-1.5">
+            <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>NAME</span>
+            <input id="new-title" className={input} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Warehouse Night Vol. 3" />
+          </label>
+        )}
+        <div className={`grid gap-3 ${showId ? "" : "sm:grid-cols-3"}`}>
+          {!showId && <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>DATE</span><input id="new-date" type="date" className={input} value={date} onChange={(e) => setDate(e.target.value)} /></label>}
+          {!showId && <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>VENUE</span><input id="new-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} /></label>}
+          <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>SETS DUE</span><input id="new-due" type="datetime-local" className={input} value={due} onChange={(e) => setDue(e.target.value)} /></label>
         </div>
       </div>
       <div className="mt-5 flex gap-2">
@@ -499,7 +457,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         </div>
         <button type="button" onClick={() => setEditing((e) => !e)} aria-expanded={editing}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border text-sm font-semibold" style={editing ? { borderColor: DJ_COLOR + "88", color: DJ_COLOR, background: DJ_COLOR + "14" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.85)" }}>
-          <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit details"}
+          <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit"}
         </button>
         {slots.length > 0 && (
           <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
@@ -507,7 +465,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
             {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
           </button>
         )}
-        <Menu label="More for this set link" items={[
+        <Menu label="More for this set" items={[
           slots.length > 0 && { label: sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all links", icon: Share2, onClick: async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } } },
           request.drive_folder_id && { label: "Event folder in Drive", icon: FolderOpen, onClick: () => window.open(folderUrl(request.drive_folder_id), "_blank", "noopener") },
         ]} />
@@ -515,31 +473,31 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
       {/* The night's event, everything on it (job 354): the full Artist view. */}
       {request.show_id && (
         <Link to={`/show/${request.show_id}`} className="self-start -mt-2 min-h-[40px] flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: RED }}>
-          {dj ? "Full Artist view for this night" : "Open the event"}<ExternalLink className="w-3.5 h-3.5" />
+          Open the event<ExternalLink className="w-3.5 h-3.5" />
         </Link>
       )}
 
       {editing && (
         <div className="rounded-2xl border border-[#222] bg-[#121212] p-4 grid gap-3">
-          <label className="grid gap-1">{label("EVENT NAME")}
+          <label className="grid gap-1">{label("NAME")}
             <input id="req-title" className={input} maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1">{label("DATE")}
               <input id="req-date" type="date" className={input} value={request.event_date || ""} onChange={(e) => onUpdate({ event_date: e.target.value || null })} /></label>
             <label className="grid gap-1">{label("VENUE")}
               <input id="req-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} /></label>
-            <label className="grid gap-1">{label("SETS DUE BY")}
+            <label className="grid gap-1">{label("SETS DUE")}
               <input id="req-due" type="datetime-local" className={input} value={toLocalInput(request.due_at)} onChange={(e) => onUpdate({ due_at: e.target.value ? new Date(e.target.value).toISOString() : null })} /></label>
           </div>
-          <label className="grid gap-1">{label("NOTE FOR EVERY ARTIST")}
+          <label className="grid gap-1">{label("NOTE FOR THE ACTS")}
             <textarea id="req-note" rows={2} maxLength={2000} className={input} value={note} onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. 48 kHz / 24-bit please, tracks named in play order" /></label>
+              placeholder="48 kHz / 24-bit, named in play order" /></label>
         </div>
       )}
       {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
 
       {!driveConnected && (
-        <p className="text-sm m-0" style={{ color: AMBER }}>Connect Google Drive (top right) so artists can send WAVs. Until then they can only fill in track lists.</p>
+        <p className="text-sm m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no WAVs.</p>
       )}
 
       {/* Acts: one row each. */}
@@ -548,14 +506,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           <span className="text-[18px] font-bold" style={{ fontFamily: SCENE_FONT }}>Running order</span>
           <span className="text-[11px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{counts.submitted} OF {counts.total} IN</span>
         </div>
-        {counts.total > 0 && counts.submitted < counts.total && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-white/60">
-            {[[counts.started, STATUS.started], [counts.linkSent, LINK_SENT], [counts.noLink, NO_LINK]].filter(([n]) => n > 0).map(([n, st]) => (
-              <span key={st.label} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: st.color }} />{n} {st.label.toLowerCase()}</span>
-            ))}
-          </div>
-        )}
-        {slots.length === 0 && <p className="text-white/45 text-sm py-1 m-0">Add each act in the order they play. Every act gets their own link.</p>}
+        {/* Each row's dot says where that act is; no legend line (job 362). */}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">
           {slots.map((s, i) => (
             <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto}
@@ -569,16 +520,15 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
       </div>
 
       <div className="flex flex-wrap items-center gap-3 pt-1">
-        <span className="text-[12px] text-white/40">Click an act to see its tracks and WAVs. Everything saves as you type.</span>
         <span className="ml-auto">
           {confirmDelete ? (
             <span className="flex items-center gap-2 text-sm">
-              <span className="text-white/60">Delete this set link and every act's link? Files already in Drive stay there.</span>
+              <span className="text-white/60">Delete this set? Files in Drive stay.</span>
               <button type="button" onClick={onDelete} className="px-3 py-1.5 rounded-lg text-red-300 border border-red-400/40">Delete</button>
               <button type="button" onClick={() => setConfirmDelete(false)} className="text-white/50">Keep</button>
             </span>
           ) : (
-            <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-[13px] text-white/35 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /> Delete set link</button>
+            <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-[13px] text-white/35 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /> Delete set</button>
           )}
         </span>
       </div>
@@ -626,7 +576,7 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
         ) : (
           <button type="button" onClick={(e) => { stop(e); setEditTime(true); }} title="Set the time"
             className="shrink-0 text-[13px] tabular-nums px-2 py-1 rounded-md hover:bg-white/5 w-[128px] max-sm:w-auto xl:w-[150px] text-left whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: s.set_start ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>
-            {setTimeLabel(s.set_start, s.set_end) || "Set time?"}
+            {setTimeLabel(s.set_start, s.set_end) || "Time"}
           </button>
         )}
         {/* Just the dot (Jay 2026-11-13: no "Sent · 1 track" text; the DJ sees
