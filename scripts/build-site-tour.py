@@ -7,33 +7,39 @@ import sys, html
 E = html.escape
 SHOT = {  # name -> (width, height)
     'event-web': (1600, 1000), 'event-web-phone': (600, 1298), 'tasks': (1600, 1000), 'tasks-phone': (600, 1298),
-    'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298),
-    'dayof': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298),
-    'dj-tools': (1600, 1000), 'bookings': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
+    'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298),
+    'dj-tools': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
     'stage-plot': (1600, 1000), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
-    'my-pilot': (1600, 1000), 'load-template': (1600, 1000), 'lighting-phone': (600, 1298),
-    'load-template-phone': (600, 1298), 'template-stage': (1600, 1000),
-    'bookings-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298),
-    'dj-tools-phone': (600, 1298), 'stage-plot-phone': (600, 1298), 'wallets-phone': (600, 1298),
-    'template-stage-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'dayof-desk': (1600, 1000), 'logbook-desk': (1600, 1000),
+    'my-pilot': (1600, 1000), 'lighting-phone': (600, 1298),
+    'load-template-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298),
+    'dj-tools-phone': (600, 1298), 'stage-plot-phone': (600, 1298), 'wallets-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'logbook-desk': (1600, 1000),
+    # job 359
+    'stage-plot-open': (1600, 1000), 'stage-plot-open-phone': (600, 1298), 'pkg-web': (1600, 1000), 'pkg-confirm': (1600, 1000),
+    'pkg-confirm-phone': (600, 1298), 'ask-tech': (1600, 1000), 'ask-tech-phone': (600, 1298), 'venue-web': (1600, 1000),
+    'venue-web-phone': (600, 1298), 'dayof-sheet-desk': (1600, 1000), 'dayof-contacts': (600, 1298), 'intake-send': (1600, 1000),
+    'intake-send-phone': (600, 1298), 'intake-form': (1600, 1000), 'intake-form-phone': (600, 1298), 'my-template': (1600, 1000),
+    'event-load': (1600, 1000),
 }
 
-# Each feature: key, title, line, desktop shot, phone shot(s), alt text.
+# Each feature: key, title, line, desktop shot(s), phone shot(s), alt text.
+# Several desktop shots show as steps, cascaded, each named on its window bar
+# as (shot, step label).
 F = {
   'web': ('One page per event', 'Every profile around the show, and how ready each one is.', 'event-web', ['event-web-phone'], 'The event web: the event in the middle with Venue, Manager, Artist, Audio and Lights around it, the board and the flight log.'),
-  'bookings': ('Bookings and Ask a tech', "See what's coming in and what's booked. Ask a tech if they're free with one link.", 'bookings', ['bookings-phone'], "Bookings with the Ask a tech sheet open: pick audio or lighting and send them a link."),
-  'loadvenue': ('Load your venue template', 'Your room filled in once. Tap Load and it fills the event.', 'load-template', ['load-template-phone'], 'The Load Venue picker listing saved venue templates.'),
+  'pkgin': ('Packages in, dates and techs', 'An artist or manager sends a package. Confirm a date, then ask a tech you trust.', [('pkg-web', '1 · Their package comes in'), ('pkg-confirm', '2 · Confirm a date'), ('ask-tech', '3 · Ask a tech')], ['pkg-confirm-phone', 'ask-tech-phone'], 'A booking package from an artist manager, the three dates they want with one picked to confirm, and Ask a tech with the techs you have worked with.'),
+  'loadvenue': ('Your venue as a web', 'Your room filled in once, every section a circle. It fills each event, and acts and techs can open it.', 'venue-web', ['venue-web-phone'], 'The Foundry Hall as a web: venue and address, load-in, schedule, Wi-Fi and power, house gear and hospitality, with House gear open.'),
   'tasks': ('Tasks with due dates', "Hand out what needs doing, and see who has it and when it's due.", 'tasks', ['tasks-phone'], 'Tasks in a column for each profile, each with a due date and who has claimed it.'),
   'rooms': ('Chat rooms', 'A room for everyone on the event, plus one for each profile.', 'rooms', ['rooms-phone'], "The event's General chat room with messages from the manager, venue and engineer."),
   'calendar': ('Calendar', "Every event you're on, with its photo filling the day.", 'calendar', ['calendar-phone'], 'The month calendar with each event photo filling its day.'),
-  'dayof': ('Day sheets and PDFs', 'Send a day-of link to door staff or a driver. Each sheet saves as a PDF.', 'dayof-desk', ['dayof', 'dayof-sheet'], 'A day-of package and its schedule sheet with Save PDF.'),
+  'dayof': ('Day sheets and PDFs', 'Send a day-of link to door staff or a driver. Each sheet saves as a PDF.', 'dayof-sheet-desk', ['dayof-sheet', 'dayof-contacts'], 'The day-of schedule and the contact sheet, each with Save PDF.'),
   'book': ('Book a date from your template', 'Book a date opens as a web around your act, with your contact and tech rider already filled in from your template.', 'book-act', ['book-act-phone'], 'Book a date as a web around the act: contact and tech rider already done from the template, the rest still to fill in.'),
-  'stagetpl': ('Your stage plot, built once', 'Put each member on the stage with what they play. It goes with your template everywhere.', 'template-stage', ['template-stage-phone'], 'The stage builder in My Templates: each member placed on the stage with their instruments.'),
-  'rider': ('Tech rider with your stage plot', 'The stage plot and inputs from your template ride along with every booking.', 'book-rider', ['book-rider-phone'], 'Book a date, Tech rider: the Show Pilot stage plot from My Template, 5 members and 7 inputs.'),
+  'stagetpl': ('Your stage plot, built once', 'Put each member on the stage. Open a line for their inputs: Mic or DI, +48V, and IEM or monitor.', 'stage-plot-open', ['stage-plot-open-phone'], "The stage plot with Marcus Dade's line open: vocals, guitar on a mic, acoustic on a DI with +48V, and a monitor."),
+  'rider': ('Tech rider with your stage plot', 'The stage plot and inputs from your template ride along with every booking.', 'book-rider', ['book-rider-phone'], 'Book a date, Tech rider: the Show Pilot stage plot from My Template, 5 members and 9 inputs.'),
   'dj': ('DJ Tools', 'Set links for each DJ. WAVs land in your own Google Drive.', 'dj-tools', ['dj-tools-phone'], 'DJ Tools: a set link with the running order and which DJs have sent their set.'),
   'console': ('Your shows like a console', 'Every show you work as a strip, with its tasks and status at a glance.', 'console', ['tech-home'], 'The audio console home: the coming week as channel strips, and the home screen on a phone.'),
-  'stage': ('The interactive stage plot', "Each act's stage as they built it: who stands where, what they play, and how they monitor.", 'stage-plot', ['stage-plot-phone'], 'The stage plot for an act: members on the stage, and each one routed to IEM or wedge.'),
-  'loadinvite': ('Invited? Load your template', 'When you join an event, tap Load and your saved info fills your part.', 'load-template', ['load-template-phone'], 'The Load Venue picker on an event someone invited you to.'),
+  'stage': ('The interactive stage plot', "Each act's stage as they built it: who stands where, what they play, and how they monitor.", 'stage-plot', ['stage-plot-phone'], 'The stage plot for an act: members on the stage, and each one routed to IEM or monitor.'),
+  'intake': ('Send intake forms', 'Send an act one link. They fill in their act, members and inputs, and it lands on your event.', [('intake-send', '1 · You make the link'), ('intake-form', '2 · The act fills it in')], ['intake-send-phone', 'intake-form-phone'], "Performer Intake: picking the event and asking for tracks, then the form the act gets from Sam Ortiz with role, artist and set, members and inputs, notes and contact."),
+  'loadinvite': ('Invited? Load your template', 'When you join an event, tap Load Template and your saved info fills your part.', 'event-load', ['load-template-phone'], 'Load Venue over an event: pick a saved venue and its details fill the event.'),
   'wallets': ("Fellow pilots' wallets", "Save the crew you meet into wallets: by venue, tour or team.", 'wallets', ['wallets-phone'], "Fellow Pilots: wallets for a venue, a tour and a lighting crew, and the saved ID cards."),
   'pilot': ('Your pilot card', 'A card with your name, role and contact that people save to their wallet.', 'my-pilot', ['pilot-card'], 'A pilot card being set up, and the shared card on a phone.'),
   'logbook': ('Logbook', "Every show you've worked, by month, as stars you can share.", 'logbook-desk', ['logbook', 'pilot-card'], 'The logbook as stars for the month, and a shared pilot card.'),
@@ -42,13 +48,13 @@ F = {
 
 P = [
   ('venue', 'Venue', '#60A5FA', 'Run every night at your room from one place, and have the acts and techs fill in what you need.', '$25–$50 a month, by capacity and shows a year',
-   ['web', 'bookings', 'loadvenue', 'tasks', 'rooms', 'calendar', 'dayof']),
+   ['web', 'pkgin', 'loadvenue', 'tasks', 'rooms', 'calendar', 'dayof']),
   ('band', 'Artist / DJ', '#EF4444', 'Advance your shows, send techs what they need, and keep the road details in one place. DJs: pick Artist.', '$15 a month, includes 1 act',
    ['book', 'stagetpl', 'rider', 'web', 'rooms', 'dj', 'calendar']),
   ('manager', 'Manager', '#EF4444', 'Run the artist side of the shows you manage. Booking is part of this profile.', '$15 a month, +$5 for each extra act',
    ['book', 'rider', 'stagetpl', 'web', 'tasks', 'dj', 'dayof']),
   ('engineer', 'Audio engineer', '#8CFF3D', "Know what every show needs before you get there, and keep a record of the work you've done.", '$10 a month',
-   ['console', 'stage', 'loadinvite', 'wallets', 'pilot', 'logbook', 'rooms']),
+   ['console', 'intake', 'stage', 'wallets', 'pilot', 'logbook', 'rooms']),
   ('lighting', 'Lighting tech', '#8CFF3D', 'Run lighting with everything you need for the show in front of you, on your phone.', '$10 a month',
    ['lightdesk', 'web', 'loadinvite', 'wallets', 'pilot', 'logbook', 'rooms']),
 ]
@@ -57,10 +63,23 @@ def img(name, alt, lazy=True):
     w, h = SHOT[name]
     return f'<img src="/shots/{name}.webp" width="{w}" height="{h}"{" loading=\"lazy\"" if lazy else ""} alt="{E(alt)}">'
 
-def browser(name, alt, cls=''):
+def browser(name, alt, cls='', bar='showpilot.space', style=''):
     w, h = SHOT[name]
-    return (f'<figure class="browser{cls}" style="--ar:{w / h:.3f}"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>showpilot.space</span></div>'
+    return (f'<figure class="browser{cls}" style="--ar:{w / h:.3f}{style}"><div class="browser-bar" aria-hidden="true"><i></i><i></i><i></i><span>{E(bar)}</span></div>'
             f'{img(name, alt)}</figure>')
+
+# Steps on the desktop (job 359): the windows cascade from top left to bottom
+# right, the last step in front. In units of one window's width: each step
+# moves DX right and DY down; a window is 1/1.6 tall plus its bar (~.07).
+STACK = {2: (0.42, 0.2), 3: (0.3, 0.17)}
+def stack(steps, alt):
+    n = len(steps)
+    dx, dy = STACK[n]
+    W, H = 1 + (n - 1) * dx, 1 / 1.6 + 0.07 + (n - 1) * dy
+    figs = ''.join(browser(name, alt if k == n - 1 else label, ' step', label,
+                           f';left:{k * dx / W * 100:.2f}%;top:{k * dy / H * 100:.2f}%;width:{100 / W:.2f}%;z-index:{k + 1}')
+                   for k, (name, label) in enumerate(steps))
+    return f'<div class="stack" style="--ar:{W / H:.3f}">{figs}</div>' 
 
 def phone(name, alt, cls=''):
     return f'<figure class="phone{cls}">{img(name, alt)}</figure>'
@@ -71,7 +90,7 @@ def slide(pid, i, fk, first):
     title, line, desk, phones, alt = F[fk]
     sid = f'p-{pid}-{i}'
     hid = '' if first else ' hidden'
-    d = browser(desk, alt)
+    d = stack(desk, alt) if isinstance(desk, list) else browser(desk, alt)
     ps = phones[:2]
     m = ''.join(phone(n, (title + ' on a phone') if k == 0 else title) for k, n in enumerate(ps))
     two = ' two' if len(ps) > 1 else ''
