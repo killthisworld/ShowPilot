@@ -2,6 +2,10 @@ import React from "react";
 import { X, Paperclip, User } from "lucide-react";
 import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
 import StageEditor from "@/components/showpilot/StageEditor";
+import RigLayer from "@/components/showpilot/RigLayer";
+import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
+import { cueSheetHasAny } from "@/lib/cueSheet";
+import { rigHasItems } from "@/lib/lightingRig";
 import UploadTemplateButton from "@/components/showpilot/UploadTemplate";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
@@ -91,6 +95,31 @@ function MembersBody({ h }) {
   );
 }
 
+// An LD's intake (job 377): who plays what and where they stand, over the
+// LD's rig for the venue (look-only). No inputs, monitors or stage plot files.
+function LdMembersBody({ h, rig }) {
+  const { form, update, getInstruments, removeMember, stageColors } = h;
+  return (
+    <div className="flex flex-col gap-3">
+      <StageEditor
+        lighting
+        underlay={rigHasItems(rig) ? <RigLayer rig={rig} dim /> : null}
+        members={form.band_members || []}
+        setMembers={(list) => update("band_members", list)}
+        getInstruments={getInstruments}
+        colors={stageColors}
+        onRemoveMember={removeMember}
+      />
+      {rigHasItems(rig) && <p className="text-center text-white/40 text-[12px] -mt-1">The trusses and lights are your LD's rig for this venue.</p>}
+    </div>
+  );
+}
+
+function CuesBody({ h }) {
+  const { form, update, uploadFile } = h;
+  return <CueSheetEditor value={form.lighting_cues} onChange={(v) => update("lighting_cues", v)} onUpload={uploadFile} />;
+}
+
 function StagePlotBody({ h }) {
   const { form, handleStagePlotUpload, removeStagePlotFile, getInstruments, stageColors } = h;
   return (
@@ -126,7 +155,7 @@ function StagePlotBody({ h }) {
   );
 }
 
-function NotesBody({ h }) {
+function NotesBody({ h, placeholder = "Anything else the engineer should know…" }) {
   const { form, notesTarget, setNotesTarget, getActiveNotes, setActiveNotes } = h;
   return (
     <div className="flex flex-col gap-2">
@@ -139,7 +168,7 @@ function NotesBody({ h }) {
             style={gen ? (on ? { background: "#fff", borderColor: "#fff" } : { borderColor: "rgba(255,255,255,0.6)", color: "#fff" }) : on ? { background: GREEN, borderColor: GREEN } : undefined}>{text}</button>;
         })}
       </div>
-      <textarea value={getActiveNotes() || ""} onChange={(e) => setActiveNotes(e.target.value)} rows={6} placeholder="Anything else the engineer should know…" aria-label="Notes" className={`${inputCls} py-2 leading-relaxed`} />
+      <textarea value={getActiveNotes() || ""} onChange={(e) => setActiveNotes(e.target.value)} rows={6} placeholder={placeholder} aria-label="Notes" className={`${inputCls} py-2 leading-relaxed`} />
     </div>
   );
 }
@@ -167,12 +196,34 @@ const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 // The circles for the act's web. `seen` is which circles the act has saved.
 // A circle turns green when it's saved with something in it (job 198), or
 // once it's fully filled in.
-export function intakeCircles(h, { seen = {}, card = null } = {}) {
+// `lighting` (job 377): the link came from an LD - Members are just names and
+// instruments over their rig, Lighting cues replaces the inputs, and the
+// notes / contact are for the LD.
+export function intakeCircles(h, { seen = {}, card = null, lighting = null } = {}) {
   const { form, getInstruments } = h;
   const members = form.band_members || [];
   const c = (key, label, short, hint, required, some, full, body) => ({
     key, label, short, hint, required, done: !!full || (!!seen[key] && !!some), body,
   });
+  if (lighting) {
+    const cues = form.lighting_cues;
+    return [
+      c("role", "Your role", "Role", "Where you are on the bill", true,
+        has(form.role), false, () => <RoleBody h={h} />),
+      c("artist", "Artist and set", "Artist & set", "Name, set length, genre", true,
+        has(form.band_name), has(form.band_name), () => <ArtistBody h={h} />),
+      c("members", "Who plays what", "Members", "Names and instruments, and where they stand", true,
+        members.some((m) => has(m.name) || getInstruments(m).some((x) => has(x.name))),
+        members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <LdMembersBody h={h} rig={lighting.rig} />),
+      c("cues", "Lighting cues", "Lighting cues", "Your set song by song: the looks you want and when, or upload a cue sheet", false,
+        cueSheetHasAny(cues), cueSheetHasAny(cues), () => <CuesBody h={h} />),
+      c("notes", "Notes for the LD", "Notes", "For the whole band or one member", false,
+        has(form.general_notes) || members.some((m) => has(m.notes)), has(form.general_notes) || members.some((m) => has(m.notes)), () => <NotesBody h={h} placeholder="Anything else the LD should know…" />),
+      c("contact", "Your contact", "Contact", "Who the LD calls on the day", false,
+        has(form.submitter_name) || has(form.submitter_phone) || has(form.submitter_email),
+        has(form.submitter_name) && (has(form.submitter_phone) || has(form.submitter_email)), () => <ContactBody h={h} {...(card || {})} />),
+    ];
+  }
   return [
     c("role", "Your role", "Role", "Where you are on the bill", true,
       has(form.role), false, () => <RoleBody h={h} />),

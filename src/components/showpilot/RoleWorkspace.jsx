@@ -1239,6 +1239,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       onEditMembers={stageEditable ? saveActMembers : null}
       busColors={p.iemMonitorColors || null}
       onOpenNotes={(i) => { setFxAct(i); setFxTarget(i); }}
+      rig={gig.lighting_rig || null}
+      lighting={role === "lighting"}
     />
   );
   // Pages opened from a feature button stay off the web and the page cards.

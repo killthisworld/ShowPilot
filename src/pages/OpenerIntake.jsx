@@ -8,6 +8,7 @@ import IntakeRating from "@/components/showpilot/IntakeRating";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { useAsksTracks, intakeCorners, IntakeTracksAfter, rememberNoTracks } from "@/components/showpilot/IntakeTracks";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
+import { normalizeRig } from "@/lib/lightingRig";
 import { intakeCircles } from "@/components/showpilot/IntakeFields";
 import { Disc3, Music } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -38,6 +39,7 @@ export default function OpenerIntake({ link } = {}) {
     submitter_card_user_id: "",
     requested_order: "",
     multitrack_interest: null,
+    lighting_cues: null, // an LD's link (job 377)
   });
   const [currentUser, setCurrentUser] = useState(null);
   const [engineerCard, setEngineerCard] = useState(null);
@@ -224,7 +226,10 @@ export default function OpenerIntake({ link } = {}) {
   // The sender's card: read directly when allowed, else from the form's own
   // lookup, so a signed-out recipient still sees their picture (job 202).
   const ec = engineerCard || parent?.engineer || null;
-  const engineerName = ec?.display_name || "Your audio engineer";
+  // A link from an LD (job 377): lighting questions over their rig.
+  const isLD = (context.sender_type || parent?.engineer?.account_type) === "lighting";
+  const ldRig = isLD ? normalizeRig(context.lighting_rig) : null;
+  const engineerName = ec?.display_name || (isLD ? "Your LD" : "Your audio engineer");
 
   if ((submitted && sentOff) || context.status === "submitted") {
     const sentScreen = (
@@ -247,6 +252,7 @@ export default function OpenerIntake({ link } = {}) {
     stageColors: ec?.stage_plot_colors || null, // the engineer's stage plot colors (job 249)
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
     applyTemplate: applyTemplate,
+    uploadFile: (file) => uploadFileToBucket(file, "stage-plots"),
   };
   const onCard = () => {
     if (!currentUser) {
@@ -257,23 +263,23 @@ export default function OpenerIntake({ link } = {}) {
     }
     setShareMyCard((v) => !v);
   };
-  const circles = intakeCircles(h, { seen, card: { onCard, cardOn: shareMyCard, showCard: true } });
+  const circles = intakeCircles(h, { seen, card: { onCard, cardOn: shareMyCard, showCard: true }, lighting: isLD ? { rig: ldRig } : null });
   return (
     <IntakeKeyWeb
       seed={token}
       image={ec?.profile_photo_url || ""}
       keyCode={link?.code ? String(link.code).toUpperCase() : ""}
-      fromLine={`${ec?.display_name || "Your audio engineer"} sent you a key to`}
+      fromLine={`${ec?.display_name || (isLD ? "Your LD" : "Your audio engineer")} sent you a key to`}
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
       center={{
-        name: engineerName, photo: ec?.profile_photo_url || "", label: "Audio",
+        name: engineerName, photo: ec?.profile_photo_url || "", label: isLD ? "Lighting" : "Audio",
         href: ec?.card_share_token ? `/pilot/${ec.card_share_token}` : "",
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      {...intakeCorners({ services: !!context.include_services, extraServices: context.extra_services || [], asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !isLD && !!context.include_services, extraServices: context.extra_services || [], asksTracks: asksTracks && !isLD, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: parent?.image || "", event_type: parent?.event_type }} title={showTitle} date={parent?.date} venue={showTitle === parent?.venue ? "" : parent?.venue} color="#8CFF3D" />

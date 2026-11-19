@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronsDown, Loader2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -9,8 +9,12 @@ import { memberLook } from "@/lib/customPositions";
 import { isVocalInput, memberSings } from "@/components/showpilot/VocalsQuestion";
 import StageEditor, { StageFloor, memberPositionLabel } from "@/components/showpilot/StageEditor";
 import SaveStageTemplateButton from "@/components/showpilot/SaveStageTemplate";
+import RigLayer from "@/components/showpilot/RigLayer";
+import { normalizeRig, rigHasItems } from "@/lib/lightingRig";
 import { StagePdfButton } from "@/components/showpilot/StagePlotBuilder";
 import { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
+
+const Rig3D = lazy(() => import("@/components/showpilot/Rig3D"));
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -180,8 +184,12 @@ function PersonCard({ m, i, colors, onClose }) {
 //     every change saved straight away (async, returns an error or null).
 //   audio engineer, no onEditMembers: can move people on his own copy (job 342).
 //   neither: look only; a member's line opens their card.
-export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null }) {
+// rig / lighting (job 377): the LD's rig for the venue drawn under the
+// members (with a 3D view), and no audio details for an LD.
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null, rig = null, lighting = false }) {
   const colors = useMyStageColors();
+  const rigN = rigHasItems(rig) ? normalizeRig(rig) : null;
+  const [show3d, setShow3d] = useState(false);
   // Desktop (job 280): everyone's line beside the stage, not under it.
   const [wideView, setWideView] = useState(() => typeof window !== "undefined" && window.innerWidth >= 1024);
   useEffect(() => { const on = () => setWideView(window.innerWidth >= 1024); window.addEventListener("resize", on); return () => window.removeEventListener("resize", on); }, []);
@@ -235,6 +243,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           <div className="text-[19px] font-bold leading-tight truncate">{actName(act)}</div>
         </div>
         {/* The stage plot PDF, input list optional (job 293). */}
+        {rigN && <button type="button" onClick={() => setShow3d(true)} aria-label="3D view" title="3D view" className={iconBtn + " text-[12px] font-bold"} style={{ color: "rgba(140,255,61,0.85)" }}>3D</button>}
         {act && <StagePdfButton actName={act.band_name || actName(act)} members={list} getInstruments={instrumentsOf} colors={colors} busColors={busColors} className={iconBtn} />}
         {onOpenNotes && act && <ActNotesButton act={act} onClick={() => onOpenNotes(cur)} />}
         {/* Keep this act's stage in My Templates (job 254), right of notes;
@@ -270,11 +279,30 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
             side={wideView}
             busColors={busColors}
             onBusSettings={onBusSettings}
+            lighting={lighting}
+            underlay={rigN ? <RigLayer rig={rigN} dim /> : null}
           />
           {/* Only a problem shows here (job 275: no "Saved"). */}
           {status.err && <p className="shrink-0 pt-1 text-center text-[12.5px] text-[#f87171]">{status.err}</p>}
         </div>
       </div>
+      {show3d && rigN && (
+        <div className="fixed inset-0 z-[86] bg-black flex flex-col" style={{ height: "100dvh" }} role="dialog" aria-label="3D stage">
+          <div className="flex items-center gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-2">
+            <button type="button" onClick={() => setShow3d(false)} aria-label="Back" className="w-10 h-10 -ml-1 flex items-center justify-center text-white/75"><ChevronLeft className="w-7 h-7" /></button>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>3D STAGE</div>
+              <div className="text-[17px] font-bold truncate">{actName(act)}</div>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading 3D…</div>}>
+              <Rig3D rig={rigN} members={list.filter(placed).map((m) => ({ x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name }))} />
+            </Suspense>
+          </div>
+          <p className="text-center text-white/40 text-[12.5px] py-2 pb-[max(10px,env(safe-area-inset-bottom))]">Drag to turn it, pinch or scroll to zoom.</p>
+        </div>
+      )}
     </div>,
     document.body
   );
