@@ -118,7 +118,8 @@ export default function DjEvent() {
                   <ol className="m-0 p-0 list-none flex flex-col divide-y divide-white/[0.07]">
                     {slots.map((s, i) => {
                       const st = STATUS[statusOf(s)];
-                      const time = [clock(s.set_start), clock(s.set_end)].filter(Boolean).join("–");
+                      // The event's set time for this act first (it follows the event).
+                      const time = setTimes[(s.artist_name || "").trim()] || [clock(s.set_start), clock(s.set_end)].filter(Boolean).join("–");
                       return (
                         <li key={s.id} className="min-h-[48px] flex items-center gap-3 py-2">
                           <span className="w-6 text-[13px]" style={{ ...mono, color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>

@@ -256,7 +256,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
     if (e) console.error(e);
   };
   const allLinksText = () => {
-    const lines = slots.map((s, i) => `${i + 1}. ${s.artist_name || "Artist"}${s.set_start ? ` (${s.set_start}${s.set_end ? `–${s.set_end}` : ""})` : ""}: ${slotLink(s.token)}`);
+    const lines = slots.map((s, i) => `${i + 1}. ${s.artist_name || "Artist"}: ${slotLink(s)}`);
     return `${selected.title}: send your set here\n\n${lines.join("\n")}`;
   };
   const copyAll = async () => { const ok = await copyText(allLinksText()); if (ok) markSent(slots.map((x) => x.id)); return ok; };
@@ -423,6 +423,18 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   const [copiedAll, setCopiedAll] = useState(false);
   const [sharedAll, setSharedAll] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Each act's set time comes from the event (job 375, Jay 2026-11-19): the
+  // lineup's set times, kept by the venue or artist / management, so it
+  // follows the event when it changes. Matched by the act's name.
+  const [evTimes, setEvTimes] = useState({});
+  useEffect(() => {
+    if (!request.show_id) { setEvTimes({}); return undefined; }
+    let gone = false;
+    supabase.from("shows").select("manager_info").eq("id", request.show_id).maybeSingle()
+      .then(({ data }) => { if (!gone) setEvTimes(data?.manager_info?.set_times || {}); });
+    return () => { gone = true; };
+  }, [request.show_id]);
+  const timeOf = (s) => evTimes[(s.artist_name || "").trim()] || setTimeLabel(s.set_start, s.set_end);
   // Everything typed on this page saves by itself (a moment after typing stops).
   const flushers = useRef({});
   const register = useCallback((id, fn) => { if (fn) flushers.current[id] = fn; else delete flushers.current[id]; }, []);
@@ -528,7 +540,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         {/* Each row's dot says where that act is; no legend line (job 362). */}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">
           {slots.map((s, i) => (
-            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto}
+            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto} time={timeOf(s)}
               onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)}
               onMarkSent={(on = true) => onMarkSent?.([s.id], on)} />
           ))}
@@ -555,9 +567,8 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   );
 }
 
-function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRemove, onMove, onMarkSent }) {
+function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", onUpdate, onRemove, onMove, onMarkSent }) {
   const [open, setOpen] = useState(false);
-  const [editTime, setEditTime] = useState(false);
   const [name, setName] = useState(s.artist_name || "");
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState("");
@@ -567,10 +578,9 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
   const waiting = !s.status || s.status === "waiting";
   const tracks = Array.isArray(s.tracks) ? s.tracks : [];
   const statusText = waiting ? (s.link_sent_at ? `Link sent ${sentDay(s.link_sent_at)}` : st.label) : `${st.label} · ${tracks.length} track${tracks.length === 1 ? "" : "s"}`;
-  const timeIn = "bg-[#0d0d0d] border border-[#262626] rounded-md px-2 py-1.5 text-white text-sm w-[118px] min-w-[118px] shrink-0 tabular-nums outline-none focus:border-[#8CFF3D]/60";
   const stop = (e) => e.stopPropagation();
   const share = async () => {
-    const r = await shareText({ title: `${eventTitle}: send your set`, text: `${eventTitle}: send your set here${name ? ` (${name})` : ""}`, url: slotLink(s.token) });
+    const r = await shareText({ title: `${eventTitle}: send your set`, text: `${eventTitle}: send your set here${name ? ` (${name})` : ""}`, url: slotLink(s) });
     if (r) { setShared(r); setTimeout(() => setShared(""), 1500); onMarkSent?.(true); }
   };
 
@@ -585,19 +595,8 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
           className="bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-[#8CFF3D]/60 rounded-md px-2 py-1.5 text-white text-[16px] font-semibold w-[170px] xl:w-[240px] min-w-0 shrink outline-none max-sm:flex-1 max-sm:w-auto"
           placeholder="Act name" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
         <span className="basis-full h-0 sm:hidden" aria-hidden />
-        {editTime ? (
-          <span className="flex items-center gap-1.5" onClick={stop}>
-            <input id={`slot-start-${s.id}`} type="time" aria-label="Set starts" autoFocus className={timeIn} value={s.set_start || ""} onChange={(e) => onUpdate({ set_start: e.target.value || null })} />
-            <span className="text-white/30">–</span>
-            <input id={`slot-end-${s.id}`} type="time" aria-label="Set ends" className={timeIn} value={s.set_end || ""} onChange={(e) => onUpdate({ set_end: e.target.value || null })} />
-            <button type="button" onClick={() => setEditTime(false)} className="px-2 py-1 rounded-md text-xs font-semibold text-white/60 hover:text-white">Done</button>
-          </span>
-        ) : (
-          <button type="button" onClick={(e) => { stop(e); setEditTime(true); }} title="Set the time"
-            className="shrink-0 text-[13px] tabular-nums px-2 py-1 rounded-md hover:bg-white/5 w-[128px] max-sm:w-auto xl:w-[150px] text-left whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: s.set_start ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>
-            {setTimeLabel(s.set_start, s.set_end) || "Time"}
-          </button>
-        )}
+        {/* The set time from the event, not typed here (job 375). */}
+        <span className="shrink-0 text-[13px] tabular-nums px-2 py-1 w-[128px] max-sm:w-auto xl:w-[150px] whitespace-nowrap" style={{ fontFamily: SCENE_MONO, color: "rgba(255,255,255,0.8)" }}>{time}</span>
         {/* Just the dot (Jay 2026-11-13: no "Sent · 1 track" text; the DJ sees
             what came in by opening the act). Grey not opened, blue started,
             green sent. */}
@@ -607,7 +606,7 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, onUpdate, onRe
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: st.color }} />
           {waiting && <span className="text-[12px] whitespace-nowrap truncate" style={{ color: s.link_sent_at ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{st.label}</span>}
         </span>
-        <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s.token))) { setCopied(true); setTimeout(() => setCopied(false), 1500); onMarkSent?.(true); } }}
+        <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s))) { setCopied(true); setTimeout(() => setCopied(false), 1500); onMarkSent?.(true); } }}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-[#333] text-white/85 hover:text-white whitespace-nowrap">
           {copied ? <Check className="w-3.5 h-3.5" style={{ color: G }} /> : <Copy className="w-3.5 h-3.5" />} {copied ? "Copied" : "Copy link"}
         </button>

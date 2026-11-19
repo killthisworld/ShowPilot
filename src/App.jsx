@@ -60,6 +60,7 @@ import MePage from "@/pages/MePage";
 import DjTools from '@/pages/DjTools';
 import DjGigs from '@/pages/DjGigs';
 import DjEvent from '@/pages/DjEvent';
+import DjShortLink from '@/pages/DjShortLink';
 import DjSetUpload from '@/pages/DjSetUpload';
 import DjDriveCallback from '@/pages/DjDriveCallback';
 import { NavTracker } from '@/lib/navHistory';
@@ -128,6 +129,7 @@ const AuthenticatedApp = () => {
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />
       <Route path="/dj/set/:token" element={<DjSetUpload />} />
+      <Route path="/s/:code" element={<DjShortLink />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
       <Route path="/pilot/:token/history" element={<PilotWorkHistory />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>

@@ -140,7 +140,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
       }).select().single();
       if (e) throw e;
       setSlots((ss) => [...ss, data]);
-      if (await copyText(slotLink(data.token))) flash(act.name);
+      if (await copyText(slotLink(data))) flash(act.name);
     } catch (e) {
       console.error(e);
       setError("Couldn't make that link. Try again.");
@@ -151,7 +151,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
   const flash = (key) => { setCopied(key); setTimeout(() => setCopied((c) => (c === key ? null : c)), 1600); };
 
   const share = async (act, s) => {
-    const url = slotLink(s.token);
+    const url = slotLink(s);
     const text = `${act.name}: send your set for ${request?.title || "the show"} here`;
     if (navigator.share) {
       try { await navigator.share({ title: "Set upload", text, url }); return; } catch { /* cancelled: fall back to copy */ }
@@ -162,7 +162,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
   const copyAll = async () => {
     const lines = acts.map((a, i) => {
       const s = slotFor(a.name);
-      return s ? `${i + 1}. ${a.name}${setTimes[a.name] ? ` (${setTimes[a.name]})` : ""}: ${slotLink(s.token)}` : null;
+      return s ? `${i + 1}. ${a.name}${setTimes[a.name] ? ` (${setTimes[a.name]})` : ""}: ${slotLink(s)}` : null;
     }).filter(Boolean);
     if (lines.length && (await copyText(`${request?.title || "Show"}: send your set here\n\n${lines.join("\n")}`))) flash("__all");
   };
@@ -270,7 +270,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
                 <span className="flex items-center gap-1.5">
                   {s ? (
                     <>
-                      <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) flash(a.name); }}
+                      <button type="button" onClick={async () => { if (await copyText(slotLink(s))) flash(a.name); }}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border whitespace-nowrap" style={{ borderColor: G + "55", color: G }}>
                         {copied === a.name ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copied === a.name ? "Copied" : "Copy link"}
                       </button>
@@ -311,7 +311,7 @@ export default function DjLineupPanel({ gig, setTimes = {}, color = "#EF4444", c
               {orphans.map((s) => (
                 <div key={s.id} className="flex items-center gap-2 py-0.5 text-white/60">
                   <span className="flex-1 truncate">{s.artist_name || "Unnamed"} <span className="text-white/35">· {STATUS[s.status]?.label.toLowerCase()}</span></span>
-                  <button type="button" onClick={async () => { if (await copyText(slotLink(s.token))) flash(s.id); }} className="text-xs text-white/50 hover:text-white">{copied === s.id ? "Copied" : "Copy"}</button>
+                  <button type="button" onClick={async () => { if (await copyText(slotLink(s))) flash(s.id); }} className="text-xs text-white/50 hover:text-white">{copied === s.id ? "Copied" : "Copy"}</button>
                   {canEdit && <button type="button" onClick={() => removeSlot(s.id)} aria-label="Remove link" className="p-1 text-white/35 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /></button>}
                 </div>
               ))}

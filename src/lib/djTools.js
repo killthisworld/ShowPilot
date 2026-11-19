@@ -25,7 +25,13 @@ export const setUploadCall = (token, action, params = {}) =>
   call("dj-set-upload", { token, action, ...params }, "Something went wrong sending to the DJ's Drive. Try again.");
 
 // The public link an artist gets for their slot.
-export const slotLink = (token) => `${window.location.origin}/dj/set/${token}`;
+// The link an act gets: short (/s/<8-letter code>, job 375) once the slot
+// has a code, else the long /dj/set/<token> (which keeps working). Pass the
+// slot; a bare token gives the long link.
+export const slotLink = (slot) => {
+  const s = typeof slot === "string" ? { token: slot } : slot || {};
+  return s.short_code ? `${window.location.origin}/s/${s.short_code}` : `${window.location.origin}/dj/set/${s.token}`;
+};
 
 // Uploads one file straight to a Google Drive resumable session. Resumes from
 // where Google says it got to if the connection drops (up to a few times).
