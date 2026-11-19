@@ -857,21 +857,22 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
                 type="button"
                 onClick={() => selectRole(n.role)}
                 aria-label={`${n.label}, ${n.percent}% filled in, ${n.claimed ? "claimed" : n.invited ? "invited" : "not invited"}`}
-                className="absolute flex flex-col items-center justify-center gap-[3px] rounded-full cursor-pointer p-0 overflow-hidden"
+                className="absolute flex flex-col items-center justify-center gap-[2px] rounded-full cursor-pointer p-0 overflow-hidden"
                 style={{
                   left: n.x, top: n.y, ...hubM.node(n.x - cx, n.y - cy), width: 72, height: 72, zIndex: 1,
                   ...roleCircle(n, active),
                 }}
               >
                 <CirclePhoto url={sectionPhoto(n.role, gig)} />
-                <RoleGlyph style={n.style} size={15} photo={!!sectionPhoto(n.role, gig)} />
+                {/* Icon, name, bar and percent all sit inside the round edge (job 381). */}
+                <RoleGlyph style={n.style} size={13} photo={!!sectionPhoto(n.role, gig)} />
                 {n.codes.map((c) => (
-                  <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: n.codes.length > 1 ? 10.5 : c.length > 5 ? 13 : 15 }}>{c}</span>
+                  <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: n.style.color, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: n.codes.length > 1 ? 9.5 : c.length > 5 ? 12 : 13.5 }}>{c}</span>
                 ))}
-                <span className="relative w-[38px] h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
+                <span className="relative w-[34px] h-[3px] rounded-full bg-[#0d0d0d]/80 overflow-hidden">
                   <span className="block h-full rounded-full" style={{ width: `${Math.min(100, n.percent)}%`, background: n.style.color }} />
                 </span>
-                <span className={`relative text-[10px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{n.notNeeded ? "N/A" : `${n.percent}%`}</span>
+                <span className={`relative text-[9px] leading-none ${active ? "text-white" : "text-white/80"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(n.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{n.notNeeded ? "N/A" : `${n.percent}%`}</span>
               </button>
             );
           })}
@@ -1932,21 +1933,22 @@ function DesktopHub({ nodes, selectedRole, selectRole, gig, title, myIcon, hubM 
             type="button"
             onClick={() => selectRole(nd.role)}
             aria-label={`${nd.label}, ${nd.percent}% filled in, ${nd.claimed ? "claimed" : nd.invited ? "invited" : "not invited"}`}
-            className="absolute flex flex-col items-center justify-center gap-1.5 rounded-full cursor-pointer p-0 overflow-hidden"
+            className="absolute flex flex-col items-center justify-center rounded-full cursor-pointer p-0 overflow-hidden"
             style={{
-              left: `${nd.px}%`, top: `${nd.py}%`, ...m.node(((nd.px - 50) / 100) * size, ((nd.py - 50) / 100) * size), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1,
+              left: `${nd.px}%`, top: `${nd.py}%`, ...m.node(((nd.px - 50) / 100) * size, ((nd.py - 50) / 100) * size), width: Math.round(104 * k), height: Math.round(104 * k), zIndex: 1, gap: Math.max(2, Math.round(4 * k)),
               ...roleCircle(nd, active),
             }}
           >
             <CirclePhoto url={sectionPhoto(nd.role, gig)} />
-            <RoleGlyph style={nd.style} size={Math.round(22 * k)} photo={!!sectionPhoto(nd.role, gig)} />
+            {/* Sized with the circle so the name and percent stay inside it (job 381). */}
+            <RoleGlyph style={nd.style} size={Math.round(19 * k)} photo={!!sectionPhoto(nd.role, gig)} />
             {nd.codes.map((c) => (
-              <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(11, Math.round((nd.codes.length > 1 ? 13 : c.length > 5 ? 14.5 : 20) * k)) }}>{c}</span>
+              <span key={c} className="relative font-bold leading-none whitespace-nowrap tracking-[0.04em]" style={{ fontFamily: SCENE_FONT, color: nd.style.color, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined, fontSize: Math.max(8.5, Math.round((nd.codes.length > 1 ? 12.5 : c.length > 5 ? 14 : 18) * k * 2) / 2) }}>{c}</span>
             ))}
-            <span className="relative h-[4px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(54 * k) }}>
+            <span className="relative h-[3px] rounded-full bg-[#0d0d0d]/80 overflow-hidden" style={{ width: Math.round(48 * k) }}>
               <span className="block h-full rounded-full" style={{ width: `${Math.min(100, nd.percent)}%`, background: nd.style.color }} />
             </span>
-            <span className={`relative text-[11px] leading-none ${active ? "text-white" : "text-white/70"}`} style={{ fontFamily: SCENE_MONO, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{nd.notNeeded ? "N/A" : `${nd.percent}%`}</span>
+            <span className={`relative leading-none ${active ? "text-white" : "text-white/80"}`} style={{ fontSize: Math.max(8.5, Math.round(11 * k * 2) / 2), fontFamily: SCENE_MONO, textShadow: sectionPhoto(nd.role, gig) ? PHOTO_TEXT_SHADOW : undefined }}>{nd.notNeeded ? "N/A" : `${nd.percent}%`}</span>
           </button>
         );
       })}
