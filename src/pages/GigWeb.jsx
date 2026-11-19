@@ -507,14 +507,16 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     // always shows its color so you know where you are.
     const lit = !notNeeded && (claimed || invited || percent > 0 || hasTasks);
     const label = role === "engineer" ? "Tech" : sides.map((r) => WEB_LABELS[r]).join(" / ");
-    const codes = sides.map((r) => ROLE_CODES[r]);
+    // The Artist / Management circle always reads ARTIST / MGMT (Jay 2026-11-19, job 366).
+    const codes = role === "manager" ? ["ARTIST", "MGMT"] : sides.map((r) => ROLE_CODES[r]);
     const style = { ...(lit || sides.includes(selectedRole) ? baseStyle : { ...baseStyle, color: UNLIT }), label };
     return {
       role,
       sides,
       label,
       codes,
-      code: role === "engineer" ? "TECH" : codes.join(" / "),
+      // The flight log's narrow column keeps the short code (MGMT / ARTIST).
+      code: role === "engineer" ? "TECH" : sides.map((r) => ROLE_CODES[r]).join(" / "),
       x: Math.round((cx + r * Math.cos(angle)) * 10) / 10,
       y: Math.round((cy + r * Math.sin(angle)) * 10) / 10,
       style,

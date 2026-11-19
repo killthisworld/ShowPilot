@@ -240,6 +240,11 @@ h3{font-size:28px;line-height:1.05}
 .cta-inner{display:flex;flex-direction:column;align-items:center;gap:22px}
 .cta-inner h2{font-size:64px}
 .cta-inner .sub{max-width:520px;font-size:18px}
+/* How it started (job 366) */
+.story-inner{max-width:760px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.story-inner h2{font-size:56px;margin-bottom:6px}
+.story-inner p:not(.kicker){margin:0;font-size:19px;line-height:1.7;color:var(--ink-2)}
+.story-inner .thanks{color:var(--ink);padding-top:22px;border-top:1px solid var(--line);margin-top:6px}
 .cta-icon{width:84px;height:84px;border-radius:20px;box-shadow:0 0 0 1px rgba(140,255,61,.5),0 0 60px rgba(140,255,61,.25)}
 
 /* Footer */
@@ -269,7 +274,8 @@ h3{font-size:28px;line-height:1.05}
   .brand{font-size:23px}
   .btn.sm{padding:0 14px;font-size:17px}
   h1{font-size:44px}
-  h2,.cta-inner h2{font-size:40px}
+  h2,.cta-inner h2,.story-inner h2{font-size:40px}
+  .story-inner p:not(.kicker){font-size:17px}
   .hero{padding:48px 0 24px}
   .band{padding:68px 0}
   .strip{grid-template-columns:repeat(3,minmax(0,1fr))}
