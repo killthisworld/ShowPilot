@@ -6,6 +6,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
 import DriveIcon from "@/components/showpilot/DriveIcon";
+import MonthDropdown from "@/components/showpilot/MonthDropdown";
 import { ActBar } from "@/components/showpilot/DjWeekMonths";
 import { DJ_COLOR, driveCall } from "@/lib/djTools";
 
@@ -70,8 +71,8 @@ function SetCard({ r, c, onOpen }) {
   );
 }
 
-// Sets in more than one month: a heading for each month, soonest first.
-const monthOf = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "No date");
+// "November 2026" (or "November" in the dropdown, under its year).
+const monthName = (k, withYear = true) => (k === "none" ? "No date" : new Date(`${k}-01T00:00:00`).toLocaleDateString("en-US", withYear ? { month: "long", year: "numeric" } : { month: "long" }));
 
 export default function DjHome() {
   const navigate = useNavigate();
@@ -125,6 +126,15 @@ export default function DjHome() {
   const t = today();
   const upcoming = requests.filter((r) => !r.event_date || r.event_date >= t);
   const name = preferences?.display_name || "You";
+  // The month shown (job 380): this month to start; the dropdown lists this
+  // month and every month with a set, by year, with how many.
+  const thisMonth = t.slice(0, 7);
+  const [month, setMonth] = useState(thisMonth);
+  const keyOf = (r) => (r.event_date ? r.event_date.slice(0, 7) : "none");
+  const perMonth = upcoming.reduce((m, r) => { m[keyOf(r)] = (m[keyOf(r)] || 0) + 1; return m; }, {});
+  const monthOptions = [...new Set([thisMonth, ...Object.keys(perMonth)])].sort((x, y) => (x === "none" ? 1 : y === "none" ? -1 : x.localeCompare(y)))
+    .map((k) => ({ key: k, label: monthName(k, false), count: perMonth[k] || 0, group: k === "none" ? "" : k.slice(0, 4) }));
+  const inMonth = upcoming.filter((r) => keyOf(r) === month);
   const open = (r) => navigate(`/dj?event=${r.id}`);
   const label = (txt, right = null) => (
     <div className="mt-3 flex items-center justify-between gap-3">
@@ -157,20 +167,15 @@ export default function DjHome() {
                 <Plus className="w-4 h-4" strokeWidth={3} />New set
               </Link>
             ))}
-            {upcoming.length === 0 ? (
-              <p className="m-0 py-6 text-center text-[15px] text-white/60">No sets yet. Start one from a gig on Bookings, or New set.</p>
+            {/* One month at a time (job 380): this month to start, a dropdown
+                for the others. */}
+            <MonthDropdown label={monthName(month).toUpperCase()} value={month} options={monthOptions} onSelect={setMonth}
+              accent={DJ_COLOR} ariaLabel="Choose a month" className="self-start text-[22px] tracking-[0.04em]" style={{ ...cond, color: DJ_COLOR }} />
+            {inMonth.length === 0 ? (
+              <p className="m-0 py-6 text-center text-[15px] text-white/60">No sets in {monthName(month)}.</p>
             ) : (
-              <div className="flex flex-col gap-4">
-                {Object.entries(upcoming.reduce((m, r) => { (m[monthOf(r.event_date)] = m[monthOf(r.event_date)] || []).push(r); return m; }, {})).map(([mon, list]) => (
-                  <section key={mon} className="flex flex-col gap-2">
-                    <h3 className="m-0 flex items-center gap-2 text-[12px] tracking-[0.14em] font-normal" style={{ ...mono, color: DJ_COLOR }}>
-                      {mon.toUpperCase()}<span className="text-white/45">{list.length}</span><span className="flex-1 h-px bg-white/10" />
-                    </h3>
-                    <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-                      {list.map((r) => <SetCard key={r.id} r={r} c={counts[r.id]} onOpen={() => open(r)} />)}
-                    </div>
-                  </section>
-                ))}
+              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+                {inMonth.map((r) => <SetCard key={r.id} r={r} c={counts[r.id]} onOpen={() => open(r)} />)}
               </div>
             )}
           </>

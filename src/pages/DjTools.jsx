@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Check, Clock, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DJ_COLOR, driveCall, slotLink, AUDIO_TYPES, fileTypes, typesLabel } from "@/lib/djTools";
@@ -293,7 +293,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
       <header className="flex flex-wrap items-center gap-4 px-4 sm:px-6 py-3.5 border-b border-[#1a1a1a]">
         <button type="button" onClick={back} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
         <Disc3 className="w-7 h-7" style={{ color: DJ_COLOR }} />
-        <h1 className="text-3xl font-bold leading-none tracking-wide">DJ Tools</h1>
+        <h1 className="text-3xl font-bold leading-none tracking-wide">Sets</h1>
         <div className="ml-auto"><DriveIcon drive={drive} onConnect={connectDrive} onDisconnect={disconnectDrive} /></div>
       </header>
 
@@ -453,21 +453,29 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   const [note, setNote] = useState(request.note || "");
   const [venue, setVenue] = useState(request.venue || "");
   const [editing, setEditing] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
   const [sharedAll, setSharedAll] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Each act's set time comes from the event (job 375, Jay 2026-11-19): the
   // lineup's set times, kept by the venue or artist / management, so it
   // follows the event when it changes. Matched by the act's name.
+  // The event's picture behind the set (job 380) and each act's lineup
+  // photo, both kept by the venue or artist / management on the event.
   const [evTimes, setEvTimes] = useState({});
+  const [evPhoto, setEvPhoto] = useState("");
+  const [actPhotos, setActPhotos] = useState({});
   useEffect(() => {
-    if (!request.show_id) { setEvTimes({}); return undefined; }
+    if (!request.show_id) { setEvTimes({}); setEvPhoto(""); setActPhotos({}); return undefined; }
     let gone = false;
-    supabase.from("shows").select("manager_info").eq("id", request.show_id).maybeSingle()
-      .then(({ data }) => { if (!gone) setEvTimes(data?.manager_info?.set_times || {}); });
+    supabase.from("shows").select("manager_info, icon_url").eq("id", request.show_id).maybeSingle()
+      .then(({ data }) => { if (!gone) { setEvTimes(data?.manager_info?.set_times || {}); setEvPhoto(data?.icon_url || ""); } });
+    supabase.from("show_bands").select("band_name, photo_url").eq("show_id", request.show_id)
+      .then(({ data }) => { if (!gone) setActPhotos(Object.fromEntries((data || []).filter((b) => b.photo_url && b.band_name).map((b) => [b.band_name.trim(), b.photo_url]))); });
     return () => { gone = true; };
   }, [request.show_id]);
   const timeOf = (s) => evTimes[(s.artist_name || "").trim()] || setTimeLabel(s.set_start, s.set_end);
+  // The act's own Show Pilot photo once they've sent their set (slot.photo_url),
+  // else their photo on the event's lineup.
+  const photoOf = (s) => s.photo_url || actPhotos[(s.artist_name || "").trim()] || "";
   // Everything typed on this page saves by itself (a moment after typing stops).
   const flushers = useRef({});
   const register = useCallback((id, fn) => { if (fn) flushers.current[id] = fn; else delete flushers.current[id]; }, []);
@@ -493,14 +501,27 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
       {/* The set at a glance (job 372): the night, one bar with a section
           per act that fills as each act sends their set, then what you can
           do with it. */}
-      <section className="rounded-2xl border border-[#262626] bg-[#111]/90 backdrop-blur p-4 flex flex-col gap-3">
+      <section className="relative isolate overflow-hidden rounded-2xl border border-[#262626] bg-[#111]/90 backdrop-blur p-4 flex flex-col gap-3">
+        {/* The event's picture behind it (job 380). */}
+        {evPhoto && (
+          <>
+            <img src={evPhoto} alt="" aria-hidden="true" className="absolute inset-0 -z-10 w-full h-full object-cover" onError={() => setEvPhoto("")} />
+            <span aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.45) 0%, rgba(13,13,13,0.8) 55%, rgba(13,13,13,0.95) 100%)" }} />
+          </>
+        )}
         <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h2 className="m-0 text-[28px] font-bold leading-tight break-words" style={{ fontFamily: SCENE_FONT }}>{title || request.title}</h2>
-          <div className="mt-0.5 text-[12px] tracking-[0.06em] text-white/60" style={{ fontFamily: SCENE_MONO }}>
+          <div className="mt-0.5 text-[12px] tracking-[0.06em] text-white/75" style={{ fontFamily: SCENE_MONO }}>
             {[dateLabel, (venue || request.venue || "").toUpperCase()].filter(Boolean).join(" · ")}
-            {due && <span style={{ color: overdue ? RED : AMBER }}>{overdue ? ` · OVERDUE (${dueLabel.replace(/^[A-Z]+, /, "")})` : ` · DUE ${dueLabel}`}</span>}
           </div>
+          {/* The due date on its own line, so it isn't read as the night (job 380). */}
+          {due && (
+            <span className="mt-2 inline-flex min-h-[26px] px-2.5 rounded-full text-[13px] font-semibold items-center gap-1.5"
+              style={overdue ? { background: `${RED}26`, color: RED } : { background: `${AMBER}26`, color: AMBER }}>
+              <Clock className="w-3.5 h-3.5" />{overdue ? `Overdue · was due ${dueLabel.replace(/^[A-Z]+, /, "")}` : `Sets due ${dueLabel}`}
+            </span>
+          )}
         </div>
           <Menu label="More for this set" items={[
             slots.length > 0 && { label: sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all links", icon: Share2, onClick: async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } } },
@@ -530,12 +551,6 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
             className="min-h-[40px] flex items-center gap-1.5 px-3.5 rounded-[10px] border text-sm font-semibold" style={editing ? { borderColor: DJ_COLOR + "88", color: DJ_COLOR, background: DJ_COLOR + "14" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.85)" }}>
             <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit"}
           </button>
-          {slots.length > 0 && (
-            <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
-              className="min-h-[40px] flex items-center gap-1.5 px-3.5 rounded-[10px] border text-sm font-semibold" style={{ borderColor: G + "66", color: G }}>
-              {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
-            </button>
-          )}
           {/* The night's event, everything on it (job 354). */}
           {request.show_id && (
             <Link to={`/show/${request.show_id}`} className="min-h-[40px] flex items-center gap-1.5 px-3 rounded-[10px] border border-[#2a2a2a] text-sm font-semibold" style={{ color: RED }}>
@@ -544,7 +559,6 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           )}
         </div>
         {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
-        <p className="m-0 text-[13px] text-white/60">Takes {typesLabel(request.file_types)} files</p>
         {!driveConnected && <p className="text-[13px] m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no audio files.</p>}
       </section>
 
@@ -575,7 +589,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         {/* Each row's dot says where that act is; no legend line (job 362). */}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">
           {slots.map((s, i) => (
-            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto} time={timeOf(s)}
+            <SlotRow key={s.id} s={s} i={i} count={slots.length} files={files} eventTitle={request.title} request={request} auto={auto} time={timeOf(s)} photo={photoOf(s)}
               onUpdate={(p) => onUpdateSlot(s.id, p)} onRemove={() => onRemoveSlot(s.id)} onMove={(d) => onMoveSlot(i, d)}
               onMarkSent={(on = true) => onMarkSent?.([s.id], on)} />
           ))}
@@ -602,8 +616,10 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   );
 }
 
-function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", onUpdate, onRemove, onMove, onMarkSent }) {
+function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", photo = "", onUpdate, onRemove, onMove, onMarkSent }) {
   const [open, setOpen] = useState(false);
+  const [photoBroken, setPhotoBroken] = useState(false);
+  useEffect(() => setPhotoBroken(false), [photo]);
   const [name, setName] = useState(s.artist_name || "");
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState("");
@@ -620,7 +636,14 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", onU
   };
 
   return (
-    <li className="rounded-xl border bg-[#141414] transition-colors" style={{ borderColor: open ? DJ_COLOR + "55" : "#232323" }}>
+    <li className="relative isolate overflow-hidden rounded-xl border bg-[#141414] transition-colors" style={{ borderColor: open ? DJ_COLOR + "55" : "#232323" }}>
+      {/* The act's photo behind their card (job 380). */}
+      {photo && !photoBroken && (
+        <>
+          <img src={photo} alt="" aria-hidden="true" className="absolute inset-0 -z-10 w-full h-full object-cover" onError={() => setPhotoBroken(true)} />
+          <span aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(20,20,20,0.93) 0%, rgba(20,20,20,0.8) 55%, rgba(20,20,20,0.6) 100%)" }} />
+        </>
+      )}
       {/* Clicking the row (not its controls) opens the act's tracks. */}
       {/* On a phone the row wraps: number + name, then time, status dot,
           Copy link and the menu (job 73). */}

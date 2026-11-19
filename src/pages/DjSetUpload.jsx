@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Check, Loader2, Plus, Trash2, AlertTriangle, Disc3, MoreHorizontal } from "lucide-react";
+import { Check, ChevronDown, Loader2, Plus, Trash2, AlertTriangle, Disc3 } from "lucide-react";
+import SwipeRow from "@/components/showpilot/SwipeRow";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { inspectWav, describeWav, qualityWarning } from "@/lib/wav";
@@ -159,6 +160,81 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
     save(false).catch(() => {});
     if (t.file_id) setUploadCall(token, "remove", { file_id: t.file_id }).catch(() => {});
   };
+  // Hold a song, then drag it up or down to move it (job 380).
+  const listRef = useRef(null);
+  const holdRef = useRef(null);   // { timer, x0, y0 } while waiting for the hold
+  const dragRef = useRef(null);   // { k, grab, el } while dragging
+  const [dragK, setDragK] = useState(null);
+  const [dragDy, setDragDy] = useState(0);
+  // Moves and lets-go are followed on the whole page: the dragged row moves
+  // in the list as it goes, and the browser drops a row's pointer capture
+  // when that happens. While dragging, the page mustn't scroll either.
+  const moveFn = useRef(() => {});
+  const upFn = useRef(() => {});
+  useEffect(() => {
+    const stop = (e) => { if (dragRef.current) e.preventDefault(); };
+    const mv = (e) => moveFn.current(e);
+    const up = () => upFn.current();
+    document.addEventListener("touchmove", stop, { passive: false });
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      document.removeEventListener("touchmove", stop);
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, []);
+  const cancelHold = () => { if (holdRef.current) { clearTimeout(holdRef.current.timer); holdRef.current = null; } };
+  const holdDown = (e, k) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target.closest("input, textarea, label, button")) return;
+    const el = e.currentTarget;
+    const { clientX: x0, clientY: y0 } = e;
+    cancelHold();
+    holdRef.current = {
+      x0, y0,
+      timer: setTimeout(() => {
+        holdRef.current = null;
+        const r = el.getBoundingClientRect();
+        dragRef.current = { k, grab: y0 - r.top, el };
+        setDragK(k); setDragDy(0);
+        try { navigator.vibrate?.(12); } catch { /* ignore */ }
+      }, 380),
+    };
+  };
+  const holdMove = (e) => {
+    const h = holdRef.current;
+    if (h && (Math.abs(e.clientX - h.x0) > 8 || Math.abs(e.clientY - h.y0) > 8)) cancelHold(); // a scroll or a swipe
+    const d = dragRef.current;
+    const ol = listRef.current;
+    if (!d || !ol) return;
+    const olTop = ol.getBoundingClientRect().top;
+    const top = e.clientY - d.grab; // where the row's top should be
+    const mid = top + d.el.offsetHeight / 2;
+    const ts = stateRef.current.tracks;
+    const from = ts.findIndex((t) => t.k === d.k);
+    const others = [...ol.children].filter((li) => li !== d.el);
+    const to = others.filter((li) => olTop + li.offsetTop + li.offsetHeight / 2 < mid).length;
+    if (from >= 0 && to !== from) {
+      const next = [...ts];
+      const [it] = next.splice(from, 1);
+      next.splice(to, 0, it);
+      stateRef.current = { ...stateRef.current, tracks: next };
+      setTracks(next);
+    }
+    setDragDy(top - (olTop + d.el.offsetTop));
+  };
+  const holdUp = () => {
+    cancelHold();
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setDragK(null); setDragDy(0);
+    save(false).catch(() => {});
+  };
+  moveFn.current = holdMove;
+  upFn.current = holdUp;
   const move = (i, d) => {
     const ts = stateRef.current.tracks;
     const j = i + d;
@@ -176,6 +252,11 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
       setSendOff(true);
       setSubmitted(true);
       setUploadCall(token, "finalize").catch(() => {}); // number the files in Drive; not essential
+      // Signed in to Show Pilot: the DJ sees your profile photo behind your
+      // card (job 380). The server takes it from your account.
+      supabase.auth.getSession().then(({ data: ss }) => {
+        if (ss?.session) supabase.rpc("dj_slot_photo_from_me", { p_token: token }).then(() => {}, () => {});
+      });
       onDone?.();
     } catch { /* error already shown */ }
   };
@@ -252,29 +333,18 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
           <p className="m-0 text-[14px] flex items-start gap-2 text-white/80"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: AMBER }} /> {djFirst}'s Google Drive isn't connected, so files can't be sent yet. Your track list still saves.</p>
         )}
 
-        {/* Billed as: a small editable line */}
-        <div className="flex items-center gap-2 text-[14px] text-white/60 -mt-1">
-          {editName ? (
-            <input id="artist-name" autoFocus className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-white text-[15px] outline-none focus:border-[#8CFF3D]/60" value={artistName} maxLength={120}
-              onChange={(e) => setArtistName(e.target.value)} onBlur={() => { setEditName(false); save(false).catch(() => {}); }} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} placeholder="How you're billed" />
-          ) : (
-            <>
-              <span className="text-white font-semibold">{artistName || "Your name"}</span>
-              <button type="button" onClick={() => setEditName(true)} className="text-white/45 hover:text-white underline-offset-2 hover:underline">{artistName ? "Not you? edit" : "add your name"}</button>
-            </>
-          )}
-        </div>
-
         {/* Tracks: one row each, the WAV right there */}
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline gap-2">
             <h2 className="text-[20px] font-bold leading-none">Tracks</h2>
             <span className="text-[11px] tracking-[0.1em] text-white/45" style={{ fontFamily: SCENE_MONO }}>IN PLAY ORDER</span>
           </div>
-          <ol className="flex flex-col gap-2 m-0 p-0">
+          <ol ref={listRef} className="relative flex flex-col gap-2 m-0 p-0">
             {tracks.map((t, i) => (
               <TrackRow
                 key={t.k} i={i} t={t} count={tracks.length} meta={t.file_id ? files[t.file_id] : null} driveOk={driveOk} types={types}
+                dragging={dragK === t.k} dragDy={dragK === t.k ? dragDy : 0} anyDragging={!!dragK}
+                onHoldDown={(e) => holdDown(e, t.k)}
                 onChange={(patch) => patchTrack(t.k, patch)} onBlur={() => save(false).catch(() => {})}
                 onFile={(f) => attach(t.k, f)} onRemove={() => removeTrack(t)} onMove={(d) => move(i, d)}
               />
@@ -287,9 +357,9 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
                 <input type="file" accept={acceptFor(types)} multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addMany(e.target.files); e.target.value = ""; }} />
               </label>
             ) : <span className="flex-1" />}
-            <button type="button" onClick={() => setTracks((ts) => [...ts, newTrack()])} className="px-4 py-3 rounded-xl border border-[#2a2a2a] text-white/65 hover:text-white text-[14px]">Type one in</button>
+            <button type="button" onClick={() => setTracks((ts) => [...ts, { ...newTrack(), typed: true }])} className="px-4 py-3 rounded-xl border border-[#2a2a2a] text-white/65 hover:text-white text-[14px]">Type one in</button>
           </div>
-          <span className="text-[12px] text-white/40">Tap a track to add a note for {djFirst} (fades, cue points).</span>
+          <span className="text-[12px] text-white/40">Tap a song to add a note for {djFirst}. Hold to move it, swipe left to delete.</span>
         </section>
 
         <label className="flex flex-col gap-1.5">
@@ -335,13 +405,14 @@ function ordinal(n) {
   return `${n}${v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"}`;
 }
 
-function TrackRow({ i, t, count, meta, driveOk, types = ["wav"], onChange, onBlur, onFile, onRemove, onMove }) {
-  const [drag, setDrag] = useState(false);
-  const [open, setOpen] = useState(!!t.notes);
-  const [menu, setMenu] = useState(false);
+// One song (job 380): the number, its title and file, and a dropdown arrow.
+// Tap it (or the arrow) for the title, a note for the DJ and its file; hold
+// and drag to move it; swipe left to delete.
+function TrackRow({ i, t, meta, driveOk, types = ["wav"], dragging = false, dragDy = 0, anyDragging = false, onHoldDown, onChange, onBlur, onFile, onRemove }) {
+  const [over, setOver] = useState(false);
+  const [open, setOpen] = useState(!!t.notes || !!t.typed); // typed in: ready for its title
   const warn = meta ? qualityWarning({ sampleRate: meta.sample_rate, bitDepth: meta.bit_depth }) : null;
   const busy = ["checking", "waiting", "uploading"].includes(t.up.state);
-  const toggle = (e) => { if (e.target.closest("input, textarea, button, label")) return; setOpen((v) => !v); };
 
   let sub, subColor = "rgba(255,255,255,0.45)";
   if (t.up.state === "done" && meta && !meta.sample_rate) {
@@ -356,48 +427,56 @@ function TrackRow({ i, t, count, meta, driveOk, types = ["wav"], onChange, onBlu
   else if (t.up.state === "uploading") sub = `Uploading ${t.up.pct}%`;
   else if (t.up.state === "error") { sub = t.up.msg; subColor = RED; }
   else sub = driveOk ? "No file yet" : "Track listed";
+  if (t.notes && !open) sub = `${sub} · Note`;
 
   return (
     <li
-      onClick={toggle}
-      className="list-none rounded-xl border bg-[#161616] px-3 py-2.5 flex flex-col gap-2 cursor-pointer transition-colors"
-      style={{ borderColor: drag ? DJ_COLOR : "#262626" }}
-      onDragOver={(e) => { if (driveOk) { e.preventDefault(); setDrag(true); } }}
-      onDragLeave={() => setDrag(false)}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f && driveOk && !busy) onFile(f); }}
+      onPointerDown={onHoldDown}
+      onContextMenu={(e) => e.preventDefault()}
+      className="list-none rounded-xl border bg-[#161616] transition-[box-shadow,border-color]"
+      style={{
+        borderColor: over || dragging ? DJ_COLOR : "#262626",
+        transform: dragging ? `translateY(${dragDy}px) scale(1.02)` : undefined,
+        zIndex: dragging ? 30 : undefined, position: "relative",
+        boxShadow: dragging ? "0 12px 30px rgba(0,0,0,0.55)" : undefined,
+        touchAction: anyDragging ? "none" : "pan-y",
+        WebkitTouchCallout: "none",
+      }}
+      onDragOver={(e) => { if (driveOk) { e.preventDefault(); setOver(true); } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const f = e.dataTransfer.files?.[0]; if (f && driveOk && !busy) onFile(f); }}
     >
-      <div className="flex items-center gap-2.5">
-        <span className="text-[13px] tabular-nums w-5 shrink-0" style={{ fontFamily: SCENE_MONO, color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>
-        <div className="flex-1 min-w-0 flex flex-col">
-          <input id={`t-title-${t.k}`} className="w-full bg-transparent border border-transparent focus:border-[#2a2a2a] focus:bg-[#0d0d0d] rounded-md px-1.5 -mx-1.5 py-0.5 text-[15px] font-semibold text-white placeholder:text-white/30 outline-none"
+      <SwipeRow actions={busy || anyDragging ? [] : [{ label: "Delete", icon: Trash2, color: RED, onClick: onRemove }]} radius={12} label={t.title || `Song ${i + 1}`}>
+        <div onClick={() => { if (!anyDragging) setOpen((v) => !v); }} className="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer bg-[#161616] rounded-xl" style={{ WebkitUserSelect: "none", userSelect: "none" }}>
+          <span className="text-[13px] tabular-nums w-5 shrink-0" style={{ fontFamily: SCENE_MONO, color: DJ_COLOR }}>{String(i + 1).padStart(2, "0")}</span>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <span className={`text-[15px] font-semibold truncate ${t.title ? "text-white" : "text-white/35"}`}>{t.title || "Track title"}</span>
+            <span className="text-[12px] truncate" style={{ color: subColor }}>{sub}</span>
+            {t.up.state === "uploading" && (
+              <span className="mt-1 h-1 rounded-full bg-[#222] overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${t.up.pct}%`, background: G }} /></span>
+            )}
+          </div>
+          {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin text-white/50" />}
+          <button type="button" aria-label={open ? "Close this song" : "Open this song"} aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+            className="shrink-0 w-9 h-9 -mr-1 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/5">
+            <ChevronDown className="w-5 h-5 transition-transform" style={{ transform: open ? "rotate(180deg)" : "none" }} />
+          </button>
+        </div>
+      </SwipeRow>
+      {open && !dragging && (
+        <div className="px-3 pb-3 pt-0.5 flex flex-col gap-2">
+          <input id={`t-title-${t.k}`} className="w-full bg-[#0d0d0d] border border-[#262626] rounded-lg px-2.5 py-2 text-[15px] font-semibold text-white placeholder:text-white/30 outline-none focus:border-[#FDE047]/60"
             placeholder="Track title" maxLength={160} value={t.title} onChange={(e) => onChange({ title: e.target.value })} onBlur={onBlur} />
-          <span className="text-[12px] truncate" style={{ color: subColor }}>{sub}</span>
-          {t.up.state === "uploading" && (
-            <span className="mt-1 h-1 rounded-full bg-[#222] overflow-hidden"><span className="block h-full rounded-full" style={{ width: `${t.up.pct}%`, background: G }} /></span>
+          <textarea id={`t-notes-${t.k}`} rows={2} className="bg-[#0d0d0d] border border-[#262626] rounded-lg px-2.5 py-2 text-white text-[14px] placeholder:text-white/30 outline-none focus:border-[#FDE047]/60 resize-none"
+            placeholder="Note for the DJ (fades, cue points, edits)" maxLength={400} value={t.notes} onChange={(e) => onChange({ notes: e.target.value })} onBlur={onBlur} />
+          {driveOk && !busy && (
+            <label className="self-start min-h-[38px] px-3 rounded-lg border text-[13px] font-semibold cursor-pointer flex items-center gap-1.5 hover:brightness-125"
+              style={t.file_id ? { borderColor: "#333", color: "#d4d4d4" } : { borderColor: `${DJ_COLOR}88`, color: DJ_COLOR }}>
+              {t.file_id ? "Replace file" : `Add ${typesLabel(types)} file`}
+              <input type="file" accept={acceptFor(types)} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+            </label>
           )}
         </div>
-        {driveOk && !busy && (
-          <label className="shrink-0 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold cursor-pointer hover:brightness-125"
-            style={t.file_id ? { borderColor: G + "66", color: G } : { borderColor: "#333", color: "#d4d4d4" }}>
-            {t.file_id ? "✓ File" : "Add file"}
-            <input type="file" accept={acceptFor(types)} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
-          </label>
-        )}
-        {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin text-white/50" />}
-        <div className="relative shrink-0">
-          <button type="button" aria-label="Track options" aria-expanded={menu} onClick={() => setMenu((v) => !v)} className="w-7 h-7 rounded-md flex items-center justify-center text-white/45 hover:text-white hover:bg-white/5"><MoreHorizontal className="w-4 h-4" /></button>
-          {menu && (
-            <div className="absolute right-0 top-8 z-20 w-40 rounded-lg bg-[#1a1a1a] border border-[#333] shadow-xl overflow-hidden" onMouseLeave={() => setMenu(false)}>
-              <button type="button" disabled={i === 0} onClick={() => { setMenu(false); onMove(-1); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-white/80 hover:bg-white/5 disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /> Move up</button>
-              <button type="button" disabled={i === count - 1} onClick={() => { setMenu(false); onMove(1); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-white/80 hover:bg-white/5 disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /> Move down</button>
-              <button type="button" disabled={busy} onClick={() => { setMenu(false); onRemove(); }} className="w-full h-9 px-3 flex items-center gap-2 text-[13px] text-red-400 hover:bg-white/5 disabled:opacity-30"><Trash2 className="w-3.5 h-3.5" /> Remove</button>
-            </div>
-          )}
-        </div>
-      </div>
-      {open && (
-        <textarea id={`t-notes-${t.k}`} rows={2} className="ml-7 bg-[#0d0d0d] border border-[#262626] rounded-lg px-2.5 py-1.5 text-white text-[14px] placeholder:text-white/30 outline-none focus:border-[#FDE047]/60 resize-none"
-          placeholder="Note for the DJ (fades, cue points, edits)" maxLength={400} value={t.notes} onChange={(e) => onChange({ notes: e.target.value })} onBlur={onBlur} />
       )}
     </li>
   );
