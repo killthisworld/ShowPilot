@@ -9,7 +9,7 @@ import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { packageReadCircles, ActCenterRead } from "@/components/showpilot/BookingFields";
 import OfferDates from "@/components/showpilot/OfferDates";
 import ActOfferView from "@/pages/ActOfferView";
-import { usePreviewView, PreviewToggle, PhoneFrame, inPreviewFrame } from "@/components/showpilot/PreviewView";
+import { inPreviewFrame } from "@/components/showpilot/PreviewView";
 
 // A booking package, as the venue opens it (job 246, step 2): the key opens
 // the act's web (read-only), with the dates they want. The venue offers up to
@@ -27,7 +27,6 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
   const navigate = useNavigate();
   const { user, isLoadingAuth } = useAuth();
   const [pkg, setPkg] = useState(previewPkg || undefined);
-  const [pview, setPview] = usePreviewView();
   const framed = !!previewPkg && inPreviewFrame();
   const [step, setStep] = useState("web"); // web | join | offer | decline | sent | passed
   const [booked, setBooked] = useState(new Set());
@@ -175,23 +174,20 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
 
   const answeredElsewhere = pkg.taken && step === "web";
   // Preview: the bar on top says so, and the buttons stay put.
-  // The sender's preview as a phone: the same page in a phone-sized frame,
-  // which reads the package from this window (job 346).
+  // (The phone-sized frame, job 346, still reads the package from this
+  // window, but View as the venue no longer offers it: job 360.)
   if (previewPkg && !framed) { try { window.__spPkgPreview = previewPkg; } catch { /* none */ } }
   const previewBar = previewPkg && !framed ? (
     <div className="fixed top-0 inset-x-0 z-[70] flex justify-center px-3 pt-3 pointer-events-none">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-[#3a2a2a] bg-[#1a1212]/95 backdrop-blur pl-4 pr-1.5 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <span className="text-[13px] font-semibold text-white/85 hidden sm:inline">Preview: what {pkg.to_name || "the venue"} sees</span>
-        <PreviewToggle view={pview} setView={setPview} />
         <button type="button" onClick={onClosePreview} className="min-h-[38px] px-4 rounded-full text-[13px] font-bold" style={{ background: "#F87171", color: "#0d0d0d" }}>Back to editing</button>
       </div>
     </div>
   ) : null;
   // The dates they want sit in the corner box, so not a circle as well.
   const circles = packageReadCircles(pkg, wl).filter((c) => c.key !== "dates");
-  if (previewPkg && !framed && pview === "phone") {
-    return <>{previewBar}<PhoneFrame title="Phone preview" src="/preview-frame/package?frame=1" /></>;
-  }
+  // No Phone / Desktop switch on View as the venue (job 360): it opens as is.
   return (
     <>
     {previewBar}
@@ -205,7 +201,8 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
       seed={pkg.code}
       image={pkg.data?.photo_url || pkg.sender?.photo || ""}
       keyCode={pkg.code}
-      fromLine={`${senderName} sent ${pkg.to_name ? pkg.to_name : "you"} a booking package for`}
+      fromLine={`${senderName} sent you a booking package`}
+      keyTitle={false}
       title={pkg.act_name}
       dateLine={wl ? `Wants ${wl}` : ""}
       actName=""

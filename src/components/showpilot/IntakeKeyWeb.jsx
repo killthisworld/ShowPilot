@@ -206,7 +206,7 @@ export function SenderCircle({ center, color, desktop, onOpen = null }) {
 //   Tapping the centre opens it like a circle (pane "center").
 export default function IntakeKeyWeb({
   color = GREEN, seed, image = "", fromLine, title, dateLine, keyCode,
-  actName, center = null, circles = [], corner = null, cornerBL = null, show = null,
+  actName, keyTitle = true, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
   sent = false, onSentOff = null, startOpen = false, belowSend = null, onBack = null, readOnly = false, unlockLabel = "Unlock my web", showLabel = "The show",
 }) {
@@ -246,8 +246,9 @@ export default function IntakeKeyWeb({
     );
     const heading = (
       <div className="flex flex-col gap-1">
-        <span className="text-[14px] text-white/70">{fromLine}</span>
-        <h1 className={`${desktop ? "text-[56px]" : "text-[40px]"} leading-none font-bold`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title || "Your show"}</h1>
+        {/* keyTitle={false} (job 360): no big title, the from-line a bit bigger. */}
+        <span className={keyTitle ? "text-[14px] text-white/70" : `${desktop ? "text-[20px]" : "text-[18px]"} text-white/85 font-semibold`}>{fromLine}</span>
+        {keyTitle && <h1 className={`${desktop ? "text-[56px]" : "text-[40px]"} leading-none font-bold`} style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>{title || "Your show"}</h1>}
         {dateLine && <span className="text-[14.5px] text-white/70">{dateLine}</span>}
       </div>
     );
