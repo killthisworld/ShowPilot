@@ -163,7 +163,9 @@ export function SenderCircle({ center, color, desktop, onOpen = null }) {
     <>
       <img src={c.photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
       <span aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(6,8,6,0.85))" }} />
-      <span className={`relative mt-auto mb-[12%] ${desktop ? "text-[18px]" : "text-[13px]"} font-bold leading-none px-2 truncate max-w-full`} style={{ fontFamily: "'Barlow Condensed', sans-serif", textShadow: "0 1px 6px rgba(0,0,0,0.8)" }}>{(c.name || "").toUpperCase()}</span>
+      {/* Kept inside the circle's width at that height (job 377): a long name
+          wraps (up to three lines) instead of running past the round edge. */}
+      <span className="relative mt-auto mb-[14%] font-bold leading-[0.95] max-w-[76%] line-clamp-3 break-words" style={{ fontSize: desktop ? "min(18px, 13.5cqw)" : "min(13px, 13.5cqw)", fontFamily: "'Barlow Condensed', sans-serif", textShadow: "0 1px 6px rgba(0,0,0,0.8)", textWrap: "balance" }}>{(c.name || "").toUpperCase()}</span>
     </>
   ) : (
     <>
@@ -171,7 +173,7 @@ export function SenderCircle({ center, color, desktop, onOpen = null }) {
       {c.label && <span className="text-[9px] sm:text-[10.5px] tracking-[0.1em] text-white/65 mt-0.5" style={mono}>{c.label.toUpperCase()}</span>}
     </>
   );
-  const cls = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center";
+  const cls = "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[29%] aspect-square rounded-full border-2 overflow-hidden flex flex-col items-center justify-center text-center [container-type:inline-size]";
   const style = { borderColor: color, background: "#0f140c", boxShadow: `0 0 30px ${color}66` };
   // Their digital card opens over the form (job 197); back or tapping
   // outside closes it and leaves you on the form.
