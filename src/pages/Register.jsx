@@ -168,7 +168,7 @@ export default function Register() {
             {accountType === "band" && (
               <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: "#FDE04710", border: "1px solid #FDE04755" }}>
                 <div className="text-lg font-bold leading-tight">Are you a DJ?</div>
-                <p className="m-0 text-sm text-white/65 leading-snug">You'll get a simpler Show Pilot built around collecting each performer's set: make the set, send the links, see what's in. You can switch it in Settings any time.</p>
+                <p className="m-0 text-sm text-white/65 leading-snug">You'll get a simpler Show Pilot built around collecting each performer's set: make the set, send the links, see what's in. You can turn DJ Mode on or off in Settings any time.</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[[true, "Yes, I'm a DJ"], [false, "No"]].map(([v, text]) => (
                     <button key={text} type="button" aria-pressed={isDj === v} onClick={() => setIsDj(v)}

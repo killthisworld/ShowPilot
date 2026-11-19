@@ -154,7 +154,7 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
         // DJ Tools isn't listed here: it lives on the Manager / Artist
         // profile web (its DJ Tools feature corner -> Performers).
         ...(prefs?.account_type === "band" ? [{
-          icon: Disc3, label: "I'm a DJ", color: DJ_COLOR, toggle: dj, busy: djBusy, onClick: toggleDj,
+          icon: Disc3, label: "DJ Mode", color: DJ_COLOR, toggle: dj, busy: djBusy, onClick: toggleDj,
           sub: dj ? "On: a simpler layout built around collecting each performer's set. Turn off for the full Artist view." : "Off. Turn on for a simpler layout built around collecting each performer's set.",
         }] : []),
       ]}

@@ -1,4 +1,4 @@
-// DJ view (job 353): an Artist account with "I'm a DJ" switched on gets a
+// DJ view (job 353): an Artist account with DJ Mode switched on gets a
 // simpler app built around collecting performers' sets. The switch lives on
 // the account (user_preferences.dj_mode), so phone and desktop follow it.
 import { supabase } from "@/api/supabaseClient";

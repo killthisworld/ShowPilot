@@ -9,7 +9,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import DriveIcon from "@/components/showpilot/DriveIcon";
 import { DJ_COLOR, driveCall } from "@/lib/djTools";
 
-// DJ view home (job 353): an Artist with "I'm a DJ" on lands here. It's
+// DJ view home (job 353): an Artist with DJ Mode on lands here. It's
 // built around collecting each performer's set. Since job 362 (Jay
 // 2026-11-19) it's simpler: the space background, a Drive icon in the
 // corner (tap to connect), each set as a ticket you tap to open, nights on

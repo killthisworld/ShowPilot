@@ -31,7 +31,7 @@ export default function HomeRouter() {
     );
   }
 
-  // DJ view (job 353): an Artist with "I'm a DJ" on opens on their sets,
+  // DJ view (job 353): an Artist with DJ Mode on opens on their sets,
   // phone and desktop. Chats and Needs me (?view=...) still open as usual.
   if (isDjMode(preferences) && !new URLSearchParams(search).get("view")) return <DjHome />;
 
