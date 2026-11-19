@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake } from "lucide-react";
+import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake, Disc3 } from "lucide-react";
+import { isDjMode } from "@/lib/djMode";
+import { DJ_COLOR } from "@/lib/djTools";
 import useBookings from "@/lib/useBookings";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
@@ -22,6 +24,14 @@ const TABS = [
   { path: "/experience", label: "Cockpit", icon: PlaneTakeoff },
 ];
 
+// DJ view (job 353): Sets (the DJ home, and DJ Tools under it), Chats,
+// Bookings. No Calendar or Cockpit.
+const DJ_TABS = [
+  { path: "/", label: "Sets", icon: Disc3, sets: true },
+  { path: "/?view=chats", label: "Chats", icon: MessageCircle, chats: true },
+  { path: "/bookings", label: "Bookings", icon: Handshake, bookings: true },
+];
+
 // Phones: the company phone layout's bottom bar - Needs me / Calendar / + /
 // Chats / Me (the app opens on Calendar; Needs me is /?view=needs), with "+" (quick-add a task) in the middle on every screen.
 // Calendar opens the banner calendar; an event's web opens from there. Me is
@@ -34,7 +44,8 @@ export default function BandBottomTabs() {
   const { preferences, reload } = usePreferences();
   const isDesktop = useIsDesktop();
   const onChats = pathname === "/" && new URLSearchParams(search).get("view") === "chats";
-  const isActive = (tab) => (tab.chats ? onChats : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
+  const dj = isDjMode(preferences);
+  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || pathname.startsWith("/dj") : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {
     document.body.classList.add("has-rail");
@@ -43,22 +54,23 @@ export default function BandBottomTabs() {
 
   return (
     <>
-      {!isDesktop && <CompanyPhoneBar preferences={preferences} pathname={pathname} search={search} />}
+      {!isDesktop && (dj ? <DjPhoneBar preferences={preferences} pathname={pathname} search={search} /> : <CompanyPhoneBar preferences={preferences} pathname={pathname} search={search} />)}
 
       <nav className="hidden lg:flex fixed left-0 top-0 bottom-0 w-[84px] z-50 flex-col items-center py-[18px] gap-1.5 bg-[#0d0d0d] border-r border-[#1a1a1a]" style={{ fontFamily: SCENE_FONT }}>
         {/* Settings, shown as the person's own profile photo. */}
         <div className="mb-3.5 flex flex-col items-center gap-1">
           <BandSettingsDrawer preferences={preferences} onPreferencesUpdate={reload} avatar />
         </div>
-        {TABS.map((tab) => {
+        {(dj ? DJ_TABS : TABS).map((tab) => {
           const active = isActive(tab);
           return (
             <Link
               key={tab.path}
               to={tab.path}
               className={`w-16 pt-2.5 pb-2 rounded-[10px] flex flex-col items-center gap-1 transition-colors ${
-                active ? "text-[#8CFF3D] bg-[#8CFF3D]/10" : "text-white/50 hover:text-white/80 hover:bg-white/5"
+                active ? (dj ? "bg-[#FDE047]/10" : "text-[#8CFF3D] bg-[#8CFF3D]/10") : "text-white/50 hover:text-white/80 hover:bg-white/5"
               }`}
+              style={active && dj ? { color: DJ_COLOR } : undefined}
             >
               <span className="relative">
                 <tab.icon className="w-5 h-5" />
@@ -176,5 +188,57 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
       </nav>
       <QuickAddSheet preferences={preferences} accent={accent} />
     </>
+  );
+}
+
+// The DJ view's phone bar (job 353): Sets / Bookings / Chats / Me. No
+// quick-add: a DJ's work is the sets.
+function DjPhoneBar({ preferences, pathname, search }) {
+  const { data } = useNeedsMe();
+  const unread = visibleChats(data?.chats).reduce((n, c) => n + Number(c.unread || 0), 0);
+  const { data: bookings } = useBookings();
+  const needBookings = (bookings?.needs || []).length;
+  const view = pathname === "/" ? new URLSearchParams(search).get("view") : null;
+  const activeKey = view === "chats" || pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats"
+    : (pathname === "/" && !view) || pathname.startsWith("/dj") ? "sets"
+    : pathname.startsWith("/bookings") ? "bookings"
+    : pathname.startsWith("/me") ? "me" : null;
+  const tab = (key, to, label, Icon, badge = 0, badgeColor = "#8CFF3D") => {
+    const active = activeKey === key;
+    return (
+      <Link
+        key={key}
+        to={to}
+        aria-current={active ? "page" : undefined}
+        className="relative w-[72px] h-[52px] flex flex-col items-center justify-center gap-[3px] text-[11px] font-semibold transition-colors"
+        style={{ color: active ? DJ_COLOR : "rgba(255,255,255,0.55)" }}
+      >
+        {Icon === "me" ? (
+          <span className="w-6 h-6 rounded-full overflow-hidden bg-[#262626] flex items-center justify-center" style={{ boxShadow: `0 0 0 2px ${active ? DJ_COLOR : "#F87171"}` }}>
+            {preferences?.profile_photo_url ? <img src={preferences.profile_photo_url} alt="" className="w-full h-full object-cover" /> : <User className="w-3.5 h-3.5 text-white/60" />}
+          </span>
+        ) : <Icon className="w-[22px] h-[22px]" strokeWidth={2} />}
+        <span>{label}</span>
+        {badge > 0 && (
+          <span className="absolute top-0.5 right-3 min-w-[18px] h-[18px] px-[5px] rounded-full text-[#0d0d0d] text-[11px] font-bold flex items-center justify-center" style={{ background: badgeColor }}>
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+  return (
+    <nav
+      aria-label="Main"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-[#0d0d0d]/95 backdrop-blur-lg border-t border-[#1e1e1e]"
+      style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))", fontFamily: "Inter, system-ui, sans-serif" }}
+    >
+      <div className="flex items-center justify-around max-w-lg mx-auto h-[68px] px-2">
+        {tab("sets", "/", "Sets", Disc3)}
+        {tab("bookings", "/bookings", "Bookings", Handshake, needBookings, "#F87171")}
+        {tab("chats", "/?view=chats", "Chats", MessageCircle, unread)}
+        {tab("me", "/me", "Me", "me")}
+      </div>
+    </nav>
   );
 }

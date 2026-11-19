@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Menu, User, LogOut, Star, Archive, FileArchive } from "lucide-react";
+import { Menu, User, LogOut, Star, Archive, FileArchive, Disc3 } from "lucide-react";
+import { isDjMode, setDjMode } from "@/lib/djMode";
+import { DJ_COLOR } from "@/lib/djTools";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
@@ -124,6 +126,22 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
     setRatingSubmitting(false);
   };
 
+  // DJ view (job 353): the switch, for Artist accounts. The whole app's
+  // layout follows it, so it reloads into the new home.
+  const [djBusy, setDjBusy] = useState(false);
+  const dj = isDjMode(prefs);
+  const toggleDj = async () => {
+    if (!user || djBusy) return;
+    setDjBusy(true);
+    try {
+      await setDjMode(user.id, !dj);
+      window.location.assign("/");
+    } catch (e) {
+      toast({ title: e.message || "Couldn't change it", variant: "destructive" });
+      setDjBusy(false);
+    }
+  };
+
   const panel = (
     <SettingsPanel
       prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
@@ -135,6 +153,10 @@ export default function BandSettingsDrawer({ preferences, onPreferencesUpdate, a
         ...(prefs?.account_type === "venue" ? [{ icon: FileArchive, label: "Records", sub: "Agreements, riders, advance and insurance from your events", color: accountStyle.color, onClick: () => { setOpen(false); navigate("/records"); } }] : []),
         // DJ Tools isn't listed here: it lives on the Manager / Artist
         // profile web (its DJ Tools feature corner -> Performers).
+        ...(prefs?.account_type === "band" ? [{
+          icon: Disc3, label: "I'm a DJ", color: DJ_COLOR, toggle: dj, busy: djBusy, onClick: toggleDj,
+          sub: dj ? "On: a simpler layout built around collecting each performer's set. Turn off for the full Artist view." : "Off. Turn on for a simpler layout built around collecting each performer's set.",
+        }] : []),
       ]}
       onSave={save} saving={saving}
       canRate={canRate} daysSinceRating={daysSinceRating} rating={rating} setRating={setRating}

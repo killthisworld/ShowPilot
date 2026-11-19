@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { readPendingAccountType, clearPendingAccountType } from "@/lib/pendingAccountType";
+import { readPendingDj, clearPendingDj } from "@/lib/djMode";
 import { setMyEventTypeColors, EVENT_COLORS_EVENT, EVENT_TYPES_EVENT } from "@/lib/eventTypes";
 import { rememberProfile } from "@/lib/accounts";
 import { rememberAccountType } from "@/lib/accountTypeStyle";
@@ -83,10 +84,19 @@ export function usePreferences() {
           accountTypeSynced = true;
           supabase.auth.updateUser({ data: { account_type: accountType } }).then(({ error }) => { if (error) console.error(error); });
         }
-        setMyEventTypeColors(created?.event_type_colors);
-        rememberProfile(user.id, created);
-        rememberAccountType(created?.account_type || accountType);
-        setPreferences(created);
+        // "Are you a DJ?" said yes at sign-up (job 353): switch the DJ view
+        // on. Set on its own, so a missing column can never stop the account
+        // being made.
+        let row = created;
+        if (accountType === "band" && (user.user_metadata?.dj_mode === true || readPendingDj())) {
+          const { error: djError } = await supabase.from("user_preferences").update({ dj_mode: true }).eq("user_id", user.id);
+          if (djError) console.error(djError); else row = { ...created, dj_mode: true };
+        }
+        clearPendingDj();
+        setMyEventTypeColors(row?.event_type_colors);
+        rememberProfile(user.id, row);
+        rememberAccountType(row?.account_type || accountType);
+        setPreferences(row);
       }
     } catch (e) {
       console.error(e);

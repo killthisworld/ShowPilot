@@ -42,10 +42,12 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   };
 
-  const signUp = async (email, password, redirectTo, accountType) => {
+  // `extra`: more about the new account (job 353: { dj_mode: true }).
+  const signUp = async (email, password, redirectTo, accountType, extra = null) => {
     const options = {};
     if (redirectTo) options.emailRedirectTo = redirectTo;
     if (accountType) options.data = { account_type: accountType };
+    if (extra && typeof extra === "object") options.data = { ...(options.data || {}), ...extra };
     const { data, error } = await supabase.auth.signUp({ email, password, options: Object.keys(options).length ? options : undefined });
     if (error) throw error;
     return data;

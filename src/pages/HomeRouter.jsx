@@ -4,6 +4,8 @@ import useIsDesktop from "@/hooks/useIsDesktop";
 import { usePreferences } from "@/hooks/usePreferences";
 import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
+import DjHome from "@/pages/DjHome";
+import { isDjMode } from "@/lib/djMode";
 
 // Routes to the right home screen based on account type. Engineer and
 // Lighting Tech share the full New/Frequent/Worked tracking Home page, since
@@ -28,6 +30,10 @@ export default function HomeRouter() {
       </div>
     );
   }
+
+  // DJ view (job 353): an Artist with "I'm a DJ" on opens on their sets,
+  // phone and desktop. Chats and Needs me (?view=...) still open as usual.
+  if (isDjMode(preferences) && !new URLSearchParams(search).get("view")) return <DjHome />;
 
   if (preferences?.account_type && !TECHNICAL_PRODUCTION_TYPES.includes(preferences.account_type)) {
     // Company phones open on the calendar (job 73, Jay 2026-11-11). Needs me

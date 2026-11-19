@@ -283,19 +283,27 @@ export default function SettingsPanel({
 
       {/* Navigation banks */}
       <div className="space-y-2 mb-4">
-        {navItems.map(({ icon: Icon, label: text, sub, color: c, onClick }) => (
+        {navItems.map(({ icon: Icon, label: text, sub, color: c, onClick, toggle, busy }) => (
           <button
             key={text}
             type="button"
             onClick={onClick}
-            className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:brightness-125"
+            disabled={!!busy}
+            // An item with `toggle` (true / false) is an on/off switch (job 353).
+            {...(typeof toggle === "boolean" ? { role: "switch", "aria-checked": toggle } : {})}
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:brightness-125 disabled:opacity-60"
             style={{ background: c + "1A", border: `1px solid ${c}55` }}
           >
             <Icon className="w-4 h-4 shrink-0" style={{ color: c }} />
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block text-[12px] font-semibold tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: c }}>{text.toUpperCase()}</span>
               {sub && <span className="block text-white/40 text-[10px] leading-snug">{sub}</span>}
             </span>
+            {typeof toggle === "boolean" && (
+              <span aria-hidden="true" className="relative w-11 h-6 rounded-full shrink-0 transition-colors" style={{ background: toggle ? c : "#333" }}>
+                <span className="absolute top-[3px] w-[18px] h-[18px] rounded-full transition-all" style={{ left: toggle ? 23 : 3, background: toggle ? "#0d0d0d" : "#bbb" }} />
+              </span>
+            )}
           </button>
         ))}
       </div>

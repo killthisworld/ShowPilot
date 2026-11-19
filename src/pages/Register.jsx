@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { setPendingAccountType } from "@/lib/pendingAccountType";
+import { setPendingDj } from "@/lib/djMode";
 import { isProfileOpen } from "@/lib/hiddenProfiles";
 import ProfileShowcase from "@/components/showpilot/ProfileShowcase";
 import AuthShell, { AuthPanel, AuthHead, AuthField, AuthButton, AuthGoogle, AuthFoot } from "@/components/showpilot/AuthShell";
@@ -49,6 +50,9 @@ export default function Register() {
   })();
   const [step, setStep] = useState(presetRole ? 2 : 1);
   const [accountType, setAccountType] = useState(presetRole);
+  // "Are you a DJ?" after picking Artist (job 353): yes turns on the DJ view.
+  const [isDj, setIsDj] = useState(() => { try { return new URLSearchParams(window.location.search).get("dj") === "1"; } catch { return false; } });
+  const djOn = accountType === "band" && isDj;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,7 +93,7 @@ export default function Register() {
       const params = new URLSearchParams(window.location.search);
       const redirectTo = params.get("redirect");
       const fullRedirect = redirectTo ? `${window.location.origin}${redirectTo}` : undefined;
-      const data = await signUp(email, password, fullRedirect, accountType);
+      const data = await signUp(email, password, fullRedirect, accountType, djOn ? { dj_mode: true } : null);
       const ids = data?.user?.identities;
       setExisting(Array.isArray(ids) && ids.length === 0);
       setSubmitted(true);
@@ -104,6 +108,7 @@ export default function Register() {
       // Google's redirect doesn't carry the role, so remember it until the
       // new account's settings are created (see usePreferences).
       if (accountType) setPendingAccountType(accountType);
+      setPendingDj(djOn);
       await signInWithGoogle();
     } catch (err) {
       toast({ title: "Google sign-in didn't work", description: err.message, variant: "destructive" });
@@ -119,7 +124,7 @@ export default function Register() {
           <AuthHead step="STEP 1 OF 2" title="What do you do?" sub="Tap one to see what it includes. Show Pilot sets itself up around your work." />
           <div className="px-6 pt-4 pb-5 space-y-4">
             <p className="text-sm text-white/65 leading-snug rounded-md px-3 py-2" style={{ background: "#FDE04714", border: "1px solid #FDE04755" }}>
-              <span className="font-bold" style={{ color: "#FDE047" }}>DJ?</span> Pick Artist. It includes DJ Tools.
+              <span className="font-bold" style={{ color: "#FDE047" }}>DJ?</span> Pick Artist, then say yes to "Are you a DJ?".
             </p>
             {ROLE_GROUPS.map((group) => (
               <div key={group.label}>
@@ -160,6 +165,21 @@ export default function Register() {
                 )}
               </div>
             ))}
+            {accountType === "band" && (
+              <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: "#FDE04710", border: "1px solid #FDE04755" }}>
+                <div className="text-lg font-bold leading-tight">Are you a DJ?</div>
+                <p className="m-0 text-sm text-white/65 leading-snug">You'll get a simpler Show Pilot built around collecting each performer's set: make the set, send the links, see what's in. You can switch it in Settings any time.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[[true, "Yes, I'm a DJ"], [false, "No"]].map(([v, text]) => (
+                    <button key={text} type="button" aria-pressed={isDj === v} onClick={() => setIsDj(v)}
+                      className="min-h-[44px] rounded-md text-[15px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                      style={isDj === v ? { background: v ? "#FDE047" : "#2a2a2a", color: v ? "#0d0d0d" : "#fff", border: `1.5px solid ${v ? "#FDE047" : "#444"}` } : { background: "transparent", color: "rgba(255,255,255,0.8)", border: "1.5px solid #333" }}>
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="pt-1">
               <AuthButton type="button" color={color} disabled={!role} onClick={() => setStep(2)}>
                 {role ? `Continue as ${role.label}` : "Pick what you do"}
@@ -191,7 +211,7 @@ export default function Register() {
             >
               <ChevronLeft className="w-4 h-4" />
               {Icon && <Icon className="w-4 h-4" />}
-              {role?.label}
+              {role?.label}{djOn ? " · DJ" : ""}
             </button>
           }
         />

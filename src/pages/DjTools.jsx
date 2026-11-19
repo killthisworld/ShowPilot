@@ -104,6 +104,9 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
   const [myShows, setMyShows] = useState([]);
   const [error, setError] = useState("");
   const [counts, setCounts] = useState({});
+  // Opened for one night from the DJ home (job 353: ?event, ?show or ?new):
+  // on a phone the list of nights stays out of the way; Back goes home.
+  const [focus] = useState(() => { try { const q = new URLSearchParams(window.location.search); return !embedded && !!(q.get("event") || q.get("show") || q.get("new")); } catch { return false; } });
 
   const loadDrive = useCallback(() => {
     driveCall("status").then((d) => setDrive({ ...d, loading: false })).catch((e) => setDrive({ loading: false, error: e.message }));
@@ -128,6 +131,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
     const fromShow = initial ? (showId || qs.get("show")) : null;
     const forShow = fromShow ? data?.find((r) => r.show_id === fromShow) : null;
     if (fromShow && !forShow) { setNewForShow(fromShow); setCreating(true); }
+    if (initial && !fromShow && qs.get("new")) setCreating(true);
     setSelectedId((cur) => forShow ? forShow.id : cur && data?.some((r) => r.id === cur) ? cur : (wanted && data?.some((r) => r.id === wanted) ? wanted : data?.[0]?.id ?? null));
   }, [showId]);
 
@@ -275,7 +279,7 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
       )}
 
       <div className="grid gap-5 p-6 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] items-start">
-        <aside className="flex flex-col gap-2">
+        <aside className={`${focus ? "hidden lg:flex" : "flex"} flex-col gap-2`}>
           <button type="button" onClick={() => setCreating(true)} className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold tracking-[0.04em]" style={{ background: G, color: "#0d0d0d" }}>
             <Plus className="w-4 h-4" /> New set link
           </button>
