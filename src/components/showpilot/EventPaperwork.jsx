@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ChevronDown, FileText, Trash2, Upload } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { RecordModal } from "@/components/showpilot/RecordView";
+import { RecordModal, recordLink } from "@/components/showpilot/RecordView";
 import EventDeal from "@/components/showpilot/EventDeal";
 import { DEAL_STATUS, fileRecord, deleteRecord, recordFileUrl, fmtDate } from "@/lib/eventBusiness";
 
@@ -93,6 +93,8 @@ export default function EventPaperwork({ gig, biz, onChanged, color = "#60A5FA",
   };
   // A file opens straight away; an older record with no file opens its summary.
   const open = async (r) => {
+    // From the booking package (job 357): its own public link.
+    if (recordLink(r)) { window.open(recordLink(r), "_blank", "noopener"); return; }
     if (!r.file_path) { setView(r); return; }
     const w = window.open("", "_blank");
     try { const url = await recordFileUrl(r.file_path); if (w) w.location.href = url; else window.location.href = url; }

@@ -154,7 +154,7 @@ export default function VenueRecords() {
                 <span className="min-w-0 truncate text-white/70">{r.party || "—"}</span>
                 <span className="flex items-center gap-2 text-[13px] min-w-0">
                   {r.signed && <span className="flex items-center gap-1" style={{ color: G }}><Check className="w-3.5 h-3.5" />Signed</span>}
-                  {r.file_path && !r.signed && <span className="flex items-center gap-1 text-white/55"><FileText className="w-3.5 h-3.5" />File</span>}
+                  {(r.file_path || r.snapshot?.file_url) && !r.signed && <span className="flex items-center gap-1 text-white/55"><FileText className="w-3.5 h-3.5" />File</span>}
                   {expiry(r)}
                 </span>
               </button>

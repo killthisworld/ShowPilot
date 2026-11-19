@@ -91,8 +91,23 @@ export function printRecord(record) {
   return true;
 }
 
+// A record filed from a booking package (job 357) points at the package's
+// own public file (snapshot.file_url) instead of the private folder.
+export const recordLink = (record) => {
+  const u = record?.snapshot?.file_url;
+  return !record?.file_path && typeof u === "string" && /^https?:\/\//.test(u) ? u : "";
+};
+
 export function OpenFileButton({ record, className = "", children }) {
   const [busy, setBusy] = useState(false);
+  const link = recordLink(record);
+  if (link) {
+    return (
+      <a href={link} target="_blank" rel="noreferrer" className={className}>
+        {children || <><FileText className="w-4 h-4" /> {record.file_name || "OPEN FILE"}</>}
+      </a>
+    );
+  }
   if (!record?.file_path) return null;
   const open = async () => {
     setBusy(true);
@@ -158,7 +173,7 @@ export function RecordModal({ record, onClose, versions = [] }) {
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-4">
           {shown.note && <p className="text-[15px] text-white/80 bg-[#141414] border border-[#232323] rounded-[10px] px-3 py-2">{shown.note}</p>}
-          {hasSnap ? <SnapshotView snapshot={shown.snapshot} /> : !shown.file_path && <p className="text-[14px] text-white/40">This record is a file only.</p>}
+          {hasSnap ? <SnapshotView snapshot={shown.snapshot} /> : !shown.file_path && !recordLink(shown) && <p className="text-[14px] text-white/40">This record is a file only.</p>}
         </div>
         <div className="px-5 py-3 border-t border-[#1c1c1c] flex flex-wrap gap-2">
           <OpenFileButton record={shown} className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-[10px] text-[14px] font-bold tracking-[0.04em] bg-[#111] border border-[#2a2a2a] text-white/85 hover:text-white" />
