@@ -79,6 +79,8 @@
       el: el,
       start: function () { active = true; el.hidden = false; show(0); },
       sleep: function () { active = false; clearTimeout(timer); el.hidden = true; },
+      pause: function () { hovering = true; clearTimeout(timer); },
+      resume: function () { hovering = false; schedule(); },
     };
   }
 
@@ -114,6 +116,23 @@
         es.forEach(function (e) { if (e.isIntersecting && !seen) { seen = true; pick(current); } });
       }, { threshold: 0.25 }).observe(section);
     } else pick(current);
+  }
+
+  // Tap a screen to see it full size (job 358). The slideshow pauses while it's open.
+  var zoom = document.getElementById('zoom');
+  if (zoom && zoom.showModal) {
+    var zimg = zoom.querySelector('img');
+    var close = function () { zoom.close(); };
+    document.addEventListener('click', function (e) {
+      var img = e.target.closest && e.target.closest('.slide img, .hero figure img, .tpl-flow figure img');
+      if (!img) return;
+      var tour = img.closest('[data-tour]');
+      if (tour && tours[tour.getAttribute('data-tour')]) tours[tour.getAttribute('data-tour')].pause();
+      zimg.src = img.currentSrc || img.src; zimg.alt = img.alt;
+      zoom.showModal();
+    });
+    zoom.addEventListener('click', close);
+    zoom.addEventListener('close', function () { Object.keys(tours).forEach(function (k) { tours[k].resume(); }); });
   }
 
   // Plans: pick monthly or yearly, and Create account carries the choice.

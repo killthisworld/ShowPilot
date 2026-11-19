@@ -291,3 +291,12 @@ h3{font-size:28px;line-height:1.05}
   .price-box strong{font-size:36px}
   .foot-nav{margin-left:0}
 }
+
+/* Tap a screen to see it full size (job 358) */
+.slide img,.hero figure img,.tpl-flow figure img{cursor:zoom-in}
+.zoom{padding:0;border:0;background:transparent;max-width:none;max-height:none;width:100vw;height:100vh;height:100dvh;margin:0;overflow:hidden}
+.zoom::backdrop{background:rgba(0,0,0,.88)}
+.zoom[open]{display:flex;align-items:center;justify-content:center}
+.zoom img{max-width:min(96vw,2160px);max-height:92vh;max-height:92dvh;width:auto;height:auto;border-radius:12px;border:1px solid var(--line-2);box-shadow:0 30px 90px rgba(0,0,0,.8);cursor:zoom-out}
+.zoom-close{position:absolute;top:14px;right:14px;width:46px;height:46px;border-radius:999px;border:1.5px solid var(--line-2);background:#111;color:#fff;font-size:28px;line-height:1;cursor:pointer}
+.zoom-close:focus-visible{outline:2px solid var(--green);outline-offset:2px}

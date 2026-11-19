@@ -9,10 +9,10 @@ SHOT = {  # name -> (width, height)
     'event-web': (1600, 1000), 'event-web-phone': (600, 1298), 'tasks': (1600, 1000), 'tasks-phone': (600, 1298),
     'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298),
     'dayof': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298),
-    'dj-tools': (1600, 556), 'bookings': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
+    'dj-tools': (1600, 1000), 'bookings': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
     'stage-plot': (1600, 1000), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
     'my-pilot': (1600, 1000), 'load-template': (1600, 1000), 'lighting-phone': (600, 1298),
-    'load-template-phone': (600, 1298), 'template-stage': (1200, 1263),
+    'load-template-phone': (600, 1298), 'template-stage': (1600, 1000),
     'bookings-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298),
     'dj-tools-phone': (600, 1298), 'stage-plot-phone': (600, 1298), 'wallets-phone': (600, 1298),
     'template-stage-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'dayof-desk': (1600, 1000), 'logbook-desk': (1600, 1000),
@@ -118,7 +118,7 @@ block = f'''<!--TOUR-->
     <div class="head wide">
       <p class="kicker">INSIDE THE APP</p>
       <h2>Pick your seat and take a look around.</h2>
-      <p class="sub">Each profile has its own Show Pilot. Pick yours, switch between desktop and phone, then tap a feature to see it, or let it play through. These are real screens with a made-up demo event.</p>
+      <p class="sub">Each profile has its own Show Pilot. Pick yours, switch between desktop and phone, then tap a feature to see it, or let it play through. These are real screens with a made-up demo event. Tap a screen to see it full size.</p>
     </div>
     <div class="tour-bar">
       <div class="tabs seats" role="group" aria-label="Choose a profile">{seat_tabs}</div>
