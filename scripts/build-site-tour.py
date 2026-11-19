@@ -7,18 +7,18 @@ import sys, html
 E = html.escape
 SHOT = {  # name -> (width, height)
     'event-web': (1600, 1000), 'event-web-phone': (600, 1298), 'tasks': (1600, 1000), 'tasks-phone': (600, 1298),
-    'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298),
-    'dj-tools': (1600, 1000), 'book-act': (1600, 1000), 'book-rider': (1600, 1000),
-    'stage-plot': (1600, 1000), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
+    'rooms': (1600, 1000), 'rooms-phone': (600, 1298), 'calendar': (1600, 1000), 'tech-home': (600, 1298), 'dayof-sheet': (600, 1298), 'logbook': (600, 1298), 'pilot-card': (600, 1298), 'book-act': (1600, 1000), 'book-rider': (1600, 1000), 'console': (1600, 1000), 'lighting-desk': (1600, 1000), 'wallets': (1600, 1000),
     'my-pilot': (1600, 1000), 'lighting-phone': (600, 1298),
-    'load-template-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298),
-    'dj-tools-phone': (600, 1298), 'stage-plot-phone': (600, 1298), 'wallets-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'logbook-desk': (1600, 1000),
+    'load-template-phone': (600, 1298), 'calendar-phone': (600, 1298), 'book-act-phone': (600, 1298), 'wallets-phone': (600, 1298), 'book-rider-phone': (600, 1298), 'logbook-desk': (1600, 1000),
     # job 359
     'stage-plot-open': (1600, 1000), 'stage-plot-open-phone': (600, 1298), 'pkg-web': (1600, 1000), 'pkg-confirm': (1600, 1000),
     'pkg-confirm-phone': (600, 1298), 'ask-tech': (1600, 1000), 'ask-tech-phone': (600, 1298), 'venue-web': (1600, 1000),
     'venue-web-phone': (600, 1298), 'dayof-sheet-desk': (1600, 1000), 'dayof-contacts': (600, 1298), 'intake-send': (1600, 1000),
     'intake-send-phone': (600, 1298), 'intake-form': (1600, 1000), 'intake-form-phone': (600, 1298), 'my-template': (1600, 1000),
     'event-load': (1600, 1000),
+    # job 374
+    'mgmt-home': (1600, 1000), 'mgmt-home-phone': (600, 1298), 'acts-templates': (1600, 1000), 'acts-calendar': (1600, 1000),
+    'acts-templates-phone': (600, 1298), 'acts-calendar-phone': (600, 1298), 'djmode': (1600, 1000), 'djmode-phone': (600, 1298),
 }
 
 # Each feature: key, title, line, desktop shot(s), phone shot(s), alt text.
@@ -35,9 +35,11 @@ F = {
   'book': ('Book a date from your template', 'Book a date opens as a web around your act, with your contact and tech rider already filled in from your template.', 'book-act', ['book-act-phone'], 'Book a date as a web around the act: contact and tech rider already done from the template, the rest still to fill in.'),
   'stagetpl': ('Your stage plot, built once', 'Put each member on the stage. Open a line for their inputs: Mic or DI, +48V, and IEM or monitor.', 'stage-plot-open', ['stage-plot-open-phone'], "The stage plot with Marcus Dade's line open: vocals, guitar on a mic, acoustic on a DI with +48V, and a monitor."),
   'rider': ('Tech rider with your stage plot', 'The stage plot and inputs from your template ride along with every booking.', 'book-rider', ['book-rider-phone'], 'Book a date, Tech rider: the Show Pilot stage plot from My Template, 5 members and 9 inputs.'),
-  'dj': ('DJ Tools', 'Set links for each DJ. WAVs land in your own Google Drive.', 'dj-tools', ['dj-tools-phone'], 'DJ Tools: a set link with the running order and which DJs have sent their set.'),
+  'home': ('Your shows as tickets', 'Every show you have coming up, as a ticket, month by month.', 'mgmt-home', ['mgmt-home-phone'], 'The management home: the coming months as tickets, each with its date, venue and fan page, and Needs me on a phone.'),
+  'acts': ('Manage multiple acts', 'Every act you manage in one template. Pick an act to see just its shows.', [('acts-templates', '1 · All your acts, one template'), ('acts-calendar', '2 · Pick an act, see its shows')], ['acts-templates-phone', 'acts-calendar-phone'], 'My Templates with Your acts: Neon Harbor, Copper Lights and Paper Satellites, then the calendar with Neon Harbor picked.'),
+  'djmode': ('DJ Mode', 'Switch on DJ Mode for a simpler app built around collecting sets: a link for each DJ, and WAVs land in your own Google Drive.', 'djmode', ['djmode-phone'], 'DJ Mode: your sets as tickets, with how many sets are in for the next night and the nights still waiting on a set.'),
   'console': ('Your shows like a console', 'Every show you work as a strip, with its tasks and status at a glance.', 'console', ['tech-home'], 'The audio console home: the coming week as channel strips, and the home screen on a phone.'),
-  'stage': ('The interactive stage plot', "Each act's stage as they built it: who stands where, what they play, and how they monitor.", 'stage-plot', ['stage-plot-phone'], 'The stage plot for an act: members on the stage, and each one routed to IEM or monitor.'),
+  'stage': ('The interactive stage plot', "Each act's stage as they built it. Open a member's line for their inputs: Mic or DI, +48V, and IEM or monitor.", 'stage-plot-open', ['stage-plot-open-phone'], "The stage plot with Marcus Dade's line open: vocals, guitar on a mic, acoustic on a DI with +48V, and a monitor."),
   'intake': ('Send intake forms', 'Send an act one link. They fill in their act, members and inputs, and it lands on your event.', [('intake-send', '1 · You make the link'), ('intake-form', '2 · The act fills it in')], ['intake-send-phone', 'intake-form-phone'], "Performer Intake: picking the event and asking for tracks, then the form the act gets from Sam Ortiz with role, artist and set, members and inputs, notes and contact."),
   'loadinvite': ('Invited? Load your template', 'When you join an event, tap Load Template and your saved info fills your part.', 'event-load', ['load-template-phone'], 'Load Venue over an event: pick a saved venue and its details fill the event.'),
   'wallets': ("Fellow pilots' wallets", "Save the crew you meet into wallets: by venue, tour or team.", 'wallets', ['wallets-phone'], "Fellow Pilots: wallets for a venue, a tour and a lighting crew, and the saved ID cards."),
@@ -47,16 +49,14 @@ F = {
 }
 
 P = [
-  ('venue', 'Venue', '#60A5FA', 'Run every night at your room from one place, and have the acts and techs fill in what you need.', '$25–$50 a month, by capacity and shows a year',
+  ('venue', 'Venue', '#60A5FA', 'Run every night at your room from one place, and have the acts and techs fill in what you need.', '',
    ['web', 'pkgin', 'loadvenue', 'tasks', 'rooms', 'calendar', 'dayof']),
-  ('band', 'Artist / DJ', '#EF4444', 'Advance your shows, send techs what they need, and keep the road details in one place. DJs: pick Artist.', '$15 a month, includes 1 act',
-   ['book', 'stagetpl', 'rider', 'web', 'rooms', 'dj', 'calendar']),
-  ('manager', 'Manager', '#EF4444', 'Run the artist side of the shows you manage. Booking is part of this profile.', '$15 a month, +$5 for each extra act',
-   ['book', 'rider', 'stagetpl', 'web', 'tasks', 'dj', 'dayof']),
-  ('engineer', 'Audio engineer', '#8CFF3D', "Know what every show needs before you get there, and keep a record of the work you've done.", '$10 a month',
-   ['console', 'intake', 'stage', 'wallets', 'pilot', 'logbook', 'rooms']),
-  ('lighting', 'Lighting tech', '#8CFF3D', 'Run lighting with everything you need for the show in front of you, on your phone.', '$10 a month',
-   ['lightdesk', 'web', 'loadinvite', 'wallets', 'pilot', 'logbook', 'rooms']),
+  # Artist and management are one profile (job 374); DJs switch on DJ Mode.
+  ('artist', 'Artist / Mgmt', '#EF4444', 'Book and advance your shows, for one act or many, and send techs what they need. DJs: switch on DJ Mode.', '',
+   ['home', 'acts', 'book', 'rider', 'web', 'tasks', 'djmode']),
+  # Audio and lighting are one profile (job 374).
+  ('tech', 'Audio / Lighting', '#8CFF3D', "Know what every show needs before you get there, run it from your phone, and keep a record of the work you've done.", '',
+   ['console', 'lightdesk', 'intake', 'stage', 'loadinvite', 'wallets', 'pilot', 'logbook']),
 ]
 
 def img(name, alt, lazy=True):
