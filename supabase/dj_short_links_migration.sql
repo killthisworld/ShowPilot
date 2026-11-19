@@ -31,10 +31,13 @@ end;
 $$;
 revoke all on function public.dj_new_short_code() from public, anon, authenticated;
 
--- New slots get a code as they're made.
+-- New slots get a code as they're made. SECURITY DEFINER: the DJ adding an
+-- act can't call dj_new_short_code themselves, and the code check has to
+-- see every slot, not only the DJ's own.
 create or replace function public.dj_slot_short_code()
 returns trigger
 language plpgsql
+security definer
 set search_path to 'public'
 as $$
 begin
