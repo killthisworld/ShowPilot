@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Send, MessageSquare, Mail, Copy, Check, CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck } from "lucide-react";
+import { Send, MessageSquare, Mail, Copy, Check, CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck, Paperclip } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { saveOffer, sendPackage, counterPackage, loadPackage, packageUrl, OFFER_BLUE } from "@/lib/bookingPackage";
@@ -9,7 +9,7 @@ import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import OfferDates from "@/components/showpilot/OfferDates";
 import {
   OfferDatesBody, offerDatesDone, OfferDealBody, offerDealDone, OfferRoomBody, offerRoomDone, OfferHospBody, offerHospDone,
-  OfferLogiBody, offerLogiDone, OfferNeedsBody, offerNeedsDone, OfferNoteBody,
+  OfferLogiBody, offerLogiDone, OfferNeedsBody, offerNeedsDone, OfferNoteBody, OfferFilesBody, offerFilesDone, counterHas, counterLine,
 } from "@/components/showpilot/OfferFields";
 import { useGoBack } from "@/lib/navHistory";
 
@@ -134,6 +134,13 @@ export default function VenueOffer() {
   const setWantsD = (v) => { dirty.current = true; setWants(v); };
   const setToD = (v) => { dirty.current = true; setTo(v); };
 
+  // Files go to the same bucket the act's stage plots do, under this venue.
+  const uploadFile = async (file) => {
+    const path = `offer-${user.id}/${Date.now()}_${file.name}`;
+    const { error: e } = await supabase.storage.from("stage-plots").upload(path, file);
+    if (e) throw e;
+    return supabase.storage.from("stage-plots").getPublicUrl(path).data.publicUrl;
+  };
   const toDone = sendToActDone(to);
   const canSend = offerDatesDone(wants) && toDone;
   const venueName = me?.display_name || "Your venue";
@@ -146,6 +153,7 @@ export default function VenueOffer() {
     { key: "hosp", label: "Hospitality and lodging", short: "Hospitality", hint: "Meals, drinks, green room, guest list, lodging", required: false, icon: <Utensils />, done: offerHospDone(data), body: () => <OfferHospBody data={data} setData={setDataD} /> },
     { key: "logi", label: "Load-in and logistics", short: "Logistics", hint: "Load-in, soundcheck, curfew, merch table", required: false, icon: <Truck />, done: offerLogiDone(data), body: () => <OfferLogiBody data={data} setData={setDataD} /> },
     { key: "needs", label: "What we need from you", short: "We need", hint: "What the act attaches when it answers", required: false, icon: <ClipboardCheck />, done: offerNeedsDone(data), body: () => <OfferNeedsBody data={data} setData={setDataD} /> },
+    { key: "files", label: "Files", short: "Files", hint: "Your stage plot, tech spec, house rules", required: false, icon: <Paperclip />, done: offerFilesDone(data), body: () => <OfferFilesBody data={data} setData={setDataD} uploadFile={uploadFile} /> },
     { key: "note", label: "Note to the act", short: "Note", hint: "Anything else", required: false, icon: <MessageSquare />, done: !!String(wants.note || "").trim(), body: () => <OfferNoteBody wants={wants} setWants={setWantsD} /> },
   ];
 
@@ -218,6 +226,13 @@ export default function VenueOffer() {
       <ConfirmDates pkg={row} venueName={venueName} busy={busy} error={error} onConfirm={confirm} offers={answerDates}
         tag={`${ans.toUpperCase()} REPLIED`} title={`${answerDates.length} date${answerDates.length === 1 ? "" : "s"} work for them`}
         message={row.venue_message || ""} onCounter={() => setCountering(true)} counterLabel="Send other dates instead"
+        extra={counterHas(row.reply_data?.counter) ? (
+          <div className="rounded-[12px] border px-3.5 py-3 text-[14px]" style={{ borderColor: `${BLUE}66`, background: `${BLUE}12` }}>
+            <span className="block text-[11px] tracking-[0.12em] mb-1" style={{ fontFamily: "'JetBrains Mono', monospace", color: "#93C5FD" }}>THEIR ASK ON THE DEAL</span>
+            {counterLine(row.reply_data.counter)}
+            <span className="block text-[12.5px] text-white/55 mt-1">Confirming a date doesn't accept it. Change the deal on the event if you agree.</span>
+          </div>
+        ) : null}
         note="Confirming books it: the event is made on your calendar, and they're linked to it with the package they sent." />
     );
   }

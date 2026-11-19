@@ -17,7 +17,7 @@ const reduced = () => { try { return window.matchMedia("(prefers-reduced-motion:
 // Used both ways (job 347): the act picking from the venue's dates, and the venue
 // picking from the act's dates. `offers`, `tag`, `title`, `message` and `note`
 // override the act-side wording; `onCounter` adds "Send other dates instead".
-export function ConfirmDates({ pkg, venueName, busy, error, onConfirm, offers: offersProp = null, tag = "", title = "", message = null, note = "", onCounter = null, counterLabel = "Send other dates instead" }) {
+export function ConfirmDates({ pkg, venueName, busy, error, onConfirm, offers: offersProp = null, tag = "", title = "", message = null, note = "", onCounter = null, counterLabel = "Send other dates instead", extra = null }) {
   const offers = Array.isArray(offersProp) ? offersProp : Array.isArray(pkg.offers) ? pkg.offers : [];
   const [pick, setPick] = useState(offers[0]?.date || "");
   return (
@@ -50,6 +50,7 @@ export function ConfirmDates({ pkg, venueName, busy, error, onConfirm, offers: o
           })}
         </div>
         {(message !== null ? message : pkg.venue_message) && <div className="rounded-[12px] border border-[#262626] bg-[#151515] px-3.5 py-3 text-[14px] text-white/80">"{message !== null ? message : pkg.venue_message}"{venueName ? ` · ${venueName}` : ""}</div>}
+        {extra}
         {error && <p className="text-center text-[14px] text-red-400">{error}</p>}
         <button type="button" disabled={!pick || busy} onClick={() => onConfirm(pick)} className="mt-2 min-h-[54px] lg:w-[420px] lg:self-center rounded-[12px] font-bold text-[16px] disabled:opacity-50" style={{ background: GREEN, color: "#0d0d0d" }}>
           {busy ? "Booking…" : pick ? `Confirm ${fmt(pick)}` : "Pick a date"}

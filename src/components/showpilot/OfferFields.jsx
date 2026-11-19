@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck, MessageSquare, X } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck, MessageSquare, Paperclip, FileText, Upload, X } from "lucide-react";
 import TimeSelect from "@/components/showpilot/TimeSelect";
 import { DEAL_ASKS, AGES, money } from "@/components/showpilot/BookingFields";
 import { OFFER_BLUE } from "@/lib/bookingPackage";
@@ -171,6 +171,64 @@ export function OfferNeedsBody({ data, setData }) {
 }
 export const offerNeedsDone = (d = {}) => Array.isArray(d.needs) && d.needs.length > 0;
 
+// ---------- Files (job 355) ----------
+// data.files = [{ url, name, type, kind }]: the venue's stage plot, tech spec,
+// house rules. `uploadFile(file)` returns the public url.
+export const FILE_KINDS = [["plot", "Stage plot"], ["spec", "Tech spec"], ["rules", "House rules"], ["other", "Other"]];
+const kindText = (k) => (FILE_KINDS.find(([x]) => x === k) || [])[1] || "Other";
+export function OfferFilesBody({ data, setData, uploadFile }) {
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const files = Array.isArray(data.files) ? data.files : [];
+  const onFiles = async (e) => {
+    const list = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!list.length) return;
+    setErr("");
+    setBusy(true);
+    let next = files;
+    for (const f of list) {
+      if (f.size > 15 * 1024 * 1024) { setErr(`${f.name} is over 15 MB. Try a smaller copy.`); continue; }
+      try {
+        const url = await uploadFile(f);
+        const kind = /plot|stage/i.test(f.name) ? "plot" : /spec|rider|tech/i.test(f.name) ? "spec" : /rule|polic/i.test(f.name) ? "rules" : "other";
+        next = [...next, { url, name: f.name, type: f.type || "", kind }];
+        setData({ ...data, files: next });
+      } catch (x) { console.error(x); setErr("A file didn't upload. Check your signal and try again."); }
+    }
+    setBusy(false);
+  };
+  const setKind = (i, kind) => setData({ ...data, files: files.map((d, j) => (j === i ? { ...d, kind } : d)) });
+  return (
+    <div className="flex flex-col gap-2.5">
+      <span className="text-[12.5px] text-white/55">Your stage plot, tech spec or house rules. The act can open them from the offer.</span>
+      {files.map((d, i) => (
+        <div key={`${d.url}-${i}`} className="flex flex-col gap-1.5 rounded-[12px] border border-[#242424] bg-[#101010] p-2.5">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 shrink-0 text-white/55" />
+            <a href={d.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate text-[14px] font-semibold" style={{ color: BLUE }}>{d.name || "File"}</a>
+            <button type="button" onClick={() => setData({ ...data, files: files.filter((_, j) => j !== i) })} aria-label={`Remove ${d.name || "the file"}`} className="w-10 h-10 -my-2 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>
+          </div>
+          <select value={d.kind || "other"} onChange={(e) => setKind(i, e.target.value)} aria-label={`What ${d.name || "this file"} is`} className={inputCls}>
+            {FILE_KINDS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+          </select>
+        </div>
+      ))}
+      <input ref={ref} type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx" className="hidden" onChange={onFiles} />
+      <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="min-h-[44px] rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60" style={{ color: BLUE }}>
+        <Upload className="w-4 h-4" />{busy ? "Uploading…" : files.length ? "Add another file" : "Upload a file (PDF or picture)"}
+      </button>
+      {err && <p className="m-0 text-[12.5px] text-[#F87171]">{err}</p>}
+    </div>
+  );
+}
+export const offerFilesDone = (d = {}) => Array.isArray(d.files) && d.files.length > 0;
+
+// The act's counter on the deal (job 355): { guarantee, door_percent }.
+export const counterHas = (c) => !!c && (has(c.guarantee) || has(c.door_percent));
+export const counterLine = (c) => [has(c?.guarantee) && `${money(c.guarantee)} guarantee`, has(c?.door_percent) && `${String(c.door_percent).replace(/%$/, "")}% of the door`].filter(Boolean).join(" · ");
+
 // ---------- A note ----------
 export function OfferNoteBody({ wants, setWants }) {
   return (
@@ -238,6 +296,14 @@ export function offerReadCircles(pkg) {
       <div className="flex flex-col gap-2">
         {needs.map((t) => <div key={t} className="min-h-[44px] px-3.5 rounded-[12px] border border-[#262626] bg-[#101010] flex items-center gap-3 text-[14.5px]"><span style={{ color: BLUE }}>✓</span>{t}</div>)}
         <span className="text-[12.5px] text-white/50" style={MONO}>You attach these when you answer.</span>
+      </div>) },
+    { key: "files", label: "Files", short: "Files", icon: <Paperclip />, done: offerFilesDone(data), body: () => (
+      <div className="flex flex-col gap-2">
+        {(data.files || []).map((f, i) => (
+          <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noreferrer" className="min-h-[48px] px-3.5 rounded-[12px] border border-[#262626] bg-[#101010] flex items-center gap-3 text-[14.5px]">
+            <FileText className="w-4 h-4 shrink-0 text-white/55" /><span className="flex-1 min-w-0 truncate font-semibold" style={{ color: BLUE }}>{f.name || "File"}</span><span className="text-[12px] text-white/50 shrink-0">{kindText(f.kind)}</span>
+          </a>
+        ))}
       </div>) },
     { key: "note", label: "Note from the venue", short: "Note", icon: <MessageSquare />, done: has(wants.note), body: () => <p className="m-0 text-[15px] leading-relaxed whitespace-pre-wrap">{wants.note}</p> },
   ].filter((c) => c.done);

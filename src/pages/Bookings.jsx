@@ -89,6 +89,8 @@ export default function Bookings() {
   ];
   const by = (k) => items.filter((p) => colOf(p) === k);
   const passed = by("passed");
+  // Unsent drafts, both kinds (job 355): a package or an offer you started.
+  const drafts = (data?.drafts || []).map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` }));
 
   // Who's been asked to work each booked event on my side.
   const bookedShows = items.filter((p) => p.side === "venue" && p.status === "booked" && p.show_id).map((p) => p.show_id).join(",");
@@ -102,6 +104,7 @@ export default function Bookings() {
   }, [bookedShows]);
 
   const line = (p) => {
+    if (p.status === "draft") return `Not sent yet${p.to_name ? ` · for ${p.to_name}` : ""}`;
     if (p.status === "booked") return [fmtDay(p.picked_date), p.side === "venue" ? p.sender_name : p.to_name].filter(Boolean).join(" · ");
     if (p.status === "offered") {
       const n = (p.offers || []).length;
@@ -117,7 +120,7 @@ export default function Bookings() {
     const mine = asks[p.show_id] || [];
     const roleWord = (r) => (r === "lighting" ? "Lighting" : "Audio");
     return (
-      <div key={`${p.side}-${p.code}`} className="rounded-[14px] bg-[#151515] border overflow-hidden" style={{ borderColor: needsMe(p) ? (p.side === "venue" ? `${BLUE}88` : `${RED}88`) : "#262626" }}>
+      <div key={`${p.side}-${p.code || p.id}`} className="rounded-[14px] bg-[#151515] border overflow-hidden" style={{ borderColor: needsMe(p) ? (p.side === "venue" ? `${BLUE}88` : `${RED}88`) : "#262626" }}>
         <Link to={p.href} className="flex items-center gap-3 px-3 py-3 min-h-[68px] active:bg-[#1a1a1a]">
           <span className="w-11 h-11 rounded-full shrink-0 overflow-hidden border-2" style={{ borderColor: RED, background: "#2a1c1c" }}>
             {p.photo_url && <img src={p.photo_url} alt="" className="w-full h-full object-cover" />}
@@ -203,6 +206,13 @@ export default function Bookings() {
               );
             })}
           </div>
+        )}
+
+        {view === "board" && drafts.length > 0 && (
+          <details className="mt-6">
+            <summary className="min-h-[44px] flex items-center text-sm font-bold tracking-[0.08em] text-white/50 cursor-pointer" style={{ fontFamily: SCENE_FONT }}>DRAFTS · {drafts.length}</summary>
+            <div className="grid gap-2.5 lg:grid-cols-3 mt-2">{drafts.map(card)}</div>
+          </details>
         )}
 
         {view === "board" && passed.length > 0 && (

@@ -6,7 +6,7 @@ import { respondToOffer, venueConfirmPackage, OFFER_BLUE } from "@/lib/bookingPa
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import TimeSelect from "@/components/showpilot/TimeSelect";
-import { offerReadCircles, NEEDS } from "@/components/showpilot/OfferFields";
+import { offerReadCircles, NEEDS, counterHas } from "@/components/showpilot/OfferFields";
 import { techRiderHas, promoHas } from "@/components/showpilot/BookingFields";
 import { loadActTemplates, packageFromTemplate } from "@/lib/bookingTemplate";
 
@@ -50,7 +50,9 @@ function ReplyForm({ pkg, user, source, initial, busy, error, onSubmit, onBack }
   const [message, setMessage] = useState(initial?.message || "");
   const [acts, setActs] = useState(null);
   const [actId, setActId] = useState("");
-  const [form, setForm] = useState({ ...EMPTY, band_name: pkg.act_name || "", ...(initial?.reply || {}) });
+  const { counter: counter0, ...reply0 } = initial?.reply || {};
+  const [counter, setCounter] = useState({ guarantee: "", door_percent: "", ...(counter0 || {}) });
+  const [form, setForm] = useState({ ...EMPTY, band_name: pkg.act_name || "", ...reply0 });
   const today = new Date().toISOString().slice(0, 10);
   const needs = (Array.isArray(pkg.data?.needs) ? pkg.data.needs : []).map((k) => NEEDS.find(([x]) => x === k)).filter(Boolean);
 
@@ -84,6 +86,8 @@ function ReplyForm({ pkg, user, source, initial, busy, error, onSubmit, onBack }
   const patchExtra = (date, p) => setExtra(extra.map((e) => (e.date === date ? { ...e, ...p } : e)));
   const dates = [...source.filter((s) => picked.includes(s.date)), ...extra];
   const total = dates.length;
+  const deal = pkg.data?.deal || {};
+  const dealLine = [deal.guarantee && `$${String(deal.guarantee).replace(/^\$/, "")} guarantee`, deal.door_percent && `${String(deal.door_percent).replace(/%$/, "")}% of the door`].filter(Boolean).join(" · ");
   const hasPackage = !!actId || (form.band_members || []).length > 0 || has(form.general_notes);
 
   return (
@@ -153,13 +157,22 @@ function ReplyForm({ pkg, user, source, initial, busy, error, onSubmit, onBack }
           )}
         </section>
 
+        <section className="rounded-[14px] border border-[#262626] bg-[#151515] p-4 flex flex-col gap-3">
+          <span className={label} style={MONO}>COUNTER THE DEAL (OPTIONAL)</span>
+          <span className="text-[13px] text-white/65">{dealLine ? `They offered ${dealLine}. ` : ""}Ask for something different, and they see it when they confirm.</span>
+          <div className="flex gap-3">
+            <label className="flex-1"><span className={label} style={MONO}>GUARANTEE</span><input value={counter.guarantee} onChange={(e) => setCounter({ ...counter, guarantee: e.target.value })} placeholder="$750" className={inputCls} /></label>
+            <label className="flex-1"><span className={label} style={MONO}>DOOR %</span><input value={counter.door_percent} onChange={(e) => setCounter({ ...counter, door_percent: e.target.value })} placeholder="80" inputMode="numeric" className={inputCls} /></label>
+          </div>
+        </section>
+
         <label>
           <span className={label} style={MONO}>NOTE FOR {venueName.toUpperCase()} (OPTIONAL)</span>
           <textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Anything about the deal, dietary needs, who's coming." className={`${inputCls} py-2.5 resize-none`} />
         </label>
 
         {error && <p className="m-0 text-center text-[14px] text-red-400">{error}</p>}
-        <button type="button" disabled={!total || busy} onClick={() => onSubmit(dates, message, hasPackage ? toData(form) : {}, form.band_name)} className={`${btn} disabled:opacity-50`} style={{ background: BLUE, color: "#0d0d0d" }}>
+        <button type="button" disabled={!total || busy} onClick={() => onSubmit(dates, message, { ...(hasPackage ? toData(form) : {}), ...(counterHas(counter) ? { counter } : {}) }, form.band_name)} className={`${btn} disabled:opacity-50`} style={{ background: BLUE, color: "#0d0d0d" }}>
           {busy ? "Sending…" : total ? `Send ${total} date${total === 1 ? "" : "s"}${hasPackage ? " and my package" : ""}` : "Pick a date"}
         </button>
         <button type="button" onClick={onBack} className="min-h-[44px] text-[14px] text-white/60">Back to the offer</button>
