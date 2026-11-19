@@ -23,6 +23,9 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
 import TemplatePlansSheet, { useTemplatePlan, templateLimitKind } from "@/components/showpilot/TemplatePlans";
 import CompanyTemplatePage from "@/components/showpilot/CompanyTemplatePage";
+import LightingRigEditor from "@/components/showpilot/LightingRigEditor";
+import RigLayer from "@/components/showpilot/RigLayer";
+import { normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingRig";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -69,6 +72,8 @@ export default function MyTemplates() {
   // template's key.
   const [notesKey, setNotesKey] = useState(null);
   const [stageKey, setStageKey] = useState(null);
+  // A lighting tech's rig for a venue template (job 377): the template's key.
+  const [rigKey, setRigKey] = useState(null);
   const stageChanged = useRef(false);
   // "Put on your dates" (job 73, On the road stage 4): the template's key.
   const [applyKey, setApplyKey] = useState(null);
@@ -403,7 +408,23 @@ export default function MyTemplates() {
                       onChange={(field, val) => (field === "venue" ? setTemplate(t.key, { name: val }) : setData(t.key, field, val))}
                       namePlaceholder="e.g. The Fillmore"
                     />
-                  ) : (
+                  ) : null}
+                  {/* LDs keep a lighting rig per venue (job 377): trusses and
+                      lights on the stage, shown under the members on the
+                      stage plot their intake links send. */}
+                  {category === "venue" && accountType === "lighting" && (
+                    <button type="button" onClick={() => setRigKey(t.key)} className="w-full rounded-[12px] border border-[#2a2a2a] bg-black p-2 flex items-center gap-3 text-left hover:border-[#8CFF3D]/50">
+                      <span className="relative w-[120px] shrink-0 rounded-[8px] border border-[#333] border-b-2 border-b-white overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
+                        <RigLayer rig={normalizeRig(t.data.lighting_rig)} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>LIGHTING RIG</span>
+                        <span className="block text-white text-[15px] font-semibold">{rigHasItems(t.data.lighting_rig) ? rigSummary(t.data.lighting_rig) : "Set up the stage"}</span>
+                        <span className="block text-[#8CFF3D] text-[13px] mt-0.5">{rigHasItems(t.data.lighting_rig) ? "Open to edit or see it in 3D" : "Trusses, lights, 3D view"}</span>
+                      </span>
+                    </button>
+                  )}
+                  {category === "venue" ? null : (
                     <PerformerFields
                       band={{ ...t.data, band_name: t.name }}
                       // Venue / manager / artist: no act photo here, their
@@ -796,8 +817,28 @@ export default function MyTemplates() {
         const st = stageKey && templates.find((x) => x.key === stageKey);
         const actOf = (x) => ({ ...x.data, band_name: x.name });
         const at = applyKey && templates.find((x) => x.key === applyKey);
+        const rt = rigKey && templates.find((x) => x.key === rigKey);
         return (
           <>
+            {rt && (
+              <LightingRigEditor
+                rig={rt.data.lighting_rig}
+                venueName={rt.name}
+                onClose={() => setRigKey(null)}
+                // Done keeps the rig with the template and saves it (when
+                // it has a name; otherwise it saves with the template).
+                onSave={async (rig) => {
+                  setData(rt.key, "lighting_rig", rig);
+                  setRigKey(null);
+                  if (!rt.name.trim() || !user) return;
+                  try {
+                    const k = await writeTemplate(rt, rt.name.trim(), { ...rt.data, lighting_rig: rig });
+                    toast({ title: "Lighting rig saved" });
+                    if (k) setTemplate(k, { saved: true });
+                  } catch (e) { console.error(e); toast({ title: "Couldn't save the rig", variant: "destructive" }); }
+                }}
+              />
+            )}
             {at && <ApplyTemplateSheet template={at} accent={GROUP.artist.style.color} onClose={() => setApplyKey(null)} />}
             {nt && (
               <FxNotesWindow
