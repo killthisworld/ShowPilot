@@ -8,6 +8,7 @@ import { ConfirmDates } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import { packageReadCircles, ActCenterRead } from "@/components/showpilot/BookingFields";
 import OfferDates from "@/components/showpilot/OfferDates";
+import ActOfferView from "@/pages/ActOfferView";
 import { usePreviewView, PreviewToggle, PhoneFrame, inPreviewFrame } from "@/components/showpilot/PreviewView";
 
 // A booking package, as the venue opens it (job 246, step 2): the key opens
@@ -42,7 +43,7 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
 
   // My own package: open it where I can follow it.
   useEffect(() => {
-    if (pkg?.is_sender && pkg.id) navigate(`/book/${pkg.id}`, { replace: true });
+    if (pkg?.is_sender && pkg.id) navigate(pkg.kind === "venue" ? `/offer/${pkg.id}` : `/book/${pkg.id}`, { replace: true });
   }, [pkg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nights the venue already has an event, for the offer calendar.
@@ -91,6 +92,8 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
     return <IntakeSent seed={code} bare><p className="text-white/70 text-[16px]">This package isn't available. It may have been taken back.</p></IntakeSent>;
   }
   if (pkg.is_sender) return null;
+  // A venue's offer to an act (job 348): the act answers it on its own page.
+  if (pkg.kind === "venue") return <ActOfferView pkg={pkg} code={code} reload={load} />;
 
   const senderName = pkg.sender?.name || "They";
   const wl = wantsLine(pkg.wants);

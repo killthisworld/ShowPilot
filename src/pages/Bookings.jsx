@@ -84,7 +84,7 @@ export default function Bookings() {
 
   const items = [
     ...(data?.incoming || []).map((p) => ({ ...p, side: "venue", href: `/p/${p.code}` })),
-    ...(data?.sent || []).map((p) => ({ ...p, side: "sender", href: `/book/${p.id}` })),
+    ...(data?.sent || []).map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` })),
     ...made,
   ];
   const by = (k) => items.filter((p) => colOf(p) === k);
@@ -163,7 +163,10 @@ export default function Bookings() {
             <Link to="/book" className="ml-auto min-h-[44px] px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: RED, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />Book a date</Link>
           )}
           {isVenue && (
-            <Link to="/event/new" state={{ from: "bookings" }} className="ml-auto shrink-0 whitespace-nowrap min-h-[44px] px-3.5 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: BLUE, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />New event</Link>
+            <div className="ml-auto flex items-center gap-2">
+              <Link to="/offer" className="shrink-0 whitespace-nowrap min-h-[44px] px-3.5 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold border" style={{ borderColor: BLUE, color: BLUE }}>Offer dates</Link>
+              <Link to="/event/new" state={{ from: "bookings" }} className="shrink-0 whitespace-nowrap min-h-[44px] px-3.5 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: BLUE, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />New event</Link>
+            </div>
           )}
         </div>
 

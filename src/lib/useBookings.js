@@ -22,9 +22,9 @@ function shape(sent, incoming) {
   const s = (sent || []).filter((p) => p.status !== "draft");
   const inc = incoming || [];
   const needs = [
-    ...inc.filter((p) => p.status === "sent").map((p) => ({ ...p, side: "venue", href: `/p/${p.code}`, need: "Offer dates or pass" })),
+    ...inc.filter((p) => p.status === "sent").map((p) => ({ ...p, side: "venue", href: `/p/${p.code}`, need: p.kind === "venue" ? "Answer their offer" : "Offer dates or pass" })),
     ...inc.filter((p) => p.status === "countered").map((p) => ({ ...p, side: "venue", href: `/p/${p.code}`, need: "New dates to answer" })),
-    ...s.filter((p) => p.status === "offered").map((p) => ({ ...p, side: "sender", href: `/book/${p.id}`, need: "Pick a date" })),
+    ...s.filter((p) => p.status === "offered").map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}`, need: "Pick a date" })),
   ];
   return { sent: s, drafts: (sent || []).filter((p) => p.status === "draft"), incoming: inc, needs };
 }

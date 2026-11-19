@@ -4,6 +4,8 @@ import { supabase } from "@/api/supabaseClient";
 // the dates they want to a venue. See supabase/booking_package_migration.sql.
 
 export const PACKAGE_RED = "#F87171";
+// A venue's offer to an act (job 348) is in the venue's blue.
+export const OFFER_BLUE = "#60A5FA";
 
 // The next 12 months, plus "any time".
 export function upcomingMonths(from = new Date(), count = 12) {
@@ -104,6 +106,26 @@ export async function counterPackage(id, offers, message) {
 // The venue confirms one of the dates the act sent (job 347).
 export async function venueConfirmPackage(code, date) {
   const { data, error } = await supabase.rpc("venue_confirm_booking_package", { p_code: code, p_date: date });
+  if (error) throw error;
+  return data;
+}
+
+// A venue builds an offer for an act (job 348): saved as a draft, sent with
+// sendPackage, answered with respondToOffer.
+export async function saveOffer({ id, act, data, wants, to }) {
+  const { data: row, error } = await supabase.rpc("save_venue_offer", {
+    p_id: id || null, p_act: act || "", p_data: data || {}, p_wants: wants || {},
+    p_to_name: to?.name || "", p_to_email: to?.email || "", p_to_phone: to?.phone || "",
+  });
+  if (error) throw error;
+  return row;
+}
+
+// The act answers: the dates that work (or other dates) and its own package, or a pass.
+export async function respondToOffer({ code, dates, message, decline, reply, act }) {
+  const { data, error } = await supabase.rpc("respond_venue_offer", {
+    p_code: code, p_dates: dates || [], p_message: message || "", p_decline: !!decline, p_reply: reply || {}, p_act: act || "",
+  });
   if (error) throw error;
   return data;
 }

@@ -30,6 +30,7 @@ import EventLink from '@/pages/EventLink';
 import PackagePreviewFrame from "@/pages/PreviewFrame";
 import BookingPackage from '@/pages/BookingPackage';
 import PackageView from '@/pages/PackageView';
+import VenueOffer from '@/pages/VenueOffer';
 import VenuePackageView from '@/pages/VenuePackageView';
 import DayPackage from '@/pages/DayPackage';
 import TechAskView from '@/pages/TechAskView';
@@ -97,6 +98,8 @@ const AuthenticatedApp = () => {
       {/* Booking package (job 246): the artist / manager builds and sends it. */}
       <Route path="/book" element={<BookingPackage />} />
       <Route path="/book/:id" element={<BookingPackage />} />
+      <Route path="/offer" element={<VenueOffer />} />
+      <Route path="/offer/:id" element={<VenueOffer />} />
       {/* The venue opens a package; a tech opens an "are you free?" ask. */}
       <Route path="/p/:code" element={<PackageView />} />
       <Route path="/t/:code" element={<TechAskView />} />
