@@ -29,7 +29,9 @@ function topTypeColor(list) {
   return (best && eventTypeColor(best)) || NEUTRAL;
 }
 
-export default function MonthGroups({ shows, openAll = false, children }) {
+// color: one color for every month (the DJ pages, job 372) instead of the
+// most common event type's.
+export default function MonthGroups({ shows, openAll = false, color = null, children }) {
   const groups = useMemo(() => {
     const byKey = new Map();
     shows.forEach((s) => {
@@ -42,9 +44,9 @@ export default function MonthGroups({ shows, openAll = false, children }) {
       .sort(([a], [b]) => (a === NO_DATE ? 1 : b === NO_DATE ? -1 : a.localeCompare(b)))
       .map(([key, list]) => {
         const sorted = [...list].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-        return { key, list: sorted, color: topTypeColor(sorted) };
+        return { key, list: sorted, color: color || topTypeColor(sorted) };
       });
-  }, [shows]);
+  }, [shows, color]);
 
   const thisMonth = new Date().toISOString().slice(0, 7);
   const startOpen = groups.some((g) => g.key === thisMonth) ? thisMonth : groups[0]?.key;

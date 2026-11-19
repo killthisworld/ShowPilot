@@ -445,37 +445,62 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
 
   return (
     <div className="flex flex-col gap-4" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* The event in one line; Edit details opens its fields. */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* On a phone the event name takes its own line (job 73). */}
-        <div className="min-w-0 flex-1 max-sm:basis-full">
-          <h2 className="text-[30px] font-bold leading-tight truncate" style={{ fontFamily: SCENE_FONT }}>{title || request.title}</h2>
-          <div className="text-[12px] tracking-[0.06em] text-white/55 truncate" style={{ fontFamily: SCENE_MONO }}>
+      {/* The set at a glance (job 372): the night, one bar with a section
+          per act that fills as each act sends their set, then what you can
+          do with it. */}
+      <section className="rounded-2xl border border-[#262626] bg-[#111]/90 backdrop-blur p-4 flex flex-col gap-3">
+        <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="m-0 text-[28px] font-bold leading-tight break-words" style={{ fontFamily: SCENE_FONT }}>{title || request.title}</h2>
+          <div className="mt-0.5 text-[12px] tracking-[0.06em] text-white/60" style={{ fontFamily: SCENE_MONO }}>
             {[dateLabel, (venue || request.venue || "").toUpperCase()].filter(Boolean).join(" · ")}
             {due && <span style={{ color: overdue ? RED : AMBER }}>{overdue ? ` · OVERDUE (${dueLabel.replace(/^[A-Z]+, /, "")})` : ` · DUE ${dueLabel}`}</span>}
           </div>
         </div>
-        <button type="button" onClick={() => setEditing((e) => !e)} aria-expanded={editing}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border text-sm font-semibold" style={editing ? { borderColor: DJ_COLOR + "88", color: DJ_COLOR, background: DJ_COLOR + "14" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.85)" }}>
-          <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit"}
-        </button>
-        {slots.length > 0 && (
-          <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border text-sm font-semibold" style={{ borderColor: G + "66", color: G }}>
-            {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
+          <Menu label="More for this set" items={[
+            slots.length > 0 && { label: sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all links", icon: Share2, onClick: async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } } },
+            request.drive_folder_id && { label: "Event folder in Drive", icon: FolderOpen, onClick: () => window.open(folderUrl(request.drive_folder_id), "_blank", "noopener") },
+          ]} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] tracking-[0.12em] text-white/55" style={{ fontFamily: SCENE_MONO }}>SETS IN</span>
+            <span className="text-[20px] font-bold leading-none" style={{ fontFamily: SCENE_FONT, color: counts.total && counts.submitted >= counts.total ? G : "#fff" }}>
+              {counts.submitted}<span className="text-white/40">/{counts.total}</span>
+            </span>
+          </div>
+          {counts.total > 0 ? (
+            <div className="flex gap-1" role="img" aria-label={`${counts.submitted} of ${counts.total} sets in`}>
+              {slots.map((s, i) => (
+                <span key={s.id} title={`${String(i + 1).padStart(2, "0")} ${s.artist_name || "Act"}${s.status === "submitted" ? " · in" : ""}`}
+                  className="flex-1 h-2.5 rounded-full transition-colors" style={{ background: s.status === "submitted" ? G : "#2a2a2a" }} />
+              ))}
+            </div>
+          ) : (
+            <div className="h-2.5 rounded-full bg-[#2a2a2a]" aria-hidden="true" />
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setEditing((e) => !e)} aria-expanded={editing}
+            className="min-h-[40px] flex items-center gap-1.5 px-3.5 rounded-[10px] border text-sm font-semibold" style={editing ? { borderColor: DJ_COLOR + "88", color: DJ_COLOR, background: DJ_COLOR + "14" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.85)" }}>
+            <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit"}
           </button>
-        )}
-        <Menu label="More for this set" items={[
-          slots.length > 0 && { label: sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all links", icon: Share2, onClick: async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } } },
-          request.drive_folder_id && { label: "Event folder in Drive", icon: FolderOpen, onClick: () => window.open(folderUrl(request.drive_folder_id), "_blank", "noopener") },
-        ]} />
-      </div>
-      {/* The night's event, everything on it (job 354): the full Artist view. */}
-      {request.show_id && (
-        <Link to={`/show/${request.show_id}`} className="self-start -mt-2 min-h-[40px] flex items-center gap-1.5 text-[14px] font-semibold" style={{ color: RED }}>
-          Open the event<ExternalLink className="w-3.5 h-3.5" />
-        </Link>
-      )}
+          {slots.length > 0 && (
+            <button type="button" onClick={async () => { if (await onCopyAll()) { setCopiedAll(true); setTimeout(() => setCopiedAll(false), 1800); } }}
+              className="min-h-[40px] flex items-center gap-1.5 px-3.5 rounded-[10px] border text-sm font-semibold" style={{ borderColor: G + "66", color: G }}>
+              {copiedAll ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />} {copiedAll ? "Copied" : "Copy all links"}
+            </button>
+          )}
+          {/* The night's event, everything on it (job 354). */}
+          {request.show_id && (
+            <Link to={`/show/${request.show_id}`} className="min-h-[40px] flex items-center gap-1.5 px-3 rounded-[10px] border border-[#2a2a2a] text-sm font-semibold" style={{ color: RED }}>
+              Event<ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          )}
+        </div>
+        {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
+        {!driveConnected && <p className="text-[13px] m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no WAVs.</p>}
+      </section>
 
       {editing && (
         <div className="rounded-2xl border border-[#222] bg-[#121212] p-4 grid gap-3">
@@ -494,17 +519,11 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
               placeholder="48 kHz / 24-bit, named in play order" /></label>
         </div>
       )}
-      {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
-
-      {!driveConnected && (
-        <p className="text-sm m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no WAVs.</p>
-      )}
 
       {/* Acts: one row each. */}
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-[18px] font-bold" style={{ fontFamily: SCENE_FONT }}>Running order</span>
-          <span className="text-[11px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{counts.submitted} OF {counts.total} IN</span>
+          <span className="text-[11px] tracking-[0.14em] text-white/65" style={{ fontFamily: SCENE_MONO }}>RUNNING ORDER</span>
         </div>
         {/* Each row's dot says where that act is; no legend line (job 362). */}
         <ol className="flex flex-col gap-2 m-0 p-0 list-none">

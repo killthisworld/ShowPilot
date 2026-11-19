@@ -7,14 +7,15 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import TicketCard from "@/components/showpilot/TicketCard";
 import NightSky from "@/components/showpilot/NightSky";
 import DriveIcon from "@/components/showpilot/DriveIcon";
+import DjWeekMonths, { ActBar } from "@/components/showpilot/DjWeekMonths";
 import { DJ_COLOR, driveCall } from "@/lib/djTools";
 
 // DJ view home (job 353): an Artist with DJ Mode on lands here. It's
-// built around collecting each performer's set. Since job 362 (Jay
-// 2026-11-19) it's simpler: the space background, a Drive icon in the
-// corner (tap to connect), each set as a ticket you tap to open, nights on
-// the calendar with no set yet, and New set. No Settings button (Me is in
-// the tab bar) and no past nights. A set opens in DJ Tools (/dj?event=<id>).
+// built around collecting each performer's set: the space background, a
+// Drive icon in the corner (tap to connect), New set, and the sets as
+// tickets, this week on top and the months below (jobs 362, 372). The
+// events themselves are on Bookings (DjGigs). A set opens in DJ Tools
+// (/dj?event=<id>).
 const RED = "#F87171";
 const GREEN = "#8CFF3D";
 const BLUE = "#60A5FA";
@@ -28,39 +29,37 @@ const dueLine = (iso) => {
 };
 const initials = (s) => String(s || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "DJ";
 
-// A set as a ticket: the date on the stub, the night and venue, how many
-// sets are in (big, on the right) and a bar of every act's state.
-function SetTicket({ r, c, next, onOpen }) {
+// A set as a ticket, smaller (job 372): the date on the stub, the night
+// and venue, sets in on the right and the act bar.
+function SetTicket({ r, c, onOpen }) {
   const all = c?.all || 0;
   const done = all > 0 && c.in >= all;
-  const sub = [next ? "NEXT" : "", (r.venue || "").toUpperCase(), dueLine(r.due_at).toUpperCase()].filter(Boolean);
+  const sub = [(r.venue || "").toUpperCase(), dueLine(r.due_at).toUpperCase()].filter(Boolean).join(" · ");
   return (
-    <TicketCard color={DJ_COLOR} date={r.event_date} onClick={onOpen} ariaLabel={`${r.title}${all ? `, ${c.in} of ${all} sets in` : ""}`} stubWidth={64}>
-      <div className="flex items-start gap-3">
+    <TicketCard color={DJ_COLOR} date={r.event_date} compact onClick={onOpen} ariaLabel={`${r.title}${all ? `, ${c.in} of ${all} sets in` : ""}`} stubWidth={48} notch={7}>
+      <div className="flex items-center gap-2.5">
         <div className="flex-1 min-w-0">
-          <div className="text-[22px] leading-[1.05] line-clamp-2 break-words" style={cond}>{r.title}</div>
-          {sub.length > 0 && (
-            <div className="mt-1 text-[11px] tracking-[0.1em] text-white/60 truncate" style={mono}>
-              {sub.map((x, i) => <span key={i} style={x === "NEXT" ? { color: DJ_COLOR } : undefined}>{i ? " · " : ""}{x}</span>)}
-            </div>
-          )}
+          <div className="text-[16.5px] leading-tight truncate" style={cond}>{r.title}</div>
+          {sub && <div className="text-[10px] tracking-[0.08em] text-white/55 truncate" style={mono}>{sub}</div>}
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-[30px] leading-none" style={{ ...cond, color: done ? GREEN : all ? "#fff" : "rgba(255,255,255,0.35)" }}>
-            {all ? <>{c.in}<span className="text-white/40">/{all}</span></> : "–"}
-          </div>
-          <div className="mt-0.5 text-[9.5px] tracking-[0.14em] text-white/50" style={mono}>{all ? "SETS IN" : "NO ACTS"}</div>
+        <div className="shrink-0 text-[19px] leading-none" style={{ ...cond, color: done ? GREEN : all ? "#fff" : "rgba(255,255,255,0.35)" }}>
+          {all ? <>{c.in}<span className="text-white/40">/{all}</span></> : "–"}
         </div>
       </div>
-      {all > 0 && (
-        <div aria-hidden="true" className="mt-3 flex gap-1">
-          {Array.from({ length: Math.min(all, 16) }).map((_, i) => {
-            const k = i * (all > 16 ? all / 16 : 1);
-            const bg = k < c.in ? GREEN : k < c.in + c.started ? BLUE : k < c.in + c.started + c.sent ? DJ_COLOR : "#2e2e2e";
-            return <span key={i} className="h-1.5 flex-1 rounded-full" style={{ background: bg }} />;
-          })}
-        </div>
-      )}
+      {all > 0 && <div className="mt-1.5"><ActBar slots={c.slots} height={4} /></div>}
+    </TicketCard>
+  );
+}
+
+// This week's sets: a small ticket to scroll sideways, like the audio home.
+function WeekSet({ r, c, onOpen }) {
+  const all = c?.all || 0;
+  return (
+    <TicketCard className="shrink-0 w-[168px]" color={DJ_COLOR} date={r.event_date} compact stubWidth={42} notch={6} shadow={false} onClick={onOpen} ariaLabel={r.title}>
+      <div className="min-h-[50px] flex flex-col justify-center gap-1">
+        <span className="text-[13.5px] font-bold leading-tight line-clamp-2 break-words">{r.title}</span>
+        {all > 0 ? <ActBar slots={c.slots} height={3} /> : <span className="text-[9px] tracking-[0.06em] text-white/50" style={mono}>NO ACTS</span>}
+      </div>
     </TicketCard>
   );
 }
@@ -73,7 +72,6 @@ export default function DjHome() {
   const [drive, setDrive] = useState({ loading: true });
   const [requests, setRequests] = useState([]);
   const [counts, setCounts] = useState({});
-  const [bareShows, setBareShows] = useState([]);
 
   const load = useCallback(async () => {
     setError("");
@@ -89,18 +87,14 @@ export default function DjHome() {
       // "*" so this works before and after link_sent_at is in (job 354).
       const { data: st } = await supabase.from("dj_set_slots").select("*").in("request_id", ids);
       const m = {};
-      (st || []).forEach((x) => {
-        const c = (m[x.request_id] = m[x.request_id] || { in: 0, started: 0, sent: 0, all: 0 });
+      [...(st || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).forEach((x) => {
+        const c = (m[x.request_id] = m[x.request_id] || { in: 0, all: 0, slots: [] });
         c.all += 1;
-        if (x.status === "submitted") c.in += 1; else if (x.status === "started") c.started += 1; else if (x.link_sent_at) c.sent += 1;
+        c.slots.push(x.status || "waiting");
+        if (x.status === "submitted") c.in += 1;
       });
       setCounts(m);
     } else setCounts({});
-    // Your nights on the calendar that don't have a set yet.
-    const { data: shows } = await supabase.from("shows").select("id, event_name, band_name, date, venue, icon_url")
-      .eq("owner_id", user.id).gte("date", today()).order("date").limit(30);
-    const linked = new Set((reqs || []).map((r) => r.show_id).filter(Boolean));
-    setBareShows((shows || []).filter((s) => !linked.has(s.id)).slice(0, 8));
     setLoading(false);
   }, []);
 
@@ -154,31 +148,13 @@ export default function DjHome() {
                 <Plus className="w-4 h-4" strokeWidth={3} />New set
               </Link>
             ))}
-            {upcoming.length === 0 ? (
-              <p className="m-0 py-6 text-center text-[15px] text-white/60">No sets yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                {upcoming.map((r, i) => <SetTicket key={r.id} r={r} c={counts[r.id]} next={i === 0 && !!r.event_date} onOpen={() => open(r)} />)}
-              </div>
-            )}
-            {bareShows.length > 0 && (
-              <>
-                {label("NO SET YET")}
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  {bareShows.map((s) => (
-                    <TicketCard key={s.id} color={DJ_COLOR} date={s.date} photo={s.icon_url || ""} dim compact onClick={() => navigate(`/dj?show=${s.id}`)} ariaLabel={`Make the set for ${s.event_name || s.band_name || "this night"}`} stubWidth={56}>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[17px] leading-tight truncate" style={cond}>{s.event_name || s.band_name || "Event"}</div>
-                          {s.venue && <div className="text-[11px] tracking-[0.1em] text-white/55 truncate" style={mono}>{s.venue.toUpperCase()}</div>}
-                        </div>
-                        <span className="shrink-0 min-h-[32px] px-2.5 rounded-full text-[12.5px] font-bold flex items-center gap-1 border" style={{ borderColor: `${DJ_COLOR}88`, color: DJ_COLOR }}><Plus className="w-3.5 h-3.5" strokeWidth={3} />Set</span>
-                      </div>
-                    </TicketCard>
-                  ))}
-                </div>
-              </>
-            )}
+            {/* Like the audio home (job 372): this week, then the months. */}
+            <DjWeekMonths
+              items={upcoming.map((r) => ({ ...r, key: r.id, date: r.event_date }))}
+              empty="No sets this week."
+              week={(r) => <WeekSet r={r} c={counts[r.id]} onOpen={() => open(r)} />}
+              row={(r) => <SetTicket r={r} c={counts[r.id]} onOpen={() => open(r)} />}
+            />
           </>
         )}
       </main>

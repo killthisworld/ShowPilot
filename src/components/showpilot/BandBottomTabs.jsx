@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake, Disc3 } from "lucide-react";
-import { isDjMode } from "@/lib/djMode";
+import { djNow } from "@/lib/djMode";
 import { DJ_COLOR } from "@/lib/djTools";
 import useBookings from "@/lib/useBookings";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
@@ -45,7 +45,9 @@ export default function BandBottomTabs() {
   const { preferences, reload } = usePreferences();
   const isDesktop = useIsDesktop();
   const onChats = pathname === "/" && new URLSearchParams(search).get("view") === "chats";
-  const dj = isDjMode(preferences);
+  // While the account loads, the last answer on this device (job 372), so
+  // a DJ never sees the Artist tabs flash between pages.
+  const dj = djNow(preferences);
   const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs")) : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { readPendingAccountType, clearPendingAccountType } from "@/lib/pendingAccountType";
-import { readPendingDj, clearPendingDj } from "@/lib/djMode";
+import { readPendingDj, clearPendingDj, rememberDj, isDjMode } from "@/lib/djMode";
 import { setMyEventTypeColors, EVENT_COLORS_EVENT, EVENT_TYPES_EVENT } from "@/lib/eventTypes";
 import { rememberProfile } from "@/lib/accounts";
 import { rememberAccountType } from "@/lib/accountTypeStyle";
@@ -33,6 +33,7 @@ export function usePreferences() {
       if (!user) {
         setMyEventTypeColors({});
         rememberAccountType(null);
+        rememberDj(false);
         setPreferences(null);
         setLoading(false);
         return;
@@ -55,6 +56,7 @@ export function usePreferences() {
         setMyEventTypeColors(existing.event_type_colors);
         rememberProfile(user.id, existing);
         rememberAccountType(existing.account_type || "engineer");
+        rememberDj(isDjMode(existing));
         setPreferences(existing);
       } else {
         // Email sign-up stores the role on the account; Google sign-up

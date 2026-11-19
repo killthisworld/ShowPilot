@@ -1,71 +1,85 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Plus, ChevronRight, Disc3, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Loader2, Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
-import useBookings, { fmtDay } from "@/lib/useBookings";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import TicketCard from "@/components/showpilot/TicketCard";
 import NightSky from "@/components/showpilot/NightSky";
+import DjWeekMonths, { ActBar } from "@/components/showpilot/DjWeekMonths";
 import { DJ_COLOR } from "@/lib/djTools";
 
-// The DJ view's Bookings tab (job 362, Jay 2026-11-19): built to keep track
-// of the gigs you're booked for. What needs you first (a venue's offer to
-// answer, dates to pick), then every night coming up as a ticket with a
-// countdown and whether its sets are in, then packages still waiting on a
-// reply. Book a date and the full booking list (/bookings) are one tap away.
-const RED = "#F87171";
+// The DJ view's Bookings tab (jobs 362, 372, Jay 2026-11-19): the events
+// you're on, to keep track of them. DJs get added to events rather than
+// booking dates, so there's no Book a date or booking packages here: this
+// week on top, the months below, each event a small ticket with when it
+// is and its set (the sets in, or + Set to start one). The sets and their
+// links are on the Sets tab.
 const GREEN = "#8CFF3D";
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
 const today = () => new Date().toISOString().slice(0, 10);
 
-const daysTo = (d) => {
-  if (!d) return null;
-  const a = new Date(`${today()}T00:00:00`);
-  const b = new Date(`${d}T00:00:00`);
-  return Math.round((b - a) / 86400000);
+const daysTo = (d) => (d ? Math.round((new Date(`${d}T00:00:00`) - new Date(`${today()}T00:00:00`)) / 86400000) : null);
+const whenLabel = (d) => {
+  const n = daysTo(d);
+  return n === null ? "" : n <= 0 ? "TONIGHT" : n === 1 ? "TOMORROW" : `IN ${n} DAYS`;
 };
-const countdown = (n) => (n === null ? ["", ""] : n <= 0 ? ["TONIGHT", ""] : n === 1 ? ["1", "DAY"] : n < 60 ? [String(n), "DAYS"] : [String(Math.round(n / 7)), "WEEKS"]);
 
-function GigTicket({ g, sets, onOpen }) {
-  const n = daysTo(g.date);
-  const [big, small] = countdown(n);
-  const soon = n !== null && n <= 7;
-  const all = sets?.all || 0;
+// The set on an event: sets in (opens the set), or + Set on your own event.
+function SetChip({ g, set, onSet, small = false }) {
+  if (!set && !g.mine) return null;
+  const go = (e) => { e.stopPropagation(); onSet(); };
+  const h = small ? "min-h-[26px] px-2 text-[11.5px]" : "min-h-[32px] px-2.5 text-[12.5px]";
+  if (!set) {
+    return (
+      <button type="button" onClick={go} aria-label={`Start the set for ${g.name}`} className={`${h} shrink-0 rounded-full font-bold flex items-center gap-1 border`} style={{ borderColor: `${DJ_COLOR}88`, color: DJ_COLOR }}>
+        <Plus className="w-3.5 h-3.5" strokeWidth={3} />Set
+      </button>
+    );
+  }
+  const done = set.all > 0 && set.in >= set.all;
   return (
-    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url || ""} onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={64}>
-      <div className="flex items-start gap-3">
+    <button type="button" onClick={go} aria-label={`Open the set: ${set.in} of ${set.all} in`} className={`${h} shrink-0 rounded-full font-bold flex items-center`}
+      style={done ? { background: `${GREEN}22`, color: "#B6FF85" } : { background: `${DJ_COLOR}1f`, color: DJ_COLOR }}>
+      {set.all ? `${set.in}/${set.all} sets` : "Set"}
+    </button>
+  );
+}
+
+function GigTicket({ g, set, onOpen, onSet }) {
+  const when = whenLabel(g.date);
+  const sub = [g.venue.toUpperCase(), g.time ? g.time.toUpperCase() : ""].filter(Boolean).join(" · ");
+  return (
+    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url} compact onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={48} notch={7}>
+      <div className="flex items-center gap-2.5">
         <div className="flex-1 min-w-0">
-          <div className="text-[21px] leading-[1.05] line-clamp-2 break-words" style={cond}>{g.name}</div>
-          {g.venue && <div className="mt-1 text-[11px] tracking-[0.1em] text-white/65 truncate" style={mono}>{g.venue.toUpperCase()}</div>}
+          <div className="text-[16.5px] leading-tight truncate" style={cond}>{g.name}</div>
+          {sub && <div className="text-[10px] tracking-[0.08em] text-white/55 truncate" style={mono}>{sub}</div>}
+          {when && <div className="text-[10px] tracking-[0.1em] truncate" style={{ ...mono, color: daysTo(g.date) <= 7 ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{when}</div>}
         </div>
-        {big && (
-          <div className="shrink-0 text-right">
-            <div className="leading-none" style={{ ...cond, fontSize: big === "TONIGHT" ? 20 : 30, color: soon ? DJ_COLOR : "#fff" }}>{big}</div>
-            {small && <div className="mt-0.5 text-[9.5px] tracking-[0.14em] text-white/55" style={mono}>{small}</div>}
-          </div>
-        )}
+        <SetChip g={g} set={set} onSet={onSet} />
       </div>
-      {(sets || g.time) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          {g.time && <span className="min-h-[26px] px-2 rounded-full text-[12px] font-semibold flex items-center gap-1 bg-white/10 text-white/85"><Clock className="w-3 h-3" />{g.time}</span>}
-          {sets && (
-            <span className="min-h-[26px] px-2 rounded-full text-[12px] font-semibold flex items-center gap-1"
-              style={all && sets.in >= all ? { background: `${GREEN}22`, color: "#B6FF85" } : { background: `${DJ_COLOR}1f`, color: DJ_COLOR }}>
-              <Disc3 className="w-3 h-3" />{all ? (sets.in >= all ? `All ${all} sets in` : `${sets.in} of ${all} sets in`) : "Set: no acts yet"}
-            </span>
-          )}
-        </div>
-      )}
+      {set?.all > 0 && <div className="mt-1.5"><ActBar slots={set.slots} height={4} /></div>}
+    </TicketCard>
+  );
+}
+
+function WeekGig({ g, set, onOpen }) {
+  return (
+    <TicketCard className="shrink-0 w-[168px]" color={DJ_COLOR} date={g.date} photo={g.icon_url} compact stubWidth={42} notch={6} shadow={false} onClick={onOpen} ariaLabel={g.name}>
+      <div className="min-h-[50px] flex flex-col justify-center gap-1">
+        <span className="text-[13.5px] font-bold leading-tight line-clamp-2 break-words">{g.name}</span>
+        <span className="text-[9px] tracking-[0.06em] truncate" style={{ ...mono, color: daysTo(g.date) <= 0 ? DJ_COLOR : "rgba(255,255,255,0.6)" }}>{whenLabel(g.date) || g.venue.toUpperCase()}</span>
+        {set?.all > 0 && <ActBar slots={set.slots} height={3} />}
+      </div>
     </TicketCard>
   );
 }
 
 export default function DjGigs() {
   const navigate = useNavigate();
-  const { data: bk } = useBookings();
   const [gigs, setGigs] = useState(null);
-  const [sets, setSets] = useState({}); // show_id -> { in, all }
+  const [sets, setSets] = useState({}); // show_id -> { id, in, all, slots }
 
   useEffect(() => {
     let gone = false;
@@ -83,8 +97,10 @@ export default function DjGigs() {
         return data && (!data.date || data.date >= t) ? { ...data, share_token: l.share_token, linked: true } : null;
       }))).filter(Boolean);
       const seen = new Set();
-      const list = [...(owned || []), ...linked].filter((g) => (seen.has(g.id) ? false : seen.add(g.id))).map((g) => ({
+      const list = [...(owned || []).map((g) => ({ ...g, mine: true })), ...linked].filter((g) => (seen.has(g.id) ? false : seen.add(g.id))).map((g) => ({
+        key: g.id,
         id: g.id,
+        mine: !!g.mine,
         name: g.event_name || g.band_name || "Event",
         venue: g.venue || "",
         date: g.date || null,
@@ -96,10 +112,13 @@ export default function DjGigs() {
       const reqIds = Object.values(byShow);
       const m = {};
       if (reqIds.length) {
-        const { data: st } = await supabase.from("dj_set_slots").select("request_id, status").in("request_id", reqIds);
+        const { data: st } = await supabase.from("dj_set_slots").select("request_id, status, position").in("request_id", reqIds);
         const per = {};
-        (st || []).forEach((x) => { const c = (per[x.request_id] = per[x.request_id] || { in: 0, all: 0 }); c.all += 1; if (x.status === "submitted") c.in += 1; });
-        Object.entries(byShow).forEach(([show, req]) => { m[show] = per[req] || { in: 0, all: 0 }; });
+        [...(st || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)).forEach((x) => {
+          const c = (per[x.request_id] = per[x.request_id] || { in: 0, all: 0, slots: [] });
+          c.all += 1; c.slots.push(x.status || "waiting"); if (x.status === "submitted") c.in += 1;
+        });
+        Object.entries(byShow).forEach(([show, req]) => { m[show] = { id: req, ...(per[req] || { in: 0, all: 0, slots: [] }) }; });
       }
       if (gone) return;
       setSets(m);
@@ -108,71 +127,26 @@ export default function DjGigs() {
     return () => { gone = true; };
   }, []);
 
-  const needs = bk?.needs || [];
-  const waiting = useMemo(() => (bk?.sent || []).filter((p) => p.status === "sent" || p.status === "countered"), [bk]);
-  const label = (txt, right = null) => (
-    <div className="mt-3 flex items-center justify-between gap-3">
-      <h2 className="m-0 text-[11px] tracking-[0.16em] text-white/65 font-normal" style={mono}>{txt}</h2>
-      {right}
-    </div>
-  );
-  const row = (p, line, color) => (
-    <Link key={`${p.side}-${p.code || p.id}`} to={p.href} className="min-h-[60px] flex items-center gap-3 px-3 py-2.5 rounded-[14px] border bg-[#0d0e14]/85 backdrop-blur" style={{ borderColor: `${color}66` }}>
-      <span className="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2" style={{ borderColor: color, background: "#1a1a1a" }}>
-        {(p.photo_url || p.data?.photo_url) && <img src={p.photo_url || p.data?.photo_url} alt="" className="w-full h-full object-cover" />}
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-[15.5px] font-semibold truncate">{p.side === "venue" ? p.sender_name || p.act_name || "A venue" : p.to_name || p.act_name || "A venue"}</span>
-        <span className="block text-[12.5px] truncate" style={{ color }}>{line}</span>
-      </span>
-      <ChevronRight className="w-4 h-4 text-white/40 shrink-0" />
-    </Link>
-  );
+  const openSet = (g) => { const s = sets[g.id]; navigate(s ? `/dj?event=${s.id}` : `/dj?show=${g.id}`); };
 
   return (
     <div className="relative min-h-screen text-white" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#000" }}>
       <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-gigs" dim={0.3} /></div>
       <main className="relative z-[1] max-w-[1080px] mx-auto px-4 lg:px-8 pt-5 lg:pt-8 pb-[120px] lg:pb-12 flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="m-0 text-[34px] leading-none" style={cond}>Gigs</h1>
-            {gigs && <div className="mt-1 text-[11px] tracking-[0.14em] text-white/60" style={mono}>{gigs.length ? `${gigs.length} COMING UP` : "NOTHING BOOKED YET"}</div>}
-          </div>
-          <Link to="/book" className="min-h-[44px] px-4 rounded-full font-bold text-[14.5px] flex items-center gap-1.5" style={{ background: DJ_COLOR, color: "#0d0d0d" }}>
-            <Plus className="w-4 h-4" strokeWidth={3} />Book a date
-          </Link>
+        <div>
+          <h1 className="m-0 text-[34px] leading-none" style={cond}>Gigs</h1>
+          {gigs?.length > 0 && <div className="mt-1 text-[11px] tracking-[0.14em] text-white/60" style={mono}>{gigs.length} COMING UP</div>}
         </div>
-
-        {needs.length > 0 && (
-          <>
-            {label("NEEDS YOU")}
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">{needs.map((p) => row(p, `${p.need}${p.act_name && p.side === "venue" ? ` · ${p.act_name}` : ""}`, RED))}</div>
-          </>
-        )}
-
-        {label("BOOKED")}
         {gigs === null ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} /></div>
-        ) : gigs.length === 0 ? (
-          <p className="m-0 py-6 text-center text-[15px] text-white/60">No gigs coming up.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {gigs.map((g) => <GigTicket key={g.id} g={g} sets={sets[g.id]} onOpen={() => navigate(g.href)} />)}
-          </div>
+          <DjWeekMonths
+            items={gigs}
+            empty="No gigs this week."
+            week={(g) => <WeekGig g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} />}
+            row={(g) => <GigTicket g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} onSet={() => openSet(g)} />}
+          />
         )}
-
-        {waiting.length > 0 && (
-          <>
-            {label("WAITING TO HEAR BACK")}
-            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-              {waiting.map((p) => row({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` }, [p.status === "countered" ? "You sent new dates" : "Sent", p.sent_at ? fmtDay(String(p.sent_at).slice(0, 10)) : ""].filter(Boolean).join(" · "), "rgba(255,255,255,0.55)"))}
-            </div>
-          </>
-        )}
-
-        <Link to="/bookings" className="self-center mt-4 min-h-[44px] px-3 flex items-center gap-1 text-[14px] font-semibold text-white/65 hover:text-white">
-          All booking packages<ChevronRight className="w-4 h-4" />
-        </Link>
       </main>
       <BandBottomTabs />
     </div>

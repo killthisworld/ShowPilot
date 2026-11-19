@@ -5,7 +5,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
 import DjHome from "@/pages/DjHome";
-import { isDjMode } from "@/lib/djMode";
+import { isDjMode, lastDj } from "@/lib/djMode";
 
 // Routes to the right home screen based on account type. Engineer and
 // Lighting Tech share the full New/Frequent/Worked tracking Home page, since
@@ -23,6 +23,9 @@ export default function HomeRouter() {
   const isDesktop = useIsDesktop();
   const { search } = useLocation();
 
+  // A DJ on this device goes straight to their sets while the account loads
+  // (job 372), instead of a spinner and then the swap.
+  if (loading && lastDj() && !new URLSearchParams(search).get("view")) return <DjHome />;
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
