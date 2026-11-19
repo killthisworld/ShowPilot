@@ -48,7 +48,7 @@ export default function TechRail({ accent = "#8CFF3D", preferences, onPreference
         </Link>
       ))}
       <Link to="/about" aria-label="About Show Pilot" className="mt-auto w-11 h-11 rounded-[11px] overflow-hidden shrink-0 ring-1 ring-[#8CFF3D]/40 hover:ring-[#8CFF3D] transition-shadow">
-        <img src="/icon-192.png?v=3" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
+        <img src="/icon-192.png?v=4" alt="Show Pilot" width={44} height={44} className="w-full h-full object-cover" />
       </Link>
     </nav>
   );

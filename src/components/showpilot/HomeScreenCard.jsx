@@ -46,7 +46,7 @@ export default function HomeScreenCard({ accent = "#8CFF3D" }) {
         <X className="w-4 h-4" />
       </button>
       <div className="flex items-start gap-3 pr-6">
-        <img src="/icon-192.png?v=3" alt="" className="w-11 h-11 rounded-xl shrink-0" />
+        <img src="/icon-192.png?v=4" alt="" className="w-11 h-11 rounded-xl shrink-0" />
         <div className="min-w-0">
           <div className="text-white text-[15px] font-semibold">Put Show Pilot on your home screen</div>
           <div className="text-white/55 text-[13px] mt-0.5">Opens like an app, and your day sheet and guest list work with no signal.</div>

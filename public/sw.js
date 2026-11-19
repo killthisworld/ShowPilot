@@ -6,8 +6,8 @@
 // Nothing else is touched: no API calls, no Supabase, no other sites. The
 // app keeps its own copy of the day sheet, contacts and guest list.
 
-const VERSION = "sp-shell-v3";
-const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png?v=3", "/icon-512.png?v=3"];
+const VERSION = "sp-shell-v4";
+const SHELL = ["/", "/index.html", "/site.webmanifest", "/icon-192.png?v=4", "/icon-512.png?v=4"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -61,8 +61,8 @@ self.addEventListener("push", (event) => {
     body: d.body || "",
     tag: d.tag || undefined,
     renotify: !!d.tag,
-    icon: "/icon-192.png?v=3",
-    badge: "/icon-192.png?v=3",
+    icon: "/icon-192.png?v=4",
+    badge: "/icon-192.png?v=4",
     data: { url: d.url || "/" },
   }));
 });

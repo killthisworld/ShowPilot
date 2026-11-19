@@ -336,7 +336,7 @@ export default function FanEvent() {
 
         <div className="mx-5 mt-6 pt-5 pb-10 border-t border-[#1a1a1a] flex flex-col items-center text-center">
           <div className="flex items-center justify-center gap-2.5">
-            <img src="/icon-192.png?v=3" alt="" width={28} height={28} className="w-7 h-7 rounded-[7px]" style={{ boxShadow: "0 0 0 1px rgba(140,255,61,0.45), 0 0 14px rgba(140,255,61,0.25)" }} />
+            <img src="/icon-192.png?v=4" alt="" width={28} height={28} className="w-7 h-7 rounded-[7px]" style={{ boxShadow: "0 0 0 1px rgba(140,255,61,0.45), 0 0 14px rgba(140,255,61,0.25)" }} />
             <span className="text-base font-bold tracking-[0.06em] text-white/80">THIS SHOW RUNS ON SHOWPILOT</span>
           </div>
           <p className="mt-2 max-w-[320px] text-[15px] font-medium leading-tight text-white/50">The artist, venue and crew all work from one shared event.</p>

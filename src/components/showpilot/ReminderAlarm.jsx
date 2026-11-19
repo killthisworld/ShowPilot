@@ -29,7 +29,7 @@ async function systemAlert(r) {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     const body = r.event ? `${r.event} · ${clockLabel(r.at)}` : clockLabel(r.at);
     const reg = await navigator.serviceWorker?.getRegistration?.();
-    if (reg?.showNotification) await reg.showNotification(r.text, { body, tag: r.id, icon: "/icon-192.png?v=3", renotify: true, requireInteraction: true });
+    if (reg?.showNotification) await reg.showNotification(r.text, { body, tag: r.id, icon: "/icon-192.png?v=4", renotify: true, requireInteraction: true });
     else new Notification(r.text, { body, tag: r.id });
   } catch { /* not allowed here */ }
 }
