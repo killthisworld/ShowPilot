@@ -2045,8 +2045,10 @@ export default function Cockpit({ embedded = false } = {}) {
                             top: w.top,
                             zIndex: w.z,
                             height: 170,
-                            background: hasPhoto ? "#111" : `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
-                            backgroundImage: hasPhoto ? `url(${w.icon_image_url})` : undefined,
+                            // Longhands only (job 351): mixing "background" with an
+                            // empty backgroundImage wiped the gradient.
+                            backgroundColor: hasPhoto ? "#111" : w.color,
+                            backgroundImage: hasPhoto ? `url(${w.icon_image_url})` : `linear-gradient(135deg, ${w.color}, ${w.color}99)`,
                             backgroundSize: "cover",
                             backgroundPosition: "center",
                             transform: `translateX(${frontOffset}px)`,
@@ -2101,8 +2103,10 @@ export default function Cockpit({ embedded = false } = {}) {
                           top: w.top,
                           zIndex: w.z,
                           height: 72,
-                          background: w.icon_image_url ? "#111" : `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
-                          backgroundImage: w.icon_image_url ? `url(${w.icon_image_url})` : undefined,
+                          // Longhands only (job 351): mixing "background" with an
+                          // empty backgroundImage left these cards blank.
+                          backgroundColor: w.icon_image_url ? "#111" : w.color,
+                          backgroundImage: w.icon_image_url ? `url(${w.icon_image_url})` : `linear-gradient(135deg, ${w.color}, ${w.color}cc)`,
                           backgroundSize: "cover",
                           backgroundPosition: "center",
                           borderBottomColor: "rgba(0,0,0,0.25)",
