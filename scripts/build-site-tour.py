@@ -107,10 +107,11 @@ def tour(pid, label, color, pitch, price, feats, first):
                     f'<span class="n">{i+1:02d}</span><span class="tt">{E(title)}<small>{E(line)}</small></span><span class="meter"><span></span></span></button>')
     slides = ''.join(slide(pid, i, fk, i == 0) for i, fk in enumerate(feats))
     n = len(feats)
+    # Prices live in the Pricing section only (job 371), not under each profile.
     return f'''
       <div class="tour" data-tour="{pid}" style="--c:{color}"{'' if first else ' hidden'}>
         <div class="tour-side">
-          <div class="seat"><p class="seat-name">{E(label)}</p><p class="seat-pitch">{E(pitch)}</p><p class="seat-price">{E(price.upper())}</p></div>
+          <div class="seat"><p class="seat-name">{E(label)}</p><p class="seat-pitch">{E(pitch)}</p></div>
           <div class="tour-list" role="tablist" aria-label="{E(label)} features">{''.join(tabs)}</div>
         </div>
         <div class="tour-stage">
