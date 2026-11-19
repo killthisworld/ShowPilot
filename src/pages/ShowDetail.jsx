@@ -3,6 +3,9 @@ import { cropImage } from "@/lib/cropImage";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
+import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
+import { cueSheetHasAny } from "@/lib/cueSheet";
+import useMyVenueRig from "@/lib/useMyVenueRig";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -78,6 +81,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
   const isDesktop = useIsDesktop();
+  const isLightingAccount = preferences?.account_type === "lighting";
+  const [cuesAt, setCuesAt] = useState(null); // an act's lighting cue sheet (job 377)
   const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
   // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
   const sectionPhotos = !(isTechProductionAccount && !isDesktop);
@@ -121,6 +126,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   };
 
   const [show, setShow] = usePersistedState(`${draftKey}_show`, emptyShow);
+  const myVenueRig = useMyVenueRig(show?.venue, isLightingAccount); // the LD's rig here (job 377)
   const [showFanPage, setShowFanPage] = useState(false);
   const [bands, setBands] = usePersistedState(`${draftKey}_bands`, [emptyBand("N/A", 0)]);
   const [restoredDraft, setRestoredDraft] = useState(false);
@@ -1243,6 +1249,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 {/* Always here, empty stage or not: open it to build one (job 286). */}
                 <ActStagePlotButton act={activeBand} always onClick={() => setPlotAt(activeBandIndex)} />
+                {/* The act's lighting cues (job 377): for the LD, or when the act sent some. */}
+                {(isLightingAccount || cueSheetHasAny(activeBand?.lighting_cues)) && <ActCuesButton act={activeBand} onClick={() => setCuesAt(activeBandIndex)} />}
               </div>
             }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}
@@ -1271,7 +1279,12 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
+      {cuesAt !== null && (
+        <CueSheetWindow acts={bands} start={cuesAt} onClose={() => setCuesAt(null)}
+          onChange={(i, v) => setBands((prev) => prev.map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)))}
+          onSave={!isNew ? () => { setSaveAfter((n) => n + 1); setCuesAt(null); } : null} />
+      )}
+      {plotAt !== null && <StagePlotView rig={myVenueRig} lighting={isLightingAccount} acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

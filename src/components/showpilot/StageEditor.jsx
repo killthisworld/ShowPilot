@@ -55,7 +55,7 @@ function clearStraySelection() {
   } catch {}
 }
 
-export function StageFloor({ members, getInstruments, colors, picked = null, onTapMember, onTapEmpty, onDrag, onDragEnd, dragOnly = null, labels = true }) {
+export function StageFloor({ members, getInstruments, colors, picked = null, onTapMember, onTapEmpty, onDrag, onDragEnd, dragOnly = null, labels = true, underlay = null }) {
   const canDrag = (i) => !!onDrag && (dragOnly === null || dragOnly === i);
   const ref = useRef(null);
   const press = useRef(null); // { i, x, y, moved }
@@ -114,6 +114,7 @@ export function StageFloor({ members, getInstruments, colors, picked = null, onT
     >
       <span className="absolute top-1.5 left-0 right-0 text-center text-[9.5px] tracking-[0.18em] text-white/30 pointer-events-none" style={{ fontFamily: SCENE_MONO }}>BACK OF STAGE</span>
       <span className="absolute bottom-1.5 left-0 right-0 text-center text-[10.5px] font-bold tracking-[0.18em] text-white pointer-events-none" style={{ fontFamily: SCENE_MONO }}>STAGE FRONT</span>
+      {underlay}
       {members.map((m, i) => {
         if (!placed(m)) return null;
         const { pos, color: pc, icon } = memberLook(m, getInstruments, colors);
@@ -350,10 +351,10 @@ function SwipeRemove({ children, onRemove, label = "member" }) {
   );
 }
 
-function MemberLine({ member, insts, busColors }) {
+function MemberLine({ member, insts, busColors, lighting = false }) {
   const played = insts.filter((x) => !isVocalInput(x) && String(x.name || "").trim());
   const sings = memberSings(member, insts);
-  const bus = member.bus_type;
+  const bus = lighting ? "" : member.bus_type; // an LD's stage: no monitors
   const arrow = <span className="text-white/30">→</span>;
   return (
     <div className="flex items-center gap-2 flex-wrap text-[14px]">
@@ -373,7 +374,9 @@ function MemberLine({ member, insts, busColors }) {
 // Name, instruments, vocals, what they hear. busColors (the engineer's side,
 // job 270): IEM / Monitor sit under + Instrument in their colors, with the
 // color gear (onBusSettings), instead of the "Hears" toggle.
-function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove, extra = null, busColors = null, onBusSettings = null }) {
+// `lighting` (an LD's intake, job 377): just name, what they play and if they
+// sing - no Mic / DI, +48V or IEM / Monitor.
+function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, onCancel, onRemove, extra = null, busColors = null, onBusSettings = null, lighting = false }) {
   const [repick, setRepick] = useState(false);
   const { pos, color: pc, icon } = memberLook(draft, getInstruments, colors);
   const insts = getInstruments(draft);
@@ -385,7 +388,7 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
       {!isNew && (
         // Tap the line to close the details again (job 271).
         <button type="button" onClick={onCancel} aria-expanded={true} aria-label="Close details" className="w-full flex items-center gap-2 text-left">
-          <span className="flex-1 min-w-0"><MemberLine member={draft} insts={insts} busColors={busColors} /></span>
+          <span className="flex-1 min-w-0"><MemberLine member={draft} insts={insts} busColors={busColors} lighting={lighting} /></span>
           <ChevronDown className="w-5 h-5 shrink-0 text-white/40 rotate-180" />
         </button>
       )}
@@ -405,7 +408,7 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
       <input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Name" aria-label="Member name" className={`${inputCls} font-semibold`} autoFocus={isNew} />
       <div className="flex items-center justify-between gap-x-2 gap-y-2 flex-wrap">
         <VocalsQuestion compact value={memberSings(draft, insts)} onChange={(yes) => setDraft(setMemberVocals(draft, insts, yes))} />
-        {!busColors && <div className="flex items-center gap-1.5" role="group" aria-label="Hears">
+        {!busColors && !lighting && <div className="flex items-center gap-1.5" role="group" aria-label="Hears">
           <span className="text-white/60 text-[13px] mr-0.5">Hears</span>
           {["IEM", "Monitor"].map((type) => {
             const on = draft.bus_type === type;
@@ -416,17 +419,17 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
       {insts.map((inst, ii) => (isVocalInput(inst) ? null : (
         <div key={ii} className="flex items-center gap-1.5">
           <input value={inst.name || ""} onChange={(e) => upd(ii, "name", e.target.value)} placeholder="e.g. Guitar" aria-label="Instrument" className={`${inputCls} !min-h-[40px]`} />
-          {["Mic", "DI"].map((type) => {
+          {!lighting && ["Mic", "DI"].map((type) => {
             // Tap again to turn it off: neither Mic nor DI (job 264).
             const on = (inst.mic_di ?? "Mic") === type;
             return <button key={type} type="button" onClick={() => upd(ii, "mic_di", on ? "" : type)} aria-pressed={on} className="min-h-[40px] px-2.5 rounded-lg text-[12.5px] font-semibold border shrink-0" style={toggle(on, "#93C5FD")}>{type}</button>;
           })}
-          <button type="button" onClick={() => upd(ii, "phantom_power", !inst.phantom_power)} aria-pressed={!!inst.phantom_power} className="min-h-[40px] px-2.5 rounded-lg text-[12px] font-bold border shrink-0" style={toggle(!!inst.phantom_power, "#FBBF24")}>+48V</button>
+          {!lighting && <button type="button" onClick={() => upd(ii, "phantom_power", !inst.phantom_power)} aria-pressed={!!inst.phantom_power} className="min-h-[40px] px-2.5 rounded-lg text-[12px] font-bold border shrink-0" style={toggle(!!inst.phantom_power, "#FBBF24")}>+48V</button>}
           <button type="button" onClick={() => setInsts(insts.filter((_, k) => k !== ii))} aria-label="Remove instrument" className="min-h-[40px] w-[32px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><X className="w-4 h-4" /></button>
         </div>
       )))}
       <button type="button" onClick={() => setInsts([...insts, { name: "", phantom_power: false, mic_di: "" }])} className="self-start min-h-[38px] px-3 rounded-full border border-dashed border-[#444] text-[13px] font-semibold flex items-center gap-1" style={{ color: G }}><Plus className="w-3.5 h-3.5" />Instrument</button>
-      {busColors && (
+      {busColors && !lighting && (
         <div className="flex items-center gap-2" role="group" aria-label="IEM or Monitor">
           {["IEM", "Monitor"].map((type, ti) => {
             const c = busColors[type] || BUS_DEFAULT[type];
@@ -466,7 +469,10 @@ function MemberForm({ draft, setDraft, getInstruments, colors, isNew, onSave, on
 // `canEdit` false: no Add or details form; `renderMemberCard(member, i, close)`
 // shows their read-only card instead. `canMove` false: nobody can be moved.
 export default function StageEditor({ members = [], setMembers, getInstruments, colors = null, onRemoveMember, onCommit = null, renderMemberExtra = null, busColors = null, onBusSettings = null,
-  showAllLines = false, canEdit = true, canMove = true, renderMemberCard = null, stageMaxWidth = null, side = false }) {
+  showAllLines = false, canEdit = true, canMove = true, renderMemberCard = null, stageMaxWidth = null, side = false,
+  lighting = false, underlay = null }) {
+  // lighting / underlay (job 377): an LD's stage - members without audio
+  // details, drawn over the LD's rig (look-only).
   // side (desktop stage page, job 280): the lines sit beside the stage.
   side = side && showAllLines;
   const [step, setStep] = useState(null); // null | "pick" | "form" | "place" | "lift"
@@ -588,6 +594,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
         onTapEmpty={swap ? moveTo : step === "place" ? placeAt : step === "lift" ? (x, y) => drag(sel, x, y) : null}
         onDrag={(step === "place" || step === "lift") && sel !== null ? drag : null}
         dragOnly={sel}
+        underlay={underlay}
       />
       <AudienceLine />
       </div>
@@ -599,7 +606,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           {step === "pick" ? (
             <PickPanel colors={colors} onPick={pickPos} onPickCustom={pickCustom} onClose={close} />
           ) : step === "form" && editing === null && draft ? (
-            <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew onSave={save} onCancel={close} onRemove={remove} busColors={busColors} onBusSettings={onBusSettings} />
+            <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew onSave={save} onCancel={close} onRemove={remove} busColors={busColors} onBusSettings={onBusSettings} lighting={lighting} />
           ) : step === "place" && sel !== null && members[sel] ? (
             <div className="flex items-center gap-2 rounded-[14px] border p-3" style={{ borderColor: G + "55", background: G + "0D" }}>
               <p className="flex-1 text-[14px] leading-snug" style={{ color: G }}>Tap where {members[sel].name || "they"} stand{members[sel].name ? "s" : ""} on the stage, or drag them there.</p>
@@ -618,7 +625,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
             if (open && canEdit && draft) {
               return (
                 <MemberForm key={i} draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={false} onSave={save} onCancel={collapse} onRemove={remove}
-                  extra={renderMemberExtra ? renderMemberExtra(members[i], i) : null} busColors={busColors} onBusSettings={onBusSettings} />
+                  extra={renderMemberExtra ? renderMemberExtra(members[i], i) : null} busColors={busColors} onBusSettings={onBusSettings} lighting={lighting} />
               );
             }
             if (open && !canEdit && renderMemberCard) return <div key={i}>{renderMemberCard(m, i, collapse)}</div>;
@@ -629,7 +636,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
                 className="w-full min-h-[48px] shrink-0 rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left hover:border-[#444] select-none"
                 // Outlined in their instrument's color (job 292); dashed while picked.
                 style={{ borderColor: on ? pc : pc + "8C", borderStyle: on ? "dashed" : "solid" }}>
-                <span className="flex-1 min-w-0"><MemberLine member={m} insts={getInstruments(m)} busColors={busColors} /></span>
+                <span className="flex-1 min-w-0"><MemberLine member={m} insts={getInstruments(m)} busColors={busColors} lighting={lighting} /></span>
                 {!placed(m) && <span className="text-[10px] tracking-[0.1em] text-white/40 shrink-0" style={{ fontFamily: SCENE_MONO }}>OFF STAGE</span>}
                 <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
               </button>
@@ -654,7 +661,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
           <button type="button" onClick={() => edit(sel)} aria-label={`${members[sel].name || "Member"}: details`} aria-expanded={false}
             className="w-full min-h-[48px] rounded-xl border bg-[#111] px-3 py-2 flex items-center gap-2 text-left select-none"
             style={{ borderColor: memberLook(members[sel], getInstruments, colors).color }}>
-            <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} /></span>
+            <span className="flex-1 min-w-0"><MemberLine member={members[sel]} insts={getInstruments(members[sel])} busColors={busColors} lighting={lighting} /></span>
             <ChevronDown className="w-5 h-5 shrink-0 text-white/40" />
           </button>
         </SwipeRemove>
@@ -663,7 +670,7 @@ export default function StageEditor({ members = [], setMembers, getInstruments, 
       ) : step === "form" && draft ? (
         <MemberForm draft={draft} setDraft={setDraft} getInstruments={getInstruments} colors={colors} isNew={editing === null} onSave={save} onCancel={close} onRemove={remove}
           extra={editing !== null && renderMemberExtra ? renderMemberExtra(members[editing], editing) : null}
-          busColors={busColors} onBusSettings={onBusSettings} />
+          busColors={busColors} onBusSettings={onBusSettings} lighting={lighting} />
       ) : (
         <>
           <div className="flex items-center gap-2">

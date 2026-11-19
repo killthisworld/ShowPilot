@@ -1,3 +1,4 @@
+import { normalizeRig } from "@/lib/lightingRig";
 import React, { useState, useEffect } from "react";
 import { setMemberVocals } from "@/components/showpilot/VocalsQuestion";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
@@ -54,6 +55,7 @@ export default function TourManagerIntake({ link } = {}) {
     submitter_card_user_id: "",
     requested_order: "",
     multitrack_interest: null,
+    lighting_cues: null, // an LD's link (job 377)
   });
   const [engineerCard, setEngineerCard] = useState(null);
   const [shareMyCard, setShareMyCard] = useState(false);
@@ -429,7 +431,10 @@ export default function TourManagerIntake({ link } = {}) {
   // The sender's card: read directly when allowed, else from the form's own
   // lookup, so a signed-out recipient still sees their picture (job 202).
   const ec = engineerCard || tmRequest?.engineer || null;
-  const shownName = ec?.display_name || engineerName;
+  // A link from an LD (job 377): lighting questions over their rig.
+  const isLD = (tmRequest?.sender_type || tmRequest?.engineer?.account_type) === "lighting";
+  const ldRig = isLD ? normalizeRig(tmRequest?.lighting_rig) : null;
+  const shownName = ec?.display_name || (isLD && engineerName === "your audio engineer" ? "your LD" : engineerName);
   const h = {
     form, update, genreInput, setGenreInput, removeGenreTag,
     getInstruments, addMember, updateMember, removeMember, addInstrument, updateInstrument, removeInstrument, setVocals,
@@ -438,6 +443,7 @@ export default function TourManagerIntake({ link } = {}) {
     notesTarget, setNotesTarget, getActiveNotes, setActiveNotes,
     applyTemplate: !isEngineer ? applyTemplate : null,
     formatPhone: formatPhoneNumber,
+    uploadFile: (file) => uploadFileToBucket(file, "stage-plots"),
   };
   const onCard = () => {
     if (!currentUser) {
@@ -448,23 +454,23 @@ export default function TourManagerIntake({ link } = {}) {
     }
     setShareMyCard((v) => !v);
   };
-  const circles = intakeCircles(h, { seen, card: { onCard, cardOn: shareMyCard, showCard: !isEngineer } });
+  const circles = intakeCircles(h, { seen, card: { onCard, cardOn: shareMyCard, showCard: !isEngineer }, lighting: isLD ? { rig: ldRig } : null });
   return (
     <IntakeKeyWeb
       seed={token}
       image={ec?.profile_photo_url || ""}
       keyCode={link?.code ? String(link.code).toUpperCase() : ""}
-      fromLine={`${shownName && shownName !== "your audio engineer" ? shownName : "Your audio engineer"} sent you a key to`}
+      fromLine={`${shownName && !["your audio engineer", "your LD"].includes(shownName) ? shownName : isLD ? "Your LD" : "Your audio engineer"} sent you a key to`}
       title={showTitle}
       dateLine={dayLine}
       actName={form.band_name}
       center={{
-        name: shownName, photo: ec?.profile_photo_url || "", label: "Audio",
+        name: shownName, photo: ec?.profile_photo_url || "", label: isLD ? "Lighting" : "Audio",
         href: ec?.card_share_token ? `/pilot/${ec.card_share_token}` : "",
       }}
       circles={circles}
       onSave={(key) => setSeen((v) => ({ ...(v || {}), [key]: true }))}
-      {...intakeCorners({ services: !!tmRequest?.include_services, extraServices: tmRequest?.extra_services || [], asksTracks, form, update, icons: { services: Disc3, tracks: Music } })}
+      {...intakeCorners({ services: !isLD && !!tmRequest?.include_services, extraServices: tmRequest?.extra_services || [], asksTracks: asksTracks && !isLD, form, update, icons: { services: Disc3, tracks: Music } })}
       show={() => (
         <div className="flex flex-col gap-3 text-center">
           <EventOverviewCard ov={{ image: tmRequest?.image || "", event_type: tmRequest?.event_type }} title={showTitle} date={tmRequest?.date} venue={showTitle === tmRequest?.venue ? "" : tmRequest?.venue} color="#8CFF3D" />

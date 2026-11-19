@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton, useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
+import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
+import { cueSheetHasAny } from "@/lib/cueSheet";
+import { toast } from "@/components/ui/use-toast";
 import StageEditor from "@/components/showpilot/StageEditor";
 import OnCallStrip from "@/components/showpilot/OnCallStrip";
 import SameAsAudioCheck from "@/components/showpilot/SameAsAudioCheck";
@@ -762,6 +765,8 @@ export default function SharedGig() {
   // Tech phone (job 302): tap the event banner to open the event dropdown -
   // the event's details and Engineers on call.
   const [eventOpen, setEventOpen] = useState(false);
+  const [cuesAt, setCuesAt] = useState(null); // an act's lighting cue sheet (job 377)
+  const [cuesSaving, setCuesSaving] = useState(false);
   const [fxTarget, setFxTarget] = useState("__show__");
   const [fxAct, setFxAct] = useState(null); // from a stage: just that act's notes (job 278)
   // Tracks each act sent for this event, by its set time (job 219).
@@ -1235,6 +1240,20 @@ export default function SharedGig() {
   // Stage plot on the event (job 255): artist / mgmt and audio profiles see it on
   // desktop; whoever can edit the lineup can build / edit the stage from it.
   const stageRole = ["engineer", "manager", "band"].includes(myAccountType || "engineer");
+  // Lighting cues (job 377): the LD on this event (or whoever runs the
+  // lineup) opens and edits an act's cue sheet; it saves on its own.
+  const isLightingViewer = preferences?.account_type === "lighting" || !!permissions?.my_roles?.includes("lighting");
+  const canEditCues = canEdit && (!!permissions?.is_owner || canEditSection("manager") || !!permissions?.my_roles?.includes("lighting"));
+  const saveCues = async () => {
+    const b = (gig?.bands || [])[cuesAt];
+    if (!b) return;
+    setCuesSaving(true);
+    const { error } = await supabase.rpc("set_act_lighting_cues", { p_token: resolvedToken, p_sort_order: b.sort_order ?? cuesAt, p_band_name: b.band_name || null, p_cues: b.lighting_cues || null });
+    setCuesSaving(false);
+    if (error) { console.error(error); toast({ title: "Couldn't save the cues", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Cues saved" });
+    setCuesAt(null);
+  };
   const editStage = canEditLineup ? async (i, list) => {
     const bands = (gig?.bands || []).map((b, k) => (k === i ? { ...b, band_members: list } : b));
     const { error } = await supabase.rpc("update_shared_gig", { p_token: resolvedToken, p_updates: { bands } });
@@ -1587,6 +1606,7 @@ export default function SharedGig() {
                         <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />
+                        {(isLightingViewer || cueSheetHasAny(b.lighting_cues)) && <ActCuesButton size="sm" act={b} onClick={() => setCuesAt(i)} />}
                         <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${colors.text} ${colors.bg}`}>
                           {b.role}
                         </span>
@@ -1636,6 +1656,7 @@ export default function SharedGig() {
                     <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />
+                        {(isLightingViewer || cueSheetHasAny(b.lighting_cues)) && <ActCuesButton size="sm" act={b} onClick={() => setCuesAt(i)} />}
                   </div>
                   {((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>
@@ -1708,7 +1729,12 @@ export default function SharedGig() {
       </div>
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
-      {plotAt !== null && <StagePlotView acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
+      {cuesAt !== null && (
+        <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)}
+          onChange={canEditCues ? (i, v) => { setCuesAt(i); setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)) })); } : null}
+          onSave={canEditCues ? saveCues : null} saving={cuesSaving} />
+      )}
+      {plotAt !== null && <StagePlotView rig={gig?.lighting_rig} lighting={isLightingViewer} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}
