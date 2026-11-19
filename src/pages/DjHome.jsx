@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, CalendarDays, MapPin, Clock } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { usePreferences } from "@/hooks/usePreferences";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
@@ -28,50 +28,50 @@ const dueLine = (iso) => {
 };
 const initials = (s) => String(s || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "DJ";
 
-// A set as a card (job 372, Jay 2026-11-19: the Sets page is the sets;
-// the tickets and months are on Bookings): the night, sets in, the bar
-// with a section per act, and each act by name, marked once their set is
-// in. Tap to open it.
+// A set as a card (job 372, Jay 2026-11-19): the event name as the title,
+// then the date, venue and due date where they're easy to read, and the
+// sets in with the bar (a section per act). Tap to open it.
 function SetCard({ r, c, onOpen }) {
   const all = c?.all || 0;
   const done = all > 0 && c.in >= all;
-  const day = r.event_date ? new Date(`${r.event_date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "";
-  const sub = [day, (r.venue || "").toUpperCase()].filter(Boolean).join(" · ");
-  const due = dueLine(r.due_at);
-  const names = c?.names || [];
+  const day = r.event_date ? new Date(`${r.event_date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
+  const dueAt = r.due_at ? new Date(r.due_at) : null;
+  const late = dueAt && dueAt < new Date() && !done;
+  const dueDay = dueAt ? dueAt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
   return (
     <button type="button" onClick={onOpen} aria-label={`${r.title}${all ? `, ${c.in} of ${all} sets in` : ""}`}
-      className="w-full text-left rounded-2xl border bg-[#0f1016]/90 backdrop-blur p-3.5 flex flex-col gap-2.5 hover:border-white/30 transition-colors"
+      className="w-full text-left rounded-2xl border bg-[#0f1016]/90 backdrop-blur p-4 flex flex-col gap-3 hover:border-white/30 transition-colors"
       style={{ borderColor: done ? `${GREEN}55` : "#262626" }}>
       <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="text-[19px] leading-tight truncate" style={cond}>{r.title}</div>
-          <div className="text-[10.5px] tracking-[0.08em] text-white/55 truncate" style={mono}>
-            {sub}{due && <span style={{ color: DJ_COLOR }}>{sub ? " · " : ""}{due.toUpperCase()}</span>}
-          </div>
+        <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div className="text-[22px] leading-[1.1] line-clamp-2 break-words" style={cond}>{r.title}</div>
+          {(day || r.venue) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-white/80">
+              {day && <span className="flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-white/45" />{day}</span>}
+              {r.venue && <span className="flex items-center gap-1.5 min-w-0"><MapPin className="w-4 h-4 text-white/45 shrink-0" /><span className="truncate">{r.venue}</span></span>}
+            </div>
+          )}
+          {dueAt && !done && (
+            <span className="self-start min-h-[26px] px-2.5 rounded-full text-[13px] font-semibold flex items-center gap-1.5"
+              style={late ? { background: `${RED}22`, color: RED } : { background: `${DJ_COLOR}1c`, color: DJ_COLOR }}>
+              <Clock className="w-3.5 h-3.5" />{late ? `Overdue · was due ${dueDay}` : `Sets due ${dueDay}`}
+            </span>
+          )}
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-[24px] leading-none" style={{ ...cond, color: done ? GREEN : all ? "#fff" : "rgba(255,255,255,0.35)" }}>
+        <div className="shrink-0 text-right pt-0.5">
+          <div className="text-[26px] leading-none" style={{ ...cond, color: done ? GREEN : all ? "#fff" : "rgba(255,255,255,0.35)" }}>
             {all ? <>{c.in}<span className="text-white/40">/{all}</span></> : "–"}
           </div>
-          <div className="mt-0.5 text-[9px] tracking-[0.14em] text-white/50" style={mono}>{all ? "SETS IN" : "NO ACTS"}</div>
+          <div className="mt-1 text-[12px] text-white/55">{all ? (done ? "all in" : "in") : "no acts"}</div>
         </div>
       </div>
       {all > 0 && <ActBar slots={c.slots} height={6} />}
-      {names.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {names.slice(0, 6).map((n, i) => (
-            <span key={i} className="min-h-[24px] px-2 rounded-full text-[12px] flex items-center gap-1.5"
-              style={n.in ? { background: `${GREEN}1c`, color: "#B6FF85" } : { background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.7)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: n.in ? GREEN : "rgba(255,255,255,0.3)" }} />{n.name || `Act ${i + 1}`}
-            </span>
-          ))}
-          {names.length > 6 && <span className="min-h-[24px] px-2 rounded-full text-[12px] flex items-center text-white/55 bg-white/5">+{names.length - 6}</span>}
-        </div>
-      )}
     </button>
   );
 }
+
+// Sets in more than one month: a heading for each month, soonest first.
+const monthOf = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" }) : "No date");
 
 export default function DjHome() {
   const navigate = useNavigate();
@@ -100,7 +100,6 @@ export default function DjHome() {
         const c = (m[x.request_id] = m[x.request_id] || { in: 0, all: 0, slots: [] });
         c.all += 1;
         c.slots.push(x.status || "waiting");
-        (c.names = c.names || []).push({ name: x.artist_name || "", in: x.status === "submitted" });
         if (x.status === "submitted") c.in += 1;
       });
       setCounts(m);
@@ -161,8 +160,17 @@ export default function DjHome() {
             {upcoming.length === 0 ? (
               <p className="m-0 py-6 text-center text-[15px] text-white/60">No sets yet. Start one from a gig on Bookings, or New set.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-                {upcoming.map((r) => <SetCard key={r.id} r={r} c={counts[r.id]} onOpen={() => open(r)} />)}
+              <div className="flex flex-col gap-4">
+                {Object.entries(upcoming.reduce((m, r) => { (m[monthOf(r.event_date)] = m[monthOf(r.event_date)] || []).push(r); return m; }, {})).map(([mon, list]) => (
+                  <section key={mon} className="flex flex-col gap-2">
+                    <h3 className="m-0 flex items-center gap-2 text-[12px] tracking-[0.14em] font-normal" style={{ ...mono, color: DJ_COLOR }}>
+                      {mon.toUpperCase()}<span className="text-white/45">{list.length}</span><span className="flex-1 h-px bg-white/10" />
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+                      {list.map((r) => <SetCard key={r.id} r={r} c={counts[r.id]} onOpen={() => open(r)} />)}
+                    </div>
+                  </section>
+                ))}
               </div>
             )}
           </>
