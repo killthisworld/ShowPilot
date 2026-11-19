@@ -180,7 +180,7 @@ begin
         );$a$, $a$          nullif(v_band->>'photo_url', ''),
           public.lighting_cues_from(v_band->'lighting_cues')
         );$a$);
-  if (length(n) - length(replace(n, 'lighting_cues', ''))) / length('lighting_cues') <> 2 then
+  if position('photo_url, lighting_cues' in n) = 0 or position($a$lighting_cues_from(v_band->'lighting_cues')$a$ in n) = 0 then
     raise exception 'update_shared_gig patch did not apply';
   end if;
   execute n;
