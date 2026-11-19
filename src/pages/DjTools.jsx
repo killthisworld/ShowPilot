@@ -5,7 +5,7 @@ import { useGoBack } from "@/lib/navHistory";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
-import { DJ_COLOR, driveCall, slotLink } from "@/lib/djTools";
+import { DJ_COLOR, driveCall, slotLink, AUDIO_TYPES, fileTypes, typesLabel } from "@/lib/djTools";
 import { describeWav, formatDuration, qualityWarning } from "@/lib/wav";
 import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
 import DriveIcon from "@/components/showpilot/DriveIcon";
@@ -195,7 +195,12 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
   };
 
   const createRequest = async (vals) => {
-    const { data, error: e } = await supabase.from("dj_set_requests").insert(vals).select().single();
+    let { data, error: e } = await supabase.from("dj_set_requests").insert(vals).select().single();
+    // Before the job 378 database update there's no file_types: make it as WAV.
+    if (e && /file_types/.test(e.message || "")) {
+      const { file_types: _ft, ...rest } = vals;
+      ({ data, error: e } = await supabase.from("dj_set_requests").insert(rest).select().single());
+    }
     if (e) { setError("Couldn't make that set."); return; }
     setCreating(false);
     await loadRequests();
@@ -366,12 +371,39 @@ function Menu({ items, label = "More", align = "right" }) {
   );
 }
 
+// The audio files the acts can send (job 378): tick one or more.
+function FileTypePicker({ value, onChange }) {
+  const on = fileTypes(value);
+  const flip = (k) => {
+    const next = on.includes(k) ? on.filter((x) => x !== k) : [...on, k];
+    if (next.length) onChange(AUDIO_TYPES.map((t) => t.key).filter((x) => next.includes(x)));
+  };
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>FILES YOU'LL TAKE</span>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Files you'll take">
+        {AUDIO_TYPES.map((t) => {
+          const sel = on.includes(t.key);
+          return (
+            <button key={t.key} type="button" aria-pressed={sel} onClick={() => flip(t.key)}
+              className="min-h-[40px] px-3.5 rounded-full border text-[14px] font-semibold flex items-center gap-1.5"
+              style={sel ? { background: `${DJ_COLOR}22`, borderColor: DJ_COLOR, color: DJ_COLOR } : { borderColor: "#2e2e2e", color: "rgba(255,255,255,0.75)" }}>
+              {sel && <Check className="w-3.5 h-3.5" strokeWidth={3} />}{t.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
   const [showId, setShowId] = useState("");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [venue, setVenue] = useState("");
   const [due, setDue] = useState("");
+  const [types, setTypes] = useState(["wav"]);
   useEffect(() => { if (initialShowId && myShows.some((x) => x.id === initialShowId)) pick(initialShowId); }, [initialShowId, myShows]);
   const pick = (id) => {
     setShowId(id);
@@ -404,10 +436,11 @@ function NewRequest({ myShows, initialShowId = "", onCancel, onCreate }) {
           {!showId && <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>VENUE</span><input id="new-venue" className={input} maxLength={120} value={venue} onChange={(e) => setVenue(e.target.value)} /></label>}
           <label className="grid gap-1.5"><span className="text-[11px] tracking-[0.12em] text-white/45" style={{ fontFamily: SCENE_MONO }}>SETS DUE</span><input id="new-due" type="datetime-local" className={input} value={due} onChange={(e) => setDue(e.target.value)} /></label>
         </div>
+        <FileTypePicker value={types} onChange={setTypes} />
       </div>
       <div className="mt-5 flex gap-2">
         <button type="button" disabled={!title.trim()}
-          onClick={() => onCreate({ title: title.trim(), event_date: date || null, venue: venue.trim() || null, due_at: due ? new Date(due).toISOString() : null, show_id: showId || null })}
+          onClick={() => onCreate({ title: title.trim(), event_date: date || null, venue: venue.trim() || null, due_at: due ? new Date(due).toISOString() : null, show_id: showId || null, file_types: types })}
           className="px-5 py-2.5 rounded-xl font-bold disabled:opacity-40" style={{ background: G, color: "#0d0d0d" }}>Create</button>
         <button type="button" onClick={onCancel} className="px-4 py-2.5 rounded-xl text-white/60 hover:text-white">Cancel</button>
       </div>
@@ -511,7 +544,8 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           )}
         </div>
         {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
-        {!driveConnected && <p className="text-[13px] m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no WAVs.</p>}
+        <p className="m-0 text-[13px] text-white/60">Takes {typesLabel(request.file_types)} files</p>
+        {!driveConnected && <p className="text-[13px] m-0" style={{ color: AMBER }}>Drive not connected: track lists only, no audio files.</p>}
       </section>
 
       {editing && (
@@ -529,6 +563,7 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           <label className="grid gap-1">{label("NOTE FOR THE ACTS")}
             <textarea id="req-note" rows={2} maxLength={2000} className={input} value={note} onChange={(e) => setNote(e.target.value)}
               placeholder="48 kHz / 24-bit, named in play order" /></label>
+          <FileTypePicker value={request.file_types} onChange={(v) => onUpdate({ file_types: v })} />
         </div>
       )}
 
@@ -639,9 +674,9 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", onU
                   {f ? (
                     <a href={f.web_view_link || "#"} target="_blank" rel="noreferrer" className="shrink-0 inline-flex items-center gap-1 hover:underline text-right" style={{ color: warn ? AMBER : G }} title={warn || ""}>
                       <FileAudio className="w-3.5 h-3.5" />
-                      <span className="text-xs" style={{ fontFamily: SCENE_MONO }}>{describeWav({ sampleRate: f.sample_rate, bitDepth: f.bit_depth, channels: f.channels, durationSec: f.duration_sec })}</span>
+                      <span className="text-xs" style={{ fontFamily: SCENE_MONO }}>{f.sample_rate ? describeWav({ sampleRate: f.sample_rate, bitDepth: f.bit_depth, channels: f.channels, durationSec: f.duration_sec }) : (String(f.name || "").match(/\.([a-z0-9]+)$/i)?.[1] || "File").toUpperCase()}</span>
                     </a>
-                  ) : <span className="shrink-0 text-white/30 text-xs">No WAV</span>}
+                  ) : <span className="shrink-0 text-white/30 text-xs">No file</span>}
                 </div>
               );
             })}

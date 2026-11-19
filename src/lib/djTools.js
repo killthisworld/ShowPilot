@@ -93,3 +93,29 @@ export function uploadToDrive(uploadUrl, file, onProgress, signal) {
     throw new Error("The upload kept stopping. Check your connection and try that file again.");
   })();
 }
+
+// The audio files a set takes (job 378, Jay 2026-11-19): the DJ picks one or
+// more when making the set; WAV when none were picked (sets made before).
+export const AUDIO_TYPES = [
+  { key: "wav", label: "WAV", exts: [".wav"], mime: "audio/wav,audio/x-wav" },
+  { key: "aiff", label: "AIFF", exts: [".aif", ".aiff"], mime: "audio/aiff,audio/x-aiff" },
+  { key: "flac", label: "FLAC", exts: [".flac"], mime: "audio/flac,audio/x-flac" },
+  { key: "mp3", label: "MP3", exts: [".mp3"], mime: "audio/mpeg" },
+  { key: "m4a", label: "M4A / AAC", exts: [".m4a"], mime: "audio/mp4,audio/x-m4a" },
+];
+export const fileTypes = (list) => {
+  const ok = (Array.isArray(list) ? list : []).filter((k) => AUDIO_TYPES.some((t) => t.key === k));
+  return ok.length ? ok : ["wav"];
+};
+// For <input type="file" accept>.
+export const acceptFor = (list) => AUDIO_TYPES.filter((t) => fileTypes(list).includes(t.key)).flatMap((t) => [...t.exts, ...t.mime.split(",")]).join(",");
+// The type of a file by its name, or null.
+export const typeOfFile = (name) => {
+  const n = String(name || "").toLowerCase();
+  return AUDIO_TYPES.find((t) => t.exts.some((e) => n.endsWith(e)))?.key || null;
+};
+// "WAV", "WAV or MP3", "WAV, AIFF or FLAC"
+export const typesLabel = (list) => {
+  const l = AUDIO_TYPES.filter((t) => fileTypes(list).includes(t.key)).map((t) => t.label.split(" ")[0]);
+  return l.length > 1 ? `${l.slice(0, -1).join(", ")} or ${l[l.length - 1]}` : l[0];
+};

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, Loader2, Plus, Trash2, AlertTriangle, Disc3,
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { inspectWav, describeWav, qualityWarning } from "@/lib/wav";
-import { setUploadCall, uploadToDrive, DJ_COLOR } from "@/lib/djTools";
+import { setUploadCall, uploadToDrive, DJ_COLOR, fileTypes, acceptFor, typeOfFile, typesLabel } from "@/lib/djTools";
 import { SEND_OFF_CSS, SendOffCenter, useSendOff, IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 
 const G = "#8CFF3D";
@@ -19,11 +19,13 @@ const newTrack = (t = {}) => ({
   file_id: t.file_id || null,
   up: { state: t.file_id ? "done" : "idle", pct: 0, msg: "" },
 });
-const titleFromFile = (name) => name.replace(/\.wav$/i, "").replace(/^\d+[\s._-]+/, "").replace(/_/g, " ").trim();
+const titleFromFile = (name) => name.replace(/\.(wav|aiff?|flac|mp3|m4a)$/i, "").replace(/^\d+[\s._-]+/, "").replace(/_/g, " ").trim();
 
 // The page an artist opens from the DJ's link: their set in play order,
-// WAV files (checked to be real WAVs, quality shown) and a way to reach them.
-// WAVs go straight into the DJ's Google Drive.
+// audio files in the types the DJ picked for the set (job 378: WAV, AIFF,
+// FLAC, MP3, M4A; WAV when none were picked; WAVs are checked to be real
+// WAVs with their quality shown) and a way to reach them. Files go straight
+// into the DJ's Google Drive.
 // Embeddable too: <DjSetUpload tokenOverride="..." embedded onDone={fn} />
 // (e.g. right after an intake form) uses that token and leaves out the
 // full-page wrapper.
@@ -48,6 +50,7 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   useSendOff(sendOff, () => setSendOff(false));
   const queue = useRef(Promise.resolve()); // uploads run one at a time
   const stateRef = useRef({});
+  const typesRef = useRef(["wav"]); // the file types this set takes (job 378)
   stateRef.current = { artistName, tracks, contact };
 
   const applyServer = useCallback((d) => {
@@ -109,11 +112,14 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
 
   const attach = async (k, file) => {
     setUp(k, { state: "checking", pct: 0, msg: "" });
-    const meta = await inspectWav(file);
+    // Only the types this set takes; a WAV is checked to be a real one.
+    const kind = typeOfFile(file.name);
+    if (!kind || !typesRef.current.includes(kind)) { setUp(k, { state: "error", msg: `This set takes ${typesLabel(typesRef.current)} files.` }); return; }
+    const meta = kind === "wav" ? await inspectWav(file) : { ok: true };
     if (!meta.ok) { setUp(k, { state: "error", msg: meta.reason }); return; }
     const t0 = stateRef.current.tracks.find((t) => t.k === k);
     if (t0 && !t0.title) patchTrack(k, { title: titleFromFile(file.name) });
-    setUp(k, { state: "waiting", msg: describeWav(meta) });
+    setUp(k, { state: "waiting", msg: kind === "wav" ? describeWav(meta) : `${(file.size / 1048576).toFixed(1)} MB` });
 
     queue.current = queue.current.then(async () => {
       try {
@@ -137,7 +143,7 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
     });
   };
 
-  // Several WAVs dropped at once become tracks in the order they're named.
+  // Several files dropped at once become tracks in the order they're named.
   const addMany = (fileList) => {
     const list = Array.from(fileList).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const fresh = list.map(() => newTrack());
@@ -194,6 +200,8 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
   }
 
   const ev = data.event;
+  const types = fileTypes(ev?.file_types);
+  typesRef.current = types;
   // Sent (job 225): just that, for good.
   if (submitted && !sendOff) {
     const n = tracks.filter((t) => t.title || t.file_id).length;
@@ -241,7 +249,7 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
         {ev.note && <p className="m-0 text-white/80 text-[15px] whitespace-pre-wrap pl-3" style={{ borderLeft: `3px solid ${DJ_COLOR}` }}>{ev.note}</p>}
 
         {!driveOk && (
-          <p className="m-0 text-[14px] flex items-start gap-2 text-white/80"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: AMBER }} /> {djFirst}'s Google Drive isn't connected, so WAVs can't be sent yet. Your track list still saves.</p>
+          <p className="m-0 text-[14px] flex items-start gap-2 text-white/80"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: AMBER }} /> {djFirst}'s Google Drive isn't connected, so files can't be sent yet. Your track list still saves.</p>
         )}
 
         {/* Billed as: a small editable line */}
@@ -266,7 +274,7 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
           <ol className="flex flex-col gap-2 m-0 p-0">
             {tracks.map((t, i) => (
               <TrackRow
-                key={t.k} i={i} t={t} count={tracks.length} meta={t.file_id ? files[t.file_id] : null} driveOk={driveOk}
+                key={t.k} i={i} t={t} count={tracks.length} meta={t.file_id ? files[t.file_id] : null} driveOk={driveOk} types={types}
                 onChange={(patch) => patchTrack(t.k, patch)} onBlur={() => save(false).catch(() => {})}
                 onFile={(f) => attach(t.k, f)} onRemove={() => removeTrack(t)} onMove={(d) => move(i, d)}
               />
@@ -275,8 +283,8 @@ export default function DjSetUpload({ tokenOverride = null, embedded = false, on
           <div className="flex gap-2">
             {driveOk ? (
               <label className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[15px] font-semibold cursor-pointer hover:brightness-125" style={{ border: `1px dashed ${DJ_COLOR}88`, color: DJ_COLOR }}>
-                <Plus className="w-4 h-4" /> Add WAVs
-                <input type="file" accept=".wav,audio/wav,audio/x-wav" multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addMany(e.target.files); e.target.value = ""; }} />
+                <Plus className="w-4 h-4" /> Add {typesLabel(types)} files
+                <input type="file" accept={acceptFor(types)} multiple className="hidden" onChange={(e) => { if (e.target.files?.length) addMany(e.target.files); e.target.value = ""; }} />
               </label>
             ) : <span className="flex-1" />}
             <button type="button" onClick={() => setTracks((ts) => [...ts, newTrack()])} className="px-4 py-3 rounded-xl border border-[#2a2a2a] text-white/65 hover:text-white text-[14px]">Type one in</button>
@@ -327,7 +335,7 @@ function ordinal(n) {
   return `${n}${v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"}`;
 }
 
-function TrackRow({ i, t, count, meta, driveOk, onChange, onBlur, onFile, onRemove, onMove }) {
+function TrackRow({ i, t, count, meta, driveOk, types = ["wav"], onChange, onBlur, onFile, onRemove, onMove }) {
   const [drag, setDrag] = useState(false);
   const [open, setOpen] = useState(!!t.notes);
   const [menu, setMenu] = useState(false);
@@ -336,7 +344,10 @@ function TrackRow({ i, t, count, meta, driveOk, onChange, onBlur, onFile, onRemo
   const toggle = (e) => { if (e.target.closest("input, textarea, button, label")) return; setOpen((v) => !v); };
 
   let sub, subColor = "rgba(255,255,255,0.45)";
-  if (t.up.state === "done" && meta) {
+  if (t.up.state === "done" && meta && !meta.sample_rate) {
+    sub = [meta.name, meta.size_bytes ? `${(meta.size_bytes / 1048576).toFixed(1)} MB` : ""].filter(Boolean).join(" · ");
+    subColor = G;
+  } else if (t.up.state === "done" && meta) {
     sub = [meta.name, describeWav({ sampleRate: meta.sample_rate, bitDepth: meta.bit_depth, channels: meta.channels, durationSec: meta.duration_sec })].filter(Boolean).join(" · ");
     subColor = warn ? AMBER : G;
     if (warn) sub += ` · ${warn}`;
@@ -344,7 +355,7 @@ function TrackRow({ i, t, count, meta, driveOk, onChange, onBlur, onFile, onRemo
   else if (t.up.state === "waiting") sub = `Queued · ${t.up.msg}`;
   else if (t.up.state === "uploading") sub = `Uploading ${t.up.pct}%`;
   else if (t.up.state === "error") { sub = t.up.msg; subColor = RED; }
-  else sub = driveOk ? "No WAV yet" : "Track listed";
+  else sub = driveOk ? "No file yet" : "Track listed";
 
   return (
     <li
@@ -368,8 +379,8 @@ function TrackRow({ i, t, count, meta, driveOk, onChange, onBlur, onFile, onRemo
         {driveOk && !busy && (
           <label className="shrink-0 px-2.5 py-1.5 rounded-lg border text-[12px] font-semibold cursor-pointer hover:brightness-125"
             style={t.file_id ? { borderColor: G + "66", color: G } : { borderColor: "#333", color: "#d4d4d4" }}>
-            {t.file_id ? "✓ WAV" : "Add WAV"}
-            <input type="file" accept=".wav,audio/wav,audio/x-wav" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+            {t.file_id ? "✓ File" : "Add file"}
+            <input type="file" accept={acceptFor(types)} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
           </label>
         )}
         {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin text-white/50" />}

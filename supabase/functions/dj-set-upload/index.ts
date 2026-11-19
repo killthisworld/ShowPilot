@@ -34,6 +34,21 @@ const json = (body: unknown, status = 200) =>
 const TOKEN_RE = /^[0-9a-f]{32}$/;
 const MAX_FILES_PER_SLOT = 150;
 const MAX_WAV_BYTES = 4 * 1024 ** 3; // a standard WAV can't be bigger than 4 GB
+// The audio files a set can take (job 378): the DJ picks some when making the
+// set (dj_set_requests.file_types); WAV when none were picked.
+const AUDIO: Record<string, { exts: string[]; mime: string; label: string }> = {
+  wav: { exts: ["wav"], mime: "audio/wav", label: "WAV" },
+  aiff: { exts: ["aif", "aiff"], mime: "audio/aiff", label: "AIFF" },
+  flac: { exts: ["flac"], mime: "audio/flac", label: "FLAC" },
+  mp3: { exts: ["mp3"], mime: "audio/mpeg", label: "MP3" },
+  m4a: { exts: ["m4a"], mime: "audio/mp4", label: "M4A" },
+};
+const extOf = (name: string) => (String(name).toLowerCase().match(/\.([a-z0-9]{2,5})$/)?.[1] ?? "");
+const typeOf = (name: string) => Object.keys(AUDIO).find((k) => AUDIO[k].exts.includes(extOf(name))) ?? null;
+const typesOf = (list: unknown) => {
+  const ok = (Array.isArray(list) ? list : []).filter((k) => typeof k === "string" && k in AUDIO) as string[];
+  return ok.length ? ok : ["wav"];
+};
 const num = (v: unknown, lo: number, hi: number) => {
   const n = Number(v);
   return Number.isFinite(n) && n >= lo && n <= hi ? n : null;
@@ -73,7 +88,7 @@ Deno.serve(async (req) => {
       .select("id, request_id, owner_id, position, artist_name, tracks, drive_folder_id").eq("token", token).maybeSingle();
     if (!slot) return json({ error: "This link isn't valid" }, 404);
     const { data: request } = await admin.from("dj_set_requests")
-      .select("id, title, event_date, drive_folder_id").eq("id", slot.request_id).maybeSingle();
+      .select("*").eq("id", slot.request_id).maybeSingle(); // "*": file_types arrives with job 378
     const { data: conn } = await admin.from("dj_drive_connections")
       .select("refresh_token, root_folder_id").eq("owner_id", slot.owner_id).maybeSingle();
     if (!request || !conn) return json({ error: "The DJ hasn't connected their Google Drive yet, so files can't be sent. Your track list still saves." }, 409);
@@ -111,8 +126,10 @@ Deno.serve(async (req) => {
     if (action === "start") {
       const name = String(body?.name ?? "");
       const size = num(body?.size, 44, MAX_WAV_BYTES);
-      if (!/\.wav$/i.test(name)) return json({ error: "Only WAV files can be sent." }, 400);
-      if (size === null) return json({ error: "That file is too big for a WAV, or empty." }, 400);
+      const allowed = typesOf(request.file_types);
+      const kind = typeOf(name);
+      if (!kind || !allowed.includes(kind)) return json({ error: `This set takes ${allowed.map((k) => AUDIO[k].label).join(" or ")} files.` }, 400);
+      if (size === null) return json({ error: "That file is too big, or empty." }, 400);
       const origin = allowedOrigin(req.headers.get("Origin"), cfg.appUrl);
       if (!origin) return json({ error: "Uploads only work from the Show Pilot site." }, 403);
       const { count } = await admin.from("dj_set_files").select("id", { count: "exact", head: true }).eq("slot_id", slot.id);
@@ -124,11 +141,11 @@ Deno.serve(async (req) => {
         headers: {
           Authorization: `Bearer ${gtoken}`,
           "Content-Type": "application/json; charset=UTF-8",
-          "X-Upload-Content-Type": "audio/wav",
+          "X-Upload-Content-Type": AUDIO[kind].mime,
           "X-Upload-Content-Length": String(size),
           Origin: origin, // lets the artist's browser send the bytes to this session directly
         },
-        body: JSON.stringify({ name: safeName(name, 120), parents: [folderId], mimeType: "audio/wav" }),
+        body: JSON.stringify({ name: safeName(name, 120), parents: [folderId], mimeType: AUDIO[kind].mime }),
       });
       const uploadUrl = res.headers.get("Location");
       if (!res.ok || !uploadUrl) throw new GoogleError(res.status, await res.text());
@@ -178,6 +195,12 @@ Deno.serve(async (req) => {
     // ---- finalize: name the files in play order so the folder sorts itself ----
     if (action === "finalize") {
       const tracks = Array.isArray(slot.tracks) ? slot.tracks : [];
+      // Each file keeps its own kind (.wav, .mp3, ...).
+      const { data: recs } = await admin.from("dj_set_files").select("drive_file_id, name").eq("slot_id", slot.id);
+      const extFor = (id: string) => {
+        const e = extOf((recs ?? []).find((r) => r.drive_file_id === id)?.name ?? "");
+        return e && typeOf(`x.${e}`) ? e : "wav";
+      };
       let i = 0;
       for (const t of tracks) {
         i += 1;
@@ -185,7 +208,7 @@ Deno.serve(async (req) => {
         const title = safeName([t.artist, t.title].filter(Boolean).join(" - ") || `Track ${i}`, 100);
         try {
           await drive(gtoken, `/files/${encodeURIComponent(t.file_id)}`, {
-            method: "PATCH", query: { fields: "id" }, body: { name: `${String(i).padStart(2, "0")} - ${title}.wav` },
+            method: "PATCH", query: { fields: "id" }, body: { name: `${String(i).padStart(2, "0")} - ${title}.${extFor(t.file_id)}` },
           });
         } catch (e) { console.error("Rename failed", t.file_id, e instanceof Error ? e.message : e); }
       }

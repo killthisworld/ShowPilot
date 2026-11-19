@@ -93,7 +93,7 @@ export function formatDuration(sec) {
 
 // Below CD quality is flagged so the artist can fix it before the night.
 export function qualityWarning(m) {
-  if (!m) return null;
+  if (!m || !m.sampleRate) return null; // not a WAV (an MP3, FLAC, ...): nothing to judge (job 378)
   if (m.sampleRate < 44100) return "Lower than CD quality (sample rate under 44.1 kHz).";
   if (m.bitDepth < 16) return "Lower than CD quality (under 16-bit).";
   return null;
