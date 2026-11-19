@@ -194,6 +194,7 @@ export default function PackageView({ previewPkg = null, onClosePreview = null }
     {/* Room for the bar on a phone, so it doesn't sit on the title. */}
     {previewPkg && !framed && <div aria-hidden="true" className="h-[60px] lg:hidden bg-[#05060d]" />}
     <IntakeKeyWeb
+      fill // the whole desktop width (job 361)
       readOnly
       startOpen={step === "look"}
       unlockLabel="Open the package"

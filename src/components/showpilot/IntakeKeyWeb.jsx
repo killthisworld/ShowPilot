@@ -47,11 +47,14 @@ function useViewport() {
 // The web and its panel are one block, centred, sized to the window (job 247):
 // the panel is always there beside the web (what's in it when nothing's open,
 // the circle when one is), so nothing hugs one edge of a wide screen.
-export function DesktopFit({ reserved = 250, top = null, web, below = null, panel = null, panelKey = "", idle = null }) {
+// fill (job 361, booking packages): no cap on the page width; the web keeps
+// its size and the panel beside it runs to the right edge.
+export function DesktopFit({ reserved = 250, top = null, web, below = null, panel = null, panelKey = "", idle = null, fill = false }) {
   const { w, h } = useViewport();
   const GAP = 40, PAD = 64;
   // The page's own width (no scrollbar), capped like the rest of the app.
-  const vw = Math.min(1400, (typeof document !== "undefined" && document.documentElement.clientWidth) || w);
+  const pageW = (typeof document !== "undefined" && document.documentElement.clientWidth) || w;
+  const vw = fill ? pageW : Math.min(1400, pageW);
   const avail = vw - PAD;
   // Whatever else the page holds (title, buttons, notices) takes room the
   // guess above can't know, so after drawing, the web gives back whatever
@@ -62,12 +65,12 @@ export function DesktopFit({ reserved = 250, top = null, web, below = null, pane
     const over = document.documentElement.scrollHeight - window.innerHeight;
     if (over > 1 && over < 500) setGive((g) => Math.min(400, g + over));
   });
-  const tall = Math.max(340, Math.min(720, h - reserved - give));
+  const tall = Math.max(340, Math.min(fill ? 860 : 720, h - reserved - give));
   const size = Math.max(340, Math.min(tall, avail - GAP - 340));
-  const panelW = Math.max(320, Math.min(440, avail - GAP - size));
+  const panelW = fill ? Math.max(320, avail - GAP - size) : Math.max(320, Math.min(440, avail - GAP - size));
   const body = panel || idle;
   return (
-    <div className="mx-auto flex flex-col gap-4" style={{ width: size + GAP + panelW, maxWidth: "100%" }}>
+    <div className="mx-auto flex flex-col gap-4" style={{ width: fill ? "100%" : size + GAP + panelW, maxWidth: "100%" }}>
       {top}
       <div className="flex items-start" style={{ gap: GAP }}>
         <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>
@@ -209,6 +212,7 @@ export default function IntakeKeyWeb({
   actName, keyTitle = true, center = null, circles = [], corner = null, cornerBL = null, show = null,
   onSave = null, onSend, canSend, sending = false, sendLabel = "Send", error = "", needLine = "",
   sent = false, onSentOff = null, startOpen = false, belowSend = null, onBack = null, readOnly = false, unlockLabel = "Unlock my web", showLabel = "The show",
+  fill = false,
 }) {
   const desktop = useIsDesktop();
   // Submitted: play the send-off, then the page shows the thanks (job 200).
@@ -486,6 +490,7 @@ export default function IntakeKeyWeb({
             below={sendRow}
             panel={off ? null : cur ? circleBody : centerOpen ? centerBody : openBox ? cornerBody : null}
             panelKey={pane}
+            fill={fill}
           />
         </div>
         {showModal}

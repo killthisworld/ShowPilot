@@ -293,6 +293,7 @@ export default function ActOfferView({ pkg, code, reload }) {
   const place = pkg.sender?.name || "";
   return (
     <IntakeKeyWeb
+      fill // the whole desktop width (job 361)
       readOnly
       startOpen={step === "look"}
       unlockLabel="Open the offer"

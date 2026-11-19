@@ -435,6 +435,7 @@ export default function BookingPackage() {
 
   return (
     <IntakeKeyWeb
+      fill // the whole desktop width (job 361)
       startOpen
       color={PACKAGE_RED}
       seed={pkgId || "package"}

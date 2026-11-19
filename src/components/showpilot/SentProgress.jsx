@@ -4,6 +4,7 @@ import { Check, Eye } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { fmtDay } from "@/lib/useBookings";
 import { wantsLine } from "@/lib/bookingPackage";
+import SwipeRow from "@/components/showpilot/SwipeRow";
 
 // Bookings > Sent (job 354): everything you've sent and how far along it is,
 // for every non-tech profile.
@@ -113,7 +114,11 @@ function madeCard(e) {
   );
 }
 
-export default function SentProgress({ data, isVenue, made = [] }) {
+// hidden / keyOf / actionsFor (job 361): Bookings' swipe actions, so a
+// draft swiped away here goes the same way as on All bookings.
+export default function SentProgress({ data, isVenue, made = [], hidden = null, keyOf = null, actionsFor = null }) {
+  const shown = (p, side) => !hidden || !keyOf || !hidden.has(keyOf({ ...p, side }));
+  const swipe = (p, side, node) => (actionsFor ? <SwipeRow key={`sw-${p.id || p.code}`} actions={actionsFor({ ...p, side })} label={p.act_name || "Booking"}>{node}</SwipeRow> : node);
   // The venue's package link from My Templates (job 298): opens so far.
   const [shares, setShares] = useState([]);
   useEffect(() => {
@@ -159,14 +164,14 @@ export default function SentProgress({ data, isVenue, made = [] }) {
     );
   }
 
-  const sent = data?.sent || [];
-  const drafts = data?.drafts || [];
+  const sent = (data?.sent || []).filter((p) => shown(p, "sender"));
+  const drafts = (data?.drafts || []).filter((p) => shown(p, "sender"));
   const live = sent.filter((p) => p.status !== "declined");
   const passed = sent.filter((p) => p.status === "declined");
   return (
     <div className="flex flex-col gap-6">
       {section("Sent", live.map(senderCard))}
-      {section("Drafts", drafts.map(senderCard))}
+      {section("Drafts", drafts.map((p) => swipe(p, "sender", senderCard(p))))}
       {section("Passed", passed.map(senderCard))}
       {!sent.length && !drafts.length && <Empty text="Booking packages you send show up here: when they're opened, when dates are offered, and when it's booked." />}
     </div>

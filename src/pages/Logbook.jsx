@@ -67,19 +67,21 @@ export default function Logbook() {
       if (showsRes.error) console.error(showsRes.error);
       let ownShows = showsRes.error ? [] : (showsRes.data || []);
 
+      // "*" so this works before and after in_logbook is there (job 361).
       const { data: links } = await supabase
         .from("linked_gigs")
-        .select("share_token")
+        .select("*")
         .eq("user_id", user.id);
 
       if (links && links.length > 0) {
         const linkedDetails = await Promise.all(
           links.map(async (link) => {
             const { data } = await supabase.rpc("get_shared_gig", { p_token: link.share_token });
-            return data ? { ...data, is_linked: true, share_token: link.share_token, done: true } : null;
+            return data ? { ...data, is_linked: true, share_token: link.share_token, done: true, in_logbook: !!link.in_logbook } : null;
           })
         );
-        ownShows = [...ownShows, ...linkedDetails.filter((g) => g && g.date && g.date < todayISO)];
+        // Past ones, and ones you added to your Logbook from Bookings (job 361).
+        ownShows = [...ownShows, ...linkedDetails.filter((g) => g && g.date && (g.date < todayISO || g.in_logbook))];
       }
 
       // Your own picture for an event (if you set one) wins, as on Home.

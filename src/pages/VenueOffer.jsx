@@ -277,6 +277,7 @@ export default function VenueOffer() {
 
   return (
     <IntakeKeyWeb
+      fill // the whole desktop width (job 361)
       startOpen
       color={BLUE}
       seed={pkgId || "offer"}

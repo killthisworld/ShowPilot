@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import SentProgress from "@/components/showpilot/SentProgress";
-import { ChevronLeft, Plus } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, EyeOff, BookOpen } from "lucide-react";
+import SwipeRow from "@/components/showpilot/SwipeRow";
 import { supabase } from "@/api/supabaseClient";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import AskTechSheet from "@/components/showpilot/AskTechSheet";
@@ -56,10 +57,11 @@ export default function Bookings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const today = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-      const { data: shows, error } = await supabase.from("shows").select("id, event_name, band_name, date, icon_url, share_token, archived")
+      const { data: shows, error } = await supabase.from("shows").select("id, event_name, band_name, date, icon_url, share_token, archived, done")
         .eq("owner_id", user.id).eq("manager_info->>made_with", "event_web").gte("date", today).order("date", { ascending: true });
       if (error) { console.error(error); return; }
-      const list = (shows || []).filter((s) => !s.archived);
+      // In the Logbook already (job 361): off Bookings.
+      const list = (shows || []).filter((s) => !s.archived && !s.done);
       let invites = [];
       if (list.length) {
         const { data: inv } = await supabase.from("gig_invites").select("show_id, status, invited_role").in("show_id", list.map((s) => s.id)).eq("invited_role", "band");
@@ -82,15 +84,70 @@ export default function Bookings() {
     return () => { gone = true; };
   }, [isVenue]);
 
+  // Swipe a card (job 361): delete a draft, take a booking off YOUR
+  // Bookings (the other side keeps it), or add its event to your Logbook.
+  // It leaves the list at once; the change is made after a few seconds
+  // unless Undo is tapped.
+  const [gone, setGone] = useState(() => new Set());
+  const [undo, setUndo] = useState(null); // { key, text, commit }
+  const pending = useRef(null);
+  const keyOf = (p) => `${p.side}-${p.code || p.id}`;
+  const flush = () => {
+    const job = pending.current;
+    pending.current = null;
+    if (!job) return;
+    clearTimeout(job.timer);
+    Promise.resolve(job.commit()).then(() => reload()).catch((e) => {
+      console.error(e);
+      setGone((g) => { const n = new Set(g); n.delete(job.key); return n; });
+    });
+  };
+  useEffect(() => () => flush(), []); // leaving the page: make the change now
+  const later = (p, text, commit) => {
+    flush();
+    const key = keyOf(p);
+    setGone((g) => new Set(g).add(key));
+    const timer = setTimeout(() => { flush(); setUndo(null); }, 5000);
+    pending.current = { key, commit, timer };
+    setUndo({ key, text });
+  };
+  const undoIt = () => {
+    const job = pending.current;
+    pending.current = null;
+    if (job) {
+      clearTimeout(job.timer);
+      setGone((g) => { const n = new Set(g); n.delete(job.key); return n; });
+    }
+    setUndo(null);
+  };
+  const call = async (fn, args) => { const { data: d, error } = await supabase.rpc(fn, args); if (error) throw error; return d; };
+  const actionsFor = (p) => {
+    const out = [];
+    if (p.status === "draft") {
+      out.push({ label: "Delete", icon: Trash2, color: RED, onClick: () => later(p, "Draft deleted", () => call("withdraw_booking_package", { p_id: p.id })) });
+      return out;
+    }
+    if (p.show_id && p.status === "booked") {
+      out.push({ label: "Add to Logbook", icon: BookOpen, color: GREEN, onClick: () => later(p, "Added to your Logbook", async () => {
+        await call("add_show_to_logbook", { p_show: p.show_id });
+        if (p.code && !String(p.code).startsWith("ev-")) await call("hide_booking_package", { p_code: p.code, p_hide: true });
+      }) });
+    }
+    if (p.code && !String(p.code).startsWith("ev-")) {
+      out.push({ label: "Remove", icon: EyeOff, color: "#9CA3AF", onClick: () => later(p, "Removed from your Bookings", () => call("hide_booking_package", { p_code: p.code, p_hide: true })) });
+    }
+    return out;
+  };
+
   const items = [
     ...(data?.incoming || []).map((p) => ({ ...p, side: "venue", href: `/p/${p.code}` })),
     ...(data?.sent || []).map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` })),
     ...made,
-  ];
+  ].filter((p) => !gone.has(keyOf(p)));
   const by = (k) => items.filter((p) => colOf(p) === k);
   const passed = by("passed");
   // Unsent drafts, both kinds (job 355): a package or an offer you started.
-  const drafts = (data?.drafts || []).map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` }));
+  const drafts = (data?.drafts || []).map((p) => ({ ...p, side: "sender", href: p.kind === "venue" ? `/offer/${p.id}` : `/book/${p.id}` })).filter((p) => !gone.has(keyOf(p)));
 
   // Who's been asked to work each booked event on my side.
   const bookedShows = items.filter((p) => p.side === "venue" && p.status === "booked" && p.show_id).map((p) => p.show_id).join(",");
@@ -120,7 +177,8 @@ export default function Bookings() {
     const mine = asks[p.show_id] || [];
     const roleWord = (r) => (r === "lighting" ? "Lighting" : "Audio");
     return (
-      <div key={`${p.side}-${p.code || p.id}`} className="rounded-[14px] bg-[#151515] border overflow-hidden" style={{ borderColor: needsMe(p) ? (p.side === "venue" ? `${BLUE}88` : `${RED}88`) : "#262626" }}>
+      <SwipeRow key={keyOf(p)} actions={actionsFor(p)} label={p.act_name || "Booking"}>
+      <div className="rounded-[14px] bg-[#151515] border overflow-hidden" style={{ borderColor: needsMe(p) ? (p.side === "venue" ? `${BLUE}88` : `${RED}88`) : "#262626" }}>
         <Link to={p.href} className="flex items-center gap-3 px-3 py-3 min-h-[68px] active:bg-[#1a1a1a]">
           <span className="w-11 h-11 rounded-full shrink-0 overflow-hidden border-2" style={{ borderColor: RED, background: "#2a1c1c" }}>
             {p.photo_url && <img src={p.photo_url} alt="" className="w-full h-full object-cover" />}
@@ -153,6 +211,7 @@ export default function Bookings() {
           </div>
         )}
       </div>
+      </SwipeRow>
     );
   };
 
@@ -186,7 +245,7 @@ export default function Bookings() {
         {loading ? (
           <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>
         ) : view === "sent" ? (
-          <SentProgress data={data} isVenue={isVenue} made={made} />
+          <SentProgress data={data} isVenue={isVenue} made={made} hidden={gone} keyOf={keyOf} actionsFor={actionsFor} />
         ) : items.length === 0 ? (
           <div className="rounded-xl bg-[#151515] border border-[#262626] p-6 text-center flex flex-col gap-2 items-center">
             <p className="m-0 text-base font-semibold">No bookings yet</p>
@@ -223,6 +282,12 @@ export default function Bookings() {
         )}
       </div>
 
+      {undo && (
+        <div role="status" className="fixed left-1/2 -translate-x-1/2 bottom-[96px] lg:bottom-6 z-[60] flex items-center gap-3 pl-4 pr-1.5 py-1.5 rounded-full bg-[#1f1f1f] border border-[#333] shadow-[0_10px_30px_rgba(0,0,0,0.5)] text-[14px]">
+          <span>{undo.text}</span>
+          <button type="button" onClick={undoIt} className="min-h-[38px] px-3.5 rounded-full font-bold" style={{ color: GREEN }}>Undo</button>
+        </div>
+      )}
       {asking && (
         <AskTechSheet showId={asking.show_id} title={asking.act_name} date={asking.picked_date} onClose={() => setAsking(null)}
           onAsked={() => {
