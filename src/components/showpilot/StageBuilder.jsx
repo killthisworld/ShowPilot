@@ -285,7 +285,9 @@ export default function StageBuilder({
   // The cue's lights (job 393): none picked = all of them.
   const curLights = !cur ? [] : (draft ? draft.lights : isAct ? cur.cue.lights : cur.lights) || [];
   // Named groups first (job 402), then by kind.
-  const lightGroups = [...rigNamedGroups(rig), ...rigGroups(rig).filter((g) => g.type !== "truss" && isLight(g.type))];
+  // A named light shows once (job 404): under its name, not again under its kind.
+  const unnamed = { items: (rig.items || []).filter((i) => !String(i.group || "").trim()) };
+  const lightGroups = [...rigNamedGroups(rig), ...rigGroups(unnamed).filter((g) => g.type !== "truss" && isLight(g.type))];
   const setCueLights = (ids) => setCue({ lights: ids });
   const toggleCueLight = (id) => {
     const it = items.find((i) => i.id === id);
@@ -320,7 +322,7 @@ export default function StageBuilder({
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = [...rigNamedGroups(rig), ...rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument")]; // named groups first; people, risers, instruments listed on their own
+  const groups = [...rigNamedGroups(rig), ...rigGroups(unnamed).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument")]; // named groups first; people, risers, instruments listed on their own
   const sharedGroup = picked.length > 1 && picked[0].group && picked.every((i) => i.group === picked[0].group) ? picked[0].group : "";
   const pickedLabel = sharedGroup ? `${sharedGroup} · ${picked.length} lights` : one && isInstrument(one.type) ? `${partLabel(one.part)} · no one at it` : one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
