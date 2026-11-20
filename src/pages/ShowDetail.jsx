@@ -1184,6 +1184,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
               onChange={update}
               withPhoto={sectionPhotos}
               nameAction={isTechProductionAccount ? <LoadTemplateButton category="venue" label="Load Venue" onLoad={loadVenueTemplate} /> : null}
+              // The LD (job 433): no Venue provides or Power notes.
+              withProvides={!isLightingAccount}
+              withPower={!isLightingAccount}
             />
         </CollapsibleSection>
         </div>

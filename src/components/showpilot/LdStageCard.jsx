@@ -78,7 +78,7 @@ export default function LdStageCard({ rig, onChange, venueName = "", acts = null
 export function EventStageBuilder({ rig, venueName = "", onChange, acts = null, onActs = null, startAct = 0, startTab = "rig", onSaved, onClose }) {
   const has = rigHasItems(rig) || (rig?.cues || []).length > 0;
   return (
-    <StageBuilder name={venueName} rig={has ? normalizeRig(rig) : emptyRig()} title="THIS EVENT'S STAGE" acts={acts} startAct={startAct} startTab={startTab}
+    <StageBuilder name={venueName || ""} rig={has ? normalizeRig(rig) : emptyRig()} title="THIS EVENT'S STAGE" acts={acts} startAct={startAct} startTab={startTab}
       onClose={onClose}
       onSave={async ({ name, rig: next, acts: nextActs }) => {
         onChange(next);

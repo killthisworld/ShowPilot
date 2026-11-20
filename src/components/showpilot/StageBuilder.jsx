@@ -41,7 +41,9 @@ export default function StageBuilder({
   saveParts = false,
   offerTemplates = true, // an empty stage offers the LD's saved stages (job 431); not for a band
 }) {
-  const [name, setName] = useState(startName);
+  // A missing name (an event with no venue yet) starts empty, not null: a
+  // null name crashed the builder so the stage never opened (job 433).
+  const [name, setName] = useState(startName || "");
   const [rig, setRigNow] = useState(() => normalizeRig(start));
   // The edit box's height over the stage (job 405): the stage moves up by
   // half of it so the box doesn't cover the middle.

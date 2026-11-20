@@ -1491,19 +1491,20 @@ export default function SharedGig() {
             <Field label="City" value={gig.city} onChange={(v) => update("city", v)} editable={canEditSection("venue")} placeholder="City" />
             <Field label="State" value={gig.state} onChange={(v) => update("state", v)} editable={canEditSection("venue")} placeholder="State" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          {!isLightingViewer && <div className="grid grid-cols-2 gap-3">
             <Field label="WiFi Network" value={gig.wifi_network} onChange={(v) => update("wifi_network", v)} editable={canEditSection("venue")} placeholder="Network name" />
             <Field label="WiFi Password" value={gig.wifi_password} onChange={(v) => update("wifi_password", v)} editable={canEditSection("venue")} placeholder="Password" />
-          </div>
-          <Field label="Console" value={gig.console} onChange={(v) => update("console", v)} editable={canEditSection("venue")} placeholder="e.g. Yamaha CL5" />
-          <div>
+          </div>}
+          {!isLightingViewer && <Field label="Console" value={gig.console} onChange={(v) => update("console", v)} editable={canEditSection("venue")} placeholder="e.g. Yamaha CL5" />}
+          {/* The LD (job 433): no venue provides (WiFi, console) or power notes. */}
+          {!isLightingViewer && <div>
             <Label className="text-white/50 text-xs">Power Notes</Label>
             {canEditSection("venue") ? (
               <Textarea value={gig.power_notes || ""} onChange={(e) => update("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Power availability, circuits, etc." />
             ) : (
               <p className="mt-1 text-white/70 text-sm">{gig.power_notes || <span className="text-white/25">Not filled in yet</span>}</p>
             )}
-          </div>
+          </div>}
           <DocumentsUploader documents={gig.venue_documents} onChange={(docs) => update("venue_documents", docs)} uploadPathPrefix={`gig_docs/${gig.id}/venue`} editable={canEditSection("venue")} />
           {!techView && (
           <RequirementsList

@@ -23,7 +23,8 @@ import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
-import LdStageWindow from "@/components/showpilot/LdStageWindow";
+import LdStageWindow, { LdActStage } from "@/components/showpilot/LdStageWindow";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness, saveDeal, dealSummary, fileRecord } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
@@ -231,6 +232,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // the Audio web's stage icon.
   const [stageAt, setStageAt] = useState(null);
   const stageEditable = !template && !!p.token && !!(p.permissions?.is_owner || p.canEditSection?.("manager"));
+  // The one looking is an LD (job 433): every stage they open is the event's
+  // 3D stage, whichever circle of the web it's opened from.
+  const ldViewer = accountTypeOf(null) === "lighting";
   const syncMembers = (i, list) => (onActMembers ? onActMembers(i, list) : p.setActMembers ? p.setActMembers(i, list) : p.updateBand(i, "band_members", list));
   const saveActMembers = async (i, list) => {
     const mine = (gig.bands || [])[i];
@@ -721,7 +725,9 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
                       lives on its own page, opened from Stage Plot. */}
                   <div className="col-start-2 col-span-2 flex items-center gap-2 flex-wrap">
                     <ActNotesButton act={b} onClick={() => { setFxAct(i); setFxTarget(i); }} />
-                    {(stageEditable || hasStagePlot(b)) && (
+                    {/* The LD (job 433): the event's 3D stage with the act on it - tap to open. */}
+                    {ldViewer && !template && <div className="w-full"><LdActStage act={b} rig={gig.lighting_rig || null} onOpen={() => setStageAt(i)} /></div>}
+                    {!ldViewer && (stageEditable || hasStagePlot(b)) && (
                       <button type="button" onClick={() => setStageAt(i)} aria-label={`${b.band_name || "This act"}'s stage plot`}
                         className="h-10 px-3 rounded-[10px] border bg-black flex items-center gap-2 text-[13px] font-semibold" style={{ borderColor: G + "55", color: G }}>
                         <StageIcon className="w-5 h-5" />Stage Plot
@@ -1230,7 +1236,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // The full stage plot page (job 278). Whoever can edit the lineup edits
   // members there (each change saved straight away, onto the latest lineup
   // so nobody else's edits are lost); Audio / Lighting crew can move people.
-  const stageSheet = stageAt !== null && !template && (role === "lighting" ? (
+  const stageSheet = stageAt !== null && !template && (role === "lighting" || ldViewer ? (
     // The LD: the event's 3D stage with the act and its cues (job 383).
     <LdStageWindow acts={gig.bands || []} start={stageAt} rig={gig.lighting_rig || null} onClose={() => setStageAt(null)} />
   ) : (

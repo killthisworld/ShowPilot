@@ -46,7 +46,7 @@ export const formatPhoneNumber = (value) => {
 };
 
 // withPhoto=false hides the venue photo (tech phone event page, job 148).
-export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name", withPhoto = true, withProvides = true }) {
+export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name", withPhoto = true, withProvides = true, withPower = true }) {
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const v = value || {};
   const contacts = v.contacts || [];
@@ -175,10 +175,10 @@ export default function VenueInfoFields({ value, onChange, nameAction = null, na
         ))}
       </div>}
 
-      <div>
+      {withPower && <div>
         <Label className="text-white/50 text-xs">Power Notes</Label>
         <Textarea value={v.power_notes || ""} onChange={(e) => onChange("power_notes", e.target.value)} className="mt-1 bg-[#111] border-[#222] text-white text-sm min-h-[60px]" placeholder="Power availability, circuits, etc." />
-      </div>
+      </div>}
     </div>
   );
 }
