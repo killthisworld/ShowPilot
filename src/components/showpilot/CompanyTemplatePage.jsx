@@ -7,6 +7,8 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { gigFromTemplate, templateFromGig, templateExclude, VENUE_TECH_KEYS } from "@/lib/roleTemplates";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import TemplatesHub, { useNamedTemplates } from "@/components/showpilot/TemplatesHub";
+import SortableGrid from "@/components/showpilot/SortableGrid";
+import SwipeRow from "@/components/showpilot/SwipeRow";
 import { useAuth } from "@/lib/AuthContext";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { cropImage } from "@/lib/cropImage";
@@ -379,7 +381,9 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   const [data, setData] = useState(template?.data || {});
   const [saveState, setSaveState] = useState("saved");
   const [sheet, setSheet] = useState(null); // look | loads | preview | section:<key>
-  const [reorder, setReorder] = useState(false);
+  // Removed with a swipe, for Undo (job 439): { label, prev }.
+  const [undo, setUndo] = useState(null);
+  useEffect(() => { if (!undo) return undefined; const t = setTimeout(() => setUndo(null), 6000); return () => clearTimeout(t); }, [undo]);
   // Tabs (job 437): House (this template) and the named Offer / Event
   // templates on top of it. ?tab=offers | events opens one.
   const kinds = role === "venue" ? ["offer", "event"] : ["event"];
@@ -446,14 +450,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   const filledN = counted.filter((s) => s.filled).length;
   const fillN = sections.filter((s) => s.mode === "fill").length;
 
-  const move = (key, d) => {
-    const keys = sections.map((s) => s.key);
-    const i = keys.indexOf(key);
-    const j = i + d;
-    if (i < 0 || j < 0 || j >= keys.length) return;
-    [keys[i], keys[j]] = [keys[j], keys[i]];
-    setPage({ order: keys });
-  };
   const addSection = () => {
     const id = `c_${newId()}`;
     setData((d) => {
@@ -474,10 +470,28 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     );
   }
 
+  // Sections on the page: the ones left out live in What loads (job 439).
+  const shown = sections.filter((s) => s.mode !== "off");
+  const offN = sections.length - shown.length;
+  // Drag to a new spot: the order is of every section, left-out ones too.
+  const moveTo = (key, toIndex) => {
+    const next = shown.map((x) => x.key).filter((k) => k !== key);
+    next.splice(toIndex, 0, key);
+    let i = 0;
+    // Left-out sections keep their places; the shown ones take the new order.
+    setPage({ order: sections.map((x) => (x.mode === "off" ? x.key : next[i++])) });
+  };
+  const takeOut = (s) => {
+    const prev = data;
+    if (s.builtIn) setData((d) => setMode(role, d, s.key, "off"));
+    else setData((d) => { const p = pageOf(d); return withPage(d, { custom: p.custom.filter((c) => c.id !== s.key), order: p.order.filter((k) => k !== s.key) }); });
+    setUndo({ label: s.builtIn ? `${s.label} left out` : `${s.label} deleted`, prev });
+  };
+
   // On a phone the sections are two-across tiles (job 432), so the whole list
   // shows with little or no scrolling; a computer keeps rows, three across.
-  const sectionTile = (s, i) => (
-    <div key={s.key} className="flex flex-col rounded-[12px] bg-[#151515] border border-[#262626] min-w-0" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
+  const sectionTile = (s) => (
+    <div key={s.key} className="flex flex-col rounded-[12px] bg-[#151515] border border-[#262626] min-w-0 h-full" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
       <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex flex-col items-start gap-1 min-h-[76px] px-2.5 py-2 text-left">
         <span className="flex items-center gap-1 w-full">
           <span className="shrink-0 text-[9px] tracking-[0.1em] px-1.5 py-[3px] rounded-[5px] border border-[#333] text-white/75" style={MONO}>{MODE[s.mode]}</span>
@@ -486,16 +500,10 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         <span className="text-[14px] font-semibold leading-tight line-clamp-2 break-words w-full">{s.label}</span>
         <span className="block text-[11.5px] text-white/55 truncate w-full">{s.mode === "off" ? "Left out" : s.sub || (s.builtIn ? "Not filled in yet" : "No fields yet")}</span>
       </button>
-      {reorder && (
-        <span className="flex border-t border-[#262626]">
-          <button type="button" aria-label={`Move ${s.label} back`} disabled={i === 0} onClick={() => move(s.key, -1)} className="flex-1 h-10 text-white/60 disabled:opacity-25"><ArrowUp className="w-4 h-4 mx-auto -rotate-90" /></button>
-          <button type="button" aria-label={`Move ${s.label} on`} disabled={i === sections.length - 1} onClick={() => move(s.key, 1)} className="flex-1 h-10 text-white/60 disabled:opacity-25"><ArrowDown className="w-4 h-4 mx-auto -rotate-90" /></button>
-        </span>
-      )}
     </div>
   );
-  const sectionRow = (s, i) => (
-    <div key={s.key} className="flex items-center gap-1.5 rounded-[12px] bg-[#151515] border border-[#262626] min-w-0" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
+  const sectionRow = (s) => (
+    <div key={s.key} className="flex items-center gap-1.5 rounded-[12px] bg-[#151515] border border-[#262626] min-w-0 h-full" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
       <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex items-center gap-2.5 min-h-[56px] pl-3 pr-1 text-left">
         <span className="flex-1 min-w-0">
           <span className="flex items-center gap-1.5">
@@ -505,14 +513,8 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
           <span className="block text-[12px] text-white/55 truncate">{s.mode === "off" ? "Left out of your template" : s.sub || (s.builtIn ? "Not filled in yet" : "No fields yet")}</span>
         </span>
         <span className="shrink-0 text-[9.5px] tracking-[0.1em] px-1.5 py-1 rounded-[5px] border border-[#333] text-white/75" style={MONO}>{MODE[s.mode]}</span>
-        {!reorder && <ChevronRight className="w-4 h-4 text-white/35 shrink-0" />}
+        <ChevronRight className="w-4 h-4 text-white/35 shrink-0" />
       </button>
-      {reorder && (
-        <span className="flex shrink-0 pr-1.5">
-          <button type="button" aria-label={`Move ${s.label} up`} disabled={i === 0} onClick={() => move(s.key, -1)} className="w-10 h-10 text-white/60 disabled:opacity-25"><ArrowUp className="w-4 h-4 mx-auto" /></button>
-          <button type="button" aria-label={`Move ${s.label} down`} disabled={i === sections.length - 1} onClick={() => move(s.key, 1)} className="w-10 h-10 text-white/60 disabled:opacity-25"><ArrowDown className="w-4 h-4 mx-auto" /></button>
-        </span>
-      )}
     </div>
   );
 
@@ -522,17 +524,40 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         <span className="text-[15px] font-bold tracking-[0.08em] text-white/60" style={{ fontFamily: COND }}>SECTIONS</span>
         <span className="flex-1" />
         {/* What loads on every new event (job 436): a small button here. */}
-        <button type="button" onClick={() => setSheet("loads")} className="min-h-[34px] px-2.5 mr-1 rounded-lg border text-[12px] font-semibold whitespace-nowrap" style={{ borderColor: `${ring}66`, color: ring }}>What loads · {fillN}</button>
-        <button type="button" aria-pressed={reorder} onClick={() => setReorder((r) => !r)} className="min-h-[36px] px-2.5 rounded-lg text-[12.5px] font-semibold" style={reorder ? { color: "#0d0d0d", background: ring } : { color: "rgba(255,255,255,0.65)" }}>{reorder ? "Done" : "Reorder"}</button>
+        {offN > 0 && <button type="button" onClick={() => setSheet("loads")} className="min-h-[34px] px-2 mr-1 text-[12px] text-white/55 whitespace-nowrap">{offN} left out</button>}
+        <button type="button" onClick={() => setSheet("loads")} className="min-h-[34px] px-2.5 rounded-lg border text-[12px] font-semibold whitespace-nowrap" style={{ borderColor: `${ring}66`, color: ring }}>What loads · {fillN}</button>
       </div>
       {/* The act (one-act accounts) or "Your acts" (more than one), job 73. */}
       {actsBlock}
-      <div className={desktop ? "grid gap-2 grid-cols-2 xl:grid-cols-3" : "grid gap-2 grid-cols-2"}>
-        {sections.map(desktop ? sectionRow : sectionTile)}
+      {/* Hold a section and drag it to move it; swipe it left to take it out
+          (job 439). Left-out ones come back from What loads. */}
+      <SortableGrid
+        className={desktop ? "grid gap-2 grid-cols-2 xl:grid-cols-3" : "grid gap-2 grid-cols-2"}
+        items={shown}
+        keyOf={(s) => s.key}
+        onMove={moveTo}
+        render={(s, { ghost }) => {
+          const tile = desktop ? sectionRow(s) : sectionTile(s);
+          if (ghost || s.mode === "kept") return tile;
+          return (
+            <SwipeRow radius={12} label={s.label} actions={[{ label: s.builtIn ? "Leave out" : "Delete", icon: Trash2, color: "#F87171", onClick: () => takeOut(s) }]}>
+              {tile}
+            </SwipeRow>
+          );
+        }}
+        extra={
         <button type="button" onClick={addSection} className={`${desktop ? "min-h-[58px]" : "min-h-[76px]"} rounded-[12px] border-[1.5px] border-dashed text-[14px] font-semibold flex items-center justify-center gap-1.5 px-2 text-center`} style={{ borderColor: `${ring}66`, color: ring }}>
           <Plus className="w-4 h-4 shrink-0" strokeWidth={2.5} />{desktop ? "Add your own section" : "Add a section"}
-        </button>
-      </div>
+        </button>}
+      />
+      <p className="m-0 px-0.5 text-[11.5px] text-white/40">Hold a section to drag it into a new spot. Swipe left to take it out.</p>
+      {undo && createPortal(
+        <div role="status" className="fixed left-1/2 -translate-x-1/2 bottom-[96px] lg:bottom-8 z-[95] flex items-center gap-3 rounded-[12px] bg-[#1d1d1d] border border-[#333] pl-4 pr-1.5 py-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] text-[14px]" style={{ fontFamily: SCENE_FONT }}>
+          <span className="text-white/85">{undo.label}</span>
+          <button type="button" onClick={() => { setData(undo.prev); setUndo(null); }} className="min-h-[38px] px-3 rounded-[9px] font-bold" style={{ color: ring }}>Undo</button>
+        </div>,
+        document.body
+      )}
     </section>
   );
 
