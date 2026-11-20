@@ -83,7 +83,7 @@ function Sheet({ title, kicker, color, onClose, children, wide = false, big = fa
   return createPortal(
     <div className="fixed inset-0 z-[85] bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose} style={{ fontFamily: SCENE_FONT }}>
       <div role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}
-        className={`w-full ${big ? "sm:max-w-[620px] lg:max-w-[1120px] lg:p-7" : wide ? "sm:max-w-[620px]" : "sm:max-w-[460px]"} max-h-[92dvh] overflow-y-auto bg-[#141414] border border-[#2a2a2a] rounded-t-[20px] sm:rounded-[20px] p-5 flex flex-col gap-4 text-white`}>
+        className={`w-full ${big ? "sm:max-w-[620px] lg:max-w-[1120px] lg:p-7 max-sm:p-4 max-sm:gap-3 max-sm:max-h-[96dvh]" : wide ? "sm:max-w-[620px]" : "sm:max-w-[460px]"} max-h-[92dvh] overflow-y-auto bg-[#141414] border border-[#2a2a2a] rounded-t-[20px] sm:rounded-[20px] p-5 flex flex-col gap-4 text-white`}>
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             {kicker && <div className="text-[11px] tracking-[0.14em]" style={{ ...MONO, color }}>{kicker}</div>}
@@ -514,6 +514,8 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       <div className="flex items-center px-0.5 pb-1">
         <span className="text-[15px] font-bold tracking-[0.08em] text-white/60" style={{ fontFamily: COND }}>SECTIONS</span>
         <span className="flex-1" />
+        {/* What loads on every new event (job 436): a small button here. */}
+        <button type="button" onClick={() => setSheet("loads")} className="min-h-[34px] px-2.5 mr-1 rounded-lg border text-[12px] font-semibold whitespace-nowrap" style={{ borderColor: `${ring}66`, color: ring }}>What loads · {fillN}</button>
         <button type="button" aria-pressed={reorder} onClick={() => setReorder((r) => !r)} className="min-h-[36px] px-2.5 rounded-lg text-[12.5px] font-semibold" style={reorder ? { color: "#0d0d0d", background: ring } : { color: "rgba(255,255,255,0.65)" }}>{reorder ? "Done" : "Reorder"}</button>
       </div>
       {/* The act (one-act accounts) or "Your acts" (more than one), job 73. */}
@@ -536,7 +538,6 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         <div className="text-[13.5px] font-semibold">{filledN} of {counted.length} sections filled</div>
         <div className="h-[5px] rounded bg-[#262626] mt-1.5 overflow-hidden"><div className="h-full" style={{ width: `${counted.length ? Math.round((filledN / counted.length) * 100) : 0}%`, background: ring }} /></div>
       </div>
-      <button type="button" onClick={() => setSheet("loads")} className="min-h-[40px] text-[12.5px] font-semibold whitespace-nowrap" style={{ color: ring }}>{fillN} fill every event ›</button>
     </div>
   );
 
@@ -556,21 +557,28 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     sheetEl = <Sheet title="Your header" kicker="PREVIEW" color={ring} onClose={() => setSheet(null)} wide><Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} title={false} /></Sheet>;
   } else if (sheet === "loads") {
     sheetEl = (
-      <Sheet title="Every new event starts with" kicker="WHAT LOADS" color={ring} onClose={() => setSheet(null)}>
-        <p className="m-0 -mt-2 text-[13.5px] text-white/60">Fill it in: on every new event by itself. Ask me: only when you press Load template on an event. Leave out: not in your template at all.</p>
-        {[["fill", "FILLS IN BY ITSELF"], ["ask", "ASKS ME FIRST"], ["off", "LEFT OUT"], ["kept", "KEPT IN YOUR TEMPLATE"]].map(([m, t]) => {
+      // Wide with two columns on a computer and compact rows, so it doesn't
+      // scroll (job 436).
+      <Sheet title="Every new event starts with" kicker="WHAT LOADS" color={ring} onClose={() => setSheet(null)} big>
+        <p className="m-0 -mt-2 text-[12.5px] lg:text-[13.5px] text-white/60">Fill: on every new event by itself · Ask: when you press Load template · Off: not in your template.</p>
+        <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+        {[["fill", "FILLS IN BY ITSELF"], ["rest"]].map(([col]) => (
+          <div key={col} className="flex flex-col gap-2.5 lg:gap-3 min-w-0">
+        {(col === "fill" ? [["fill", "FILLS IN BY ITSELF"]] : [["ask", "ASKS ME FIRST"], ["off", "LEFT OUT"], ["kept", "KEPT IN YOUR TEMPLATE"]]).map(([m, t]) => {
           const rows = sections.filter((s) => s.mode === m);
           if (!rows.length) return null;
+          // Kept ones can't be switched: one line, not a row each.
+          if (m === "kept") return <p key={m} className="m-0 text-[12px] text-white/50">{rows.map((r) => r.label).join(", ")} {rows.length === 1 ? "stays" : "stay"} in your template for chats.</p>;
           return (
-            <div key={m} className="flex flex-col gap-1.5">
+            <div key={m} className="flex flex-col gap-1 lg:gap-1.5">
               <div className="text-[10.5px] tracking-[0.12em]" style={{ ...MONO, color: m === "fill" ? ring : "rgba(255,255,255,0.6)" }}>{t} · {rows.length}</div>
               {rows.map((s) => (
-                <div key={s.key} className="flex items-center gap-2 min-h-[50px] pl-3 pr-1.5 rounded-[11px] bg-[#101010] border border-[#262626]">
+                <div key={s.key} className="flex items-center gap-2 min-h-[38px] lg:min-h-[44px] pl-3 pr-1 rounded-[11px] bg-[#101010] border border-[#262626]">
                   <span className="flex-1 min-w-0 text-[14px] font-semibold truncate" style={{ opacity: m === "off" ? 0.55 : 1 }}>{s.label}</span>
                   {m !== "kept" && (
                     <div role="radiogroup" aria-label={s.label} className="flex gap-0.5 p-0.5 rounded-[9px] bg-[#0b0b0b]">
                       {["fill", "ask", "off"].map((o) => (
-                        <button key={o} type="button" role="radio" aria-checked={s.mode === o} onClick={() => setData((d) => setMode(role, d, s.key, o))} className="min-w-[46px] min-h-[38px] px-2 rounded-[7px] text-[12px] font-bold"
+                        <button key={o} type="button" role="radio" aria-checked={s.mode === o} onClick={() => setData((d) => setMode(role, d, s.key, o))} className="min-w-[44px] min-h-[32px] lg:min-h-[34px] px-2 rounded-[7px] text-[12px] font-bold"
                           style={s.mode === o ? (o === "off" ? { background: "#3a3a3a", color: "#fff" } : { background: ring, color: "#0d0d0d" }) : { color: "rgba(255,255,255,0.6)" }}>{o === "fill" ? "Fill" : o === "ask" ? "Ask" : "Off"}</button>
                       ))}
                     </div>
@@ -580,7 +588,10 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
             </div>
           );
         })}
-        <button type="button" onClick={() => setSheet(null)} className="min-h-[50px] rounded-[12px] font-bold text-[15px]" style={{ background: ring, color: "#0d0d0d" }}>Done</button>
+          </div>
+        ))}
+        </div>
+        <button type="button" onClick={() => setSheet(null)} className="min-h-[48px] rounded-[12px] font-bold text-[15px] lg:self-end lg:px-10" style={{ background: ring, color: "#0d0d0d" }}>Done</button>
       </Sheet>
     );
   } else if (sheet && sheet.startsWith("section:")) {
