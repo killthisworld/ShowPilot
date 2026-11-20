@@ -240,13 +240,13 @@ export const contactHas = (d) => [d.submitter_name, d.submitter_title, d.submitt
 export const contactDone = (d) => has(d.submitter_name) && (has(d.submitter_phone) || has(d.submitter_email));
 
 // ---------- Digital card (job 332): a row that opens someone's card ----------
-export function DigitalCardRow({ token, name, photo, line, heading = "DIGITAL CARD" }) {
+export function DigitalCardRow({ token, name, photo, line, heading = "DIGITAL CARD", color = RED }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col gap-1.5">
       <span className={label}>{heading}</span>
       <button type="button" disabled={!token} onClick={() => setOpen(true)} className="min-h-[60px] rounded-[12px] border border-[#2a2a2a] bg-[#101010] px-3 flex items-center gap-3 text-left disabled:opacity-60 hover:border-[#444]">
-        <span className="w-11 h-11 rounded-full overflow-hidden shrink-0 bg-[#1d1d1d] flex items-center justify-center text-[14px] font-bold border" style={{ borderColor: RED, color: RED }}>
+        <span className="w-11 h-11 rounded-full overflow-hidden shrink-0 bg-[#1d1d1d] flex items-center justify-center text-[14px] font-bold border" style={{ borderColor: color, color }}>
           {photo ? <img src={photo} alt="" className="w-full h-full object-cover" /> : <IdCard className="w-5 h-5" />}
         </span>
         <span className="flex-1 min-w-0">

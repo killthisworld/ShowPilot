@@ -1,12 +1,15 @@
 import React, { useRef, useState } from "react";
-import { CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck, MessageSquare, Paperclip, FileText, Upload, X } from "lucide-react";
+import { CalendarDays, DollarSign, Speaker, Utensils, Truck, ClipboardCheck, MessageSquare, Paperclip, FileText, Upload, X, ImagePlus, Globe, MapPin, AtSign } from "lucide-react";
 import TimeSelect from "@/components/showpilot/TimeSelect";
-import { DEAL_ASKS, AGES, money } from "@/components/showpilot/BookingFields";
+import { DEAL_ASKS, AGES, money, DigitalCardRow } from "@/components/showpilot/BookingFields";
+import { cropImage } from "@/lib/cropImage";
 import { OFFER_BLUE } from "@/lib/bookingPackage";
 
 // A venue's offer (job 348): its circles, to fill in (VenueOffer) and to read
 // (what the act opens). Each circle has an icon for what it is.
-// data = { deal, room, hosp, logi, needs }, wants = { dates: [{ date, set_time, load_in, billing }], note }.
+// data = { profile, deal, room, hosp, logi, files }, wants = { dates: [{ date, set_time, load_in, billing }] }.
+// Since job 385 the venue is the centre (data.profile) and there is no Note
+// or We need circle; older offers that have needs / note still show them.
 const BLUE = OFFER_BLUE;
 const MONO = { fontFamily: "'JetBrains Mono', monospace" };
 const inputCls = "w-full min-h-[44px] px-3 rounded-lg bg-[#0b0b0b] border border-[#2a2a2a] text-white text-base placeholder:text-white/30 outline-none focus:border-white/40";
@@ -35,6 +38,84 @@ function Field({ k, text, placeholder, value, set, area = false }) {
 }
 const section = (data, key) => (data && typeof data[key] === "object" && data[key] ? data[key] : {});
 const setIn = (data, setData, key) => (k, v) => setData({ ...data, [key]: { ...section(data, key), [k]: v } });
+
+// ---------- The venue, in the centre (job 385) ----------
+// data.profile = { photo_url, name, where, website, instagram, about }.
+export const offerProfile = (data) => section(data, "profile");
+export const offerProfileDone = (d = {}) => { const p = section(d, "profile"); return has(p.name) && (has(p.where) || has(p.about) || has(p.photo_url)); };
+const webHref = (v) => { const s = String(v || "").trim(); return !s ? "" : /^https?:\/\//i.test(s) ? s : `https://${s}`; };
+const igHref = (v) => { const s = String(v || "").trim().replace(/^@/, ""); return !s ? "" : /^https?:\/\//i.test(s) ? s : `https://instagram.com/${s}`; };
+
+export function OfferProfileBody({ data, setData, uploadFile, card }) {
+  const p = offerProfile(data);
+  const set = setIn(data, setData, "profile");
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const onPhoto = async (e) => {
+    const picked = e.target.files?.[0];
+    e.target.value = "";
+    const f = await cropImage(picked, { aspectW: 1, aspectH: 1, shape: "circle", fit: "cover", outWidth: 900 });
+    if (!f) return;
+    setBusy(true);
+    try { set("photo_url", await uploadFile(f)); } catch (err) { console.error(err); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="w-[84px] h-[84px] rounded-full overflow-hidden shrink-0 border-2 bg-[#101010] flex items-center justify-center" style={{ borderColor: BLUE }}>
+          {p.photo_url ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" /> : <ImagePlus className="w-6 h-6 text-white/40" />}
+        </span>
+        <div className="flex flex-col gap-1.5">
+          <span className={label + " mb-0"}>THE VENUE'S PICTURE</span>
+          <input ref={ref} type="file" accept="image/*" className="hidden" onChange={onPhoto} />
+          <div className="flex gap-2">
+            <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="min-h-[40px] px-3 rounded-[10px] border border-[#3a3a3a] text-[13.5px] font-semibold disabled:opacity-60">{busy ? "Uploading…" : p.photo_url ? "Change" : "Add a picture"}</button>
+            {p.photo_url && <button type="button" onClick={() => set("photo_url", "")} className="min-h-[40px] px-3 text-[13.5px] text-white/55">Remove</button>}
+          </div>
+        </div>
+      </div>
+      <Field k="name" text="VENUE NAME" placeholder="The Echo" value={p.name} set={set} />
+      <Field k="where" text="ADDRESS OR CITY" placeholder="1822 Sunset Blvd, Los Angeles" value={p.where} set={set} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field k="website" text="WEBSITE" placeholder="theecho.com" value={p.website} set={set} />
+        <Field k="instagram" text="INSTAGRAM" placeholder="@theecho" value={p.instagram} set={set} />
+      </div>
+      <Field k="about" text="ABOUT THE ROOM" placeholder="What kind of shows you book, the crowd, what makes the room good to play." value={p.about} set={set} area />
+      <DigitalCardRow {...card} color={BLUE} heading="YOUR DIGITAL CARD (GOES WITH THE OFFER)" />
+    </div>
+  );
+}
+
+// The centre as the act opens it: the venue, and who sent it.
+export function OfferProfileRead({ pkg }) {
+  const p = offerProfile(pkg?.data);
+  const s = pkg?.sender || {};
+  const name = p.name || s.name || "The venue";
+  const photo = p.photo_url || s.photo || "";
+  const link = (href, Icon, text) => (href ? (
+    <a href={href} target="_blank" rel="noreferrer" className="min-h-[44px] px-3 rounded-[10px] border border-[#2a2a2a] bg-[#101010] flex items-center gap-2 text-[14.5px] font-semibold" style={{ color: BLUE }}>
+      <Icon className="w-4 h-4 shrink-0" /><span className="truncate">{text}</span>
+    </a>
+  ) : null);
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col items-center gap-2 text-center">
+        {photo && <img src={photo} alt="" className="w-[120px] h-[120px] rounded-full object-cover border-2" style={{ borderColor: BLUE }} />}
+        <div className="text-[22px] font-bold leading-tight">{name}</div>
+        {has(p.where) && <div className="text-[14px] text-white/65 flex items-center gap-1.5"><MapPin className="w-4 h-4 shrink-0" />{p.where}</div>}
+      </div>
+      {has(p.about) && <p className="m-0 text-[15px] leading-relaxed whitespace-pre-wrap text-white/85">{p.about}</p>}
+      {(has(p.website) || has(p.instagram)) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {link(webHref(p.website), Globe, String(p.website || "").replace(/^https?:\/\//i, "").replace(/\/$/, ""))}
+          {link(igHref(p.instagram), AtSign, has(p.instagram) && !/^https?:/i.test(p.instagram) ? `@${String(p.instagram).replace(/^@/, "")}` : "Instagram")}
+        </div>
+      )}
+      <DigitalCardRow token={s.card} name={s.name} photo={s.photo} color={BLUE} line="Open their digital card" heading="SENT BY" />
+    </div>
+  );
+}
 
 // ---------- Dates ----------
 export function OfferDatesBody({ wants, setWants }) {

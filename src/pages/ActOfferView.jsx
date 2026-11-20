@@ -6,7 +6,7 @@ import { respondToOffer, venueConfirmPackage, OFFER_BLUE } from "@/lib/bookingPa
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
 import TimeSelect from "@/components/showpilot/TimeSelect";
-import { offerReadCircles, NEEDS, counterHas } from "@/components/showpilot/OfferFields";
+import { offerReadCircles, NEEDS, counterHas, OfferProfileRead, offerProfile } from "@/components/showpilot/OfferFields";
 import { techRiderHas, promoHas } from "@/components/showpilot/BookingFields";
 import { loadActTemplates, packageFromTemplate } from "@/lib/bookingTemplate";
 
@@ -188,7 +188,9 @@ export default function ActOfferView({ pkg, code, reload }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [share, setShare] = useState("");
-  const venueName = pkg.sender?.name || "The venue";
+  const profile = offerProfile(pkg.data);
+  const venueName = profile.name || pkg.sender?.name || "The venue";
+  const venuePhoto = profile.photo_url || pkg.sender?.photo || "";
   const here = `/p/${String(pkg.code).toUpperCase()}`;
   const venueDates = Array.isArray(pkg.wants?.dates) ? pkg.wants.dates : [];
   // The venue's dates on a first look; its new dates after it counters.
@@ -290,7 +292,7 @@ export default function ActOfferView({ pkg, code, reload }) {
     );
   }
 
-  const place = pkg.sender?.name || "";
+  const place = profile.name || pkg.sender?.name || "";
   return (
     <IntakeKeyWeb
       fill // the whole desktop width (job 361)
@@ -299,13 +301,17 @@ export default function ActOfferView({ pkg, code, reload }) {
       unlockLabel="Open the offer"
       color={BLUE}
       seed={pkg.code}
-      image={pkg.sender?.photo || ""}
+      image={venuePhoto}
       keyCode={pkg.code}
       fromLine={`${place || "A venue"} sent ${pkg.to_name || "you"} an offer for`}
       title={pkg.act_name || "Your act"}
       dateLine={source.length ? `${source.length} date${source.length === 1 ? "" : "s"} offered` : ""}
       actName=""
-      center={{ name: venueName, photo: pkg.sender?.photo || "", label: "Venue", href: pkg.sender?.card ? `/pilot/${pkg.sender.card}` : "" }}
+      center={{
+        // The venue in the middle (job 385): its profile and who sent it.
+        name: venueName, photo: venuePhoto, label: "Venue", openLabel: "the venue",
+        pane: { label: "The venue", body: () => <OfferProfileRead pkg={pkg} /> },
+      }}
       circles={circles}
       onSend={answeredElsewhere ? () => {} : start}
       canSend={!answeredElsewhere}
