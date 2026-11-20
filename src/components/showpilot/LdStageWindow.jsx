@@ -9,6 +9,16 @@ import { memberSings, isVocalInput } from "@/components/showpilot/VocalsQuestion
 import { useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
 import { emptyRig } from "@/lib/lightingRig";
 
+// An act's members where they put themselves, for Stage3D (job 387).
+export function actMembers3D(act, colors) {
+  return (act?.band_members || []).filter((m) => typeof m.stage_x === "number").map((m) => {
+    const insts = instrumentsOf(m);
+    const played = insts.filter((x) => !isVocalInput(x)).map((x) => x.name).filter(Boolean);
+    const sings = memberSings(m, insts);
+    return { x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name || "", sub: [...played, ...(sings ? ["Vocals"] : [])].join(", "), sings };
+  });
+}
+
 const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
 const AMBER = "#FFB400";
 const KEY = { background: "#262626", borderColor: "#333", color: "#d6d6d6" };
@@ -30,12 +40,7 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
   }, []);
   const act = acts[cur] || {};
   const r = useMemo(() => (rigHasItems(rig) ? normalizeRig(rig) : emptyRig()), [rig]);
-  const members = useMemo(() => (act.band_members || []).filter((m) => typeof m.stage_x === "number").map((m) => {
-    const insts = instrumentsOf(m);
-    const played = insts.filter((x) => !isVocalInput(x)).map((x) => x.name).filter(Boolean);
-    const sings = memberSings(m, insts);
-    return { x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name || "", sub: [...played, ...(sings ? ["Vocals"] : [])].join(", "), sings };
-  }), [act, colors]);
+  const members = useMemo(() => actMembers3D(act, colors), [act, colors]);
   const steps = useMemo(() => cueSteps(act.lighting_cues), [act]);
   const s = step >= 0 ? steps[step] : null;
   const look = s ? s.look : Object.values(keys).some(Boolean) ? lookFromKeys(keys) : null;

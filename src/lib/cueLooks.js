@@ -22,6 +22,8 @@ const colorWord = (t) => COLOR_WORDS.find(([w]) => new RegExp(`\\b${w}\\b`).test
 // { color, bpm, wash, spot, back, chase, fade, strobe, blinder, haze, blackout }
 export function lookFromCue(cue, song = null) {
   const t = String(cue?.look || "").toLowerCase();
+  // The LD set this cue's look on the 3D stage (job 387): that wins.
+  if (cue?.keys && typeof cue.keys === "object") return lookFromKeys(cue.keys, cue.color || colorWord(t) || song?.color || "", Number(song?.bpm) || 120);
   const look = {
     color: cue?.color || colorWord(t) || song?.color || "",
     bpm: Number(song?.bpm) || 120,
@@ -40,6 +42,12 @@ export function lookFromCue(cue, song = null) {
   return look;
 }
 
+// The keys a cue's words would press, to start the LD off when they set it.
+export function keysFromCue(cue, song = null) {
+  const l = lookFromCue({ look: cue?.look, color: cue?.color }, song);
+  return Object.fromEntries(LOOK_KEYS.filter((k) => l[k.id]).map((k) => [k.id, true]));
+}
+
 // The look from the keys pressed in Rig the stage.
 export function lookFromKeys(keys = {}, color = "", bpm = 120) {
   const look = { color, bpm, ...Object.fromEntries(LOOK_KEYS.map((k) => [k.id, !!keys[k.id]])) };
@@ -55,4 +63,16 @@ export function cueSteps(sheet) {
     cues.forEach((cue) => out.push({ song, songIndex: si, cue, look: lookFromCue(cue, song) }));
   });
   return out;
+}
+
+// The LD's own cues, saved with the stage (job 387): rig.cues.
+export const newStageCue = (n = 0) => ({ id: Math.random().toString(36).slice(2, 10), name: `Cue ${n + 1}`, keys: { wash: true }, color: "", bpm: 120 });
+export function normalizeStageCues(list) {
+  return (Array.isArray(list) ? list : []).filter((c) => c && typeof c === "object").slice(0, 200).map((c, i) => ({
+    id: c.id || Math.random().toString(36).slice(2, 10),
+    name: String(c.name || `Cue ${i + 1}`).slice(0, 60),
+    keys: c.keys && typeof c.keys === "object" ? Object.fromEntries(LOOK_KEYS.map((k) => [k.id, !!c.keys[k.id]]).filter(([, v]) => v)) : {},
+    color: String(c.color || ""),
+    bpm: Math.min(220, Math.max(40, Number(c.bpm) || 120)),
+  }));
 }

@@ -7,8 +7,11 @@ import { isTruss } from "@/lib/lightingRig";
 // every light with its beam, and the members standing where they are.
 // One scene for everything the LD does with it:
 //   mode "view"   orbit and zoom
-//   mode "build"  tap a truss / light to pick it, drag it across the stage
-//                 (onSelect(id | null), onMoveItem(id, x, y))
+//   mode "build"  tap a truss / light (onTapItem(id)), tap the stage
+//                 (onTapDeck(x, y)), drag items across the stage - a picked
+//                 group moves together (onDragStart(id), onMoveItems([{id,x,y}]))
+//                 selected: ids picked; moving: ids in hand (grey until placed,
+//                 placed ones are green - job 387)
 //   mode "place"  drag members, tap the deck to put the picked member there
 //                 (onTapDeck(x, y), onMoveMember(i, x, y))
 // `look` plays a lighting look (lib/cueLooks): color, wash, spots on the
@@ -17,7 +20,9 @@ import { isTruss } from "@/lib/lightingRig";
 //   members: [{ x, y, color, name, sub, sings }]
 
 const DECK = 3; // deck height, ft
-const TRUSS_COLOR = "#9aa0a8";
+const GREY = "#8a8f96";   // in hand, not placed yet
+const PLACED = "#57B82B"; // placed
+const PICKED = "#A6FF5C"; // placed and picked
 
 function labelSprite(name, sub, color) {
   const c = document.createElement("canvas");
@@ -40,13 +45,17 @@ function labelSprite(name, sub, color) {
 }
 
 export default function Stage3D({
-  rig, members = [], look = null, mode = "view", selected = null,
-  onSelect, onMoveItem, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
+  rig, members = [], look = null, mode = "view", selected = null, moving = null,
+  onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
 }) {
+  const selIds = [].concat(selected || []);
+  const movingIds = [].concat(moving || []);
+  const selKey = selIds.join(",");
+  const movKey = movingIds.join(",");
   const host = useRef(null);
   const S = useRef(null); // the scene's state between renders
   const cb = useRef({});
-  cb.current = { onSelect, onMoveItem, onTapDeck, onMoveMember, mode };
+  cb.current = { onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, mode, selIds, rig };
 
   // --- The renderer, camera and controls: once. ---
   useEffect(() => {
@@ -72,6 +81,13 @@ export default function Stage3D({
     scene.add(world);
     S.current = { scene, camera, renderer, controls, world, fixtures: [], items: {}, memberObjs: [], deckTop: null, W: 32, D: 24, framed: false };
 
+    // Tests (dev only): where an item is on screen.
+    if (import.meta.env.DEV) window.__stage3dAt = (id) => {
+      const o = S.current?.items[id]; if (!o) return null;
+      const v = new THREE.Vector3(); o.getWorldPosition(v); v.project(camera);
+      const r = renderer.domElement.getBoundingClientRect();
+      return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height];
+    };
     const size = () => {
       const w = el.clientWidth || 300, h = el.clientHeight || 300;
       renderer.setSize(w, h, false);
@@ -85,6 +101,10 @@ export default function Stage3D({
     ro.observe(el);
 
     // --- Picking and dragging. ---
+    // A press on an item grabs it (the view stops turning); once the pointer
+    // moves it drags, on the plane at the item's own height so it stays under
+    // the finger, and a picked group moves with it. Nothing is rebuilt while
+    // dragging; the move is handed back on release.
     const ray = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DECK);
@@ -94,12 +114,16 @@ export default function Stage3D({
       ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
       ray.setFromCamera(ndc, camera);
     };
-    const deckXY = () => {
+    // Where the pointer meets the level at height y, as stage fractions (unclamped).
+    const levelXY = (y) => {
+      plane.constant = -y;
       if (!ray.ray.intersectPlane(plane, hit)) return null;
       const { W, D } = S.current;
-      return [Math.min(1, Math.max(0, hit.x / W + 0.5)), Math.min(1, Math.max(0, hit.z / D + 0.5))];
+      return [hit.x / W + 0.5, hit.z / D + 0.5];
     };
-    let drag = null; // { kind: "item" | "member", id | i, obj, moved, sx, sy }
+    const deckXY = () => { const p = levelXY(DECK); return p && [Math.min(1, Math.max(0, p[0])), Math.min(1, Math.max(0, p[1]))]; };
+    const clamp01 = (v) => Math.min(1, Math.max(0, v));
+    let press = null; // { kind, id | i, x, y, h, grab, started, ids, start }
     let down = null;
     const onDown = (e) => {
       const m = cb.current.mode;
@@ -108,55 +132,84 @@ export default function Stage3D({
       toNdc(e);
       const st = S.current;
       if (m === "build") {
-        const objs = Object.values(st.items);
-        const h = ray.intersectObjects(objs, true)[0];
-        if (h) {
-          let o = h.object; while (o && !o.userData.itemId) o = o.parent;
-          if (o) { drag = { kind: "item", id: o.userData.itemId, obj: o, moved: false }; controls.enabled = false; cb.current.onSelect?.(o.userData.itemId); }
+        const h = ray.intersectObjects(Object.values(st.items), true)[0];
+        let o = h?.object; while (o && !o.userData.itemId) o = o.parent;
+        if (o) {
+          const id = o.userData.itemId;
+          const it = (cb.current.rig?.items || []).find((x) => x.id === id);
+          const lvl = DECK + (it?.h || 0);
+          press = { kind: "item", id, h: lvl, grab: levelXY(lvl), started: false };
         }
       } else if (m === "place") {
         const h = ray.intersectObjects(st.memberObjs, true)[0];
-        if (h) {
-          let o = h.object; while (o && o.userData.memberIndex === undefined) o = o.parent;
-          if (o) { drag = { kind: "member", i: o.userData.memberIndex, obj: o, moved: false }; controls.enabled = false; }
-        }
+        let o = h?.object; while (o && o.userData.memberIndex === undefined) o = o.parent;
+        if (o) press = { kind: "member", i: o.userData.memberIndex, h: DECK, grab: levelXY(DECK), started: false, obj: o };
       }
-      if (drag) { try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} }
+      if (press) {
+        controls.enabled = false;
+        e.stopImmediatePropagation(); // the view doesn't turn under a grab
+        try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+      }
     };
     const onMove = (e) => {
-      if (!drag) return;
+      if (!press || !press.grab) return;
+      if (!press.started) {
+        if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5) return;
+        press.started = true;
+        if (press.kind === "item") {
+          const sel = cb.current.selIds;
+          press.ids = sel.includes(press.id) ? sel : [press.id];
+          press.start = {};
+          (cb.current.rig?.items || []).forEach((it) => { if (press.ids.includes(it.id)) press.start[it.id] = [it.x, it.y]; });
+          cb.current.onDragStart?.(press.id);
+        }
+      }
       toNdc(e);
-      const p = deckXY();
+      const p = levelXY(press.h);
       if (!p) return;
-      drag.moved = true;
-      const { W, D } = S.current;
-      drag.obj.position.x = (p[0] - 0.5) * W;
-      drag.obj.position.z = (p[1] - 0.5) * D;
-      drag.at = p;
+      const dx = p[0] - press.grab[0], dy = p[1] - press.grab[1];
+      const { W, D, items } = S.current;
+      if (press.kind === "item") {
+        press.at = press.ids.map((id) => {
+          const [sx, sy] = press.start[id] || [0.5, 0.5];
+          const x = clamp01(sx + dx), y = clamp01(sy + dy);
+          const o = items[id]; // looked up each time: the scene may have been rebuilt
+          if (o) { o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D; }
+          return { id, x, y };
+        });
+      } else {
+        const x = clamp01(p[0]), y = clamp01(p[1]);
+        const o = S.current.memberObjs.find((g) => g.userData.memberIndex === press.i) || press.obj;
+        o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
+        press.at = [x, y];
+      }
     };
     const onUp = (e) => {
-      const was = drag;
-      drag = null;
+      const was = press;
+      press = null;
       controls.enabled = true;
-      if (was?.moved && was.at) {
-        if (was.kind === "item") cb.current.onMoveItem?.(was.id, was.at[0], was.at[1]);
+      const tap = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
+      down = null;
+      if (was?.started && was.at) {
+        if (was.kind === "item") cb.current.onMoveItems?.(was.at);
         else cb.current.onMoveMember?.(was.i, was.at[0], was.at[1]);
         return;
       }
-      // A tap (not an orbit): on empty deck.
-      if (!was && down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6) {
-        const m = cb.current.mode;
+      if (was?.kind === "item") { cb.current.onTapItem?.(was.id); return; }
+      if (was) return;
+      // A tap (not an orbit) on the stage.
+      if (tap && cb.current.mode !== "view") {
         toNdc(e);
-        if (m === "place") { const p = deckXY(); if (p) cb.current.onTapDeck?.(p[0], p[1]); }
-        if (m === "build") cb.current.onSelect?.(null);
+        const p = deckXY();
+        if (p) cb.current.onTapDeck?.(p[0], p[1]);
+        else if (cb.current.mode === "build") cb.current.onTapDeck?.(null, null);
       }
-      down = null;
     };
     const cv = renderer.domElement;
-    cv.addEventListener("pointerdown", onDown);
+    cv.addEventListener("pointerdown", onDown, true);
     cv.addEventListener("pointermove", onMove);
     cv.addEventListener("pointerup", onUp);
-    cv.addEventListener("pointercancel", () => { drag = null; controls.enabled = true; });
+    cv.addEventListener("pointercancel", () => { press = null; controls.enabled = true; });
 
     // --- Every frame: the look. ---
     let raf = 0;
@@ -195,8 +248,9 @@ export default function Stage3D({
           const s = st.singers[k % st.singers.length];
           f.head.lookAt(s.x, DECK + 3, s.z);
         } else {
+          // Where it's tilted to (straight down / up at 0).
           f.head.getWorldPosition(f.wp);
-          f.head.lookAt(f.wp.x, f.up ? f.wp.y + 20 : 0, f.wp.z + 0.0001);
+          f.head.lookAt(f.wp.x + f.dir.x * 20, f.wp.y + f.dir.y * 20, f.wp.z + f.dir.z * 20 + 0.0001);
         }
       });
       if (st.hazeMesh) st.hazeMesh.material.opacity = L?.haze ? 0.08 + 0.02 * Math.sin(t) : 0;
@@ -209,7 +263,7 @@ export default function Stage3D({
       cancelAnimationFrame(raf);
       ro.disconnect();
       controls.dispose();
-      cv.removeEventListener("pointerdown", onDown);
+      cv.removeEventListener("pointerdown", onDown, true);
       cv.removeEventListener("pointermove", onMove);
       cv.removeEventListener("pointerup", onUp);
       scene.traverse((o) => { o.geometry?.dispose?.(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose?.(); m.dispose?.(); }); });
@@ -253,8 +307,9 @@ export default function Stage3D({
     world.add(haze);
     st.hazeMesh = haze;
 
-    const trussMat = new THREE.MeshStandardMaterial({ color: TRUSS_COLOR, metalness: 0.7, roughness: 0.35, wireframe: true });
-    const beam = (len) => new THREE.Mesh(new THREE.BoxGeometry(len, 1, 1), trussMat);
+    const mats = {};
+    const trussMat = (c) => (mats[c] ||= new THREE.MeshStandardMaterial({ color: c, emissive: new THREE.Color(c), emissiveIntensity: 0.35, metalness: 0.5, roughness: 0.4, wireframe: true }));
+    const stateColor = (id) => (movingIds.includes(id) ? GREY : selIds.includes(id) ? PICKED : PLACED);
     st.items = {};
     st.fixtures = [];
     (rig.items || []).forEach((it) => {
@@ -264,6 +319,8 @@ export default function Stage3D({
       g.position.set(x, DECK + (it.h || 0), z);
       g.rotation.y = -((it.rot || 0) * Math.PI) / 180;
       if (isTruss(it.type)) {
+        const tm = trussMat(stateColor(it.id));
+        const beam = (len) => new THREE.Mesh(new THREE.BoxGeometry(len, 1, 1), tm);
         const L = it.len * W;
         if (it.type === "truss_straight") g.add(beam(L));
         else if (it.type === "truss_box") {
@@ -273,11 +330,11 @@ export default function Stage3D({
           const c = beam(Dd); c.rotation.y = Math.PI / 2; c.position.x = -L / 2; g.add(c);
           const d = beam(Dd); d.rotation.y = Math.PI / 2; d.position.x = L / 2; g.add(d);
         } else {
-          const ring = new THREE.Mesh(new THREE.TorusGeometry(L / 2, 0.5, 6, 48), trussMat);
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(L / 2, 0.5, 6, 48), tm);
           ring.rotation.x = Math.PI / 2;
           g.add(ring);
         }
-        if (selected === it.id) g.add(new THREE.BoxHelper(g, "#8CFF3D"));
+        if (selIds.includes(it.id)) g.add(new THREE.BoxHelper(g, movingIds.includes(it.id) ? "#FFB400" : PICKED));
       } else {
         const color = it.color || "#ffffff";
         const head = new THREE.Group(); // turns to aim
@@ -286,7 +343,11 @@ export default function Stage3D({
           new THREE.MeshStandardMaterial({ color: "#1b1b1b", emissive: new THREE.Color(color), emissiveIntensity: 0.6 })
         );
         head.add(body);
-        const len = Math.max(2, (it.h || 0) + 0.5);
+        // Tilt (job 387): the beam leans toward the front (local +z) and
+        // lands further out, so it's longer.
+        const tilt = ((it.tilt || 0) * Math.PI) / 180;
+        const reach = Math.cos(Math.min(1.3, Math.abs(tilt)));
+        const len = Math.max(2, ((it.h || 0) + 0.5) / reach);
         const r = it.type === "beam" ? 0.5 : it.type === "spot" ? 2.2 : it.type === "par" ? 2.6 : it.type === "strobe" || it.type === "blinder" ? 3.2 : 4;
         const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
         // The cone points down its -Z, so lookAt aims it.
@@ -299,18 +360,25 @@ export default function Stage3D({
         const pool = new THREE.Mesh(new THREE.CircleGeometry(r, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
         pool.rotation.x = -Math.PI / 2;
         pool.position.y = -(it.h || 0) + 0.04;
+        pool.position.z = (it.h || 0) * Math.tan(Math.max(-1.3, Math.min(1.3, tilt)));
+        if (Math.abs(it.tilt || 0) > 70) pool.visible = false;
+        // The mount: green once placed, grey while in hand.
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.35, 1.5), new THREE.MeshBasicMaterial({ color: stateColor(it.id) }));
+        mount.position.y = (it.h || 0) > 0 ? 0.75 : -0.6;
+        g.add(mount);
         g.add(head);
         if ((it.h || 0) > 0 && it.type !== "fog") g.add(pool);
         if (it.type === "fog") { cone.visible = false; pool.visible = false; }
         const up = (it.h || 0) === 0 && it.type !== "fog"; // floor lights point up
         if (up) pool.visible = false;
-        if (selected === it.id) {
-          const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.12, 6, 24), new THREE.MeshBasicMaterial({ color: "#8CFF3D" }));
+        if (selIds.includes(it.id)) {
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.14, 6, 24), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : PICKED }));
           ring.rotation.x = Math.PI / 2;
           g.add(ring);
         }
         // Aim: straight down (floor lights: up) unless a look turns it (tick).
-        st.fixtures.push({ type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, wp: new THREE.Vector3() });
+        const dir = new THREE.Vector3(0, up ? Math.cos(tilt) : -Math.cos(tilt), Math.sin(tilt)).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.rotation.y);
+        st.fixtures.push({ type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, wp: new THREE.Vector3() });
       }
       world.add(g);
       st.items[it.id] = g;
@@ -351,7 +419,8 @@ export default function Stage3D({
       st.controls.update();
       st.framed = true;
     }
-  }, [rig, members, selected, pickedMember, labels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rig, members, selKey, movKey, pickedMember, labels]);
 
   useEffect(() => { if (S.current) S.current.look = look; }, [look]);
 

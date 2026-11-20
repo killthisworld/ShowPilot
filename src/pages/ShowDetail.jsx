@@ -6,8 +6,7 @@ import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/s
 import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
-import LdStageWindow from "@/components/showpilot/LdStageWindow";
-import LdStageCard from "@/components/showpilot/LdStageCard";
+import LdStageCard, { EventStageBuilder } from "@/components/showpilot/LdStageCard";
 import { LdActMembers } from "@/components/showpilot/LdStageWindow";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
@@ -1158,7 +1157,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
             {techPhone && !isNew && identityBlock}
             {/* The LD's 3D stage for this event (job 383). */}
-            {isLightingAccount && <div className="mb-3"><LdStageCard rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} /></div>}
+            {isLightingAccount && <div className="mb-3"><LdStageCard rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} /></div>}
             <VenueInfoFields
               value={show}
               onChange={update}
@@ -1295,7 +1294,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           onSave={!isNew ? () => { setSaveAfter((n) => n + 1); setCuesAt(null); } : null} />
       )}
       {/* The LD sees the act on the event's 3D stage, cues and all (job 383). */}
-      {plotAt !== null && isLightingAccount && <LdStageWindow acts={bands} start={plotAt} rig={show.lighting_rig || myVenueRig} onClose={() => setPlotAt(null)} onOpenCues={(i) => setCuesAt(i)} />}
+      {/* The LD runs the act's cues on the event's stage (job 387). */}
+      {plotAt !== null && isLightingAccount && <EventStageBuilder rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} startAct={plotAt} startTab="cues" onClose={() => setPlotAt(null)} />}
       {plotAt !== null && !isLightingAccount && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow

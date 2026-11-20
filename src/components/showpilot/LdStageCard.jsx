@@ -13,8 +13,9 @@ const AMBER = "#FFB400";
 // The event's 3D stage, for the LD (job 383): load one of their stages or
 // build one from scratch. It goes out with their intake links (artists place
 // their members on it) and is what the LD opens on the event.
-//   rig, onChange(rig), venueName (a new stage is saved under it)
-export default function LdStageCard({ rig, onChange, venueName = "" }) {
+//   rig, onChange(rig), venueName (a new stage is saved under it),
+//   acts + onActs(acts): the event's acts, to set looks on their cues (job 387)
+export default function LdStageCard({ rig, onChange, venueName = "", acts = null, onActs = null }) {
   const [picking, setPicking] = useState(false);
   const [building, setBuilding] = useState(false);
   const [stages, reload] = useLdStages();
@@ -66,17 +67,25 @@ export default function LdStageCard({ rig, onChange, venueName = "" }) {
         </div>,
         document.body
       )}
-      {building && (
-        <StageBuilder name={venueName} rig={r || emptyRig()} title="THIS EVENT'S STAGE"
-          onClose={() => setBuilding(false)}
-          // Save: on the event, and kept with your stages under the venue's name.
-          onSave={async ({ name, rig: next }) => {
-            onChange(next);
-            setBuilding(false);
-            try { await saveLdStage({ name: name || venueName || "My stage", rig: next }); reload(); toast({ title: "Stage set for this event and saved to your stages" }); }
-            catch (e) { console.error(e); toast({ title: "Set for this event (couldn't save it to your stages)" }); }
-          }} />
-      )}
+      {building && <EventStageBuilder rig={rig} venueName={venueName} onChange={onChange} acts={acts} onActs={onActs} onSaved={reload} onClose={() => setBuilding(false)} />}
     </div>
+  );
+}
+
+// The event's stage in Rig the stage (job 387): Save puts it on the event,
+// keeps it with the LD's stages under the venue's name, and hands back any
+// looks set on the acts' cues.
+export function EventStageBuilder({ rig, venueName = "", onChange, acts = null, onActs = null, startAct = 0, startTab = "rig", onSaved, onClose }) {
+  const has = rigHasItems(rig) || (rig?.cues || []).length > 0;
+  return (
+    <StageBuilder name={venueName} rig={has ? normalizeRig(rig) : emptyRig()} title="THIS EVENT'S STAGE" acts={acts} startAct={startAct} startTab={startTab}
+      onClose={onClose}
+      onSave={async ({ name, rig: next, acts: nextActs }) => {
+        onChange(next);
+        if (nextActs && onActs) onActs(nextActs);
+        onClose();
+        try { await saveLdStage({ name: name || venueName || "My stage", rig: next }); onSaved?.(); toast({ title: "Stage set for this event and saved to your stages" }); }
+        catch (e) { console.error(e); toast({ title: "Set for this event (couldn't save it to your stages)" }); }
+      }} />
   );
 }

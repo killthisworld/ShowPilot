@@ -1,3 +1,4 @@
+import { normalizeStageCues } from "@/lib/cueLooks";
 // An LD's lighting rig for a venue's stage (job 377): trusses and single
 // fixtures laid out on the same 4:3 stage as the stage plot. Kept on the LD's
 // venue template (data.lighting_rig) and shown, look-only, under the members
@@ -9,6 +10,9 @@
 //   len    trusses: straight = length as a share of the stage width;
 //          box = width share (depth is len * 0.6); circle = diameter share
 //   h      trim height in feet (fixtures on the floor: 0)
+//   tilt   lights: degrees off straight down (floor lights: off straight up),
+//          toward the front of the stage at 0 turn; -90..90 (job 387)
+// rig.cues: the LD's own cues for the stage (lib/cueLooks newStageCue).
 
 export const TRUSS_TYPES = [
   { type: "truss_straight", label: "Straight" },
@@ -36,7 +40,7 @@ export const rigTypeLabel = (t) => (TRUSS_TYPES.find((x) => x.type === t) || FIX
 const newId = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
-export const emptyRig = () => ({ width_ft: 32, depth_ft: 24, items: [] });
+export const emptyRig = () => ({ width_ft: 32, depth_ft: 24, items: [], cues: [] });
 
 export function normalizeRig(r) {
   if (!r || typeof r !== "object") return emptyRig();
@@ -53,7 +57,9 @@ export function normalizeRig(r) {
       h: clamp(Number(i.h ?? (isTruss(i.type) ? 18 : 0)) || 0, 0, 80),
       color: i.color || fixtureInfo(i.type)?.color || "#FFFFFF",
       label: String(i.label || "").slice(0, 40),
+      tilt: clamp(Number(i.tilt) || 0, -90, 90),
     })),
+    cues: normalizeStageCues(r.cues),
   };
 }
 
@@ -75,7 +81,49 @@ export function newRigItem(type, rig) {
     h: truss ? 18 : type === "fog" ? 0 : 18,
     color: fixtureInfo(type)?.color || "#FFFFFF",
     label: "",
+    tilt: 0,
   };
+}
+
+export const newRigId = newId;
+
+// Lights hung on a truss (job 387): `count` of `type`, spread evenly along a
+// straight truss, along the front of a box, around a circle - just under it.
+export function lightsOnTruss(truss, type, count, rig) {
+  const W = rig?.width_ft || 32, D = rig?.depth_ft || 24;
+  const n = clamp(Math.round(count) || 1, 1, 24);
+  const rot = ((truss.rot || 0) * Math.PI) / 180;
+  const L = (truss.len || 0.5) * W; // ft
+  // Local (lx along the truss, lz toward the front) -> stage fraction.
+  const at = (lx, lz) => [
+    clamp(truss.x + (lx * Math.cos(rot) - lz * Math.sin(rot)) / W, 0, 1),
+    clamp(truss.y + (lx * Math.sin(rot) + lz * Math.cos(rot)) / D, 0, 1),
+  ];
+  const spots = [];
+  for (let k = 0; k < n; k++) {
+    if (truss.type === "truss_circle") {
+      const a = (k / n) * Math.PI * 2;
+      spots.push(at(Math.cos(a) * L / 2, Math.sin(a) * L / 2));
+    } else {
+      const lx = -L / 2 + (L * (k + 0.5)) / n;
+      spots.push(at(lx, truss.type === "truss_box" ? (truss.len * 0.8 * D) / 2 : 0));
+    }
+  }
+  return spots.map(([x, y]) => ({
+    ...newRigItem(type, rig), id: newId(), x, y, rot: truss.rot || 0, h: Math.max(0, (truss.h || 0) - 1),
+  }));
+}
+
+// The lights on the stage by kind, for the Rig tab: [{ type, label, color, ids }].
+export function rigGroups(rig) {
+  const out = [];
+  (rig?.items || []).forEach((i) => {
+    const key = isTruss(i.type) ? "truss" : i.type;
+    let g = out.find((x) => x.type === key);
+    if (!g) { g = { type: key, label: key === "truss" ? "Truss" : rigTypeLabel(i.type), color: key === "truss" ? "#8CFF3D" : fixtureInfo(i.type)?.color || "#fff", ids: [] }; out.push(g); }
+    g.ids.push(i.id);
+  });
+  return out.sort((a, b) => (a.type === "truss" ? -1 : b.type === "truss" ? 1 : 0));
 }
 
 // A short summary for template rows: "2 trusses · 14 lights".
