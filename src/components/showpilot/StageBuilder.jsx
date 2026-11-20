@@ -1,8 +1,8 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { Tag, Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss, snapPlace } from "@/lib/lightingRig";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, rigNamedGroups, newRigId, trussToStage, stageToTruss, snapPlace } from "@/lib/lightingRig";
 import { MOTIONS, LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -109,7 +109,8 @@ export default function StageBuilder({
   const place = () => pick([]);
   const hangLights = () => {
     if (!one || !isTruss(one.type) || !adding) return;
-    addItems(lightsOnTruss(one, adding.type, adding.count, rig));
+    const name = String(adding.name || "").trim();
+    addItems(lightsOnTruss(one, adding.type, adding.count, rig).map((l) => (name ? { ...l, group: name } : l)));
   };
   // Lights hung on these trusses (job 388): they move, turn, rise and go with them.
   const hungOn = (ids, list = items) => list.filter((i) => i.on && ids.includes(i.on) && !ids.includes(i.id)).map((i) => i.id);
@@ -283,7 +284,8 @@ export default function StageBuilder({
   };
   // The cue's lights (job 393): none picked = all of them.
   const curLights = !cur ? [] : (draft ? draft.lights : isAct ? cur.cue.lights : cur.lights) || [];
-  const lightGroups = rigGroups(rig).filter((g) => g.type !== "truss" && isLight(g.type));
+  // Named groups first (job 402), then by kind.
+  const lightGroups = [...rigNamedGroups(rig), ...rigGroups(rig).filter((g) => g.type !== "truss" && isLight(g.type))];
   const setCueLights = (ids) => setCue({ lights: ids });
   const toggleCueLight = (id) => {
     const it = items.find((i) => i.id === id);
@@ -318,8 +320,9 @@ export default function StageBuilder({
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument"); // listed on their own
-  const pickedLabel = one && isInstrument(one.type) ? `${partLabel(one.part)} · no one at it` : one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
+  const groups = [...rigNamedGroups(rig), ...rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument")]; // named groups first; people, risers, instruments listed on their own
+  const sharedGroup = picked.length > 1 && picked[0].group && picked.every((i) => i.group === picked[0].group) ? picked[0].group : "";
+  const pickedLabel = sharedGroup ? `${sharedGroup} · ${picked.length} lights` : one && isInstrument(one.type) ? `${partLabel(one.part)} · no one at it` : one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
@@ -347,6 +350,9 @@ export default function StageBuilder({
                 className={key + " shrink-0"} style={adding.type === t.type ? keyOn : keyOff}><span className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />{t.label}</button>
             ))}
           </div>
+          {/* A name for the group (job 402): picked together from On stage, and in cues. */}
+          <input value={adding.name || ""} onChange={(e) => setAdding((a) => ({ ...a, name: e.target.value }))} placeholder="Name them (e.g. Front spots) - optional" aria-label="Name this group of lights" maxLength={40}
+            className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
           <div className="flex items-center gap-2">
             <span className={lbl} style={mono}>HOW MANY</span>
             <button type="button" className={step} style={keyOff} aria-label="Fewer" onClick={() => setAdding((a) => ({ ...a, count: Math.max(1, a.count - 1) }))}><Minus className="w-4 h-4" /></button>
@@ -414,6 +420,16 @@ export default function StageBuilder({
                 <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
               </div>
             )}
+            {lights.length > 1 && (
+              // The picked lights' group name (job 402): name or rename them together.
+              <div className="flex items-center gap-1.5">
+                <span className={lbl + " w-14"} style={mono}>GROUP</span>
+                <input value={lights.every((l) => (l.group || "") === (lights[0].group || "")) ? lights[0].group || "" : ""}
+                  onChange={(e) => patchMany(lights.map((l) => l.id), () => ({ group: e.target.value.slice(0, 40) }))}
+                  placeholder="Name these lights (e.g. Back wash)" aria-label="Group name for these lights" maxLength={40}
+                  className="flex-1 min-w-0 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
+              </div>
+            )}
             {lights.length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={lbl + " w-14"} style={mono}>COLOR</span>
@@ -468,7 +484,7 @@ export default function StageBuilder({
               const on = g.ids.length === sel.length && g.ids.every((id) => sel.includes(id));
               return (
                 <button key={g.type} type="button" onClick={() => (on ? pick([]) : pick(g.ids))} aria-pressed={on} className={key} style={on ? keyOn : keyOff}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />{g.label}<span className="tabular-nums text-white/55">×{g.ids.length}</span>
+                  {g.named ? <Tag className="w-3.5 h-3.5" style={{ color: g.color }} /> : <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />}{g.label}<span className="tabular-nums text-white/55">×{g.ids.length}</span>
                 </button>
               );
             })}
@@ -574,7 +590,7 @@ export default function StageBuilder({
                   <button key={g.type} type="button" aria-pressed={all}
                     onClick={() => setCueLights(all ? curLights.filter((id) => !g.ids.includes(id)) : [...new Set([...curLights, ...g.ids])])}
                     className={key} style={all ? keyOn : n ? { ...keyOff, borderColor: MA.amber, borderStyle: "dashed" } : keyOff}>
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />{g.label}<span className="tabular-nums text-white/55">{n && !all ? `${n}/${g.ids.length}` : `×${g.ids.length}`}</span>
+                    {g.named ? <Tag className="w-3.5 h-3.5" style={{ color: g.color }} /> : <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />}{g.label}<span className="tabular-nums text-white/55">{n && !all ? `${n}/${g.ids.length}` : `×${g.ids.length}`}</span>
                   </button>
                 );
               })}
