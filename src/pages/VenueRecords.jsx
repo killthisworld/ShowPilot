@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import { ArrowLeft, AlertTriangle, Check, Download, FileText, Lock, Search } from "lucide-react";
 import { useGoBack } from "@/lib/navHistory";
 import useIsDesktop from "@/hooks/useIsDesktop";
@@ -184,6 +185,8 @@ export default function VenueRecords() {
       </div>
 
       <RecordModal record={view} versions={view ? versionsOf(view) : []} onClose={() => setView(null)} />
+      {/* The rail on a computer (job 428). */}
+      <BottomTabs railOnly />
     </div>
   );
 }

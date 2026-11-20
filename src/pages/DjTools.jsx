@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -290,6 +291,8 @@ export default function DjTools({ embedded = false, showId = null, onClose, retu
       {/* The space background on the page (job 362); the box over an event keeps its plain one. */}
       {!embedded && <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-sets" dim={0.45} /></div>}
       <div className="relative z-[1]">
+      {/* The rail on a computer (job 428); not in the box over an event. */}
+      {!embedded && <BottomTabs railOnly />}
       <header className="flex flex-wrap items-center gap-4 px-4 sm:px-6 py-3.5 border-b border-[#1a1a1a]">
         <button type="button" onClick={back} className="p-1 text-white/60 hover:text-white" aria-label="Back"><ArrowLeft className="w-5 h-5" /></button>
         <Disc3 className="w-7 h-7" style={{ color: DJ_COLOR }} />

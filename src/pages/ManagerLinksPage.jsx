@@ -1,4 +1,5 @@
 import useAccountType from "@/hooks/useAccountType";
+import BottomTabs from "@/components/showpilot/BottomTabs";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -264,7 +265,9 @@ export default function ManagerLinksPage() {
       )}
 
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
-        <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-lg mx-auto">
+        {/* A computer (job 428): the full window beside the rail, the links
+            in columns; a phone keeps the single column. */}
+        <div className="flex items-center justify-between gap-3 px-4 py-4 max-w-lg mx-auto lg:max-w-6xl lg:px-6">
           <div className="flex items-center gap-3">
             <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
@@ -302,9 +305,9 @@ export default function ManagerLinksPage() {
         </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
+      <div className="px-4 pt-4 pb-24 lg:pb-8 max-w-lg mx-auto lg:max-w-6xl lg:px-6 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3 lg:items-start">
         {requests.length === 0 ? (
-          <p className="text-center text-white/40 py-16 text-sm">No manager links sent yet</p>
+          <p className="text-center text-white/40 py-16 text-sm lg:col-span-full">No manager links sent yet</p>
         ) : (
           requests.map((r) => (
             <div key={r.id} className="bg-[#161616] rounded-2xl border border-[#222] p-4">
@@ -365,6 +368,7 @@ export default function ManagerLinksPage() {
           ))
         )}
       </div>
+      <BottomTabs railOnly />
     </div>
   );
 }

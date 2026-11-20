@@ -44,8 +44,9 @@ export default function MePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-32">
-      <div className="max-w-lg mx-auto">
+    // A computer (job 428): wider, the profile's cards beside its settings.
+    <div className="min-h-screen bg-[#0d0d0d] pb-32 lg:pb-10">
+      <div className="max-w-lg mx-auto lg:max-w-5xl lg:px-6">
         <div className="px-5 pt-[22px]">
           <h1 className="m-0 text-[34px] font-bold tracking-[0.04em] leading-none text-white" style={{ fontFamily: SCENE_FONT }}>ME</h1>
           <div className="flex items-center gap-1.5 mt-1 text-[13px] text-white/60" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -54,7 +55,7 @@ export default function MePage() {
           </div>
         </div>
 
-        <div role="tablist" aria-label="Me sections" className={`mx-5 mt-4 grid ${sections.length === 3 ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]`} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+        <div role="tablist" aria-label="Me sections" className={`mx-5 mt-4 lg:max-w-md grid ${sections.length === 3 ? "grid-cols-3" : "grid-cols-2"} gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]`} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
           {sections.map((s) => {
             const on = section === s.id;
             return (
@@ -75,7 +76,7 @@ export default function MePage() {
       </div>
 
       {section === "party" ? (
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto lg:max-w-5xl lg:px-6">
           <PartyPanel accent={accent} />
         </div>
       ) : section === "cockpit" ? (
@@ -83,10 +84,9 @@ export default function MePage() {
           <Cockpit embedded />
         </div>
       ) : (
-        <div className="max-w-lg mx-auto">
-          <HomeScreenCard accent={accent} />
-          <AlertsCard accent={accent} />
-          {preferences && <BandSettingsDrawer page preferences={preferences} onPreferencesUpdate={reload} />}
+        <div className="max-w-lg mx-auto lg:max-w-5xl lg:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] lg:gap-6 lg:items-start">
+          <div><HomeScreenCard accent={accent} /><AlertsCard accent={accent} /></div>
+          <div>{preferences && <BandSettingsDrawer page preferences={preferences} onPreferencesUpdate={reload} />}</div>
         </div>
       )}
       <BandBottomTabs />
