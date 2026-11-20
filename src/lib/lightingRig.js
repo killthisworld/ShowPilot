@@ -64,7 +64,9 @@ export function normalizeRig(r) {
       h: clamp(Number(i.h ?? (isTruss(i.type) ? 18 : 0)) || 0, 0, 80),
       color: i.color || fixtureInfo(i.type)?.color || "#FFFFFF",
       label: String(i.label || "").slice(0, 40),
-      tilt: clamp(Number(i.tilt) || 0, -90, 90),
+      // Trusses tilt and roll all the way round (job 392); lights tilt to 90.
+      tilt: isTruss(i.type) ? ((((Number(i.tilt) || 0) + 180) % 360 + 360) % 360) - 180 : clamp(Number(i.tilt) || 0, -90, 90),
+      ...(isTruss(i.type) && Number(i.roll) ? { roll: ((((Number(i.roll) || 0) + 180) % 360 + 360) % 360) - 180 } : {}),
       ...(i.off ? { off: true } : {}),
       ...(i.type === "riser" ? { rw: clamp(Number(i.rw) || 8, 1, 60), rd: clamp(Number(i.rd) || 8, 1, 60), rh: clamp(Number(i.rh) || 1, 0.25, 10) } : {}),
       ...(i.on ? { on: String(i.on) } : {}),

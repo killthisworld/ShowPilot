@@ -363,11 +363,11 @@ export default function Stage3D({
         return;
       }
       if (isTruss(it.type)) {
-        // Tilt (jobs 389, 392): a box or circle leans forward / back; a
-        // straight truss tips up on end - at 90 it stands up.
+        // Any angle (job 392): turn (y), tilt forward / back (x), roll side
+        // to side (z), each all the way round.
         g.rotation.order = "YXZ";
-        if (it.type === "truss_straight") g.rotation.z = ((it.tilt || 0) * Math.PI) / 180;
-        else g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
+        g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
+        g.rotation.z = ((it.roll || 0) * Math.PI) / 180;
         const tm = trussMat(stateColor(it.id));
         const beam = (len) => new THREE.Mesh(new THREE.BoxGeometry(len, 1, 1), tm);
         const L = it.len * W;

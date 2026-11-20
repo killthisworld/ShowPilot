@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
@@ -113,7 +113,10 @@ export default function StageBuilder({
     sel.forEach((id) => {
       const t = byId[id];
       if (!t) return;
-      out[id] = { [k]: k === "rot" ? norm360((t.rot || 0) + by) : clamp((t[k] || 0) + by, lo, hi) };
+      // Trusses turn, tilt and roll all the way round (job 392); lights tilt to 90.
+      const round = k === "rot" || ((k === "tilt" || k === "roll") && isTruss(t.type));
+      const v = (t[k] || 0) + by;
+      out[id] = { [k]: !round ? clamp(v, lo, hi) : k === "rot" ? norm360(v) : ((((v + 180) % 360) + 360) % 360) - 180 };
       const kids = r.items.filter((i) => i.on === id && !sel.includes(i.id));
       kids.forEach((c) => {
         if (k === "h") out[c.id] = { h: clamp((c.h || 0) + (out[id].h - (t.h || 0)), 0, 80) };
@@ -278,17 +281,6 @@ export default function StageBuilder({
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
   const turnShown = picked.length && picked.every((i) => norm360(i.rot) === norm360(picked[0].rot)) ? `${norm360(picked[0].rot)}°` : "±";
-  // A truss stood up on end, or laid flat again (job 392): standing, it sits on the deck.
-  const standing = aimable.length > 0 && aimable.every((i) => isTruss(i.type) && Math.abs(i.tilt || 0) >= 80);
-  const standUp = () => {
-    const W = rig.width_ft, D = rig.depth_ft;
-    patchMany(sel, (i) => {
-      if (!isTruss(i.type)) return {};
-      if (standing) return { tilt: 0, h: 18 };
-      const span = i.type === "truss_box" ? i.len * 0.8 * D : i.len * W; // its size once upright
-      return { tilt: 90, h: Math.round(span / 2 + 0.5) };
-    });
-  };
   const trussesPicked = picked.length > 0 && picked.every((i) => isTruss(i.type));
   const lightsOff = lights.length > 0 && lights.every((l) => l.off);
 
@@ -381,13 +373,13 @@ export default function StageBuilder({
               <span className={lbl} style={mono}>AIM</span>
               <div className="grid grid-cols-3 gap-1" style={{ width: 116 }}>
                 <span />
-                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt up / upstage" onClick={() => nudge("tilt", -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
+                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt up / upstage" onClick={() => nudge("tilt", trussesPicked ? -15 : -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
                 <span />
                 <button type="button" className={aimKey} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><ChevronLeft className="w-5 h-5" /></button>
                 <span className="w-9 h-9 rounded-full border border-[#333] bg-[#0e0e0e]" aria-hidden="true" />
                 <button type="button" className={aimKey} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><ChevronRight className="w-5 h-5" /></button>
                 <span />
-                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt down / downstage" onClick={() => nudge("tilt", 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
+                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt down / downstage" onClick={() => nudge("tilt", trussesPicked ? 15 : 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
                 <span />
               </div>
             </div>
@@ -405,7 +397,14 @@ export default function StageBuilder({
                 </div>
               )}
               {trussesPicked && (
-                <button type="button" onClick={standUp} aria-pressed={standing} className={key + " self-start"} style={standing ? keyOn : keyOff}>{standing ? "Lay it flat" : "Stand it up"}</button>
+                // Roll: side to side, all the way round - with turn and tilt
+                // a truss can sit at any angle.
+                <div className="flex items-center gap-1.5">
+                  <span className={lbl + " w-12"} style={mono}>ROLL</span>
+                  <button type="button" className={aimKey} style={keyOff} aria-label="Roll left" onClick={() => nudge("roll", -15)}><RotateCcw className="w-4 h-4" /></button>
+                  <span className="w-12 text-center text-white text-[14px] font-semibold tabular-nums">{picked.every((i) => (i.roll || 0) === (picked[0].roll || 0)) ? `${picked[0].roll || 0}°` : "±"}</span>
+                  <button type="button" className={aimKey} style={keyOff} aria-label="Roll right" onClick={() => nudge("roll", 15)}><RotateCw className="w-4 h-4" /></button>
+                </div>
               )}
             </div>
           </div>
