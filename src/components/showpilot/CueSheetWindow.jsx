@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Lightbulb, X } from "lucide-react";
+import { Lightbulb, X, FileText } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
 import { cueSheetHasAny, cueSheetSummary } from "@/lib/cueSheet";
 import { supabase } from "@/api/supabaseClient";
+import { openCueSheetPdf } from "@/lib/cueSheetPdf";
+import { toast } from "@/components/ui/use-toast";
 
 // Cue sheet files from the event go with the stage plots.
 async function uploadCueFile(file) {
@@ -36,8 +38,10 @@ export function ActCuesButton({ act, onClick, size = "md" }) {
 // acts, start (index); onChange(i, sheet) when editable; onSave() (optional,
 // a Save button); onUpload(file) -> url for the cue sheet files.
 // onPlay(i): the LD plays the act's cues on the 3D stage (job 383).
-export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, onPlay = null }) {
+// eventLine: "Sat, Dec 5 · The Fillmore" on the PDF (job 418).
+export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, onPlay = null, eventLine = "" }) {
   const [cur, setCur] = useState(start);
+  const [making, setMaking] = useState(false);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -56,7 +60,15 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
             <div className="text-white text-[18px] font-semibold truncate">{act.band_name || `Act ${cur + 1}`}</div>
             {summary && <div className="text-white/45 text-[12.5px]">{summary}</div>}
           </div>
-          {onPlay && <button type="button" onClick={() => onPlay(cur)} className="h-10 px-3 rounded-[6px] text-[13px] font-bold shrink-0" style={{ background: "#FFB400", color: "#111" }}>Play on stage</button>}
+          {/* The act's cue sheet as a PDF to view or print (job 418). */}
+          {cueSheetHasAny(act.lighting_cues) && (
+            <button type="button" disabled={making} aria-label={`${act.band_name || "This act"}'s cue sheet as a PDF`}
+              onClick={async () => { setMaking(true); try { await openCueSheetPdf({ actName: act.band_name || `Act ${cur + 1}`, eventLine, sheet: act.lighting_cues }); } catch (e) { console.error(e); toast({ title: "Couldn't make the PDF", variant: "destructive" }); } setMaking(false); }}
+              className="h-10 px-3 rounded-[6px] border text-[13px] font-bold shrink-0 flex items-center gap-1.5 disabled:opacity-50" style={{ borderColor: "#2f4d1f", color: G, background: "#13200b" }}>
+              <FileText className="w-4 h-4" />{making ? "…" : "PDF"}
+            </button>
+          )}
+          {onPlay && <button type="button" onClick={() => onPlay(cur)} className="h-10 px-3 rounded-[6px] text-[13px] font-bold shrink-0" style={{ background: G, color: "#111" }}>Play on stage</button>}
           <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 flex items-center justify-center text-white/50"><X className="w-5 h-5" /></button>
         </div>
         {acts.length > 1 && (

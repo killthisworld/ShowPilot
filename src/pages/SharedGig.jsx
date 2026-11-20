@@ -1731,7 +1731,8 @@ export default function SharedGig() {
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {cuesAt !== null && (
-        <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)} onPlay={isLightingViewer ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
+        <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)}
+          eventLine={[gig?.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", gig?.venue].filter(Boolean).join(" · ")} onPlay={isLightingViewer ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
           onChange={canEditCues ? (i, v) => { setCuesAt(i); setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)) })); } : null}
           onSave={canEditCues ? saveCues : null} saving={cuesSaving} />
       )}

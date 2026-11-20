@@ -478,6 +478,18 @@ export default function IntakeKeyWeb({
       </div>
     </div>, document.body) : null;
 
+  // A circle that opens as a whole page (job 418: the LD's 3D stage), with
+  // Back at the top left to the web.
+  const fullPage = cur?.page && !off ? createPortal(
+    <div role="dialog" aria-modal="true" aria-label={cur.label} className="fixed inset-0 bg-[#151515] text-white overflow-y-auto overflow-x-hidden overscroll-contain" style={{ zIndex: 50 }}>
+      <div className="max-w-[860px] mx-auto px-4 pt-[max(8px,env(safe-area-inset-top))] pb-[max(20px,env(safe-area-inset-bottom))]">
+        <button type="button" onClick={close} aria-label="Back to the web" className="flex items-center gap-1 min-h-[44px] -ml-2 pl-1.5 pr-3 rounded-[10px] text-[15px] font-semibold text-white/75 hover:text-white">
+          <ChevronLeft className="w-5 h-5" />Back
+        </button>
+        {circleBody}
+      </div>
+    </div>, document.body) : null;
+
   if (desktop) {
     return (
       <div className="min-h-screen text-white relative bg-[#05060d]">
@@ -490,16 +502,17 @@ export default function IntakeKeyWeb({
             reserved={250 + (error ? 28 : 0)}
             web={web}
             below={sendRow}
-            panel={off ? null : cur ? circleBody : centerOpen ? centerBody : openBox ? cornerBody : null}
+            panel={off ? null : cur ? (cur.page ? null : circleBody) : centerOpen ? centerBody : openBox ? cornerBody : null}
             panelKey={pane}
             fill={fill}
           />
         </div>
         {showModal}
+        {fullPage}
       </div>
     );
   }
-  const sheetOpen = (!!cur || centerOpen || !!openBox) && !off;
+  const sheetOpen = ((!!cur && !cur.page) || centerOpen || !!openBox) && !off;
   return (
     <div className="min-h-[100dvh] text-white relative bg-[#05060d]">
       <SkyBack seed={seed} dim={0.25} />
@@ -524,6 +537,7 @@ export default function IntakeKeyWeb({
         </div>
       )}
       {showModal}
+      {fullPage}
     </div>
   );
 }

@@ -199,9 +199,10 @@ export function intakeCircles(h, { seen = {}, card = null, lighting = null } = {
         has(form.role), false, () => <RoleBody h={h} />),
       c("artist", "Artist and set", "Artist & set", "Name, set length, genre", true,
         has(form.band_name), has(form.band_name), () => <ArtistBody h={h} />),
-      c("members", "Who plays what", "Members", "Names and instruments, and where they stand", true,
+      // The 3D stage opens as a whole page, not a window (job 418).
+      { ...c("members", "Who plays what", "Members", "Names and instruments, and where they stand", true,
         members.some((m) => has(m.name) || getInstruments(m).some((x) => has(x.name))),
-        members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <LdMembersBody h={h} rig={lighting.rig} />),
+        members.some((m) => has(m.name) && getInstruments(m).some((x) => has(x.name))), () => <LdMembersBody h={h} rig={lighting.rig} />), page: true },
       c("cues", "Lighting cues", "Lighting cues", "Your set song by song: the looks you want and when, or upload a cue sheet", false,
         cueSheetHasAny(cues), cueSheetHasAny(cues), () => <CuesBody h={h} />),
       c("notes", "Notes for the LD", "Notes", "For the whole band or one member", false,
