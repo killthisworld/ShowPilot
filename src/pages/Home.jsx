@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SceneRow from "@/components/showpilot/SceneRow";
 import { techShowPath, isDesktopNow } from "@/lib/showRoute";
-import CuePad from "@/components/showpilot/CuePad";
 import MonthGroups from "@/components/showpilot/MonthGroups";
 import StatusStrip from "@/components/showpilot/StatusStrip";
 import { buildStatusStrip } from "@/lib/homeStats";
@@ -22,7 +21,7 @@ import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
-import LightingDesk from "@/components/showpilot/LightingDesk";
+import LightingDesk, { PhoneExecutors } from "@/components/showpilot/LightingDesk";
 import TechAsksCard from "@/components/showpilot/TechAsksCard";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
@@ -35,7 +34,6 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("not_started");
-  const [loadedKey, setLoadedKey] = useState(null);
   const navigate = useNavigate();
   const [yearFilter, setYearFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
@@ -375,7 +373,6 @@ export default function Home() {
   );
 
   const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
-  const loadedShow = filtered.find((s) => showKey(s) === loadedKey) || filtered[0] || null;
   const openShow = (s) => navigate(techShowPath(s, { desktop: isDesktopNow() }));
 
   const genreTagMap = useMemo(() => {
@@ -502,7 +499,7 @@ export default function Home() {
     </div>
   );
 
-  // Desktop, lighting: the TO DO list with GO (one screen, its own left rail).
+  // Desktop, lighting: the grandMA-style playback desk (job 383).
   if (isDesktop && isLighting) {
     return (
       <LightingDesk
@@ -687,7 +684,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* This Week Banner */}
+      {/* This Week: executors for an LD (job 383), tickets for everyone else */}
+      {isLighting ? (
+        <div className="px-4 pt-3 max-w-lg mx-auto"><PhoneExecutors shows={shows} onOpenShow={openShow} /></div>
+      ) : (
       <div className="px-4 pt-3 max-w-lg mx-auto">
         <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -728,8 +728,9 @@ export default function Home() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Scene list (audio) / cue pads (lighting) */}
+      {/* Scene list */}
       <div className="px-4 pt-4 max-w-lg mx-auto">
         {loading ? (
           <div className="flex justify-center py-20">
@@ -747,18 +748,6 @@ export default function Home() {
               {activeTab === "starred" ? "Star a show to find it quickly here" : "Add Event"}
             </p>
           </div>
-        ) : isLighting ? (
-          <div style={{ paddingBottom: 110 }}>
-            <MonthGroups shows={filtered} openAll={!!search}>
-              {(list) => (
-                <div className="grid grid-cols-3 gap-2">
-                  {list.map((show) => (
-                    <CuePad key={showKey(show)} show={show} selected={loadedShow && showKey(show) === showKey(loadedShow)} onSelect={(s) => setLoadedKey(showKey(s))} />
-                  ))}
-                </div>
-              )}
-            </MonthGroups>
-          </div>
         ) : (
           <MonthGroups shows={filtered} openAll={!!search}>
             {(list) => (
@@ -771,22 +760,6 @@ export default function Home() {
           </MonthGroups>
         )}
       </div>
-
-      {/* Lighting: the loaded cue and its GO button, above the tab bar */}
-      {isLighting && loadedShow && !loading && (
-        <div className="fixed left-0 right-0 bottom-[76px] z-40 bg-[#101010] border-t border-[#242424]">
-          <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] tracking-[0.14em] text-[#8CFF3D]/70" style={{ fontFamily: SCENE_MONO }}>LOADED</div>
-              <div className="text-lg font-bold leading-tight truncate text-white">{sceneTitle(loadedShow)}</div>
-              <div className="text-[12.5px] text-white/55 truncate">{scenePlace(loadedShow)}{loadedShow.date ? " · " : ""}<span className="text-[11px]" style={{ fontFamily: SCENE_MONO }}>{sceneDate(loadedShow)}</span></div>
-            </div>
-            <button onClick={() => handleArchive(loadedShow)} aria-label="Archive" className="shrink-0 w-9 h-[52px] flex items-center justify-center text-blue-300/70 hover:text-blue-300"><Archive className="w-4 h-4" /></button>
-            <button onClick={() => requestDelete(loadedShow)} aria-label="Delete" className="shrink-0 w-9 h-[52px] flex items-center justify-center text-red-400/70 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-            <button onClick={() => openShow(loadedShow)} aria-label="Go to loaded gig" className="shrink-0 w-[84px] h-[52px] rounded-lg bg-[#8CFF3D] text-[#0d0d0d] text-xl font-bold tracking-[0.16em] hover:bg-[#7ae62e]">GO</button>
-          </div>
-        </div>
-      )}
 
       <BottomTabs />
     </div>

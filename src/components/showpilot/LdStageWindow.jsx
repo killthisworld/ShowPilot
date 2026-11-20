@@ -122,3 +122,36 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
     document.body
   );
 }
+
+// On the event's act (job 383): who the act put on the stage, read-only,
+// and the button into the 3D stage. The LD doesn't edit members.
+export function LdActMembers({ act, onOpen }) {
+  const colors = useMyStageColors();
+  const list = (act?.band_members || []).filter((m) => m.name || instrumentsOf(m).length);
+  const placed = list.filter((m) => typeof m.stage_x === "number").length;
+  return (
+    <div className="flex flex-col gap-2">
+      <button type="button" onClick={onOpen} className="h-12 rounded-[8px] border flex items-center gap-2.5 px-3 text-left" style={{ background: "#1f1800", borderColor: AMBER, color: AMBER }}>
+        <span className="text-[13px] font-bold tracking-[0.08em]" style={{ fontFamily: SCENE_MONO }}>OPEN 3D STAGE</span>
+        <span className="ml-auto text-[12px] text-white/55">{list.length ? `${placed} of ${list.length} on the stage` : "No members yet"}</span>
+      </button>
+      {list.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {list.map((m, i) => {
+            const insts = instrumentsOf(m);
+            const played = insts.filter((x) => !isVocalInput(x)).map((x) => x.name).filter(Boolean);
+            const sub = [...played, ...(memberSings(m, insts) ? ["Vocals"] : [])].join(", ");
+            return (
+              <div key={i} className="min-h-[36px] px-2.5 rounded-[6px] border border-[#262626] bg-[#121212] flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: memberLook(m, instrumentsOf, colors).color }} />
+                <span className="text-[13.5px] text-white font-semibold truncate">{m.name || `Member ${i + 1}`}</span>
+                <span className="text-[12.5px] text-white/50 truncate">{sub}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {!list.length && <p className="text-white/40 text-[12.5px]">The act places their members on your 3D stage from your intake link.</p>}
+    </div>
+  );
+}
