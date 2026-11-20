@@ -41,6 +41,7 @@ import ArchivedShows from '@/pages/ArchivedShows';
 import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
 import MyTemplates from '@/pages/MyTemplates';
+import RigStage from '@/pages/RigStage';
 import VenueRecords from '@/pages/VenueRecords';
 import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
@@ -144,6 +145,8 @@ const AuthenticatedApp = () => {
         {/* Old single-template page; templates for every profile live in My Templates now. */}
         <Route path="/band-profile" element={<Navigate to="/my-templates" replace />} />
         <Route path="/my-templates" element={<MyTemplates />} />
+        {/* The LD's 3D stages (job 383). */}
+        <Route path="/rig" element={<RigStage />} />
         <Route path="/records" element={<VenueRecords />} />
         <Route path="/bookings" element={<Bookings />} />
         <Route path="/event/new" element={<NewEventForNonTech />} />

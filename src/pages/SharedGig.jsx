@@ -3,6 +3,7 @@ import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWin
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton, useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
 import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
+import LdStageWindow from "@/components/showpilot/LdStageWindow";
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import { toast } from "@/components/ui/use-toast";
 import StageEditor from "@/components/showpilot/StageEditor";
@@ -1730,11 +1731,12 @@ export default function SharedGig() {
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {cuesAt !== null && (
-        <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)}
+        <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)} onPlay={isLightingViewer ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
           onChange={canEditCues ? (i, v) => { setCuesAt(i); setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)) })); } : null}
           onSave={canEditCues ? saveCues : null} saving={cuesSaving} />
       )}
-      {plotAt !== null && <StagePlotView rig={gig?.lighting_rig} lighting={isLightingViewer} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
+      {plotAt !== null && isLightingViewer && <LdStageWindow acts={gig?.bands || []} start={plotAt} rig={gig?.lighting_rig} onClose={() => setPlotAt(null)} onOpenCues={(i) => setCuesAt(i)} />}
+      {plotAt !== null && !isLightingViewer && <StagePlotView rig={gig?.lighting_rig} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}

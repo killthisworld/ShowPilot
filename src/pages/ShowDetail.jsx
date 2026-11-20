@@ -6,6 +6,8 @@ import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/s
 import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
+import LdStageWindow from "@/components/showpilot/LdStageWindow";
+import LdStageCard from "@/components/showpilot/LdStageCard";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -321,7 +323,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   // they've worked with before, whether or not that venue/artist has a
   // ShowPilot account of their own.
   const loadVenueTemplate = (name, data) => {
-    setShow((s) => ({ ...s, ...venueFromTemplate(name, data, s) }));
+    // An LD's venue template brings its 3D stage along (job 383).
+    setShow((s) => ({ ...s, ...venueFromTemplate(name, data, s), ...(isLightingAccount && data?.lighting_rig?.items?.length ? { lighting_rig: data.lighting_rig } : {}) }));
   };
   const loadArtistTemplate = (name, data) => {
     setBands((prev) => {
@@ -468,6 +471,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         console: show.console, status: show.status, starred: show.starred,
         contacts: show.contacts, power_notes: show.power_notes, date: show.date,
         ...(show.icon_url !== undefined ? { icon_url: show.icon_url } : {}),
+        ...(show.lighting_rig ? { lighting_rig: show.lighting_rig } : {}), // the LD's 3D stage (job 383)
         venue_checklist: show.venue_checklist, event_type: show.event_type, frequency_scope: show.frequency_scope, done: show.done, event_name: show.event_name,
         band_name: headliner.band_name, genre_tag: headliner.genre_tag,
         genre_tags: headliner.genre_tags, genre_color: headliner.genre_color,
@@ -1152,6 +1156,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         <div ref={venuePrintRef} className="relative lg:col-start-2 xl:row-start-1">
           <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
             {techPhone && !isNew && identityBlock}
+            {/* The LD's 3D stage for this event (job 383). */}
+            {isLightingAccount && <div className="mb-3"><LdStageCard rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} /></div>}
             <VenueInfoFields
               value={show}
               onChange={update}
@@ -1280,11 +1286,13 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
 
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {cuesAt !== null && (
-        <CueSheetWindow acts={bands} start={cuesAt} onClose={() => setCuesAt(null)}
+        <CueSheetWindow acts={bands} start={cuesAt} onClose={() => setCuesAt(null)} onPlay={isLightingAccount ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
           onChange={(i, v) => setBands((prev) => prev.map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)))}
           onSave={!isNew ? () => { setSaveAfter((n) => n + 1); setCuesAt(null); } : null} />
       )}
-      {plotAt !== null && <StagePlotView rig={myVenueRig} lighting={isLightingAccount} acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
+      {/* The LD sees the act on the event's 3D stage, cues and all (job 383). */}
+      {plotAt !== null && isLightingAccount && <LdStageWindow acts={bands} start={plotAt} rig={show.lighting_rig || myVenueRig} onClose={() => setPlotAt(null)} onOpenCues={(i) => setCuesAt(i)} />}
+      {plotAt !== null && !isLightingAccount && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}
