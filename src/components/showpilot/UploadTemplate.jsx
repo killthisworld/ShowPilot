@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Upload, X, Loader2, ChevronRight } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { normalizeArtistTemplate } from "@/lib/showTemplates";
+import { cueSheetHasAny } from "@/lib/cueSheet";
 
 // "Upload template" on the intake form's Artist & Set circle (job 282).
 // On ShowPilot: their artist templates (My Templates) to pick from; the one
@@ -14,8 +15,9 @@ const PENDING = "showpilot_open_templates_after_auth";
 const here = () => window.location.pathname + window.location.search;
 
 // A template as intake form fields. Member notes live on the member on the
-// intake form (band_members[i].notes); templates keep them by name.
-export function intakeFromTemplate(name, data = {}) {
+// intake form (band_members[i].notes); templates keep them by name. On an
+// LD's form (lighting, job 438) the template's lighting cue sheet comes too.
+export function intakeFromTemplate(name, data = {}, { lighting = false } = {}) {
   const d = normalizeArtistTemplate(data);
   const noteOf = (n) => (d.artist_fx_notes || []).find((x) => x.artist_name === n)?.notes || "";
   const out = {
@@ -27,6 +29,7 @@ export function intakeFromTemplate(name, data = {}) {
     general_notes: d.general_notes || "",
   };
   if (d.set_length_minutes) out.set_length_minutes = String(d.set_length_minutes);
+  if (lighting && cueSheetHasAny(d.lighting_cues)) out.lighting_cues = d.lighting_cues;
   // Contact info, only what the template has (keeps what they typed otherwise).
   if ((d.contact_name || "").trim()) out.submitter_name = d.contact_name.trim();
   if ((d.contact_phone || "").trim()) out.submitter_phone = d.contact_phone.trim();
@@ -49,7 +52,7 @@ async function loadTemplates(userId) {
   return t && (t.band_name || (t.band_members || []).length) ? [{ id: "legacy", name: t.band_name || "My artist", data: t }] : [];
 }
 
-export default function UploadTemplateButton({ onApply }) {
+export default function UploadTemplateButton({ onApply, lighting = false }) {
   const [askAuth, setAskAuth] = useState(false);
   const [list, setList] = useState(null); // null = closed, "loading", "error" or the templates
   const open = async () => {
@@ -74,7 +77,7 @@ export default function UploadTemplateButton({ onApply }) {
     try { sessionStorage.setItem("post_auth_redirect", here()); } catch {}
     window.location.href = `${to}?redirect=${encodeURIComponent(here())}`;
   };
-  const pick = (t) => { onApply?.(intakeFromTemplate(t.name, t.data || {}), t.name); setList(null); };
+  const pick = (t) => { onApply?.(intakeFromTemplate(t.name, t.data || {}, { lighting }), t.name); setList(null); };
   const summary = (t) => {
     const d = t.data || {};
     const n = (d.band_members || []).length;

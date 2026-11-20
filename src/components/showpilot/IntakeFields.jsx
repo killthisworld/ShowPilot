@@ -45,7 +45,7 @@ function ArtistBody({ h }) {
   return (
     <div className="flex flex-col gap-3">
       {/* Upload template (job 282): fill the form from one of their templates. */}
-      {h.applyTemplate && <UploadTemplateButton onApply={h.applyTemplate} />}
+      {h.applyTemplate && <UploadTemplateButton onApply={h.applyTemplate} lighting={!!h.lighting} />}
       <label><span className={label}>ARTIST / GROUP NAME *</span>
         <input value={form.band_name} onChange={(e) => update("band_name", e.target.value)} placeholder="Artist" className={inputCls} /></label>
       {/* Not asked in a booking package (job 289): the venue sets the set. */}
@@ -99,7 +99,14 @@ function MembersBody({ h }) {
 function LdMembersBody({ h, rig }) {
   // On the LD's 3D stage (job 383): names, what they play, where they stand.
   const { form, update, getInstruments, stageColors } = h;
-  return <LdMembers3D members={form.band_members || []} setMembers={(list) => update("band_members", list)} getInstruments={getInstruments} colors={stageColors} rig={rig} />;
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Upload template here too (job 438): the act's members land on the 3D
+          stage where they stand, and their lighting cue sheet comes along. */}
+      {h.applyTemplate && <UploadTemplateButton onApply={h.applyTemplate} lighting />}
+      <LdMembers3D members={form.band_members || []} setMembers={(list) => update("band_members", list)} getInstruments={getInstruments} colors={stageColors} rig={rig} />
+    </div>
+  );
 }
 
 function CuesBody({ h }) {
@@ -194,6 +201,7 @@ export function intakeCircles(h, { seen = {}, card = null, lighting = null } = {
   });
   if (lighting) {
     const cues = form.lighting_cues;
+    h = { ...h, lighting: true }; // Upload template brings the cue sheet too (job 438)
     return [
       c("role", "Your role", "Role", "Where you are on the bill", true,
         has(form.role), false, () => <RoleBody h={h} />),
