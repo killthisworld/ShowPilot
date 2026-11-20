@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
@@ -58,6 +58,7 @@ export default function StageBuilder({
   const [draft, setDraft] = useState(null); // a new stage cue, until Save
   const [play, startPlay, stopPlay] = useCuePlayer();
   const [newPerson, setNewPerson] = useState({ name: "", part: "" });
+  const [rigDark, setRigDark] = useState(false); // all the lights off (job 392)
   const colors = useMyStageColors();
   const dragFromPlaced = useRef(false);
 
@@ -267,18 +268,36 @@ export default function StageBuilder({
   const keyOn = { background: "#3a2b00", borderColor: MA.amber, color: MA.amber };
   // A quick command: icon over its name on a phone, side by side when there's room.
   const qk = "min-h-[46px] px-1 rounded-[6px] border text-[11.5px] sm:text-[12.5px] font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 leading-tight text-center";
+  const aimKey = "w-9 h-9 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0 disabled:opacity-30";
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = rigGroups(rig);
+  const groups = rigGroups(rig).filter((g) => g.type !== "person"); // people have their own list
   const pickedLabel = one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
   const turnShown = picked.length && picked.every((i) => norm360(i.rot) === norm360(picked[0].rot)) ? `${norm360(picked[0].rot)}°` : "±";
-  // --- Quick commands, over the stage, for what's picked. ---
-  const quick = sel.length > 0 && tab === "rig" && (
-    <div className="absolute left-2 right-2 bottom-2 rounded-[10px] border p-2 flex flex-col gap-2" style={{ background: "rgba(16,16,16,0.94)", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
+  // A truss stood up on end, or laid flat again (job 392): standing, it sits on the deck.
+  const standing = aimable.length > 0 && aimable.every((i) => isTruss(i.type) && Math.abs(i.tilt || 0) >= 80);
+  const standUp = () => {
+    const W = rig.width_ft, D = rig.depth_ft;
+    patchMany(sel, (i) => {
+      if (!isTruss(i.type)) return {};
+      if (standing) return { tilt: 0, h: 18 };
+      const span = i.type === "truss_box" ? i.len * 0.8 * D : i.len * W; // its size once upright
+      return { tilt: 90, h: Math.round(span / 2 + 0.5) };
+    });
+  };
+  const trussesPicked = picked.length > 0 && picked.every((i) => isTruss(i.type));
+  const lightsOff = lights.length > 0 && lights.every((l) => l.off);
+
+  // --- The edit box (jobs 387-392): what's picked - Move, Duplicate, Delete,
+  // Add lights, Place - and its name, aim, height, length, color and on / off.
+  // Over the stage on a computer, at the top of the panel on a phone.
+  const editBox = (where) => sel.length > 0 && tab === "rig" && (
+    <div className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
+      style={{ background: "rgba(16,16,16,0.95)", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
       <div className="flex items-center gap-2 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: moving ? "#8a8f96" : MA.green }} />
         <span className="text-[13.5px] font-semibold truncate">{pickedLabel}</span>
@@ -303,32 +322,79 @@ export default function StageBuilder({
         </div>
       ) : (
         <>
-          {/* Quick commands: big keys in one row. */}
-          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${one && isTruss(one.type) && !moving ? 5 : 4}, minmax(0, 1fr))` }}>
+          {/* Two columns on a computer: the commands and settings, then the aim. */}
+          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-4 lg:items-start">
+            <div className="flex flex-col gap-2 min-w-0">
+          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${one && isTruss(one.type) ? 5 : 4}, minmax(0, 1fr))` }}>
             <button type="button" onClick={() => setMoving((m) => !m)} aria-pressed={moving} className={qk} style={moving ? keyOn : keyOff}><Move className="w-4 h-4" />Move</button>
             <button type="button" onClick={duplicate} className={qk} style={keyOff}><Copy className="w-4 h-4" />Duplicate</button>
             <button type="button" onClick={remove} className={qk} style={{ ...keyOff, color: "#f87171" }}><Trash2 className="w-4 h-4" />Delete</button>
-            {one && isTruss(one.type) && !moving && (
+            {one && isTruss(one.type) && (
               <button type="button" onClick={() => setAdding({ type: "spot", count: 4 })} className={qk} style={keyOff}><Lightbulb className="w-4 h-4" />Add lights</button>
             )}
             <button type="button" onClick={place} className={qk} style={{ background: MA.green, borderColor: MA.green, color: "#111" }}><Check className="w-4 h-4" />Place</button>
           </div>
-          {picked.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {aimable.length > 0 && <span className="flex items-center gap-1.5">
-              <span className={lbl + " w-9"} style={mono}>TILT</span>
-              <button type="button" className={step} style={keyOff} aria-label="Tilt back" onClick={() => nudge("tilt", -10, -90, 90)}><Minus className="w-4 h-4" /></button>
-              <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{tiltShown}</span>
-              <button type="button" className={step} style={keyOff} aria-label="Tilt forward" onClick={() => nudge("tilt", 10, -90, 90)}><Plus className="w-4 h-4" /></button>
-            </span>}
-            <span className="flex items-center gap-1.5">
-              <span className={lbl + " w-9"} style={mono}>TURN</span>
-              <button type="button" className={step} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><RotateCcw className="w-4 h-4" /></button>
-              <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{turnShown}</span>
-              <button type="button" className={step} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><RotateCw className="w-4 h-4" /></button>
-            </span>
-          </div>
+          {one && (
+            <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
+              className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
           )}
+          {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
+          {one && (isTruss(one.type) || one.type === "led_bar") && (
+            <div className="flex items-center gap-2">
+              <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
+              <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length" />
+              <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
+            </div>
+          )}
+          {lights.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={lbl + " w-14"} style={mono}>COLOR</span>
+              {RIG_COLORS.map((c) => (
+                <button key={c} type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ color: c }))} aria-label={`Color ${c}`} aria-pressed={lights.every((l) => l.color === c)}
+                  className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: lights.every((l) => l.color === c) ? "#fff" : "transparent" }} />
+              ))}
+              {/* On / off: an off light stays dark, cues too. */}
+              <button type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ off: !lightsOff }))} aria-pressed={!lightsOff}
+                className={key + " ml-auto"} style={lightsOff ? keyOff : keyOn}><Power className="w-4 h-4" />{lightsOff ? "Off" : "On"}</button>
+            </div>
+          )}
+            </div>
+          <div className="flex items-start gap-3 flex-wrap">
+            {/* Aim, all four ways: left / right turns it, up / down tilts it
+                (people only turn). */}
+            <div className="flex flex-col gap-1">
+              <span className={lbl} style={mono}>AIM</span>
+              <div className="grid grid-cols-3 gap-1" style={{ width: 116 }}>
+                <span />
+                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt up / upstage" onClick={() => nudge("tilt", -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
+                <span />
+                <button type="button" className={aimKey} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><ChevronLeft className="w-5 h-5" /></button>
+                <span className="w-9 h-9 rounded-full border border-[#333] bg-[#0e0e0e]" aria-hidden="true" />
+                <button type="button" className={aimKey} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><ChevronRight className="w-5 h-5" /></button>
+                <span />
+                <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt down / downstage" onClick={() => nudge("tilt", 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
+                <span />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-4 min-w-0">
+              <div className="flex gap-3 text-[13px] tabular-nums text-white/75">
+                <span>Turn <b className="text-white">{turnShown}</b></span>
+                {aimable.length > 0 && <span>Tilt <b className="text-white">{tiltShown}</b></span>}
+              </div>
+              {aimable.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className={lbl + " w-12"} style={mono}>HEIGHT</span>
+                  <button type="button" className={aimKey} style={keyOff} aria-label="Lower" onClick={() => nudge("h", -1, 0, 80)}><Minus className="w-4 h-4" /></button>
+                  <span className="w-12 text-center text-white text-[14px] font-semibold tabular-nums">{picked.every((i) => i.h === picked[0].h) ? `${picked[0].h} ft` : "±1"}</span>
+                  <button type="button" className={aimKey} style={keyOff} aria-label="Higher" onClick={() => nudge("h", 1, 0, 80)}><Plus className="w-4 h-4" /></button>
+                </div>
+              )}
+              {trussesPicked && (
+                <button type="button" onClick={standUp} aria-pressed={standing} className={key + " self-start"} style={standing ? keyOn : keyOff}>{standing ? "Lay it flat" : "Stand it up"}</button>
+              )}
+            </div>
+          </div>
+          </div>
         </>
       )}
     </div>
@@ -352,59 +418,6 @@ export default function StageBuilder({
           </div>
         ) : <p className="text-white/40 text-[12.5px]">Nothing rigged yet.</p>}
       </div>
-      {picked.length > 0 && (
-        <div className="rounded-[8px] border p-3 flex flex-col gap-3" style={{ background: MA.panel, borderColor: one && !isTruss(one.type) ? one.color : "#3d5c2a" }}>
-          {one && (
-            <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
-              className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
-          )}
-          {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
-          {aimable.length > 0 && (
-            // Aim it, all four ways (job 389): left / right turns it,
-            // up / down tilts it upstage / downstage.
-            <div className="flex items-center gap-3">
-              <span className={lbl + " w-14"} style={mono}>AIM</span>
-              <div className="grid grid-cols-3 gap-1" style={{ width: 128 }}>
-                <span />
-                <button type="button" className={step} style={keyOff} aria-label="Tilt upstage" onClick={() => nudge("tilt", -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
-                <span />
-                <button type="button" className={step} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><ChevronLeft className="w-5 h-5" /></button>
-                <span className="w-10 h-10 rounded-full border border-[#333] bg-[#0e0e0e]" aria-hidden="true" />
-                <button type="button" className={step} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><ChevronRight className="w-5 h-5" /></button>
-                <span />
-                <button type="button" className={step} style={keyOff} aria-label="Tilt downstage" onClick={() => nudge("tilt", 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
-                <span />
-              </div>
-              <div className="flex flex-col text-[13px] tabular-nums text-white/75 gap-1">
-                <span>Turn <b className="text-white">{turnShown}</b></span>
-                <span>Tilt <b className="text-white">{tiltShown}</b></span>
-              </div>
-            </div>
-          )}
-          {aimable.length > 0 && <div className="flex items-center gap-2">
-            <span className={lbl + " w-14"} style={mono}>HEIGHT</span>
-            <button type="button" className={step} style={keyOff} aria-label="Lower" onClick={() => nudge("h", -1, 0, 80)}><Minus className="w-4 h-4" /></button>
-            <span className="w-14 text-center text-white text-[15px] font-semibold tabular-nums">{picked.every((i) => i.h === picked[0].h) ? `${picked[0].h} ft` : "±1 ft"}</span>
-            <button type="button" className={step} style={keyOff} aria-label="Higher" onClick={() => nudge("h", 1, 0, 80)}><Plus className="w-4 h-4" /></button>
-          </div>}
-          {one && (isTruss(one.type) || one.type === "led_bar") && (
-            <div className="flex items-center gap-2">
-              <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
-              <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length" />
-              <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
-            </div>
-          )}
-          {lights.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={lbl + " w-14"} style={mono}>COLOR</span>
-              {RIG_COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ color: c }))} aria-label={`Color ${c}`} aria-pressed={lights.every((l) => l.color === c)}
-                  className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: lights.every((l) => l.color === c) ? "#fff" : "transparent" }} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
       <div className="flex flex-col gap-1.5">
         <span className={lbl} style={mono}>TRUSS</span>
         <div className="flex flex-wrap gap-1.5">
@@ -554,7 +567,7 @@ export default function StageBuilder({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="relative lg:flex-1 min-h-0 h-[52dvh] lg:h-auto">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
-            <Stage3D rig={rig} members={shownMembers} look={look} mode={tab === "rig" ? "build" : "view"} selected={tab === "rig" ? sel : []} moving={moving ? sel : []}
+            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look} mode={tab === "rig" ? "build" : "view"} selected={tab === "rig" ? sel : []} moving={moving ? sel : []}
               onTapItem={onTapItem} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
           </Suspense>
           {!items.length && <p className="absolute top-3 left-0 right-0 text-center text-white/45 text-[13px] pointer-events-none px-8">An empty stage. Add trusses and fixtures to rig it.</p>}
@@ -565,7 +578,13 @@ export default function StageBuilder({
               <div className="relative text-[15px] font-semibold truncate">{playing === draft || !isAct ? playing.name : `${playing.cue.at ? `${playing.cue.at.trim()}: ` : ""}${playing.cue.look || "—"}`}</div>
             </div>
           )}
-          {quick}
+          {editBox("stage")}
+          {/* The house lights of the rig: all on / all off (job 392). */}
+          {tab === "rig" && items.some((i) => !isTruss(i.type) && !isPerson(i.type)) && (
+            <button type="button" onClick={() => setRigDark((d) => !d)} aria-pressed={!rigDark} className={key + " absolute top-2 right-2"} style={rigDark ? keyOff : keyOn}>
+              <Power className="w-4 h-4" />Lights {rigDark ? "off" : "on"}
+            </button>
+          )}
         </div>
         <div className="lg:w-[380px] shrink-0 flex-1 lg:flex-none min-h-0 overflow-y-auto overscroll-contain p-3 pb-[max(16px,env(safe-area-inset-bottom))] border-t lg:border-t-0 lg:border-l" style={{ borderColor: MA.line, background: "#121212" }}>
           <div className="flex flex-col gap-3">
@@ -575,6 +594,7 @@ export default function StageBuilder({
                   className="flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, ...(tab === id ? { background: MA.amber, borderColor: MA.amber, color: "#111" } : keyOff) }}>{label}</button>
               ))}
             </div>
+            {tab === "rig" && editBox("panel")}
             {tab === "rig" ? rigPanel : cuesPanel}
           </div>
         </div>

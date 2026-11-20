@@ -62,6 +62,7 @@ export function normalizeRig(r) {
       color: i.color || fixtureInfo(i.type)?.color || "#FFFFFF",
       label: String(i.label || "").slice(0, 40),
       tilt: clamp(Number(i.tilt) || 0, -90, 90),
+      ...(i.off ? { off: true } : {}),
       ...(i.on ? { on: String(i.on) } : {}),
       // part: a stage plot position key (older ones were saved by label).
       ...(i.type === "person" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),

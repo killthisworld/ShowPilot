@@ -46,7 +46,7 @@ function labelSprite(name, sub, color) {
 }
 
 export default function Stage3D({
-  rig, members = [], look = null, mode = "view", selected = null, moving = null,
+  rig, members = [], look = null, dark = false, mode = "view", selected = null, moving = null,
   onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
 }) {
   const selIds = [].concat(selected || []);
@@ -240,6 +240,7 @@ export default function Stage3D({
           if (L.blackout) on = 0;
         }
         if (f.type === "strobe" && !(L?.strobe)) { on = 0; }
+        if (f.off || (!L && st.dark)) on = 0; // switched off (job 392)
         f.mat.color.set(col);
         f.mat.opacity = (L?.haze ? 0.22 : 0.12) * on;
         f.pool.material.color.set(col);
@@ -340,9 +341,11 @@ export default function Stage3D({
         return;
       }
       if (isTruss(it.type)) {
-        // Tilt (job 389): a truss leans forward / back too.
+        // Tilt (jobs 389, 392): a box or circle leans forward / back; a
+        // straight truss tips up on end - at 90 it stands up.
         g.rotation.order = "YXZ";
-        g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
+        if (it.type === "truss_straight") g.rotation.z = ((it.tilt || 0) * Math.PI) / 180;
+        else g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
         const tm = trussMat(stateColor(it.id));
         const beam = (len) => new THREE.Mesh(new THREE.BoxGeometry(len, 1, 1), tm);
         const L = it.len * W;
@@ -411,7 +414,7 @@ export default function Stage3D({
         }
         // Aim: straight down (floor lights: up) unless a look turns it (tick).
         const dir = new THREE.Vector3(0, up ? Math.cos(tilt) : -Math.cos(tilt), Math.sin(tilt)).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.rotation.y);
-        st.fixtures.push({ type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, wp: new THREE.Vector3() });
+        st.fixtures.push({ type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, off: !!it.off, wp: new THREE.Vector3() });
       }
       world.add(g);
       st.items[it.id] = g;
@@ -457,6 +460,7 @@ export default function Stage3D({
   }, [rig, members, selKey, movKey, pickedMember, labels]);
 
   useEffect(() => { if (S.current) S.current.look = look; }, [look]);
+  useEffect(() => { if (S.current) S.current.dark = dark; }, [dark]);
 
   return <div ref={host} className={`relative w-full h-full ${className}`} />;
 }
