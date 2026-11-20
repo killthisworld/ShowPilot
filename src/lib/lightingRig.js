@@ -132,14 +132,28 @@ export function lightsOnTruss(truss, type, count, rig) {
   const W = rig?.width_ft || 32, D = rig?.depth_ft || 24;
   const n = clamp(Math.round(count) || 1, 1, 24);
   const L = (truss.len || 0.5) * W; // ft
+  const circle = truss.type === "truss_circle";
+  // Hang (job 403): each light goes under the truss however it's angled -
+  // straight down from it, off its side. When the truss stands up there's no
+  // "under" along it, so they hang off its front face instead.
+  const flat = (v) => (circle ? [0, v[1], 0] : [0, v[1], v[2]]);
+  const unit = (v) => { const m = Math.hypot(...v); return m ? v.map((c) => c / m) : v; };
+  let d = flat(stageToTruss(truss, [0, -1, 0]));
+  if (Math.hypot(...d) < 0.35) {
+    d = flat(stageToTruss(truss, [0, 0, 1]));
+    if (Math.hypot(...d) < 0.35) d = circle ? [0, -1, 0] : [0, 0, 1];
+  }
+  d = unit(d);
   const local = [];
   for (let k = 0; k < n; k++) {
-    if (truss.type === "truss_circle") {
+    let b;
+    if (circle) {
       const a = (k / n) * Math.PI * 2;
-      local.push([Math.cos(a) * L / 2, -1, Math.sin(a) * L / 2]);
+      b = [Math.cos(a) * L / 2, 0, Math.sin(a) * L / 2];
     } else {
-      local.push([-L / 2 + (L * (k + 0.5)) / n, -1, truss.type === "truss_box" ? (truss.len * 0.8 * D) / 2 : 0]);
+      b = [-L / 2 + (L * (k + 0.5)) / n, 0, truss.type === "truss_box" ? (truss.len * 0.8 * D) / 2 : 0];
     }
+    local.push([b[0] + d[0], b[1] + d[1], b[2] + d[2]]);
   }
   return local.map((v) => {
     const [dx, dy, dz] = trussToStage(truss, v);

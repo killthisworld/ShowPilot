@@ -46,6 +46,39 @@ function labelSprite(name, sub, color) {
   return s;
 }
 
+
+// A hung light's pipe: from its mount to the nearest point on the truss's
+// beams (job 403). Hidden when the mount already sits on the truss.
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+function updatePipes(pipes, world) {
+  world.updateMatrixWorld(true);
+  pipes.forEach(({ pipe, lg, tg, type, L, Dd }) => {
+    _a.set(0, 0.45, 0); lg.localToWorld(_a);
+    const p = tg.worldToLocal(_a.clone());
+    const cl = (v, m) => Math.max(-m, Math.min(m, v));
+    let q;
+    if (type === "truss_circle") {
+      const r = Math.hypot(p.x, p.z) || 1;
+      q = new THREE.Vector3((p.x / r) * L / 2, 0, (p.z / r) * L / 2);
+    } else if (type === "truss_box") {
+      const c = [
+        new THREE.Vector3(cl(p.x, L / 2), 0, Dd / 2), new THREE.Vector3(cl(p.x, L / 2), 0, -Dd / 2),
+        new THREE.Vector3(L / 2, 0, cl(p.z, Dd / 2)), new THREE.Vector3(-L / 2, 0, cl(p.z, Dd / 2)),
+      ];
+      q = c.reduce((m, v) => (v.distanceTo(p) < m.distanceTo(p) ? v : m));
+    } else q = new THREE.Vector3(cl(p.x, L / 2), 0, 0);
+    tg.localToWorld(q);
+    world.worldToLocal(_b.copy(_a));
+    world.worldToLocal(q);
+    const len = _b.distanceTo(q);
+    pipe.visible = len > 0.7;
+    if (!pipe.visible) return;
+    pipe.position.copy(_b).add(q).multiplyScalar(0.5);
+    pipe.scale.set(1, len, 1);
+    pipe.quaternion.setFromUnitVectors(_up, q.clone().sub(_b).normalize());
+  });
+}
+
 export default function Stage3D({
   rig, members = [], look = null, dark = false, mode = "view", selected = null, moving = null,
   onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
@@ -283,6 +316,7 @@ export default function Stage3D({
     const tick = () => {
       const t0 = clock.getElapsedTime();
       const st = S.current;
+      if (st.pipes?.length) updatePipes(st.pipes, world);
       const L = st.look;
       // Speed (job 399): the cue's chase, strobe, color fade and motion all
       // run faster or slower.
@@ -592,6 +626,19 @@ export default function Stage3D({
       st.items[it.id] = g;
     });
     st.hasStrobe = (rig.items || []).some((i) => i.type === "strobe");
+    // Pipes (job 403): each hung light gets a clamp pipe up to the nearest
+    // point on its truss, so it reads as attached at any truss angle. Kept up
+    // to date every frame (tick), so they follow a drag.
+    st.pipes = [];
+    (rig.items || []).forEach((it) => {
+      const lg = st.items[it.id], tr = it.on && (rig.items || []).find((t) => t.id === it.on);
+      if (!lg || !tr || !st.items[tr.id] || (it.h || 0) <= 0) return;
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1, 8), new THREE.MeshBasicMaterial({ color: "#9a9a9a" }));
+      pipe.raycast = () => {};
+      pipe.visible = false;
+      world.add(pipe);
+      st.pipes.push({ pipe, lg, tg: st.items[tr.id], type: tr.type, L: tr.len * W, Dd: tr.len * 0.8 * D });
+    });
     // Rebuilt in the middle of a drag (the pick re-draws it): put what's being
     // dragged back where the finger has it, so nothing flicks back (job 398).
     if (st.dragAt) Object.entries(st.dragAt).forEach(([id, [x, y]]) => {
