@@ -13,7 +13,7 @@ import FanPageSheet from "@/components/showpilot/FanPageSheet";
 import EventBanner from "@/components/showpilot/EventBanner";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
-import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { ACCOUNT_TYPE_STYLES, accountTypeOf } from "@/lib/accountTypeStyle";
 import { useRoleProfile, RoleProfileBody } from "@/pages/RoleFullProfile";
 import { useGigInvite, InviteModal, Field } from "@/pages/SharedGig";
 import RoomChatPanel from "@/components/showpilot/RoomChatPanel";
@@ -157,7 +157,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
   const goBack = () => (onClose ? onClose() : goBackInApp());
   const { preferences } = usePreferences();
   const isDesktop = useIsDesktop();
-  const isTechProductionAccount = TECHNICAL_PRODUCTION_TYPES.includes(preferences?.account_type || "engineer");
+  const isTechProductionAccount = TECHNICAL_PRODUCTION_TYPES.includes(accountTypeOf(preferences) || "engineer");
 
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -567,7 +567,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
     const cap = "text-[8px] tracking-[0.08em] leading-none";
     // Your open tasks on this event: in a section you work on, or claimed by
     // you - the same number as every other tasks icon (job 210).
-    const myTaskCount = myOpenTasks(gig.tasks, permissions, preferences?.account_type, user?.id).length;
+    const myTaskCount = myOpenTasks(gig.tasks, permissions, accountTypeOf(preferences), user?.id).length;
     return (
       <div className="flex items-center gap-1 shrink-0 ml-auto">
         {token && (
@@ -739,7 +739,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
         token={token} permissions={permissions} loadGig={loadGig} onGigChanged={onGigChanged}
         setMyIcon={setMyIcon} user={user} checkingAuth={checkingAuth} rooms={rooms} roomMembers={roomMembers}
         addTask={addTask} completeTask={completeTask} claimTask={claimTask} profileExpanded={profileExpanded} setProfileExpanded={setProfileExpanded}
-        onOpenTask={setOpenTaskId} focus={focus} ownerType={preferences?.account_type} openDj={() => setDjOpen(true)}
+        onOpenTask={setOpenTaskId} focus={focus} ownerType={accountTypeOf(preferences)} openDj={() => setDjOpen(true)}
         roleWeb={roleWeb} hubM={hubM} leaving={leaving} webSlot={webSlot} setWebSlot={setWebSlot} openFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
       />
     );
@@ -779,7 +779,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
             <ShowDetail
               embeddedId={gig.id}
               banner={<EventBanner gig={gig} imageUrl={myIcon} title={title} />}
-              underBanner={<OnCallStrip gig={gig} ownerType={permissions?.owner_account_type || preferences?.account_type} canEdit onSetLightsToo={setLightsToo} />} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
+              underBanner={<OnCallStrip gig={gig} ownerType={permissions?.owner_account_type || accountTypeOf(preferences)} canEdit onSetLightsToo={setLightsToo} />} actionSlot={actionSlot} beforeSave={<TasksButton token={token} className="w-11 h-11 ml-1" />} onSaved={() => { loadGig(); onGigChanged?.(); }} />
           </Suspense>
         </div>
         {user && <BottomTabs />}
@@ -980,7 +980,7 @@ export default function GigWeb({ token: tokenProp, onClose, onGigChanged } = {})
               onOpenFanPage={FAN_RSVP_OPEN ? () => setShowFanSheet(true) : undefined}
               onOpenDj={() => setDjOpen(true)}
               focus={focus}
-              ownerType={preferences?.account_type}
+              ownerType={accountTypeOf(preferences)}
               isOwner={!!permissions?.is_owner}
               onAddTask={addTask}
               showInvite

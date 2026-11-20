@@ -6,6 +6,7 @@ import Home from "@/pages/Home";
 import BandHome from "@/pages/BandHome";
 import DjHome from "@/pages/DjHome";
 import { isDjMode, lastDj } from "@/lib/djMode";
+import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 
 // Routes to the right home screen based on account type. Engineer and
 // Lighting Tech share the full New/Frequent/Worked tracking Home page, since
@@ -26,10 +27,12 @@ export default function HomeRouter() {
   // A DJ on this device goes straight to their sets while the account loads
   // (job 372), instead of a spinner and then the swap.
   if (loading && lastDj() && !new URLSearchParams(search).get("view")) return <DjHome />;
+  // The spinner in the profile's color (job 412).
+  const spin = getAccountTypeStyle().color;
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-[#8CFF3D]/30 border-t-[#8CFF3D] rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${spin}4d`, borderTopColor: spin }} />
       </div>
     );
   }

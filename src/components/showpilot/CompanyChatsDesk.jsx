@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { ExternalLink, MessageCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { chatTitle, sectionMeta, shortDate, timeAgo, localISO, vocab, visibleChats, hideChat, readHiddenEventRooms, hideEventRooms } from "@/lib/needsMe";
@@ -26,8 +26,8 @@ const BLUE = "#60A5FA";
 const G = "#8CFF3D";
 
 export default function CompanyChatsDesk({ preferences, gigs, gigsLoading = false }) {
-  const accent = getAccountTypeStyle(preferences?.account_type).color;
-  const words = vocab(preferences?.account_type);
+  const accent = getAccountTypeStyle(accountTypeOf(preferences)).color;
+  const words = vocab(accountTypeOf(preferences));
   const { data, loading: chatsLoading, failed, reload } = useNeedsMe();
   const loading = chatsLoading || gigsLoading;
   const [gone, setGone] = useState(() => new Set());

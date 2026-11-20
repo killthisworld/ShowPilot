@@ -8,6 +8,7 @@ import AnnouncePane from "@/components/showpilot/AnnouncePane";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 import {
   SECTIONS, SECTION_FOR_TYPE, sectionMeta, vocab, localISO, addDaysISO, endOfWeekISO, shortDate,
   TASK_ADDED_EVENT, OPEN_QUICK_ADD_EVENT,
@@ -45,13 +46,13 @@ export default function QuickAddSheet({ preferences, accent }) {
   const [text, setText] = useState("");
   const [due, setDue] = useState(null); // null | today | tomorrow | week | date
   const [dueDate, setDueDate] = useState("");
-  const homeSection = SECTION_FOR_TYPE[preferences?.account_type] || "manager";
+  const homeSection = SECTION_FOR_TYPE[accountTypeOf(preferences)] || "manager";
   const [section, setSection] = useState(homeSection);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [added, setAdded] = useState(null); // { task, dueNote }
   const textRef = useRef(null);
-  const words = vocab(preferences?.account_type);
+  const words = vocab(accountTypeOf(preferences));
 
   const reset = () => {
     setKind("task"); setNewDate("");
@@ -175,7 +176,7 @@ export default function QuickAddSheet({ preferences, accent }) {
   const again = () => { reset(); };
 
   // Artist / manager: send a booking package to a venue (job 246).
-  const canBook = ["manager", "band"].includes(preferences?.account_type);
+  const canBook = ["manager", "band"].includes(accountTypeOf(preferences));
   const startPackage = () => { close(); navigate("/book"); };
   const startEvent = () => {
     close();

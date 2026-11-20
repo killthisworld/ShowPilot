@@ -19,6 +19,7 @@ import Soundwave from "@/components/showpilot/Soundwave";
 import { usePreferences } from "@/hooks/usePreferences";
 import { hashColor, getConstellationLayout, ShowStamp } from "@/lib/constellation";
 import StarSummary from "@/components/showpilot/StarSummary";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 const SOUNDWAVE_TEMPLATES = {
   black: { bg: "#000000", wave: "#FFFFFF", label: "Black / White" },
@@ -70,12 +71,12 @@ export default function Cockpit({ embedded = false } = {}) {
   // "My Pilot" is the engineer/lighting framing; other profile types get a
   // more natural label for the same underlying digital-card feature.
   const PILOT_TAB_LABELS = { band: "My Artist", venue: "My Venue", manager: "My Manager" };
-  const pilotTabLabel = PILOT_TAB_LABELS[preferences?.account_type] || "My Pilot";
+  const pilotTabLabel = PILOT_TAB_LABELS[accountTypeOf(preferences)] || "My Pilot";
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   // Tech profiles (audio / lighting) use the tech rail; everyone else the
   // company rail. Both get the one-screen desktop layout (job 74).
-  const isBandSide = !NON_RAIL_TYPES.includes(preferences?.account_type || "engineer");
+  const isBandSide = !NON_RAIL_TYPES.includes(accountTypeOf(preferences) || "engineer");
   const [activeTab, setActiveTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
@@ -2153,7 +2154,7 @@ export default function Cockpit({ embedded = false } = {}) {
 
       {overlays}
 
-      {!embedded && (["engineer", "lighting"].includes(preferences?.account_type || "engineer") ? <BottomTabs /> : <BandBottomTabs />)}
+      {!embedded && (["engineer", "lighting"].includes(accountTypeOf(preferences) || "engineer") ? <BottomTabs /> : <BandBottomTabs />)}
     </div>
   );
 }

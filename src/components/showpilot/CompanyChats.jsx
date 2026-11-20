@@ -3,7 +3,7 @@ import { eventTitle } from "@/lib/eventTitle";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, MessageCircle, Trash2 } from "lucide-react";
 import useNeedsMe, { patchNeedsMe } from "@/hooks/useNeedsMe";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import useFanThreads from "@/hooks/useFanThreads";
@@ -107,8 +107,8 @@ function SwipeRow({ onOpen, onDelete, children, label }) {
 // (also swipe-to-delete). Only events that haven't happened yet are listed.
 export default function CompanyChats({ preferences, gigs, gigsLoading = false }) {
   const navigate = useNavigate();
-  const accent = getAccountTypeStyle(preferences?.account_type).color;
-  const words = vocab(preferences?.account_type);
+  const accent = getAccountTypeStyle(accountTypeOf(preferences)).color;
+  const words = vocab(accountTypeOf(preferences));
   const { data, loading: chatsLoading, failed, reload } = useNeedsMe();
   // Wait for Home's events too, so "No conversations yet" never flashes
   // before the event rooms arrive.

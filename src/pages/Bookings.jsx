@@ -10,6 +10,7 @@ import useBookings, { fmtDay } from "@/lib/useBookings";
 import { wantsLine } from "@/lib/bookingPackage";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 // Every booking package in one place (job 246): Incoming / Dates offered /
 // Booked. Side by side on a laptop, stacked on a phone. A venue sees what's
@@ -40,8 +41,8 @@ export default function Bookings() {
   const { data, loading, reload } = useBookings();
   const [asking, setAsking] = useState(null); // the booked item
   const [asks, setAsks] = useState({}); // show_id -> asks
-  const canSend = ["manager", "band"].includes(preferences?.account_type);
-  const isVenue = preferences?.account_type === "venue";
+  const canSend = ["manager", "band"].includes(accountTypeOf(preferences));
+  const isVenue = accountTypeOf(preferences) === "venue";
   // Board (where everything stands) or Sent (what you sent and how far
   // along it is; job 354). Kept in the address so Back returns to it.
   const [params, setParams] = useSearchParams();

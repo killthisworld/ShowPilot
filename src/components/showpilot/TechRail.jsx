@@ -5,6 +5,7 @@ import { SCENE_FONT } from "@/lib/sceneStyle";
 import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { visibleChats } from "@/lib/needsMe";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 // The tech desktop rail (1024px+), on every audio / lighting page:
 // profile photo (settings) on top, then Home (audio "Console", lighting
@@ -20,7 +21,7 @@ const ConsoleIcon = (props) => (
 
 export default function TechRail({ accent = "#8CFF3D", preferences, onPreferencesUpdate, className = "" }) {
   const { pathname } = useLocation();
-  const lighting = preferences?.account_type === "lighting";
+  const lighting = accountTypeOf(preferences) === "lighting";
   const tabs = [
     { to: "/", label: lighting ? "Desk" : "Console", Icon: lighting ? Lightbulb : ConsoleIcon, on: pathname === "/" || pathname.startsWith("/show/") },
     { to: "/calendar", label: "Calendar", Icon: CalendarDays, on: pathname.startsWith("/calendar") },

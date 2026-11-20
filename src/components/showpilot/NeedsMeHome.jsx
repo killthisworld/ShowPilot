@@ -11,7 +11,7 @@ import BookingsNeeds from "@/components/showpilot/BookingsNeeds";
 import useBookings from "@/lib/useBookings";
 import useAnnouncements from "@/lib/announcements";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import { useAuth } from "@/lib/AuthContext";
 import { WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -49,7 +49,7 @@ const Pill = ({ children, style }) => (
 export default function NeedsMeHome({ preferences, gigs, gigsLoading = false }) {
   const { user } = useAuth();
   const userId = user?.id || null;
-  const accountType = preferences?.account_type;
+  const accountType = accountTypeOf(preferences);
   const style = getAccountTypeStyle(accountType);
   const accent = style.color;
   const words = vocab(accountType);

@@ -14,6 +14,7 @@ import { uploadIconImage } from "@/lib/eventIcons";
 import { autoFillNewEvent } from "@/lib/templatePage";
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import NewEventWeb from "@/pages/NewEventWeb";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 
 // Maps each account type to the section it always owns on any event it
@@ -29,11 +30,12 @@ const ACCOUNT_TYPE_TO_SECTION = {
 // their side (job 323). This form is left for any other account type.
 export default function NewEventForNonTech() {
   const { preferences, loading } = usePreferences();
-  if (loading && !preferences) {
+  // With the type remembered on this device it opens straight away (job 412).
+  if (loading && !accountTypeOf(preferences)) {
     return <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" /></div>;
   }
-  if (["manager", "band"].includes(preferences?.account_type)) return <NewEventWeb />;
-  if (preferences?.account_type === "venue") return <NewEventWeb side="venue" />;
+  if (["manager", "band"].includes(accountTypeOf(preferences))) return <NewEventWeb />;
+  if (accountTypeOf(preferences) === "venue") return <NewEventWeb side="venue" />;
   return <NewEventForm />;
 }
 
@@ -41,7 +43,7 @@ function NewEventForm() {
   const navigate = useNavigate(); const goBack = useGoBack();
   const location = useLocation();
   const { preferences, reload } = usePreferences();
-  const mySection = ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] || "manager";
+  const mySection = ACCOUNT_TYPE_TO_SECTION[accountTypeOf(preferences)] || "manager";
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState("");
   const [date, setDate] = useState(location.state?.prefillDate || "");

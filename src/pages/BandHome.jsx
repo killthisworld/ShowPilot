@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePreferences } from "@/hooks/usePreferences";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import GigWeb from "@/pages/GigWeb";
 import GigWrapCelebration from "@/components/showpilot/GigWrapCelebration";
 import StatusStrip from "@/components/showpilot/StatusStrip";
@@ -51,7 +51,7 @@ export default function BandHome() {
   const location = useLocation();
   const phoneView = new URLSearchParams(location.search).get("view") || "needs";
   const { preferences, reload } = usePreferences();
-  const accountStyle = getAccountTypeStyle(preferences?.account_type);
+  const accountStyle = getAccountTypeStyle(accountTypeOf(preferences));
   const isDesktop = useIsDesktop();
   const [allGigs, setGigs] = useState([]);
   // Accounts with more than one act see the picked act's events (job 73).
@@ -254,7 +254,7 @@ export default function BandHome() {
     return [...candidates].slice(0, 6);
   }, [search, sortedGigs]);
 
-  const roleBanks = useMemo(() => getRoleBanks(preferences?.account_type, accountStyle.color), [preferences?.account_type, accountStyle.color]);
+  const roleBanks = useMemo(() => getRoleBanks(accountTypeOf(preferences), accountStyle.color), [accountTypeOf(preferences), accountStyle.color]);
   const bankCounts = useMemo(() => {
     const counts = {};
     roleBanks.forEach((b) => { counts[b.id] = b.id === "all" ? sortedGigs.length : sortedGigs.filter(b.test).length; });
@@ -383,8 +383,8 @@ export default function BandHome() {
   };
 
   const stripCells = useMemo(
-    () => buildStatusStrip(preferences?.account_type, gigs, progressByShow),
-    [preferences?.account_type, gigs, progressByShow]
+    () => buildStatusStrip(accountTypeOf(preferences), gigs, progressByShow),
+    [accountTypeOf(preferences), gigs, progressByShow]
   );
 
   const thisWeekGigs = useMemo(() => {

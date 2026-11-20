@@ -20,6 +20,7 @@ import { roleStatus } from "@/lib/inviteGroups";
 import { eventTypeColor } from "@/lib/eventTypes";
 import { HOLDERS, WEB_ROLES, WEB_LABELS } from "@/lib/eventRoles";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 const G = "#8CFF3D";
 const AMBER = "#FF6A00";
@@ -88,7 +89,7 @@ export default function EventOverviewSheet({ gig: base, onClose, onRemoved, rest
   // Merch counts (stage 8): artist / manager accounts.
   const { preferences } = usePreferences();
   const [merch, setMerch] = useState(false);
-  const sellsMerch = ["band", "manager"].includes(preferences?.account_type);
+  const sellsMerch = ["band", "manager"].includes(accountTypeOf(preferences));
   const [moneyOk, setMoneyOk] = useState(false);
   useEffect(() => {
     if (!user || !base?.id) return undefined;

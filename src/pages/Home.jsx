@@ -24,7 +24,7 @@ import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
 import LightingDesk, { PhoneExecutors } from "@/components/showpilot/LightingDesk";
 import TechAsksCard from "@/components/showpilot/TechAsksCard";
 import { usePreferences } from "@/hooks/usePreferences";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import { buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
@@ -50,7 +50,7 @@ export default function Home() {
   const [reminderMonthLabel, setReminderMonthLabel] = useState("");
   const searchRef = useRef(null);
   const { preferences, reload } = usePreferences();
-  const accountStyle = getAccountTypeStyle(preferences?.account_type);
+  const accountStyle = getAccountTypeStyle(accountTypeOf(preferences));
   // Desktop (1024px+), audio: the console strips layout (TechConsoleDesk).
   // Its bank row has ALL, so it starts there; the phone keeps its tabs.
   const isDesktop = useIsDesktop();
@@ -315,7 +315,7 @@ export default function Home() {
     return `${fmt(monday)} – ${fmt(sunday)}`;
   }, []);
 
-  const isLighting = preferences?.account_type === "lighting";
+  const isLighting = accountTypeOf(preferences) === "lighting";
   const deskMode = isDesktop && !isLighting;
   const tab = deskMode ? deskTab : activeTab;
 
@@ -372,7 +372,7 @@ export default function Home() {
     [shows, yearFilter, monthFilter, genreFilter, eventTypeFilter, venueFilter, cityFilter, stateFilter]
   );
 
-  const stripCells = useMemo(() => buildStatusStrip(preferences?.account_type, shows), [preferences?.account_type, shows]);
+  const stripCells = useMemo(() => buildStatusStrip(accountTypeOf(preferences), shows), [accountTypeOf(preferences), shows]);
   const openShow = (s) => navigate(techShowPath(s, { desktop: isDesktopNow() }));
 
   const genreTagMap = useMemo(() => {

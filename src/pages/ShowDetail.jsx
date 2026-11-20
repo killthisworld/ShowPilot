@@ -41,6 +41,7 @@ import { buildEventTypeOptions, addCustomEventType as addTypeToList, removeEvent
 import EventTypeIcon from "@/components/showpilot/EventTypeIcon";
 import { FAN_RSVP_OPEN } from "@/lib/hiddenProfiles";
 import { MultitrackChip, ServiceChips } from "@/components/showpilot/MultitrackQuestion";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 
 
@@ -84,9 +85,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const location = useLocation();
   const { preferences, reload: reloadPreferences } = usePreferences();
   const isDesktop = useIsDesktop();
-  const isLightingAccount = preferences?.account_type === "lighting";
+  const isLightingAccount = accountTypeOf(preferences) === "lighting";
   const [cuesAt, setCuesAt] = useState(null); // an act's lighting cue sheet (job 377)
-  const isTechProductionAccount = !preferences?.account_type || preferences.account_type === "engineer" || preferences.account_type === "lighting";
+  const isTechProductionAccount = !accountTypeOf(preferences) || accountTypeOf(preferences) === "engineer" || accountTypeOf(preferences) === "lighting";
   // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
   const sectionPhotos = !(isTechProductionAccount && !isDesktop);
   // Tech phones (job 157): concerts first. New events start as Concert, and the
@@ -94,7 +95,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   // (the banner falls back to the headliner and their / the venue's photo).
   const techPhone = isTechProductionAccount && !isDesktop;
   // Stage plot editing on the event (job 255): artist / mgmt and audio profiles.
-  const stageRole = ["engineer", "manager", "band"].includes(preferences?.account_type || "engineer");
+  const stageRole = ["engineer", "manager", "band"].includes(accountTypeOf(preferences) || "engineer");
   const [identityOpen, setIdentityOpen] = useState(false);
   const isNew = id === "new";
   const draftKey = `showdetail_draft_${isNew ? "new" : id}`;
@@ -1192,7 +1193,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <div className="space-y-3 pt-3">
           {/* The stage plot on the desktop event page (job 255). Not for the
               audio tech (job 407): theirs is under the artist info below. */}
-          {isDesktop && stageRole && (preferences?.account_type || "engineer") !== "engineer" && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
+          {isDesktop && stageRole && (accountTypeOf(preferences) || "engineer") !== "engineer" && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Act

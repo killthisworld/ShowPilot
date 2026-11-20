@@ -33,7 +33,7 @@ import EventBanner from "@/components/showpilot/EventBanner";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { TasksButton } from "@/components/showpilot/TasksPopup";
 import { buildEventTypeOptions } from "@/lib/eventTypes";
-import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { ACCOUNT_TYPE_STYLES, accountTypeOf } from "@/lib/accountTypeStyle";
 import PinnedBoard from "@/components/showpilot/PinnedBoard";
 import EventInviteView from "@/pages/EventInviteView";
 
@@ -1019,7 +1019,7 @@ export default function SharedGig() {
   };
 
   const canEdit = !!user;
-  const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  const isTechProductionAccount = ["engineer", "lighting"].includes(accountTypeOf(preferences) || "engineer");
   // Tech profiles only see what matters to the tech side of the show (job 120):
   // no requirements checklists, no guest list.
   const techView = isTechProductionAccount;
@@ -1034,7 +1034,7 @@ export default function SharedGig() {
     fetchMyIcons().then((m) => { if (!off) setMyIcon(m?.[gigId] || null); }).catch(() => {});
     return () => { off = true; };
   }, [techPhone, gigId]);
-  const myAccountType = preferences?.account_type;
+  const myAccountType = accountTypeOf(preferences);
   const busPresets = preferences?.mix_bus_presets || [];
   const iemMonitorColors = {
     IEM: busPresets.find((p) => p.bus_type === "IEM")?.color || "#EAB308",
@@ -1070,8 +1070,8 @@ export default function SharedGig() {
   // Every event has all three profiles (venue, manager / artist, audio / lighting).
   const isSectionIncluded = () => true;
   const ACCOUNT_TYPE_TO_SECTION = { band: "manager", venue: "venue", manager: "manager" };
-  const isMyOwnerSection = (key) => permissions?.is_owner && ACCOUNT_TYPE_TO_SECTION[preferences?.account_type] === key;
-  const isMyOwnerEngineerSection = () => permissions?.is_owner && ["engineer", "lighting"].includes(preferences?.account_type);
+  const isMyOwnerSection = (key) => permissions?.is_owner && ACCOUNT_TYPE_TO_SECTION[accountTypeOf(preferences)] === key;
+  const isMyOwnerEngineerSection = () => permissions?.is_owner && ["engineer", "lighting"].includes(accountTypeOf(preferences));
   const myEngineerRole = () => (permissions?.my_roles?.includes("lighting") && !permissions?.my_roles?.includes("engineer") ? "lighting" : "engineer");
 
   // Marks the gig as linked to this account and accepts any invite that
@@ -1243,7 +1243,7 @@ export default function SharedGig() {
   const stageRole = ["engineer", "manager", "band"].includes(myAccountType || "engineer");
   // Lighting cues (job 377): the LD on this event (or whoever runs the
   // lineup) opens and edits an act's cue sheet; it saves on its own.
-  const isLightingViewer = preferences?.account_type === "lighting" || !!permissions?.my_roles?.includes("lighting");
+  const isLightingViewer = accountTypeOf(preferences) === "lighting" || !!permissions?.my_roles?.includes("lighting");
   const canEditCues = canEdit && (!!permissions?.is_owner || canEditSection("manager") || !!permissions?.my_roles?.includes("lighting"));
   const saveCues = async () => {
     const b = (gig?.bands || [])[cuesAt];

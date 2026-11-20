@@ -18,7 +18,7 @@ import ApplyTemplateSheet from "@/components/showpilot/ApplyTemplateSheet";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
 import { emptyVenueTemplate, emptyArtistTemplate, normalizeVenueTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
 import { COMPANY_TEMPLATE_ROLES, gigFromTemplate, templateFromGig, templateSubtitle } from "@/lib/roleTemplates";
-import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
+import { ACCOUNT_TYPE_STYLES, accountTypeOf } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
 import TemplatePlansSheet, { useTemplatePlan, templateLimitKind } from "@/components/showpilot/TemplatePlans";
@@ -95,7 +95,7 @@ export default function MyTemplates() {
   const drag = useRef({ on: false, cat: null, x0: 0, moved: false, dx: 0 });
   const [swipe, setSwipe] = useState({ cat: null, dx: 0 });
 
-  const accountType = preferences?.account_type || "engineer";
+  const accountType = accountTypeOf(preferences) || "engineer";
   const isTech = ["engineer", "lighting"].includes(accountType);
   const own = MANAGER_SIDE[accountType] || accountType;
   // Wallets (job 124): techs keep Venue + Artist (as many as they like).

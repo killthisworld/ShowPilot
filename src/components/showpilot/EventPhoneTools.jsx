@@ -7,6 +7,7 @@ import { SECTION_FOR_TYPE } from "@/lib/needsMe";
 import { usePreferences } from "@/hooks/usePreferences";
 import { buildRunOfShow } from "@/components/showpilot/RoleWorkspace";
 import PdfMaker from "@/components/showpilot/PdfMaker";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 // Create PDF on a phone's event task page (job 73, Jay 2026-11-12: "pdf
 // creation ... should be a thing to do in the task page"), for the side of
@@ -38,7 +39,7 @@ export default function EventPhoneTools({ gig, perms, onChanged }) {
   const [pinsLocal, setPinsLocal] = useState(null); // { venue: [...], manager: [...] } after a change
   const pinQueue = useRef(Promise.resolve());
   const { preferences } = usePreferences();
-  const sides = workSides(perms, preferences?.account_type);
+  const sides = workSides(perms, accountTypeOf(preferences));
   const on = !!gig?.id && sides.length > 0;
   const { biz, reload } = useEventBusiness(on ? gig.id : null, on);
   if (!on) return null;

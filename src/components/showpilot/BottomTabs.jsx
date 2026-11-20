@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, MessageCircle } from "lucide-react";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import { usePreferences } from "@/hooks/usePreferences";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import TechRail from "@/components/showpilot/TechRail";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import { isCompanyType, visibleChats } from "@/lib/needsMe";
@@ -28,7 +28,7 @@ export default function BottomTabs({ railOnly = false }) {
 
   // Pages shared with company profiles (Linked, Archived...) give a company
   // account its own rail on desktop.
-  const company = isCompanyType(preferences?.account_type);
+  const company = isCompanyType(accountTypeOf(preferences));
 
   useEffect(() => {
     if (!isDesktop || company) return undefined;
@@ -41,7 +41,7 @@ export default function BottomTabs({ railOnly = false }) {
     return (
       <TechRail
         className="fixed left-0 top-0 bottom-0 z-50"
-        accent={getAccountTypeStyle(preferences?.account_type).color}
+        accent={getAccountTypeStyle(accountTypeOf(preferences)).color}
         preferences={preferences}
         onPreferencesUpdate={reload}
       />

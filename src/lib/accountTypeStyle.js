@@ -32,3 +32,11 @@ export function rememberAccountType(accountType) {
 export function getAccountTypeStyle(accountType) {
   return ACCOUNT_TYPE_STYLES[accountType] || ACCOUNT_TYPE_STYLES[cachedType] || ACCOUNT_TYPE_STYLES.engineer;
 }
+
+// The signed-in account's type, or (while preferences are still loading) the
+// one remembered on this device, so a page draws in its profile's colors and
+// layout from the first frame instead of a default and then a swap (job 412,
+// e.g. a venue's Bookings tabs or event page flashing red before blue).
+export function accountTypeOf(prefs) {
+  return prefs?.account_type || cachedType || undefined;
+}

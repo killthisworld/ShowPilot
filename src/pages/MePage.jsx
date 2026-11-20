@@ -5,7 +5,7 @@ import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import Cockpit from "@/pages/Experience";
 import { usePreferences } from "@/hooks/usePreferences";
-import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
+import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
 import { SCENE_FONT } from "@/lib/sceneStyle";
 import PartyPanel from "@/components/showpilot/PartyPanel";
 import HomeScreenCard from "@/components/showpilot/HomeScreenCard";
@@ -30,11 +30,11 @@ const TOURING = new Set(["band", "manager"]);
 export default function MePage() {
   const { preferences, reload } = usePreferences();
   const [params, setParams] = useSearchParams();
-  const touring = TOURING.has(preferences?.account_type);
+  const touring = TOURING.has(accountTypeOf(preferences));
   const sections = SECTIONS.filter((s) => !s.tours || touring);
   const asked = params.get("section");
   const section = sections.some((s) => s.id === asked) ? asked : "profile";
-  const style = getAccountTypeStyle(preferences?.account_type);
+  const style = getAccountTypeStyle(accountTypeOf(preferences));
   const accent = style.color;
 
   const pick = (id) => {

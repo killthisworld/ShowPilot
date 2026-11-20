@@ -8,11 +8,12 @@ import { ArrowLeft, Search, ArchiveRestore, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePreferences } from "@/hooks/usePreferences";
 import { techShowPath, isDesktopNow } from "@/lib/showRoute";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
 
 export default function ArchivedShows() {
   const navigate = useNavigate(); const goBack = useGoBack();
   const { preferences } = usePreferences();
-  const isTechProductionAccount = ["engineer", "lighting"].includes(preferences?.account_type || "engineer");
+  const isTechProductionAccount = ["engineer", "lighting"].includes(accountTypeOf(preferences) || "engineer");
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
