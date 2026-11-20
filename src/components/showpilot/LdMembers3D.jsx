@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useMemo, useRef, useState } from "react";
-import { Mic, Plus, Trash2, MapPin } from "lucide-react";
+import { Plus, Trash2, MapPin } from "lucide-react";
 import { STAGE_POSITIONS, positionOfMember } from "@/lib/stagePositions";
 import { memberLook } from "@/lib/customPositions";
 import { memberSings, isVocalInput } from "@/components/showpilot/VocalsQuestion";
 import { emptyRig, normalizeRig, rigHasItems } from "@/lib/lightingRig";
+import { stageIconSvg } from "@/lib/stageIcons";
 
 const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
 const PLAYS = STAGE_POSITIONS.filter((p) => p.key !== "vocals");
@@ -48,7 +49,10 @@ export default function LdMembers3D({ members = [], setMembers, getInstruments, 
   const input = "min-h-[42px] rounded-[10px] bg-[#0b0b0b] border border-[#262626] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-white/30";
   return (
     <div className="flex flex-col gap-3">
-      <div ref={stageRef} className="relative w-full rounded-[14px] overflow-hidden border border-[#2a2a2a] bg-black scroll-mt-24" style={{ height: "min(56dvh, 460px)" }}>
+      {/* The stage stays at the top as the members scroll under it (job 416),
+          so nobody has to scroll back up to place someone. */}
+      <div className="sticky -top-2 z-10 -mx-1 px-1 pt-2 -mt-2 pb-2 bg-[#151515]">
+      <div ref={stageRef} className="relative w-full rounded-[14px] overflow-hidden border border-[#2a2a2a] bg-black" style={{ height: "min(38dvh, 340px)" }}>
         <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
           <Stage3D rig={r} members={view} mode="place" pickedMember={picked >= 0 ? picked : null}
             onTapDeck={(x, y) => { if (picked >= 0 && members[picked]) { set(picked, { stage_x: x, stage_y: y }); setPicked(-1); } }}
@@ -57,6 +61,7 @@ export default function LdMembers3D({ members = [], setMembers, getInstruments, 
         <p className="absolute top-2 left-0 right-0 text-center text-[12px] text-white/60 pointer-events-none px-6">
           {picked >= 0 && members[picked] ? `Tap where ${members[picked].name || "they"} stand${members[picked].name ? "s" : ""}` : members.length ? "Drag someone to move them. Drag the stage to turn it." : "Add your members below"}
         </p>
+      </div>
       </div>
 
       {members.map((m, i) => {
@@ -75,15 +80,21 @@ export default function LdMembers3D({ members = [], setMembers, getInstruments, 
               </button>
               <button type="button" onClick={() => { setMembers(members.filter((_, k) => k !== i)); setPicked(-1); }} aria-label={`Remove ${m.name || "member"}`} className="w-10 h-[42px] shrink-0 flex items-center justify-center text-white/35 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
             </div>
-            <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Plays">
+            {/* What they play as the stage plot's instrument icons (job 416),
+                the name read out for screen readers; Sings beside them. */}
+            <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Plays">
               {PLAYS.map((p) => (
-                <button key={p.key} type="button" onClick={() => setPlays(i, p.key)} aria-pressed={key === p.key}
-                  className="min-h-[34px] px-2.5 rounded-full border text-[12.5px] font-semibold"
-                  style={key === p.key ? { background: p.color, borderColor: p.color, color: "#0d0d0d" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}>{p.label}</button>
+                <button key={p.key} type="button" onClick={() => setPlays(i, p.key)} aria-pressed={key === p.key} aria-label={p.label} title={p.label}
+                  className="h-11 rounded-[10px] border flex items-center justify-center"
+                  style={key === p.key ? { background: p.color + "33", borderColor: p.color } : { background: "#161616", borderColor: "#333" }}>
+                  <span aria-hidden="true" className="block [&>svg]:w-full [&>svg]:h-full" style={{ width: 28, height: 28 }} dangerouslySetInnerHTML={{ __html: stageIconSvg(p.key, p.color, 28) }} />
+                </button>
               ))}
-              <button type="button" onClick={() => set(i, { vocals: !sings, instruments: !sings ? insts : insts.filter((x) => !isVocalInput(x)) })} aria-pressed={sings}
-                className="min-h-[34px] px-2.5 rounded-full border text-[12.5px] font-semibold flex items-center gap-1"
-                style={sings ? { background: "#8CFF3D", borderColor: "#8CFF3D", color: "#0d0d0d" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}><Mic className="w-3.5 h-3.5" />Sings</button>
+              <button type="button" onClick={() => set(i, { vocals: !sings, instruments: !sings ? insts : insts.filter((x) => !isVocalInput(x)) })} aria-pressed={sings} aria-label="Sings" title="Sings"
+                className="h-11 rounded-[10px] border flex items-center justify-center"
+                style={sings ? { background: "#8CFF3D33", borderColor: "#8CFF3D" } : { background: "#161616", borderColor: "#333" }}>
+                <span aria-hidden="true" className="block [&>svg]:w-full [&>svg]:h-full" style={{ width: 28, height: 28 }} dangerouslySetInnerHTML={{ __html: stageIconSvg("vocals", "#8CFF3D", 28) }} />
+              </button>
             </div>
             {key === "other" && (
               <input value={insts.find((x) => !isVocalInput(x))?.name || ""} onChange={(e) => setPlays(i, "other", e.target.value)} placeholder="What they play" aria-label="What they play" className={input} />
