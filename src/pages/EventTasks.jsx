@@ -20,8 +20,8 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 
 const SECTIONS = [
   { value: "venue", label: "VENUE", long: "Venue", color: "#60A5FA" },
-  { value: "manager", label: "MANAGER / ARTIST", long: "Manager / Artist", color: "#EF4444" },
-  { value: "engineer", label: "AUDIO / LIGHTING", long: "Audio / Lighting", color: "#8CFF3D" },
+  { value: "manager", label: "ARTIST / MGMT", long: "Artist / Management", color: "#EF4444" },
+  { value: "engineer", label: "AUDIO / LIGHTS", long: "Audio / Lighting", color: "#8CFF3D" },
 ];
 const ROLE_TO_SECTION = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
 
@@ -169,10 +169,11 @@ export default function EventTasks() {
           return (
             <section key={col.value} aria-label={col.long} className="min-h-0 flex flex-col rounded-xl bg-[#121212] overflow-hidden" style={{ border: `1px solid ${mine ? col.color + "88" : "#222"}` }}>
               <div className="h-[52px] shrink-0 flex items-center gap-2.5 px-3.5 border-b border-[#222]" style={{ background: col.color + "14" }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: col.color }} />
-                <h2 className="text-[19px] font-bold tracking-[0.06em]" style={{ fontFamily: SCENE_FONT, color: col.color }}>{col.label}</h2>
-                {mine && <span className="text-[10px] tracking-[0.1em] px-1.5 py-0.5 rounded text-[#0d0d0d]" style={{ fontFamily: SCENE_MONO, background: col.color }}>YOURS</span>}
-                <span className="ml-auto text-[12px] text-white/60" style={{ fontFamily: SCENE_MONO }}>{openCount(col.value)} open</span>
+                {/* One line that fits a third of the screen: name, YOURS, open count (job 386). */}
+                <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: col.color }} />
+                <h2 className="min-w-0 text-[19px] lg:text-[16px] font-bold tracking-[0.05em] whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontFamily: SCENE_FONT, color: col.color }}>{col.label}</h2>
+                {mine && <span className="shrink-0 text-[10px] tracking-[0.1em] px-1.5 py-0.5 rounded text-[#0d0d0d]" style={{ fontFamily: SCENE_MONO, background: col.color }}>YOURS</span>}
+                <span className="shrink-0 ml-auto text-[12px] text-white/60 whitespace-nowrap" style={{ fontFamily: SCENE_MONO }}>{openCount(col.value)} open</span>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto p-2.5 flex flex-col gap-2" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
                 {list.length === 0 && (
