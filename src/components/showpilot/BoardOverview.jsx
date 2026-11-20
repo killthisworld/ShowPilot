@@ -81,10 +81,11 @@ export default function BoardOverview({ gig, nodes = [], isOwner = false, userId
               const [role, key] = rosTarget(r);
               const c = r.kind === "curfew" ? "#F87171" : colorOf(role);
               return (
-                <button key={i} type="button" onClick={() => onGo(role, key)} className="w-full grid grid-cols-[88px_10px_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[0.03]">
+                <button key={i} type="button" onClick={() => onGo(role, key)} className="w-full grid grid-cols-[auto_8px_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[0.03]">
                   <span className="text-[13px] text-white/75" style={{ fontFamily: SCENE_MONO }}>{r.time || "—"}</span>
                   <span className="w-2 h-2 rounded-full" style={{ background: c }} />
-                  <span className="text-[15px] truncate" style={r.kind === "curfew" ? { color: "#FCA5A5" } : undefined}>{r.label || "—"}</span>
+                  {/* Whole name shows, on two lines if it needs them (job 382). */}
+                  <span className="text-[15px] leading-tight line-clamp-2 break-words" style={r.kind === "curfew" ? { color: "#FCA5A5" } : undefined}>{r.label || "—"}</span>
                   <span className="text-[10px] tracking-[0.1em]" style={{ fontFamily: SCENE_MONO, color: colorOf(role) }}>{r.kind === "set" ? "ARTIST" : labelOf(role).toUpperCase()}</span>
                 </button>
               );

@@ -1247,10 +1247,10 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
   };
 
   const linkFields = (
-    <div className={compact ? "mt-1.5 grid grid-cols-2 gap-1.5" : "mt-3 space-y-2"}>
+    <div className={compact ? "mt-1.5 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-1.5" : "mt-3 space-y-2"}>
       <EventLinkInput icon={Ticket} label="Ticket link" placeholder="Where fans buy tickets" value={ticketLink} onChange={(v) => { setTicketLink(v); setLinkError(""); }} onEnter={save} />
       <EventLinkInput icon={Globe} label="Venue website" placeholder="The venue's website" value={venueSite} onChange={(v) => { setVenueSite(v); setLinkError(""); }} onEnter={save} />
-      {linkError && <p className={`text-red-400 text-[11px] m-0 ${compact ? "col-span-2 px-1" : ""}`}>{linkError}</p>}
+      {linkError && <p className={`text-red-400 text-[11px] m-0 ${compact ? "col-span-full px-1" : ""}`}>{linkError}</p>}
     </div>
   );
 
@@ -1258,7 +1258,8 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
     const inCls = "min-w-0 bg-transparent border border-transparent hover:border-[#2a2a2a] focus:border-white/30 rounded-md px-2 py-1 text-white outline-none";
     return (
       <div className="mb-3">
-        <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-[#262626] bg-[#111]">
+        {/* Wraps on a narrow board, so the name, date and type always stay inside it (job 382). */}
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-2 rounded-xl border border-[#262626] bg-[#111]">
           <label className="relative shrink-0 cursor-pointer group" title={gig.icon_url ? "Change event image" : "Add an event image"}>
             <EventTypeIcon type={gig.event_type || "Other"} imageUrl={gig.icon_url} size={36} />
             <span className="absolute inset-0 rounded-lg flex items-center justify-center bg-black/60 text-[9px] font-bold tracking-[0.06em] text-white opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontFamily: SCENE_MONO }}>{iconBusy ? "..." : "EDIT"}</span>
@@ -1270,21 +1271,21 @@ function EventDetailsEditor({ token, gig, onChanged, onIconChanged, compact = fa
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
             placeholder="Event name"
             aria-label="Event name"
-            className={`${inCls} flex-1 text-[16px] font-semibold placeholder:text-white/30`}
+            className={`${inCls} flex-1 min-w-[150px] text-[16px] font-semibold placeholder:text-white/30`}
           />
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             aria-label="Date"
-            className={`${inCls} shrink-0 w-[150px] text-[14px] text-white/80 [color-scheme:dark]`}
+            className={`${inCls} flex-1 min-w-[132px] max-w-[160px] text-[14px] text-white/80 [color-scheme:dark]`}
             style={{ fontFamily: SCENE_MONO }}
           />
           <select
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
             aria-label="Event type"
-            className={`${inCls} shrink-0 w-[130px] text-[14px] text-white/80 bg-[#111]`}
+            className={`${inCls} flex-1 min-w-[110px] max-w-[140px] text-[14px] text-white/80 bg-[#111]`}
           >
             {!eventType && <option value="">Event type</option>}
             {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
