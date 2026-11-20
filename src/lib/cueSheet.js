@@ -8,7 +8,7 @@
 export const CUE_MOMENTS = ["Intro", "Verse", "Pre-chorus", "Chorus", "Bridge", "Drop", "Breakdown", "Solo", "Outro", "Ending", "Between songs"];
 export const CUE_FEELS = ["Chill", "Building", "High energy", "Ballad", "Heavy", "Dancey"];
 export const CUE_LOOKS = ["Full wash", "Spot on vocals", "Blackout", "Strobes", "Slow color fade", "Back light / silhouette", "Audience blinders", "Haze", "Chase with the beat", "Hold one color"];
-export const CUE_COLORS = ["#FFFFFF", "#FBBF24", "#F97316", "#EF4444", "#EC4899", "#A855F7", "#3B82F6", "#22D3EE", "#22C55E"];
+export const CUE_COLORS = ["#FFFFFF", "#FDE047", "#F97316", "#EF4444", "#EC4899", "#A855F7", "#3B82F6", "#22D3EE", "#22C55E"];
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 export const newCue = (at = "") => ({ id: newId(), at, look: "", color: "" });

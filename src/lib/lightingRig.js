@@ -33,7 +33,7 @@ export const FIXTURE_TYPES = [
   { type: "fog", label: "Fog / haze", color: "#9CA3AF" },
 ];
 
-export const RIG_COLORS = ["#FFFFFF", "#FBBF24", "#F59E0B", "#EF4444", "#EC4899", "#C084FC", "#60A5FA", "#22D3EE", "#8CFF3D"];
+export const RIG_COLORS = ["#FFFFFF", "#FDE047", "#F59E0B", "#EF4444", "#EC4899", "#C084FC", "#60A5FA", "#22D3EE", "#8CFF3D"];
 
 export const isTruss = (t) => String(t || "").startsWith("truss_");
 // People on the stage (job 389): { type: "person", label: name, part, color }.
