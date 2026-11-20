@@ -475,12 +475,13 @@ export default function StageBuilder({
         </div>
         <PartChips value={newPerson.part} onChange={(part) => setNewPerson((p) => ({ ...p, part }))} />
         {people.length > 0 && (
-          <div className="flex flex-col gap-1">
+          // Small squares (job 392): their instrument icon, their name under it.
+          <div className="flex flex-wrap gap-1.5">
             {people.map((p) => (
-              <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)}
-                className="min-h-[40px] px-2.5 rounded-[6px] border flex items-center gap-2 text-left" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-                <PartIcon part={p.part} color={p.color} size={24} />
-                <span className="text-[14px] font-semibold text-white truncate">{p.label || "Someone"}</span>
+              <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)} aria-label={p.label || "Someone"}
+                className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
+                <PartIcon part={p.part} color={p.color} size={28} />
+                <span className="w-full text-center text-[11.5px] font-semibold text-white truncate">{p.label || "Someone"}</span>
               </button>
             ))}
           </div>
