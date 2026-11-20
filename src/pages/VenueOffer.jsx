@@ -77,6 +77,10 @@ export default function VenueOffer() {
   const [fromTpl, setFromTpl] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
   const [tplMsg, setTplMsg] = useState("");
+  // With an offer template saved, Offer dates first asks: use it, or start
+  // fresh (job 432). tplStart = { offer, t, base } while there's a choice.
+  const [tplStart, setTplStart] = useState(null);
+  const [choosing, setChoosing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sentOff, setSentOff] = useState(false);
@@ -125,17 +129,35 @@ export default function VenueOffer() {
           const t = fromVenueTemplate((offerRow || latest)?.data);
           const base = { name: prefs?.display_name || "", photo_url: prefs?.profile_photo_url || "" };
           if (!gone && offer) {
-            const o = offer.data || {};
-            setData((d) => ({ ...d, ...o, profile: { ...base, ...pick(t.profile), ...pick(o.profile) }, room: { ...t.room, ...(o.room || {}) }, hosp: { ...t.hosp, ...(o.hosp || {}) }, logi: { ...t.logi, ...(o.logi || {}) } }));
-            setTplTimes(offer.times || null);
-            setFromTpl(true);
-          } else if (!gone) setData((d) => ({ ...d, profile: { ...base, ...pick(t.profile), ...pick(d.profile) }, room: { ...t.room, ...d.room }, hosp: { ...t.hosp, ...d.hosp }, logi: { ...t.logi, ...d.logi } }));
+            setTplStart({ offer, t, base });
+            setChoosing(true);
+          } else if (!gone) fillFresh(t, base);
         } catch (e) { console.error(e); }
       }
       setLoading(false);
     })();
     return () => { gone = true; };
   }, [user, routeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A fresh offer: what the venue template has (room, hospitality, the venue).
+  const fillFresh = (t, base) => {
+    setData({ profile: { ...base, ...pick(t.profile) }, deal: {}, room: { ...t.room }, hosp: { ...t.hosp }, logi: { ...t.logi } });
+    setTplTimes(null);
+    setFromTpl(false);
+  };
+  // From the offer template: everything but the dates and who it goes to.
+  const fillFromTemplate = ({ offer, t, base }) => {
+    const o = offer.data || {};
+    setData({ deal: {}, ...o, profile: { ...base, ...pick(t.profile), ...pick(o.profile) }, room: { ...t.room, ...(o.room || {}) }, hosp: { ...t.hosp, ...(o.hosp || {}) }, logi: { ...t.logi, ...(o.logi || {}) } });
+    setTplTimes(offer.times || null);
+    setFromTpl(true);
+  };
+  const choose = (useTpl) => {
+    if (!tplStart) return;
+    if (useTpl) fillFromTemplate(tplStart); else fillFresh(tplStart.t, tplStart.base);
+    setChoosing(false);
+    setTplMsg("");
+  };
 
   const saveNow = async () => {
     // No Note / We need since job 385: an older draft drops them when saved.
@@ -200,6 +222,29 @@ export default function VenueOffer() {
     return (
       <IntakeSent seed="offer" title="Offers are for venues" line="A venue builds an offer for an act. Acts and managers book a date from Bookings.">
         <a href="/bookings" className={`mt-6 ${btn}`} style={{ background: BLUE, color: "#0d0d0d" }}>Go to Bookings</a>
+      </IntakeSent>
+    );
+  }
+
+  // Offer dates with a saved offer template: use it, or start fresh (job 432).
+  if (choosing && tplStart) {
+    const o = tplStart.offer.data || {};
+    const docs = Array.isArray(o.files) ? o.files.length : 0;
+    const deal = o.deal && Object.values(o.deal).some((v) => has(v));
+    const parts = [deal && "the deal", o.room && Object.values(o.room).some((v) => has(v)) && "the room", o.hosp && Object.values(o.hosp).some((v) => has(v)) && "hospitality", o.logi && Object.values(o.logi).some((v) => has(v)) && "logistics", docs && `${docs} document${docs === 1 ? "" : "s"}`, tplStart.offer.times?.set_time && "your usual times"].filter(Boolean);
+    let saved = "";
+    try { saved = tplStart.offer.saved_at ? new Date(tplStart.offer.saved_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""; } catch { saved = ""; }
+    return (
+      <IntakeSent seed="offer" bare>
+        <CalendarDays className="w-14 h-14 mx-auto mb-4" style={{ color: BLUE }} />
+        <h2 className="text-[30px] font-bold mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Make an offer</h2>
+        <p className="text-white/60 text-[15px]">Start from your offer template and just add the dates and who it goes to, or start a fresh one.</p>
+        <button type="button" onClick={() => choose(true)} className={`mt-6 ${btn} flex-col !gap-0.5 py-2.5`} style={{ background: BLUE, color: "#0d0d0d" }}>
+          <span>Use my offer template</span>
+          {(parts.length > 0 || saved) && <span className="text-[12.5px] font-semibold opacity-75">{[parts.length ? `With ${parts.join(", ")}` : "", saved ? `saved ${saved}` : ""].filter(Boolean).join(" · ")}</span>}
+        </button>
+        <button type="button" onClick={() => choose(false)} className={`mt-3 ${btn} border border-[#333] text-white`}>Start fresh</button>
+        <button type="button" onClick={goBack} className="mt-3 min-h-[44px] text-[14px] text-white/60">Back</button>
       </IntakeSent>
     );
   }
@@ -315,6 +360,9 @@ export default function VenueOffer() {
   const belowSend = (
     <>
       {fromTpl && !tplMsg && <p className="m-0 text-center text-[12.5px] text-white/50">Filled in from your offer template.</p>}
+      {!fromTpl && tplStart && !dirty.current && (
+        <button type="button" onClick={() => choose(true)} className="min-h-[44px] text-[14px] font-semibold" style={{ color: BLUE }}>Use my offer template instead</button>
+      )}
       <button type="button" onClick={saveAsTemplate} disabled={savingTpl} className="min-h-[44px] text-[14px] font-semibold disabled:opacity-60" style={{ color: BLUE }}>
         {savingTpl ? "Saving…" : fromTpl ? "Update my offer template" : "Save as my offer template"}
       </button>

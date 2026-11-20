@@ -796,7 +796,7 @@ export default function MyTemplates() {
   ));
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] pb-24 text-white" style={{ fontFamily: SCENE_FONT }}>
+    <div className="min-h-screen bg-[#0d0d0d] pb-24 lg:pb-6 text-white" style={{ fontFamily: SCENE_FONT }}>
       <div className="sticky top-0 z-40 bg-[#0d0d0d]/95 backdrop-blur-lg border-b border-[#1a1a1a]">
         <div className={`flex items-center gap-3 px-4 py-4 mx-auto ${desktop ? "max-w-[1180px]" : "max-w-lg"}`}>
           <button onClick={() => goBack()} className="p-1 -ml-1 text-white/60 hover:text-white">

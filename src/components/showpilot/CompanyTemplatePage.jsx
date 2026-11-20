@@ -466,8 +466,28 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     );
   }
 
+  // On a phone the sections are two-across tiles (job 432), so the whole list
+  // shows with little or no scrolling; a computer keeps rows, three across.
+  const sectionTile = (s, i) => (
+    <div key={s.key} className="flex flex-col rounded-[12px] bg-[#151515] border border-[#262626] min-w-0" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
+      <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex flex-col items-start gap-1 min-h-[76px] px-2.5 py-2 text-left">
+        <span className="flex items-center gap-1 w-full">
+          <span className="shrink-0 text-[9px] tracking-[0.1em] px-1.5 py-[3px] rounded-[5px] border border-[#333] text-white/75" style={MONO}>{MODE[s.mode]}</span>
+          {!s.builtIn && <span className="shrink-0 text-[9px] tracking-[0.1em] px-1.5 py-[3px] rounded" style={{ ...MONO, background: `${ring}26`, color: ring }}>YOURS</span>}
+        </span>
+        <span className="text-[14px] font-semibold leading-tight line-clamp-2 break-words w-full">{s.label}</span>
+        <span className="block text-[11.5px] text-white/55 truncate w-full">{s.mode === "off" ? "Left out" : s.sub || (s.builtIn ? "Not filled in yet" : "No fields yet")}</span>
+      </button>
+      {reorder && (
+        <span className="flex border-t border-[#262626]">
+          <button type="button" aria-label={`Move ${s.label} back`} disabled={i === 0} onClick={() => move(s.key, -1)} className="flex-1 h-10 text-white/60 disabled:opacity-25"><ArrowUp className="w-4 h-4 mx-auto -rotate-90" /></button>
+          <button type="button" aria-label={`Move ${s.label} on`} disabled={i === sections.length - 1} onClick={() => move(s.key, 1)} className="flex-1 h-10 text-white/60 disabled:opacity-25"><ArrowDown className="w-4 h-4 mx-auto -rotate-90" /></button>
+        </span>
+      )}
+    </div>
+  );
   const sectionRow = (s, i) => (
-    <div key={s.key} className="flex items-center gap-1.5 rounded-[12px] bg-[#151515] border border-[#262626]" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
+    <div key={s.key} className="flex items-center gap-1.5 rounded-[12px] bg-[#151515] border border-[#262626] min-w-0" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
       <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex items-center gap-2.5 min-h-[56px] pl-3 pr-1 text-left">
         <span className="flex-1 min-w-0">
           <span className="flex items-center gap-1.5">
@@ -497,10 +517,12 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       </div>
       {/* The act (one-act accounts) or "Your acts" (more than one), job 73. */}
       {actsBlock}
-      {sections.map(sectionRow)}
-      <button type="button" onClick={addSection} className="min-h-[48px] rounded-[12px] border-[1.5px] border-dashed text-[14px] font-semibold flex items-center justify-center gap-1.5" style={{ borderColor: `${ring}66`, color: ring }}>
-        <Plus className="w-4 h-4" strokeWidth={2.5} />Add your own section
-      </button>
+      <div className={desktop ? "grid gap-2 grid-cols-2 xl:grid-cols-3" : "grid gap-2 grid-cols-2"}>
+        {sections.map(desktop ? sectionRow : sectionTile)}
+        <button type="button" onClick={addSection} className={`${desktop ? "min-h-[58px]" : "min-h-[76px]"} rounded-[12px] border-[1.5px] border-dashed text-[14px] font-semibold flex items-center justify-center gap-1.5 px-2 text-center`} style={{ borderColor: `${ring}66`, color: ring }}>
+          <Plus className="w-4 h-4 shrink-0" strokeWidth={2.5} />{desktop ? "Add your own section" : "Add a section"}
+        </button>
+      </div>
     </section>
   );
 
@@ -645,17 +667,21 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
           <span className="flex-1" />
           {topButtons}
         </div>
-        <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "320px minmax(0, 1fr) 320px" }}>
-          <div className="flex flex-col gap-4">
+        {/* Sections across the wide side, so they all show at once (job 432);
+            the preview and the look stack on the right. */}
+        <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "minmax(0, 1fr) 340px" }}>
+          <div className="flex flex-col gap-4 min-w-0">
             {progress}
             {sectionsBlock}
           </div>
-          <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4">
-            <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} />
-          </div>
-          <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4 flex flex-col gap-3">
-            <div className="text-[22px]" style={TITLE_FONT.bold}>The look</div>
-            <LookControls look={look} setLook={setLook} ring={ring} role={role} profilePhoto={profilePhoto} />
+          <div className="flex flex-col gap-3 min-w-0">
+            <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-3">
+              <Preview role={role} look={look} name={name} sub={sub} ring={ring} initials={initials} profilePhoto={profilePhoto} />
+            </div>
+            <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-4 flex flex-col gap-3">
+              <div className="text-[22px]" style={TITLE_FONT.bold}>The look</div>
+              <LookControls look={look} setLook={setLook} ring={ring} role={role} profilePhoto={profilePhoto} />
+            </div>
           </div>
         </div>
         {sheetEl}
