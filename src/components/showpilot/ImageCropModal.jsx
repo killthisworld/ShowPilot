@@ -134,7 +134,18 @@ export default function ImageCropModal({ file, src = null, shape = "rect", aspec
 
   const tool = "h-10 px-3 rounded-lg bg-[#222] text-white/85 text-[13px] font-semibold flex items-center gap-1.5";
   return (
-    <div className="fixed inset-0 z-[95] bg-black/90 flex flex-col items-center justify-center px-4" onClick={onCancel} style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    // Opened from inside a Settings sheet (a modal), the page behind has
+    // pointer-events turned off and the sheet closes on any tap outside it, so
+    // the editor could be seen but not touched (job 430). pointerEvents auto
+    // makes it respond; stopping these events at its own root keeps the sheet
+    // from closing or grabbing the focus while the editor is up.
+    <div
+      className="fixed inset-0 z-[95] bg-black/90 flex flex-col items-center justify-center px-4"
+      onClick={onCancel}
+      onPointerDown={(e) => e.stopPropagation()}
+      onFocus={(e) => e.stopPropagation()}
+      style={{ fontFamily: "Inter, system-ui, sans-serif", pointerEvents: "auto" }}
+    >
       <div onClick={(e) => e.stopPropagation()} className="bg-[#161616] rounded-2xl p-4 w-full max-w-sm" role="dialog" aria-modal="true" aria-label="Edit photo">
         <p className="text-white text-sm font-semibold mb-3 text-center">{title}</p>
         <div
