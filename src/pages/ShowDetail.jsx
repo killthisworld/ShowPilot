@@ -4,7 +4,8 @@ import { cropImage } from "@/lib/cropImage";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/showpilot/StagePlotView";
-import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
+import CueSheetWindow, { ActCuesButton, CueSheetButton } from "@/components/showpilot/CueSheetWindow";
+import { getLdBandCues, saveLdBandCues } from "@/lib/ldStages";
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
 import { EventStageBuilder } from "@/components/showpilot/LdStageCard";
@@ -89,6 +90,16 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const isDesktop = useIsDesktop();
   const isLightingAccount = accountTypeOf(preferences) === "lighting";
   const [cuesAt, setCuesAt] = useState(null); // an act's lighting cue sheet (job 377)
+  // The LD opens an act's cue sheet (job 435): when the act sent none, it
+  // starts from the LD's template for the band, if it has one.
+  const openLdCues = async (i) => {
+    const b = bands[i];
+    if (b && !cueSheetHasAny(b.lighting_cues) && b.band_name) {
+      const saved = await getLdBandCues(b.band_name).catch(() => null);
+      if (saved) setBands((prev) => prev.map((x, k) => (k === i ? { ...x, lighting_cues: saved } : x)));
+    }
+    setCuesAt(i);
+  };
   const isTechProductionAccount = !accountTypeOf(preferences) || accountTypeOf(preferences) === "engineer" || accountTypeOf(preferences) === "lighting";
   // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
   const sectionPhotos = !(isTechProductionAccount && !isDesktop);
@@ -1277,14 +1288,15 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             // Job 429: the LD sees a picture of the event's 3D stage with the
             // act on it (tap to open the full stage) - no members list, no
             // stage plot uploads.
-            membersSlot={isLightingAccount ? <LdActStage act={activeBand} rig={show.lighting_rig || myVenueRig} onOpen={() => setPlotAt(activeBandIndex)}
-              onPdf={cueSheetHasAny(activeBand?.lighting_cues) ? () => openCueSheetPdf({ actName: activeBand.band_name || "Act", eventLine: [show?.date ? new Date(show.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", show?.venue].filter(Boolean).join(" · "), sheet: activeBand.lighting_cues }).catch(() => {}) : null} /> : undefined}
+            membersSlot={isLightingAccount ? <LdActStage act={activeBand} rig={show.lighting_rig || myVenueRig} onOpen={() => setPlotAt(activeBandIndex)} /> : undefined}
             withPlotFiles={!isLightingAccount}
             setLengthAction={
               <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
                 <ServiceChips answers={servicesFor(activeBand?.band_name)?.services || []} />
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(activeBandIndex); setShowFxModal(true); }} />
+                {/* The LD's cue sheet (job 435): theirs, or one to fill in. */}
+                {isLightingAccount && <CueSheetButton act={activeBand} onClick={() => openLdCues(activeBandIndex)} />}
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 {/* Always here, empty stage or not: open it to build one (job 286). */}
                 {/* Not for the LD (job 431): the 3D stage below has it all. */}
@@ -1323,7 +1335,12 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
         <CueSheetWindow acts={bands} start={cuesAt} onClose={() => setCuesAt(null)}
           eventLine={[show?.date ? new Date(show.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", show?.venue].filter(Boolean).join(" · ")} onPlay={isLightingAccount ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
           onChange={(i, v) => setBands((prev) => prev.map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)))}
-          onSave={!isNew ? () => { setSaveAfter((n) => n + 1); setCuesAt(null); } : null} />
+          onSave={!isNew ? (i) => {
+            setSaveAfter((n) => n + 1); setCuesAt(null);
+            // The LD keeps it with their template for the band too (job 435).
+            const b = bands[i ?? cuesAt];
+            if (isLightingAccount && b?.band_name && cueSheetHasAny(b.lighting_cues)) saveLdBandCues({ name: b.band_name, cues: b.lighting_cues }).catch((e) => console.error(e));
+          } : null} />
       )}
       {/* The LD sees the act on the event's 3D stage, cues and all (job 383). */}
       {/* The LD runs the act's cues on the event's stage (job 387). */}

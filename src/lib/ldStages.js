@@ -126,3 +126,33 @@ export async function saveStageParts({ id = null, name, rig, parts, artist = "" 
   if (parts.band) out.bandId = await saveLdBand({ name: artist, rig: stagePart(rig, { band: true, risers: parts.risers }) });
   return out;
 }
+
+const likeExact = (t) => t.replace(/[\\%_]/g, (m) => `\\${m}`); // a name, matched whatever its case
+
+// An act's cue sheet kept with the LD's artist template for the band (job
+// 434): saved from the event, and the starting sheet next time the act
+// sends none. Matched by the band's name; the template is made if new.
+export async function getLdBandCues(name) {
+  const clean = String(name || "").trim();
+  if (!clean) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("saved_templates").select("data").eq("owner_id", user.id).eq("category", "artist").ilike("name", likeExact(clean)).maybeSingle();
+  return data?.data?.lighting_cues || null;
+}
+export async function saveLdBandCues({ name, cues }) {
+  const clean = String(name || "").trim();
+  if (!clean || !cues) return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: row } = await supabase.from("saved_templates").select("id, data").eq("owner_id", user.id).eq("category", "artist").ilike("name", likeExact(clean)).maybeSingle();
+  const now = new Date().toISOString();
+  if (row) {
+    const { error } = await supabase.from("saved_templates").update({ data: { ...(row.data || {}), lighting_cues: cues }, updated_at: now }).eq("id", row.id);
+    if (error) throw error;
+    return row.id;
+  }
+  const { data, error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "artist", name: clean, data: { ...emptyArtistTemplate(), lighting_cues: cues } }).select("id").single();
+  if (error) throw error;
+  return data.id;
+}

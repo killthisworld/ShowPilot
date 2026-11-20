@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Lightbulb, X, FileText } from "lucide-react";
+import { Lightbulb, X, FileText, ListMusic } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
 import { cueSheetHasAny, cueSheetSummary } from "@/lib/cueSheet";
@@ -35,7 +35,23 @@ export function ActCuesButton({ act, onClick, size = "md" }) {
   );
 }
 
-// acts, start (index); onChange(i, sheet) when editable; onSave() (optional,
+// The LD's cue sheet button (job 435), next to the act's notes: their cue
+// sheet as they uploaded or typed it, or an empty one for the LD to fill in.
+export function CueSheetButton({ act, onClick, size = "md" }) {
+  const has = cueSheetHasAny(act?.lighting_cues);
+  const box = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }}
+      aria-label={`Cue sheet for ${act?.band_name || "this act"}${has ? " (has cues)" : ""}`} title="Cue sheet"
+      className={`relative ${box} shrink-0 rounded-[10px] border border-[#2a2a2a] bg-[#141414] flex items-center justify-center hover:border-[#8CFF3D]/50`}
+      style={{ color: has ? G : "rgba(140,255,61,0.55)" }}>
+      <ListMusic className={size === "sm" ? "w-4 h-4" : "w-[18px] h-[18px]"} />
+      {has && <span aria-hidden="true" className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full" style={{ background: G }} />}
+    </button>
+  );
+}
+
+// acts, start (index); onChange(i, sheet) when editable; onSave(i) (optional,
 // a Save button); onUpload(file) -> url for the cue sheet files.
 // onPlay(i): the LD plays the act's cues on the 3D stage (job 383).
 // eventLine: "Sat, Dec 5 · The Fillmore" on the PDF (job 418).
@@ -88,7 +104,7 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
         </div>
         {onSave && (
           <div className="shrink-0 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 border-t border-[#1f1f1f]">
-            <button type="button" onClick={onSave} disabled={saving} className="w-full min-h-[48px] rounded-xl font-semibold text-[15px] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
+            <button type="button" onClick={() => onSave(cur)} disabled={saving} className="w-full min-h-[48px] rounded-xl font-semibold text-[15px] disabled:opacity-60" style={{ background: G, color: "#0d0d0d" }}>
               {saving ? "Saving…" : "Save cues"}
             </button>
           </div>

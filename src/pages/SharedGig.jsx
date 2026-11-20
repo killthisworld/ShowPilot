@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
 import { StagePlotView, StagePlotCard, ActStagePlotButton, useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
-import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
+import CueSheetWindow, { ActCuesButton, CueSheetButton } from "@/components/showpilot/CueSheetWindow";
+import { getLdBandCues, saveLdBandCues } from "@/lib/ldStages";
 import LdStageWindow, { LdActStage } from "@/components/showpilot/LdStageWindow";
 import { openCueSheetPdf } from "@/lib/cueSheetPdf";
 import { cueSheetHasAny } from "@/lib/cueSheet";
@@ -1255,8 +1256,20 @@ export default function SharedGig() {
     const { error } = await supabase.rpc("set_act_lighting_cues", { p_token: resolvedToken, p_sort_order: b.sort_order ?? cuesAt, p_band_name: b.band_name || null, p_cues: b.lighting_cues || null });
     setCuesSaving(false);
     if (error) { console.error(error); toast({ title: "Couldn't save the cues", description: error.message, variant: "destructive" }); return; }
+    // The LD keeps it with their template for the band too (job 435).
+    if (isLightingViewer && b.band_name && cueSheetHasAny(b.lighting_cues)) saveLdBandCues({ name: b.band_name, cues: b.lighting_cues }).catch((e) => console.error(e));
     toast({ title: "Cues saved" });
     setCuesAt(null);
+  };
+  // The LD opens an act's cue sheet (job 435): when the act sent none, it
+  // starts from the LD's template for the band, if it has one.
+  const openLdCues = async (i) => {
+    const b = (gig?.bands || [])[i];
+    if (b && !cueSheetHasAny(b.lighting_cues) && b.band_name) {
+      const saved = await getLdBandCues(b.band_name).catch(() => null);
+      if (saved) setGig((g) => ({ ...g, bands: (g.bands || []).map((x, k) => (k === i ? { ...x, lighting_cues: saved } : x)) }));
+    }
+    setCuesAt(i);
   };
   const editStage = canEditLineup ? async (i, list) => {
     const bands = (gig?.bands || []).map((b, k) => (k === i ? { ...b, band_members: list } : b));
@@ -1609,6 +1622,8 @@ export default function SharedGig() {
                         {b.requested_order && <span className="text-white/30 text-[10px]">#{b.requested_order}</span>}
                         {b.set_length_minutes && <span className="text-white/40 text-xs">{b.set_length_minutes} min</span>}
                         <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        {/* The LD's cue sheet (job 435): theirs, or one to fill in. */}
+                        {isLightingViewer && <CueSheetButton size="sm" act={b} onClick={() => openLdCues(i)} />}
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         {/* The LD gets the 3D stage under the act instead (job 431). */}
                         {!isLightingViewer && <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />}
@@ -1619,7 +1634,7 @@ export default function SharedGig() {
                       </div>
                     </div>
                     {/* The LD (job 431): the event's 3D stage with the act on it, not the tech details. */}
-                    {isLightingViewer ? <div className="px-3 pb-3"><LdActStage act={b} rig={gig?.lighting_rig} onOpen={() => setPlotAt(i)} onPdf={cueSheetHasAny(b.lighting_cues) ? () => ldCuePdf(b) : null} /></div>
+                    {isLightingViewer ? <div className="px-3 pb-3"><LdActStage act={b} rig={gig?.lighting_rig} onOpen={() => setPlotAt(i)} /></div>
                       : expanded && <BandDetails band={b} editable={false} onUpdate={() => {}} iemMonitorColors={iemMonitorColors} />}
                   </div>
                 );
@@ -1662,6 +1677,8 @@ export default function SharedGig() {
                       className="h-7 w-24 bg-[#111] border-[#222] text-white text-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <ActNotesButton size="sm" act={b} onClick={() => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />
+                        {/* The LD's cue sheet (job 435): theirs, or one to fill in. */}
+                        {isLightingViewer && <CueSheetButton size="sm" act={b} onClick={() => openLdCues(i)} />}
                         <ActTracksButton size="sm" entry={tracksFor(b.band_name)} actName={b.band_name} onClick={() => setTracksAct(b.band_name)} />
                         {/* The LD gets the 3D stage under the act instead (job 431). */}
                         {!isLightingViewer && <ActStagePlotButton size="sm" act={b} always={!!editStage} onClick={() => setPlotAt(i)} />}
@@ -1669,7 +1686,7 @@ export default function SharedGig() {
                   </div>
                   {/* The LD (job 431): a picture of the event's 3D stage with the act
                       on it - tap to open the full stage. No tech details. */}
-                  {isLightingViewer && <LdActStage act={b} rig={gig?.lighting_rig} onOpen={() => setPlotAt(i)} onPdf={cueSheetHasAny(b.lighting_cues) ? () => ldCuePdf(b) : null} />}
+                  {isLightingViewer && <LdActStage act={b} rig={gig?.lighting_rig} onOpen={() => setPlotAt(i)} />}
                   {!isLightingViewer && ((b.band_members && b.band_members.length > 0) || b.stage_plot_url || (b.stage_plot_files && b.stage_plot_files.length > 0) || b.artist_fx_notes || b.general_notes) && (
                     <>
                       <button
