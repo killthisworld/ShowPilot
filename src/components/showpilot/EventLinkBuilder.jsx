@@ -5,7 +5,7 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 import EventLinkEmail from "@/components/showpilot/EventLinkEmail";
 import EventOverviewCard from "@/components/showpilot/EventOverviewCard";
 import { eventTitle } from "@/lib/eventTitle";
-import { ASK_TYPES, LINK_KINDS, askType, linkHref, DEFAULT_ASKS, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig, createEventLinkKey, deleteEventLinkKey } from "@/lib/eventLink";
+import { ASK_TYPES, LINK_KINDS, askType, linkHref, COMMON_ASKS, asksOf, buildBlocks, eventLinkUrl, isAnswered, saveEventLink, useEventLink, overviewFromGig, createEventLinkKey, deleteEventLinkKey } from "@/lib/eventLink";
 
 // The venue's event link (job 176): choose what acts see, set the checklist,
 // copy the link, then watch answers arrive. Lives in the venue's event tabs.
@@ -219,7 +219,19 @@ export function AskGrid({ asks, setAsks, color = "#60A5FA" }) {
           );
         })}
       </div>
+      {asks.length === 0 && <p className="mt-2 mb-0 text-[13.5px] text-white/55">No questions yet. Add what you need from each act.</p>}
       <button type="button" onClick={addAsk} className="mt-3 min-h-[44px] px-3 rounded-lg border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color }}><Plus className="w-4 h-4" />Add your own question</button>
+      {/* One-tap common ones (job 442); nothing is there until you add it. */}
+      {COMMON_ASKS.some((c) => !asks.some((a) => a.key === c.key)) && (
+        <div className="mt-3 flex flex-col gap-1.5">
+          <span className="text-[10px] tracking-[0.12em] text-white/45" style={mono}>OR ADD A COMMON ONE</span>
+          <div className="flex flex-wrap gap-1.5">
+            {COMMON_ASKS.filter((c) => !asks.some((a) => a.key === c.key)).map((c) => (
+              <button key={c.key} type="button" onClick={() => setAsks([...asks, { ...c }])} className="min-h-[36px] px-3 rounded-full border border-[#333] text-[13px] font-semibold text-white/80 flex items-center gap-1"><Plus className="w-3.5 h-3.5" />{c.label}</button>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -334,7 +346,7 @@ export default function EventLinkBuilder({ gig, biz, run, color = "#60A5FA", sha
     } else {
       // A venue template loaded onto this event can bring its own questions and note (job 185).
       const setup = gig.venue_info?.event_link_setup || null;
-      setBlocks(fresh); setAsks(Array.isArray(setup?.asks) && setup.asks.length ? setup.asks : DEFAULT_ASKS); setMessage(setup?.message || "");
+      setBlocks(fresh); setAsks(asksOf(setup)); setMessage(setup?.message || "");
     }
   }, [data, link, fresh, blocks]);
   useEffect(() => { if (data && !view) setView(data.link ? "send" : "form"); }, [data, view]);

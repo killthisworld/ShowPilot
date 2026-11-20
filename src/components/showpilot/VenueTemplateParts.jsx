@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { DEAL_TYPES, FORCE_MAJEURE_TEXT, CANCELLATION_TEXT } from "@/lib/eventBusiness";
-import { DEFAULT_ASKS, DEFAULT_EMAIL, EMAIL_FIELDS } from "@/lib/eventLink";
+import { asksOf, DEFAULT_EMAIL, EMAIL_FIELDS } from "@/lib/eventLink";
 import { AskGrid } from "@/components/showpilot/EventLinkBuilder";
 import { venuePartsWithContent, venuePartOnEvent } from "@/lib/roleTemplates";
 import { modeOf, pageOf, fieldFilled } from "@/lib/templatePage";
@@ -79,7 +79,7 @@ export function dealTermsFromTemplate(t = {}) {
 // ---------- Event link setup ----------
 export function LinkSetupTemplateFields({ value = {}, onChange, color = "#60A5FA" }) {
   const v = value || {};
-  const asks = Array.isArray(v.asks) && v.asks.length ? v.asks : DEFAULT_ASKS;
+  const asks = asksOf(v);
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[15px] text-white/55 -mt-2">What every act is asked on the event link, and the note at the top. Acts still see each event's own overview, live from the event.</p>

@@ -54,18 +54,19 @@ export function askType(ask, answer) {
   return t;
 }
 
-// The checklist a venue starts from.
-export const DEFAULT_ASKS = [
-  { key: "blurb", label: "Band blurb", type: "longtext", required: true, hint: "About 50 words, for the event page" },
-  { key: "links", label: "Website and socials", type: "links", required: false, hint: "Add each one" },
-  { key: "photo", label: "Hi-res band photo", type: "file", required: true, hint: "Upload" },
-  { key: "fb_flyer", label: "Facebook flyer", type: "file", required: true, hint: "1200 × 628 px" },
-  { key: "print_flyer", label: "Printed flyer", type: "file", required: false, hint: "11 × 17" },
-  { key: "inputs", label: "Input list and stage plot", type: "inputs", required: true, hint: "Who plays what, and where they stand" },
-  { key: "house_kit", label: "Using the house kit?", type: "yesno", required: true, hint: "And what you bring" },
-  { key: "mailing", label: "Mailing address", type: "address", required: false, hint: "For payment, if needed" },
-  { key: "contact", label: "Day-of contact", type: "contact", required: true, hint: "Who to call on the day" },
+// A venue's event link starts with no questions (job 442): it adds its own.
+// (It used to start from one venue's own checklist, and an emptied list came
+// back as that preset.) These are one-tap suggestions while adding.
+export const COMMON_ASKS = [
+  { key: "blurb", label: "Band blurb", type: "longtext", required: false, hint: "A few lines for the event page" },
+  { key: "links", label: "Website and socials", type: "links", required: false, hint: "" },
+  { key: "photo", label: "Band photo", type: "file", required: false, hint: "" },
+  { key: "flyer", label: "Flyer", type: "file", required: false, hint: "" },
+  { key: "inputs", label: "Input list and stage plot", type: "inputs", required: false, hint: "Who plays what, and where they stand" },
+  { key: "contact", label: "Day-of contact", type: "contact", required: false, hint: "Who to call on the day" },
 ];
+// The questions saved (an empty list stays empty), or none.
+export const asksOf = (setup) => (Array.isArray(setup?.asks) ? setup.asks : []);
 
 const has = (v) => v !== undefined && v !== null && String(v).trim() !== "";
 const line = (label, v) => (has(v) ? `${label}: ${String(v).trim()}` : null);
