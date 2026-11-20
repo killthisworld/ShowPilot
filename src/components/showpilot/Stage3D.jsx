@@ -140,7 +140,18 @@ export default function Stage3D({
           const id = o.userData.itemId;
           const it = (cb.current.rig?.items || []).find((x) => x.id === id);
           const lvl = DECK + (it?.h || 0);
-          press = { kind: "item", id, h: lvl, grab: levelXY(lvl), started: false };
+          // Dragging by how far the pointer moves on screen, scaled to how
+          // far away the item is (job 398): a high truss seen nearly edge-on
+          // used to jump about on a plane at its height. Left / right moves
+          // it across, up / down moves it upstage / downstage.
+          const P = new THREE.Vector3(); o.getWorldPosition(P);
+          const toP = P.clone().sub(camera.position);
+          const dist = toP.length();
+          const elev = Math.max(0.3, -toP.normalize().y); // looking down at it: 1; edge-on: 0.3
+          const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).setY(0).normalize();
+          const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.setY(0).normalize();
+          const unit = (2 * dist * Math.tan((camera.fov * Math.PI) / 360)) / (renderer.domElement.clientHeight || 400);
+          press = { kind: "item", id, sx: e.clientX, sy: e.clientY, unit, elev, right, fwd, grab: [0, 0], started: false };
         }
       } else if (m === "pick") {
         // Picking lights for a cue (job 393): taps only, nothing moves.
@@ -179,12 +190,12 @@ export default function Stage3D({
           cb.current.onDragStart?.(press.id);
         }
       }
-      toNdc(e);
-      const p = levelXY(press.h);
-      if (!p) return;
-      const dx = p[0] - press.grab[0], dy = p[1] - press.grab[1];
       const { W, D, items } = S.current;
       if (press.kind === "item") {
+        const mx = e.clientX - press.sx, my = e.clientY - press.sy;
+        const wx = press.right.x * mx * press.unit - press.fwd.x * my * press.unit / press.elev;
+        const wz = press.right.z * mx * press.unit - press.fwd.z * my * press.unit / press.elev;
+        const dx = wx / W, dy = wz / D;
         press.at = press.ids.map((id) => {
           const [sx, sy] = press.start[id] || [0.5, 0.5];
           const x = clamp01(sx + dx), y = clamp01(sy + dy);
@@ -195,7 +206,13 @@ export default function Stage3D({
           }
           return { id, x, y };
         });
+        // Kept for a rebuild mid-drag (picking it re-draws the scene).
+        S.current.dragAt = Object.fromEntries(press.at.map((a) => [a.id, [a.x, a.y]]));
+        S.current.dragLift = press.lift;
       } else {
+        toNdc(e);
+        const p = levelXY(DECK);
+        if (!p) return;
         const x = clamp01(p[0]), y = clamp01(p[1]);
         const o = S.current.memberObjs.find((g) => g.userData.memberIndex === press.i) || press.obj;
         o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
@@ -206,6 +223,7 @@ export default function Stage3D({
     const onUp = (e) => {
       const was = press;
       press = null;
+      S.current.dragAt = null;
       controls.enabled = true;
       const tap = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
       down = null;
@@ -235,7 +253,7 @@ export default function Stage3D({
     cv.addEventListener("pointerdown", onDown, true);
     cv.addEventListener("pointermove", onMove);
     cv.addEventListener("pointerup", onUp);
-    cv.addEventListener("pointercancel", () => { press = null; controls.enabled = true; });
+    cv.addEventListener("pointercancel", () => { press = null; S.current.dragAt = null; controls.enabled = true; });
 
     // --- Every frame: the look. ---
     let raf = 0;
@@ -498,6 +516,14 @@ export default function Stage3D({
       st.items[it.id] = g;
     });
     st.hasStrobe = (rig.items || []).some((i) => i.type === "strobe");
+    // Rebuilt in the middle of a drag (the pick re-draws it): put what's being
+    // dragged back where the finger has it, so nothing flicks back (job 398).
+    if (st.dragAt) Object.entries(st.dragAt).forEach(([id, [x, y]]) => {
+      const o = st.items[id];
+      if (!o) return;
+      o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
+      if (st.dragLift && o.userData.person) o.position.y = DECK + riserTop(o.position.x, o.position.z);
+    });
 
     // Members: a figure in their color with their name.
     st.memberObjs = [];

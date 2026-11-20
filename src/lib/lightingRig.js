@@ -106,29 +106,40 @@ export const newRigId = newId;
 
 // Lights hung on a truss (job 387): `count` of `type`, spread evenly along a
 // straight truss, along the front of a box, around a circle - just under it.
+// A truss's own frame, as the 3D stage draws it (turn, then tilt, then roll):
+// a point along / under the truss <-> feet from its centre on the stage.
+// [x across, y up, z toward the front], feet. (job 398)
+const R = (d) => (d * Math.PI) / 180;
+const rx = ([x, y, z], a) => [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+const ry = ([x, y, z], a) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
+const rz = ([x, y, z], a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a), z];
+export const trussToStage = (t, v) => ry(rx(rz(v, R(t.roll || 0)), R(t.tilt || 0)), -R(t.rot || 0));
+export const stageToTruss = (t, v) => rz(rx(ry(v, R(t.rot || 0)), -R(t.tilt || 0)), -R(t.roll || 0));
+
+// Lights hung on a truss (jobs 387, 398): `count` of `type`, spread evenly
+// along a straight truss, along the front of a box, around a circle - just
+// under it, however the truss is turned, tilted and rolled.
 export function lightsOnTruss(truss, type, count, rig) {
   const W = rig?.width_ft || 32, D = rig?.depth_ft || 24;
   const n = clamp(Math.round(count) || 1, 1, 24);
-  const rot = ((truss.rot || 0) * Math.PI) / 180;
   const L = (truss.len || 0.5) * W; // ft
-  // Local (lx along the truss, lz toward the front) -> stage fraction.
-  const at = (lx, lz) => [
-    clamp(truss.x + (lx * Math.cos(rot) - lz * Math.sin(rot)) / W, 0, 1),
-    clamp(truss.y + (lx * Math.sin(rot) + lz * Math.cos(rot)) / D, 0, 1),
-  ];
-  const spots = [];
+  const local = [];
   for (let k = 0; k < n; k++) {
     if (truss.type === "truss_circle") {
       const a = (k / n) * Math.PI * 2;
-      spots.push(at(Math.cos(a) * L / 2, Math.sin(a) * L / 2));
+      local.push([Math.cos(a) * L / 2, -1, Math.sin(a) * L / 2]);
     } else {
-      const lx = -L / 2 + (L * (k + 0.5)) / n;
-      spots.push(at(lx, truss.type === "truss_box" ? (truss.len * 0.8 * D) / 2 : 0));
+      local.push([-L / 2 + (L * (k + 0.5)) / n, -1, truss.type === "truss_box" ? (truss.len * 0.8 * D) / 2 : 0]);
     }
   }
-  return spots.map(([x, y]) => ({
-    ...newRigItem(type, rig), id: newId(), x, y, rot: truss.rot || 0, h: Math.max(0, (truss.h || 0) - 1), on: truss.id,
-  }));
+  return local.map((v) => {
+    const [dx, dy, dz] = trussToStage(truss, v);
+    return {
+      ...newRigItem(type, rig), id: newId(),
+      x: clamp(truss.x + dx / W, 0, 1), y: clamp(truss.y + dz / D, 0, 1), h: clamp((truss.h || 0) + dy, 0, 80),
+      rot: truss.rot || 0, on: truss.id,
+    };
+  });
 }
 
 // The lights on the stage by kind, for the Rig tab: [{ type, label, color, ids }].

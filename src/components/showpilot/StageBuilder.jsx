@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -124,11 +124,12 @@ export default function StageBuilder({
       const kids = r.items.filter((i) => i.on === id && !sel.includes(i.id));
       kids.forEach((c) => {
         if (k === "h") out[c.id] = { h: clamp((c.h || 0) + (out[id].h - (t.h || 0)), 0, 80) };
-        else if (k === "rot") {
-          // Round the truss's centre, and turned with it.
-          const a = (by * Math.PI) / 180;
-          const dx = (c.x - t.x) * W, dy = (c.y - t.y) * D;
-          out[c.id] = { x: clamp(t.x + (dx * Math.cos(a) - dy * Math.sin(a)) / W, 0, 1), y: clamp(t.y + (dx * Math.sin(a) + dy * Math.cos(a)) / D, 0, 1), rot: norm360((c.rot || 0) + by) };
+        else if (k === "rot" || k === "tilt" || k === "roll") {
+          // Where it hangs on the truss stays put as the truss turns, tilts
+          // or rolls (jobs 388, 398): into the truss's frame and back out.
+          const local = stageToTruss(t, [(c.x - t.x) * W, (c.h || 0) - (t.h || 0), (c.y - t.y) * D]);
+          const [dx, dy, dz] = trussToStage({ ...t, ...out[id] }, local);
+          out[c.id] = { x: clamp(t.x + dx / W, 0, 1), y: clamp(t.y + dz / D, 0, 1), h: clamp((t.h || 0) + dy, 0, 80), ...(k === "rot" ? { rot: norm360((c.rot || 0) + by) } : {}) };
         }
       });
     });
@@ -540,7 +541,7 @@ export default function StageBuilder({
         ) : (
           <>
             {stageCues.map((c, i) => (
-              <CueRow key={c.id} n={i + 1} title={c.name} sub={[c.lights?.length ? `${c.lights.length} light${c.lights.length > 1 ? "s" : ""}` : "", LOOK_KEYS.filter((k) => c.keys[k.id]).map((k) => k.label).join(", "), c.fadeIn ? `${c.fadeIn}s fade` : ""].filter(Boolean).join(" · ")} color={c.color}
+              <CueRow key={c.id} n={i + 1} title={c.name} color={c.color} /* just the title once saved (job 398) */
                 active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)} />
             ))}
             {!draft && <button type="button" onClick={newCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>}
