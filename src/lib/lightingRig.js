@@ -65,8 +65,10 @@ export function normalizeRig(r) {
     items: (Array.isArray(r.items) ? r.items : []).filter((i) => i && i.type).slice(0, 300).map((i) => ({
       id: i.id || newId(),
       type: String(i.type),
-      x: clamp(Number(i.x) || 0.5, 0, 1),
-      y: clamp(Number(i.y) || 0.5, 0, 1),
+      // A 0 stays 0 (job 405: it was saved as 0.5, the middle). A light hung
+      // on a truss may sit a little past the stage's edge, with its truss.
+      x: clamp(Number.isFinite(Number(i.x)) && i.x !== null && i.x !== "" ? Number(i.x) : 0.5, i.on ? -0.5 : 0, i.on ? 1.5 : 1),
+      y: clamp(Number.isFinite(Number(i.y)) && i.y !== null && i.y !== "" ? Number(i.y) : 0.5, i.on ? -0.5 : 0, i.on ? 1.5 : 1),
       rot: Number(i.rot) || 0,
       len: clamp(Number(i.len) || (i.type === "truss_straight" ? 0.6 : 0.3), 0.04, 1.2),
       h: clamp(Number(i.h ?? (isTruss(i.type) ? 18 : 0)) || 0, 0, 80),
@@ -141,7 +143,8 @@ export function lightsOnTruss(truss, type, count, rig) {
   let d = flat(stageToTruss(truss, [0, -1, 0]));
   if (Math.hypot(...d) < 0.35) {
     d = flat(stageToTruss(truss, [0, 0, 1]));
-    if (Math.hypot(...d) < 0.35) d = circle ? [0, -1, 0] : [0, 0, 1];
+    // A circle stood up: off its face, toward the audience.
+    if (Math.hypot(...d) < 0.35) d = circle ? [0, trussToStage(truss, [0, 1, 0])[2] >= 0 ? 1 : -1, 0] : [0, 0, 1];
   }
   d = unit(d);
   const local = [];
@@ -159,7 +162,7 @@ export function lightsOnTruss(truss, type, count, rig) {
     const [dx, dy, dz] = trussToStage(truss, v);
     return {
       ...newRigItem(type, rig), id: newId(),
-      x: clamp(truss.x + dx / W, 0, 1), y: clamp(truss.y + dz / D, 0, 1), h: clamp((truss.h || 0) + dy, 0, 80),
+      x: clamp(truss.x + dx / W, -0.5, 1.5), y: clamp(truss.y + dz / D, -0.5, 1.5), h: clamp((truss.h || 0) + dy, 0, 80),
       rot: truss.rot || 0, on: truss.id,
     };
   });

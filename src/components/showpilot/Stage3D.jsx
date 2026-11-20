@@ -71,7 +71,7 @@ function updatePipes(pipes, world) {
     world.worldToLocal(_b.copy(_a));
     world.worldToLocal(q);
     const len = _b.distanceTo(q);
-    pipe.visible = len > 0.7;
+    pipe.visible = len > 0.7 && len < 4; // a light moved off its truss gets no pipe
     if (!pipe.visible) return;
     pipe.position.copy(_b).add(q).multiplyScalar(0.5);
     pipe.scale.set(1, len, 1);
@@ -83,6 +83,7 @@ export default function Stage3D({
   rig, members = [], look = null, dark = false, mode = "view", selected = null, moving = null,
   onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
   onSnapshot = null, // job 396: a picture of the stage, once it's drawn (thumbnails)
+  lift = 0, // job 405: px to move the picture up (an edit box covers the bottom)
 }) {
   const selIds = [].concat(selected || []);
   const movingIds = [].concat(moving || []);
@@ -135,6 +136,7 @@ export default function Stage3D({
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       camera.aspect = w / h;
+      if (S.current?.lift) camera.setViewOffset(w, h, 0, S.current.lift, w, h);
       camera.updateProjectionMatrix();
     };
     size();
@@ -246,9 +248,18 @@ export default function Stage3D({
           if (sn.gx !== null) { guideDown.position.set((sn.gx - 0.5) * W, lvl, 0); guideDown.scale.set(1, 1, D * 1.1); }
           if (sn.gy !== null) { guideAcross.position.set(0, lvl, (sn.gy - 0.5) * D); guideAcross.scale.set(W * 1.1, 1, 1); }
         }
+        // All of them move by the same amount, stopped at the stage's edge by
+        // the ones standing on it; lights hung on a truss go with it, even a
+        // little past the edge (job 405).
+        const onIt = new Set((cb.current.rig?.items || []).filter((it) => it.on).map((it) => it.id));
+        press.ids.forEach((id) => {
+          const s = press.start[id];
+          if (!s || onIt.has(id)) return;
+          dx = Math.min(1 - s[0], Math.max(-s[0], dx)); dy = Math.min(1 - s[1], Math.max(-s[1], dy));
+        });
         press.at = press.ids.map((id) => {
           const [sx, sy] = press.start[id] || [0.5, 0.5];
-          const x = clamp01(sx + dx), y = clamp01(sy + dy);
+          const x = onIt.has(id) ? Math.min(1.5, Math.max(-0.5, sx + dx)) : clamp01(sx + dx), y = onIt.has(id) ? Math.min(1.5, Math.max(-0.5, sy + dy)) : clamp01(sy + dy);
           const o = items[id]; // looked up each time: the scene may have been rebuilt
           if (o) {
             o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
@@ -317,6 +328,13 @@ export default function Stage3D({
       const t0 = clock.getElapsedTime();
       const st = S.current;
       if (st.pipes?.length) updatePipes(st.pipes, world);
+      // Ease the picture up / down to the lift (job 405).
+      const want = st.liftTo || 0;
+      if (Math.abs((st.lift || 0) - want) > 0.5 || (st.lift && !want)) {
+        st.lift = Math.abs((st.lift || 0) - want) > 0.5 ? (st.lift || 0) + (want - (st.lift || 0)) * 0.2 : want;
+        const w = el.clientWidth || 300, h = el.clientHeight || 300;
+        if (st.lift) camera.setViewOffset(w, h, 0, st.lift, w, h); else camera.clearViewOffset();
+      }
       const L = st.look;
       // Speed (job 399): the cue's chase, strobe, color fade and motion all
       // run faster or slower.
@@ -688,6 +706,7 @@ export default function Stage3D({
 
   useEffect(() => { if (S.current) { S.current.look = look; S.current.lookStart = S.current.clock?.getElapsedTime() || 0; } }, [look]);
   useEffect(() => { if (S.current) S.current.dark = dark; }, [dark]);
+  useEffect(() => { if (S.current) S.current.liftTo = lift; }, [lift]);
 
   return <div ref={host} className={`relative w-full h-full ${className}`} />;
 }

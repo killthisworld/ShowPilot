@@ -32,6 +32,18 @@ export default function StageBuilder({
 }) {
   const [name, setName] = useState(startName);
   const [rig, setRigNow] = useState(() => normalizeRig(start));
+  // The edit box's height over the stage (job 405): the stage moves up by
+  // half of it so the box doesn't cover the middle.
+  const [boxH, setBoxH] = useState(0);
+  const boxObs = useRef(null);
+  const boxRef = (el) => {
+    boxObs.current?.disconnect();
+    boxObs.current = null;
+    if (!el) { setBoxH(0); return; }
+    const ro = new ResizeObserver(() => setBoxH(el.offsetHeight || 0));
+    ro.observe(el);
+    boxObs.current = ro;
+  };
   // Undo / redo (job 388): every change to the rig goes through here. Quick
   // runs of changes (a slider, typing a name) count as one step.
   const hist = useRef({ past: [], future: [], at: 0 });
@@ -133,7 +145,7 @@ export default function StageBuilder({
           // or rolls (jobs 388, 398): into the truss's frame and back out.
           const local = stageToTruss(t, [(c.x - t.x) * W, (c.h || 0) - (t.h || 0), (c.y - t.y) * D]);
           const [dx, dy, dz] = trussToStage({ ...t, ...out[id] }, local);
-          out[c.id] = { x: clamp(t.x + dx / W, 0, 1), y: clamp(t.y + dz / D, 0, 1), h: clamp((t.h || 0) + dy, 0, 80), ...(k === "rot" ? { rot: norm360((c.rot || 0) + by) } : {}) };
+          out[c.id] = { x: clamp(t.x + dx / W, -0.5, 1.5), y: clamp(t.y + dz / D, -0.5, 1.5), h: clamp((t.h || 0) + dy, 0, 80), ...(k === "rot" ? { rot: norm360((c.rot || 0) + by) } : {}) };
         }
       });
     });
@@ -196,7 +208,7 @@ export default function StageBuilder({
       // One truss / screen: click to place, lined up with the stage and the
       // rest of the rig (job 399).
       if (one && spinsFully(one.type)) { const sn = snapPlace(x, y, rig, [...sel, ...hungOn(sel)]); x = sn.x; y = sn.y; cx = one.x; cy = one.y; }
-      patchMany([...sel, ...hungOn(sel)], (i) => ({ x: clamp(i.x + x - cx, 0, 1), y: clamp(i.y + y - cy, 0, 1) }));
+      patchMany([...sel, ...hungOn(sel)], (i) => ({ x: clamp(i.x + x - cx, i.on ? -0.5 : 0, i.on ? 1.5 : 1), y: clamp(i.y + y - cy, i.on ? -0.5 : 0, i.on ? 1.5 : 1) }));
       return;
     }
     pick([]);
@@ -286,7 +298,10 @@ export default function StageBuilder({
   const curLights = !cur ? [] : (draft ? draft.lights : isAct ? cur.cue.lights : cur.lights) || [];
   // Named groups first (job 402), then by kind.
   // A named light shows once (job 404): under its name, not again under its kind.
-  const unnamed = { items: (rig.items || []).filter((i) => !String(i.group || "").trim()) };
+  // A truss or screen with a name is its own button too (job 405).
+  const ownName = (i) => spinsFully(i.type) && !String(i.group || "").trim() && String(i.label || "").trim();
+  const unnamed = { items: (rig.items || []).filter((i) => !String(i.group || "").trim() && !ownName(i)) };
+  const namedOnes = (rig.items || []).filter(ownName).map((i) => ({ type: `one:${i.id}`, label: i.label.trim(), color: i.type === "screen" ? "#38BDF8" : "#8CFF3D", ids: [i.id], named: true }));
   const lightGroups = [...rigNamedGroups(rig), ...rigGroups(unnamed).filter((g) => g.type !== "truss" && isLight(g.type))];
   const setCueLights = (ids) => setCue({ lights: ids });
   const toggleCueLight = (id) => {
@@ -322,7 +337,7 @@ export default function StageBuilder({
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = [...rigNamedGroups(rig), ...rigGroups(unnamed).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument")]; // named groups first; people, risers, instruments listed on their own
+  const groups = [...rigNamedGroups(rig), ...namedOnes, ...rigGroups(unnamed).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument")]; // named groups first; people, risers, instruments listed on their own
   const sharedGroup = picked.length > 1 && picked[0].group && picked.every((i) => i.group === picked[0].group) ? picked[0].group : "";
   const pickedLabel = sharedGroup ? `${sharedGroup} · ${picked.length} lights` : one && isInstrument(one.type) ? `${partLabel(one.part)} · no one at it` : one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
@@ -337,7 +352,7 @@ export default function StageBuilder({
   // Add lights, Place - and its name, aim, height, length, color and on / off.
   // Over the stage on a computer, at the top of the panel on a phone.
   const editBox = (where) => sel.length > 0 && tab === "rig" && (
-    <div className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
+    <div ref={where === "stage" ? boxRef : undefined} className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
       style={{ background: "#101010", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
       <div className="flex items-center gap-2 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: moving ? "#8a8f96" : MA.green }} />
@@ -477,15 +492,16 @@ export default function StageBuilder({
   const rigPanel = (
     <>
       <div className={pane("rig")}>
-      {/* What's on the stage, by kind: tap a kind to pick them all. */}
+      {/* What's on the stage, by name and kind: tap one or more to pick them. */}
       <div className="lg:rounded-[8px] lg:border lg:p-2.5 flex flex-col gap-1.5 lg:gap-2" style={{ background: "transparent", borderColor: MA.line }}>
         <span className={lbl} style={mono}>ON STAGE</span>
         {groups.length ? (
           <div className="flex flex-wrap gap-1.5">
             {groups.map((g) => {
-              const on = g.ids.length === sel.length && g.ids.every((id) => sel.includes(id));
+              // Tap more than one to pick them together (job 405); tap again to drop it.
+              const on = g.ids.every((id) => sel.includes(id));
               return (
-                <button key={g.type} type="button" onClick={() => (on ? pick([]) : pick(g.ids))} aria-pressed={on} className={key} style={on ? keyOn : keyOff}>
+                <button key={g.type} type="button" onClick={() => (on ? pick(sel.filter((id) => !g.ids.includes(id))) : pick([...new Set([...sel, ...g.ids])]))} aria-pressed={on} className={key} style={on ? keyOn : keyOff}>
                   {g.named ? <Tag className="w-3.5 h-3.5" style={{ color: g.color }} /> : <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />}{g.label}<span className="tabular-nums text-white/55">×{g.ids.length}</span>
                 </button>
               );
@@ -726,7 +742,7 @@ export default function StageBuilder({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="relative lg:flex-1 min-h-0 h-[44dvh] [@media(max-height:720px)]:h-[36dvh] lg:h-auto lg:[@media(max-height:720px)]:h-auto shrink-0">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
-            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look}
+            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look} lift={sel.length && tab === "rig" ? Math.round(boxH / 2) : 0}
               mode={tab === "rig" ? "build" : cur && (draft || editing) ? "pick" : "view"}
               selected={tab === "rig" ? sel : cur && (draft || editing) ? curLights : []} moving={moving && tab === "rig" ? sel : []}
               onTapItem={tab === "rig" ? onTapItem : toggleCueLight} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
