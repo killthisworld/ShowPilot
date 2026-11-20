@@ -212,9 +212,16 @@ export default function StageBuilder({
   const curKeys = !cur ? {} : draft ? draft.keys : isAct ? (cur.cue.keys || keysFromCue(cur.cue, cur.song)) : cur.keys || {};
   const curColor = !cur ? "" : draft ? draft.color : isAct ? (cur.cue.keys ? cur.cue.color : "") || "" : cur.color || "";
   const secsOf = (c) => (!c ? 8 : c === draft || !isAct ? c.secs || 8 : cueSecs(c.cue.secs, c.song.bpm));
-  const lookOf = (c) => (!c ? null : c === draft || !isAct ? lookFromKeys(c.keys || {}, c.color, c.bpm) : c.cue.keys ? lookFromCue(c.cue, c.song) : c.look);
+  // A cue's look, on its lights (none picked = all) with its fade in (job 393).
+  const lookOf = (c) => {
+    if (!c) return null;
+    const own = c === draft || !isAct;
+    const base = own ? lookFromKeys(c.keys || {}, c.color, c.bpm) : c.cue.keys ? lookFromCue(c.cue, c.song) : c.look;
+    const q = own ? c : c.cue;
+    return { ...base, only: q.lights && q.lights.length ? q.lights : null, fadeIn: Number(q.fadeIn) || 0 };
+  };
   const playing = play ? (play.i === "draft" ? draft : list[play.i]) : null;
-  const look = useMemo(() => lookOf(playing), [playing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const look = useMemo(() => lookOf(playing), [playing, play?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const playCue = (i) => { setDraft(null); setCueAt(i); setEditing(true); startPlay(i, secsOf(list[i])); };
   useEffect(() => { setCueAt(-1); setDraft(null); setEditing(false); stopPlay(); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   // An edit plays the cue again, so the change is seen.
@@ -257,6 +264,15 @@ export default function StageBuilder({
     else if (isAct) setActCue(p);
     else setStageCue(cueAt, p);
     replay(p);
+  };
+  // The cue's lights (job 393): none picked = all of them.
+  const curLights = !cur ? [] : (draft ? draft.lights : isAct ? cur.cue.lights : cur.lights) || [];
+  const lightGroups = rigGroups(rig).filter((g) => g.type !== "truss" && isLight(g.type));
+  const setCueLights = (ids) => setCue({ lights: ids });
+  const toggleCueLight = (id) => {
+    const it = items.find((i) => i.id === id);
+    if (!it || !isLight(it.type)) return;
+    setCueLights(curLights.includes(id) ? curLights.filter((x) => x !== id) : [...curLights, id]);
   };
   const toggleCueKey = (id) => setCue({ keys: id === "blackout" ? { blackout: !curKeys.blackout } : { ...curKeys, blackout: false, [id]: !curKeys[id] } });
   const setCueColor = (c) => setCue({ color: c });
@@ -502,7 +518,7 @@ export default function StageBuilder({
         ) : (
           <>
             {stageCues.map((c, i) => (
-              <CueRow key={c.id} n={i + 1} title={c.name} sub={LOOK_KEYS.filter((k) => c.keys[k.id]).map((k) => k.label).join(", ")} color={c.color}
+              <CueRow key={c.id} n={i + 1} title={c.name} sub={[c.lights?.length ? `${c.lights.length} light${c.lights.length > 1 ? "s" : ""}` : "", LOOK_KEYS.filter((k) => c.keys[k.id]).map((k) => k.label).join(", "), c.fadeIn ? `${c.fadeIn}s fade` : ""].filter(Boolean).join(" · ")} color={c.color}
                 active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)} />
             ))}
             {!draft && <button type="button" onClick={newCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>}
@@ -521,6 +537,26 @@ export default function StageBuilder({
                 className="flex-1 min-w-0 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white focus:outline-none" />
             )}
           </div>
+          {/* 1, the lights: all of them, a kind, or tap them on the stage. */}
+          <div className="flex flex-col gap-1.5">
+            <span className={lbl} style={mono}>1 · LIGHTS</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" onClick={() => setCueLights([])} aria-pressed={!curLights.length} className={key} style={!curLights.length ? keyOn : keyOff}>All lights</button>
+              {lightGroups.map((g) => {
+                const n = g.ids.filter((id) => curLights.includes(id)).length;
+                const all = n === g.ids.length;
+                return (
+                  <button key={g.type} type="button" aria-pressed={all}
+                    onClick={() => setCueLights(all ? curLights.filter((id) => !g.ids.includes(id)) : [...new Set([...curLights, ...g.ids])])}
+                    className={key} style={all ? keyOn : n ? { ...keyOff, borderColor: MA.amber, borderStyle: "dashed" } : keyOff}>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: g.color }} />{g.label}<span className="tabular-nums text-white/55">{n && !all ? `${n}/${g.ids.length}` : `×${g.ids.length}`}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[11.5px] text-white/45">{curLights.length ? `${curLights.length} light${curLights.length > 1 ? "s" : ""} in this cue · ` : ""}Tap lights on the stage to add or take them out.</span>
+          </div>
+          <span className={lbl} style={mono}>2 · FUNCTION</span>
           <div className="grid grid-cols-3 gap-1.5">
             {LOOK_KEYS.map((k) => {
               const on = !!curKeys[k.id];
@@ -545,6 +581,12 @@ export default function StageBuilder({
               <span className="w-10 text-right text-white text-[14px] tabular-nums">{cur.bpm}</span>
             </div>
           )}
+          {/* 3, the fade: how long it takes to come up. */}
+          <div className="flex items-center gap-2">
+            <span className={lbl + " shrink-0 whitespace-nowrap"} style={mono}>3 · FADE</span>
+            <input type="range" min="0" max="10" step="0.5" value={Number((draft ? draft.fadeIn : isAct ? cur.cue.fadeIn : cur.fadeIn) || 0)} onChange={(e) => setCue({ fadeIn: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Fade in, seconds" />
+            <span className="w-10 text-right text-white text-[14px] tabular-nums">{Number((draft ? draft.fadeIn : isAct ? cur.cue.fadeIn : cur.fadeIn) || 0)}s</span>
+          </div>
           <div className="flex items-center gap-2">
             <span className={lbl + " w-12"} style={mono}>LENGTH</span>
             <input type="range" min="2" max="60" value={Math.round(secsOf(cur))} onChange={(e) => setCue({ secs: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length in seconds" />
@@ -579,8 +621,10 @@ export default function StageBuilder({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="relative lg:flex-1 min-h-0 h-[52dvh] lg:h-auto">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
-            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look} mode={tab === "rig" ? "build" : "view"} selected={tab === "rig" ? sel : []} moving={moving ? sel : []}
-              onTapItem={onTapItem} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
+            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look}
+              mode={tab === "rig" ? "build" : cur && (draft || editing) ? "pick" : "view"}
+              selected={tab === "rig" ? sel : cur && (draft || editing) ? curLights : []} moving={moving && tab === "rig" ? sel : []}
+              onTapItem={tab === "rig" ? onTapItem : toggleCueLight} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
           </Suspense>
           {!items.length && <p className="absolute top-3 left-0 right-0 text-center text-white/45 text-[13px] pointer-events-none px-8">An empty stage. Add trusses and fixtures to rig it.</p>}
           {tab === "cues" && playing && (

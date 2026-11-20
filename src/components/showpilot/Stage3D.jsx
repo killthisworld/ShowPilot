@@ -141,6 +141,11 @@ export default function Stage3D({
           const lvl = DECK + (it?.h || 0);
           press = { kind: "item", id, h: lvl, grab: levelXY(lvl), started: false };
         }
+      } else if (m === "pick") {
+        // Picking lights for a cue (job 393): taps only, nothing moves.
+        const h = ray.intersectObjects(Object.values(st.items), true)[0];
+        let o = h?.object; while (o && !o.userData.itemId) o = o.parent;
+        if (o) press = { kind: "pick", id: o.userData.itemId };
       } else if (m === "place") {
         const h = ray.intersectObjects(st.memberObjs, true)[0];
         let o = h?.object; while (o && o.userData.memberIndex === undefined) o = o.parent;
@@ -153,7 +158,7 @@ export default function Stage3D({
       }
     };
     const onMove = (e) => {
-      if (!press || !press.grab) return;
+      if (!press || !press.grab || press.kind === "pick") return;
       if (!press.started) {
         if (Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5) return;
         press.started = true;
@@ -198,7 +203,7 @@ export default function Stage3D({
         else cb.current.onMoveMember?.(was.i, was.at[0], was.at[1]);
         return;
       }
-      if (was?.kind === "item") { cb.current.onTapItem?.(was.id); return; }
+      if (was?.kind === "item" || (was?.kind === "pick" && tap)) { cb.current.onTapItem?.(was.id); return; }
       if (was) return;
       // A tap (not an orbit) on the stage.
       if (tap && cb.current.mode !== "view") {
@@ -217,14 +222,21 @@ export default function Stage3D({
     // --- Every frame: the look. ---
     let raf = 0;
     const clock = new THREE.Clock();
+    S.current.clock = clock;
     const tmp = new THREE.Color();
     const tick = () => {
       const t = clock.getElapsedTime();
       const st = S.current;
       const L = st.look;
       const beat = 60 / Math.max(40, Math.min(220, L?.bpm || 120));
-      const n = st.fixtures.length || 1;
-      st.fixtures.forEach((f, k) => {
+      // A cue on some of the lights (job 393): the rest stay dark, and the
+      // chase / color fade run across just those. It fades in over fadeIn s.
+      const only = L?.only && L.only.length ? L.only : null;
+      const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
+      const n = act.length || 1;
+      const rise = L?.fadeIn ? Math.min(1, Math.max(0, (t - (st.lookStart || 0)) / L.fadeIn)) : 1;
+      st.fixtures.forEach((f, k0) => {
+        const k = only ? act.indexOf(f) : k0;
         let on = 0.85; // level 0..1
         let col = f.base;
         if (L) {
@@ -240,6 +252,7 @@ export default function Stage3D({
           if (L.blackout) on = 0;
         }
         if (f.type === "strobe" && !(L?.strobe)) { on = 0; }
+        if (L) { if (only && k < 0) on = 0; on *= rise; }
         if (f.off || (!L && st.dark)) on = 0; // switched off (job 392)
         f.mat.color.set(col);
         f.mat.opacity = (L?.haze ? 0.22 : 0.12) * on;
@@ -249,7 +262,7 @@ export default function Stage3D({
         f.body.material.emissiveIntensity = 0.15 + 0.85 * on;
         // Spots / beams find the singers when "Spot on vocals" is up.
         if (L?.spot && (f.type === "spot" || f.type === "beam") && st.singers.length && !f.up) {
-          const s = st.singers[k % st.singers.length];
+          const s = st.singers[Math.max(0, k) % st.singers.length];
           f.head.lookAt(s.x, DECK + 3, s.z);
         } else {
           // Where it's tilted to (straight down / up at 0).
@@ -436,7 +449,7 @@ export default function Stage3D({
         }
         // Aim: straight down (floor lights: up) unless a look turns it (tick).
         const dir = new THREE.Vector3(0, up ? Math.cos(tilt) : -Math.cos(tilt), Math.sin(tilt)).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.rotation.y);
-        st.fixtures.push({ type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, off: !!it.off, wp: new THREE.Vector3() });
+        st.fixtures.push({ id: it.id, type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, off: !!it.off, wp: new THREE.Vector3() });
       }
       world.add(g);
       st.items[it.id] = g;
@@ -481,7 +494,7 @@ export default function Stage3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rig, members, selKey, movKey, pickedMember, labels]);
 
-  useEffect(() => { if (S.current) S.current.look = look; }, [look]);
+  useEffect(() => { if (S.current) { S.current.look = look; S.current.lookStart = S.current.clock?.getElapsedTime() || 0; } }, [look]);
   useEffect(() => { if (S.current) S.current.dark = dark; }, [dark]);
 
   return <div ref={host} className={`relative w-full h-full ${className}`} />;

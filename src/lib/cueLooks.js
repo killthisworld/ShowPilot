@@ -78,5 +78,8 @@ export function normalizeStageCues(list) {
     color: String(c.color || ""),
     bpm: Math.min(220, Math.max(40, Number(c.bpm) || 120)),
     secs: Math.min(300, Math.max(1, Number(c.secs) || 8)),
+    // Which lights (none picked = all of them) and the fade in, s (job 393).
+    lights: Array.isArray(c.lights) ? c.lights.map(String).slice(0, 300) : [],
+    fadeIn: Math.min(30, Math.max(0, Number(c.fadeIn) || 0)),
   }));
 }
