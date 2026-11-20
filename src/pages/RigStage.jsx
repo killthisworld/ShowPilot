@@ -6,7 +6,8 @@ import BottomTabs from "@/components/showpilot/BottomTabs";
 import RigLayer from "@/components/showpilot/RigLayer";
 import StageBuilder from "@/components/showpilot/StageBuilder";
 import { useLdStages, saveLdStage } from "@/lib/ldStages";
-import { emptyRig, rigSummary } from "@/lib/lightingRig";
+import { emptyRig } from "@/lib/lightingRig";
+import useRigThumbs from "@/components/showpilot/RigThumbs";
 import { toast } from "@/components/ui/use-toast";
 
 const AMBER = "#FFB400";
@@ -29,6 +30,8 @@ export default function RigStage() {
     setSaving(false);
   };
   const withRig = (stages || []).filter((s) => s.hasRig);
+  // Each stage pictured as it was built, in 3D (job 396).
+  const [thumbs, drawer] = useRigThumbs(withRig);
   const without = (stages || []).filter((s) => !s.hasRig);
   return (
     <div className="min-h-screen bg-[#111] text-white pb-28">
@@ -53,11 +56,12 @@ export default function RigStage() {
               {withRig.map((s) => (
                 <button key={s.id} type="button" onClick={() => setOpen({ id: s.id, name: s.name, rig: s.rig })}
                   className="rounded-[8px] border border-[#2c2c2c] bg-[#1a1a1a] p-2 text-left hover:border-[#FFB400]/60">
-                  <span className="relative block w-full rounded-[6px] border border-[#333] border-b-2 border-b-white bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
-                    <RigLayer rig={s.rig} />
+                  <span className="relative block w-full rounded-[6px] border border-[#333] bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
+                    {thumbs[s.id]
+                      ? <img src={thumbs[s.id]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      : <span className="absolute inset-0 opacity-50"><RigLayer rig={s.rig} /></span>}
                   </span>
-                  <span className="block mt-2 px-1 text-[15px] font-semibold truncate">{s.name || "Untitled stage"}</span>
-                  <span className="block px-1 pb-1 text-[12px] text-white/45" style={{ fontFamily: SCENE_MONO }}>{rigSummary(s.rig) || "EMPTY"}</span>
+                  <span className="block mt-2 px-1 pb-1 text-[15px] font-semibold truncate">{s.name || "Untitled stage"}</span>
                 </button>
               ))}
               {!withRig.length && (
@@ -84,6 +88,7 @@ export default function RigStage() {
           </>
         )}
       </div>
+      {drawer}
       {open && <StageBuilder name={open.name} rig={open.rig} saving={saving} onSave={save} onClose={() => setOpen(null)} />}
       <div className="lg:hidden"><BottomTabs /></div>
     </div>

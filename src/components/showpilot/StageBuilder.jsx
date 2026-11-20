@@ -695,7 +695,7 @@ function PartChips({ value, onChange, small = false, noNone = false }) {
     <div className="grid grid-cols-6 gap-1.5" style={{ maxWidth: small ? 300 : 360 }} role="group" aria-label="Plays">
       {!noNone && <button type="button" onClick={() => onChange("")} aria-pressed={!value} aria-label="No instrument" title="No instrument" className={chip}
         style={!value ? { background: "#2a2a2a", borderColor: "#E5E7EB" } : { background: "#161616", borderColor: "#333" }}><PartIcon part="" color={!value ? "#fff" : "#9a9a9a"} size={24} /></button>}
-      {STAGE_POSITIONS.map((p) => (
+      {STAGE_POSITIONS.filter((p) => p.key !== "other").map((p) => ( // no "Other" here (job 396)
         <button key={p.key} type="button" onClick={() => onChange(p.key)} aria-pressed={value === p.key} aria-label={p.label} title={p.label} className={chip}
           style={value === p.key ? { background: p.color + "33", borderColor: p.color } : { background: "#161616", borderColor: "#333" }}><PartIcon part={p.key} color={p.color} size={30} /></button>
       ))}

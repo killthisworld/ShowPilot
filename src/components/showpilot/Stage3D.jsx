@@ -48,6 +48,7 @@ function labelSprite(name, sub, color) {
 export default function Stage3D({
   rig, members = [], look = null, dark = false, mode = "view", selected = null, moving = null,
   onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
+  onSnapshot = null, // job 396: a picture of the stage, once it's drawn (thumbnails)
 }) {
   const selIds = [].concat(selected || []);
   const movingIds = [].concat(moving || []);
@@ -56,7 +57,7 @@ export default function Stage3D({
   const host = useRef(null);
   const S = useRef(null); // the scene's state between renders
   const cb = useRef({});
-  cb.current = { onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, mode, selIds, rig };
+  cb.current = { onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, mode, selIds, rig, onSnapshot };
 
   // --- The renderer, camera and controls: once. ---
   useEffect(() => {
@@ -238,6 +239,8 @@ export default function Stage3D({
 
     // --- Every frame: the look. ---
     let raf = 0;
+    let frames = 0;
+    let snapped = false;
     const clock = new THREE.Clock();
     S.current.clock = clock;
     const tmp = new THREE.Color();
@@ -290,6 +293,11 @@ export default function Stage3D({
       if (st.hazeMesh) st.hazeMesh.material.opacity = L?.haze ? 0.08 + 0.02 * Math.sin(t) : 0;
       controls.update();
       renderer.render(scene, camera);
+      // A thumbnail: read straight after drawing a settled frame.
+      if (cb.current.onSnapshot && !snapped && ++frames > 6) {
+        snapped = true;
+        try { cb.current.onSnapshot(renderer.domElement.toDataURL("image/jpeg", 0.8)); } catch { cb.current.onSnapshot(null); }
+      }
       raf = requestAnimationFrame(tick);
     };
     tick();
