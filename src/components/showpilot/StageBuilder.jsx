@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
@@ -57,7 +57,7 @@ export default function StageBuilder({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null); // a new stage cue, until Save
   const [play, startPlay, stopPlay] = useCuePlayer();
-  const [newPerson, setNewPerson] = useState({ name: "", part: "" });
+  const [newPerson, setNewPerson] = useState({ name: "", part: "", alone: false }); // alone: an instrument with no one at it (job 395)
   const [rigDark, setRigDark] = useState(false); // all the lights off (job 392)
   const colors = useMyStageColors();
   const dragFromPlaced = useRef(false);
@@ -79,11 +79,12 @@ export default function StageBuilder({
   const addInstrument = (part) => addItems([{ ...newRigItem("instrument", rig), x: 0.7, y: 0.6, part, color: partColor(part) }]);
   const partColor = (part) => STAGE_POSITIONS.find((p) => p.key === part)?.color || "#E5E7EB";
   // Someone on the stage (job 389): Bob on drums, or just Bob.
+  const canAdd = newPerson.alone ? !!newPerson.part : !!newPerson.name.trim();
   const addPerson = () => {
-    const nm = newPerson.name.trim();
-    if (!nm) return;
-    addItems([{ ...newRigItem("person", rig), x: 0.5, y: 0.6, label: nm, part: newPerson.part, color: partColor(newPerson.part) }]);
-    setNewPerson({ name: "", part: "" });
+    if (!canAdd) return;
+    if (newPerson.alone) addInstrument(newPerson.part);
+    else addItems([{ ...newRigItem("person", rig), x: 0.5, y: 0.6, label: newPerson.name.trim(), part: newPerson.part, color: partColor(newPerson.part) }]);
+    setNewPerson((p) => ({ name: "", part: "", alone: p.alone }));
   };
   const patchMany = (ids, fn) => setRig((r) => ({ ...r, items: r.items.map((i) => (ids.includes(i.id) ? { ...i, ...fn(i) } : i)) }));
   const patch = (id, p) => patchMany([id], () => p);
@@ -472,49 +473,45 @@ export default function StageBuilder({
         {/* Risers go on the stage, so they're added here (job 394). */}
         <button type="button" onClick={() => add("riser")} className={key + " ml-1"} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />Riser</button>
       </div>
-      {/* People on the stage (job 389): a name, and what they play if anything. */}
+      {/* People and instruments (jobs 389, 394, 395): one place to add both -
+          a person (name, and what they play if anything) or just an
+          instrument with no one at it. */}
       <div className="flex flex-col gap-2">
-        <span className={lbl} style={mono}>PEOPLE</span>
-        <div className="flex gap-1.5">
-          <input value={newPerson.name} onChange={(e) => setNewPerson((p) => ({ ...p, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") addPerson(); }}
-            placeholder="Name (e.g. Bob)" aria-label="New person's name" maxLength={40}
-            className="flex-1 min-w-0 min-h-[40px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
-          <button type="button" onClick={addPerson} disabled={!newPerson.name.trim()} className={key + " disabled:opacity-40"} style={{ background: MA.amber, borderColor: MA.amber, color: "#111" }}><Plus className="w-4 h-4" />Add</button>
-        </div>
-        <PartChips value={newPerson.part} onChange={(part) => setNewPerson((p) => ({ ...p, part }))} />
-        {people.length > 0 && (
-          // Small squares (job 392): their instrument icon, their name under it.
-          <div className="flex flex-wrap gap-1.5">
-            {people.map((p) => (
-              <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)} aria-label={p.label || "Someone"}
-                className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-                <PartIcon part={p.part} color={p.color} size={28} />
-                <span className="w-full text-center text-[11.5px] font-semibold text-white truncate">{p.label || "Someone"}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {/* Instruments with no one at them (job 394): a synth off to the side,
-          a spare guitar on a stand, a mic for whoever steps up. */}
-      <div className="flex flex-col gap-2">
-        <span className={lbl} style={mono}>INSTRUMENTS</span>
-        <span className="text-[11.5px] text-white/45 -mt-1">On their own, no one at them. Tap one to add it, then put it on the deck or a riser.</span>
-        <div className="grid grid-cols-6 gap-1.5" style={{ maxWidth: 360 }}>
-          {STAGE_POSITIONS.map((p) => (
-            <button key={p.key} type="button" onClick={() => addInstrument(p.key)} aria-label={`Add ${p.label.toLowerCase()} on its own`} title={p.label}
-              className="h-12 w-full rounded-[10px] border flex items-center justify-center" style={{ background: "#161616", borderColor: "#333" }}><PartIcon part={p.key} color={p.color} size={30} /></button>
+        <span className={lbl} style={mono}>PEOPLE & INSTRUMENTS</span>
+        <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Add">
+          {[[false, "A person"], [true, "Just an instrument"]].map(([alone, label]) => (
+            <button key={label} type="button" role="radio" aria-checked={newPerson.alone === alone}
+              onClick={() => setNewPerson((p) => ({ ...p, alone, part: alone && !p.part ? "" : p.part }))}
+              className={key + " justify-center"} style={newPerson.alone === alone ? keyOn : keyOff}>{alone ? <Music2 className="w-4 h-4" /> : <UserRound className="w-4 h-4" />}{label}</button>
           ))}
         </div>
-        {gear.length > 0 && (
+        <div className="flex gap-1.5">
+          {!newPerson.alone ? (
+            <input value={newPerson.name} onChange={(e) => setNewPerson((p) => ({ ...p, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") addPerson(); }}
+              placeholder="Name (e.g. Bob)" aria-label="New person's name" maxLength={40}
+              className="flex-1 min-w-0 min-h-[40px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
+          ) : (
+            <span className="flex-1 min-w-0 self-center text-[12.5px] text-white/50">{newPerson.part ? `${partLabel(newPerson.part)}, no one at it` : "Pick the instrument"}</span>
+          )}
+          <button type="button" onClick={addPerson} disabled={!canAdd} className={key + " disabled:opacity-40"} style={{ background: MA.amber, borderColor: MA.amber, color: "#111" }}><Plus className="w-4 h-4" />Add</button>
+        </div>
+        <PartChips noNone={newPerson.alone} value={newPerson.part} onChange={(part) => setNewPerson((p) => ({ ...p, part }))} />
+        {(people.length > 0 || gear.length > 0) && (
+          // Small squares (job 392): the instrument icon over the name; an
+          // instrument with no one at it is dashed.
           <div className="flex flex-wrap gap-1.5">
-            {gear.map((g) => (
-              <button key={g.id} type="button" onClick={() => pick([g.id])} aria-pressed={sel.includes(g.id)} aria-label={g.label || partLabel(g.part)}
-                className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1" style={sel.includes(g.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a", borderStyle: "dashed" }}>
-                <PartIcon part={g.part} color={g.color} size={28} />
-                <span className="w-full text-center text-[11px] font-semibold text-white/80 truncate">{g.label || partLabel(g.part)}</span>
-              </button>
-            ))}
+            {[...people, ...gear].map((p) => {
+              const alone = isInstrument(p.type);
+              const name = alone ? p.label || partLabel(p.part) : p.label || "Someone";
+              return (
+                <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)} aria-label={alone ? `${name}, no one at it` : name}
+                  className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1"
+                  style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a", borderStyle: alone ? "dashed" : "solid" }}>
+                  <PartIcon part={p.part} color={p.color} size={28} />
+                  <span className={`w-full text-center text-[11.5px] font-semibold truncate ${alone ? "text-white/70" : "text-white"}`}>{name}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
