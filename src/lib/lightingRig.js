@@ -1,3 +1,4 @@
+import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { normalizeStageCues } from "@/lib/cueLooks";
 // An LD's lighting rig for a venue's stage (job 377): trusses and single
 // fixtures laid out on the same 4:3 stage as the stage plot. Kept on the LD's
@@ -62,7 +63,8 @@ export function normalizeRig(r) {
       label: String(i.label || "").slice(0, 40),
       tilt: clamp(Number(i.tilt) || 0, -90, 90),
       ...(i.on ? { on: String(i.on) } : {}),
-      ...(i.type === "person" ? { part: String(i.part || "").slice(0, 30) } : {}),
+      // part: a stage plot position key (older ones were saved by label).
+      ...(i.type === "person" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),
     })),
     cues: normalizeStageCues(r.cues),
   };

@@ -1,10 +1,11 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
+import { stageIconSvg } from "@/lib/stageIcons";
 import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { normalizeCueSheet } from "@/lib/cueSheet";
 import { useMyStageColors } from "@/components/showpilot/StagePlotView";
@@ -72,7 +73,7 @@ export default function StageBuilder({
   const lights = picked.filter((i) => !isTruss(i.type) && !isPerson(i.type));
   const aimable = picked.filter((i) => !isPerson(i.type)); // turns and tilts
   const people = items.filter((i) => isPerson(i.type));
-  const partColor = (part) => STAGE_POSITIONS.find((p) => p.label === part)?.color || "#E5E7EB";
+  const partColor = (part) => STAGE_POSITIONS.find((p) => p.key === part)?.color || "#E5E7EB";
   // Someone on the stage (job 389): Bob on drums, or just Bob.
   const addPerson = () => {
     const nm = newPerson.name.trim();
@@ -274,7 +275,7 @@ export default function StageBuilder({
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
-  const turnShown = aimable.length && aimable.every((i) => norm360(i.rot) === norm360(aimable[0].rot)) ? `${norm360(aimable[0].rot)}°` : "±";
+  const turnShown = picked.length && picked.every((i) => norm360(i.rot) === norm360(picked[0].rot)) ? `${norm360(picked[0].rot)}°` : "±";
   // --- Quick commands, over the stage, for what's picked. ---
   const quick = sel.length > 0 && tab === "rig" && (
     <div className="absolute left-2 right-2 bottom-2 rounded-[10px] border p-2 flex flex-col gap-2" style={{ background: "rgba(16,16,16,0.94)", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
@@ -312,14 +313,14 @@ export default function StageBuilder({
             )}
             <button type="button" onClick={place} className={qk} style={{ background: MA.green, borderColor: MA.green, color: "#111" }}><Check className="w-4 h-4" />Place</button>
           </div>
-          {aimable.length > 0 && (
+          {picked.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="flex items-center gap-1.5">
+            {aimable.length > 0 && <span className="flex items-center gap-1.5">
               <span className={lbl + " w-9"} style={mono}>TILT</span>
               <button type="button" className={step} style={keyOff} aria-label="Tilt back" onClick={() => nudge("tilt", -10, -90, 90)}><Minus className="w-4 h-4" /></button>
               <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{tiltShown}</span>
               <button type="button" className={step} style={keyOff} aria-label="Tilt forward" onClick={() => nudge("tilt", 10, -90, 90)}><Plus className="w-4 h-4" /></button>
-            </span>
+            </span>}
             <span className="flex items-center gap-1.5">
               <span className={lbl + " w-9"} style={mono}>TURN</span>
               <button type="button" className={step} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><RotateCcw className="w-4 h-4" /></button>
@@ -444,9 +445,8 @@ export default function StageBuilder({
             {people.map((p) => (
               <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)}
                 className="min-h-[40px] px-2.5 rounded-[6px] border flex items-center gap-2 text-left" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: p.color }} />
+                <PartIcon part={p.part} color={p.color} size={24} />
                 <span className="text-[14px] font-semibold text-white truncate">{p.label || "Someone"}</span>
-                {p.part && <span className="text-[12.5px] truncate" style={{ color: p.color }}>{p.part}</span>}
               </button>
             ))}
           </div>
@@ -584,16 +584,21 @@ export default function StageBuilder({
   );
 }
 
-// What someone plays: none, or one of the stage plot's instruments (job 389).
+// What someone plays (jobs 389, 390): the stage plot's instrument icons, or
+// none - the icon alone, the name read out for screen readers.
+function PartIcon({ part, color, size = 26 }) {
+  if (!part) return <UserRound className="shrink-0" style={{ width: size, height: size, color: color || "#E5E7EB" }} aria-hidden="true" />;
+  return <span aria-hidden="true" className="block shrink-0 [&>svg]:w-full [&>svg]:h-full" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: stageIconSvg(part, color, size) }} />;
+}
 function PartChips({ value, onChange }) {
-  const chip = "min-h-[32px] px-2.5 rounded-full border text-[12px] font-semibold";
+  const chip = "w-12 h-12 rounded-[10px] border flex items-center justify-center";
   return (
     <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Plays">
-      <button type="button" onClick={() => onChange("")} aria-pressed={!value} className={chip}
-        style={!value ? { background: "#E5E7EB", borderColor: "#E5E7EB", color: "#111" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}>No instrument</button>
+      <button type="button" onClick={() => onChange("")} aria-pressed={!value} aria-label="No instrument" title="No instrument" className={chip}
+        style={!value ? { background: "#2a2a2a", borderColor: "#E5E7EB" } : { background: "#161616", borderColor: "#333" }}><PartIcon part="" color={!value ? "#fff" : "#9a9a9a"} size={24} /></button>
       {STAGE_POSITIONS.map((p) => (
-        <button key={p.key} type="button" onClick={() => onChange(p.label)} aria-pressed={value === p.label} className={chip}
-          style={value === p.label ? { background: p.color, borderColor: p.color, color: "#111" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}>{p.label}</button>
+        <button key={p.key} type="button" onClick={() => onChange(p.key)} aria-pressed={value === p.key} aria-label={p.label} title={p.label} className={chip}
+          style={value === p.key ? { background: p.color + "33", borderColor: p.color } : { background: "#161616", borderColor: "#333" }}><PartIcon part={p.key} color={p.color} size={30} /></button>
       ))}
     </div>
   );

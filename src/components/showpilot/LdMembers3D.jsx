@@ -41,6 +41,7 @@ export default function LdMembers3D({ members = [], setMembers, getInstruments, 
       name: m.name || `Member ${i + 1}`,
       sub: [...played, ...(memberSings(m, insts) ? ["Vocals"] : [])].join(", "),
       sings: !!memberSings(m, insts),
+      part: positionOfMember(m, getInstruments),
     };
   }), [members, colors, getInstruments]);
 

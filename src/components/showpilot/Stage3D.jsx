@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { isTruss } from "@/lib/lightingRig";
+import { personFigure, instrumentProp, personOffset, PERSON_TOP } from "@/lib/stageProps3D";
 
 // The LD's 3D stage (job 383): the deck to scale, trusses at their trim,
 // every light with its beam, and the members standing where they are.
@@ -324,14 +325,15 @@ export default function Stage3D({
       if (it.type === "person") {
         // Someone the LD put on the stage (job 389): a figure in their
         // instrument's color, the ring under them green once placed.
+        // Job 390: life size, with what they play; their name over their
+        // head only while they're picked.
         const c = it.color || "#E5E7EB";
-        const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, emissive: new THREE.Color(c), emissiveIntensity: 0.12 });
-        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 4, 16), mat); b.position.y = 2;
-        const hd = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), mat); hd.position.y = 4.8;
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, selIds.includes(it.id) ? 0.16 : 0.1, 6, 32), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : stateColor(it.id) }));
-        ring.rotation.x = Math.PI / 2; ring.position.y = 0.1;
-        g.add(b, hd, ring);
-        if (labels && it.label) { const sp = labelSprite(it.label, it.part, c); sp.position.y = 7.4; g.add(sp); }
+        const fig = personFigure(c);
+        fig.position.z = personOffset(it.part);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, selIds.includes(it.id) ? 0.12 : 0.07, 6, 32), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : stateColor(it.id) }));
+        ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.06, fig.position.z);
+        g.add(fig, instrumentProp(it.part, c), ring);
+        if (labels && it.label && selIds.includes(it.id)) { const sp = labelSprite(it.label, "", c); sp.scale.set(6, 1.9, 1); sp.position.set(0, PERSON_TOP + 1.6, fig.position.z); g.add(sp); }
         if (/vocal/i.test(it.part || "")) rigSingers.push({ x, z });
         world.add(g);
         st.items[it.id] = g;
@@ -356,7 +358,16 @@ export default function Stage3D({
           ring.rotation.x = Math.PI / 2;
           g.add(ring);
         }
-        if (selIds.includes(it.id)) g.add(new THREE.BoxHelper(g, movingIds.includes(it.id) ? "#FFB400" : PICKED));
+        if (selIds.includes(it.id)) {
+          // The outline is measured with the truss at the origin: measured in
+          // place it got the truss's position twice and floated as a second
+          // copy above it (job 390).
+          const p0 = g.position.clone(), r0 = g.rotation.clone();
+          g.position.set(0, 0, 0); g.rotation.set(0, 0, 0); g.updateMatrixWorld(true);
+          const outline = new THREE.BoxHelper(g, movingIds.includes(it.id) ? "#FFB400" : PICKED);
+          g.position.copy(p0); g.rotation.copy(r0);
+          g.add(outline);
+        }
       } else {
         const color = it.color || "#ffffff";
         const head = new THREE.Group(); // turns to aim
@@ -416,15 +427,15 @@ export default function Stage3D({
       const grp = new THREE.Group();
       grp.userData.memberIndex = i;
       grp.position.set(x, DECK, z);
-      const mat = new THREE.MeshStandardMaterial({ color: m.color || "#ffffff", roughness: 0.6, emissive: new THREE.Color(m.color || "#ffffff"), emissiveIntensity: pickedMember === i ? 0.6 : 0.12 });
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 4, 16), mat); b.position.y = 2;
-      const h = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), mat); h.position.y = 4.8;
-      grp.add(b, h);
+      // The act's members: life size with their instruments too (job 390).
+      const fig = personFigure(m.color || "#ffffff", { emissive: pickedMember === i ? 0.6 : 0.12 });
+      fig.position.z = personOffset(m.part);
+      grp.add(fig, instrumentProp(m.part, m.color, m.sings && m.part !== "vocals"));
       if (pickedMember === i) {
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.12, 6, 32), new THREE.MeshBasicMaterial({ color: "#8CFF3D" }));
-        ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; grp.add(ring);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.1, 6, 32), new THREE.MeshBasicMaterial({ color: "#8CFF3D" }));
+        ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.06, fig.position.z); grp.add(ring);
       }
-      if (labels && m.name) { const sp = labelSprite(m.name, m.sub, m.color); sp.position.y = 7.4; grp.add(sp); }
+      if (labels && m.name) { const sp = labelSprite(m.name, m.sub, m.color); sp.scale.set(7, 2.2, 1); sp.position.set(0, PERSON_TOP + 2, fig.position.z); grp.add(sp); }
       world.add(grp);
       st.memberObjs.push(grp);
       if (m.sings) st.singers.push({ x, z });

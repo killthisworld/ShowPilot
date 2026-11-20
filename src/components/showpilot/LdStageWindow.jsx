@@ -9,6 +9,7 @@ import { memberLook } from "@/lib/customPositions";
 import { memberSings, isVocalInput } from "@/components/showpilot/VocalsQuestion";
 import { useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
 import { emptyRig } from "@/lib/lightingRig";
+import { positionOfMember } from "@/lib/stagePositions";
 
 // An act's members where they put themselves, for Stage3D (job 387).
 export function actMembers3D(act, colors) {
@@ -16,7 +17,7 @@ export function actMembers3D(act, colors) {
     const insts = instrumentsOf(m);
     const played = insts.filter((x) => !isVocalInput(x)).map((x) => x.name).filter(Boolean);
     const sings = memberSings(m, insts);
-    return { x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name || "", sub: [...played, ...(sings ? ["Vocals"] : [])].join(", "), sings };
+    return { x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name || "", sub: [...played, ...(sings ? ["Vocals"] : [])].join(", "), sings, part: positionOfMember(m, instrumentsOf) };
   });
 }
 
