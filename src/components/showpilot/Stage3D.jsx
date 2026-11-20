@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { isTruss } from "@/lib/lightingRig";
+import { isTruss, spinsFully, snapPlace } from "@/lib/lightingRig";
 import { personFigure, instrumentProp, personOffset, isSeated, PERSON_TOP } from "@/lib/stageProps3D";
 
 // The LD's 3D stage (job 383): the deck to scale, trusses at their trim,
@@ -81,6 +81,11 @@ export default function Stage3D({
     controls.maxDistance = 300;
     const world = new THREE.Group(); // deck + rig + members, rebuilt on change
     scene.add(world);
+    // Guide lines while a truss snaps into line (job 399).
+    const guideMat = new THREE.LineDashedMaterial({ color: "#FFB400", dashSize: 0.6, gapSize: 0.4, depthTest: false });
+    const unitLine = (axis) => { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(axis === "x" ? [new THREE.Vector3(-0.5, 0, 0), new THREE.Vector3(0.5, 0, 0)] : [new THREE.Vector3(0, 0, -0.5), new THREE.Vector3(0, 0, 0.5)]), guideMat); l.computeLineDistances(); l.visible = false; l.renderOrder = 20; scene.add(l); return l; };
+    const guideAcross = unitLine("x"); // a line across the stage (snapped y)
+    const guideDown = unitLine("z");   // a line front to back (snapped x)
     S.current = { scene, camera, renderer, controls, world, fixtures: [], items: {}, memberObjs: [], deckTop: null, W: 32, D: 24, framed: false };
 
     // Tests (dev only): where an item is on screen.
@@ -195,7 +200,18 @@ export default function Stage3D({
         const mx = e.clientX - press.sx, my = e.clientY - press.sy;
         const wx = press.right.x * mx * press.unit - press.fwd.x * my * press.unit / press.elev;
         const wz = press.right.z * mx * press.unit - press.fwd.z * my * press.unit / press.elev;
-        const dx = wx / W, dy = wz / D;
+        let dx = wx / W, dy = wz / D;
+        // Line a truss / screen up as it goes (job 399).
+        const lead = (cb.current.rig?.items || []).find((it) => it.id === press.id);
+        if (lead && spinsFully(lead.type) && press.start?.[lead.id]) {
+          const [sx0, sy0] = press.start[lead.id];
+          const sn = snapPlace(clamp01(sx0 + dx), clamp01(sy0 + dy), cb.current.rig, press.ids);
+          dx = sn.x - sx0; dy = sn.y - sy0;
+          const lvl = DECK + 0.08;
+          guideDown.visible = sn.gx !== null; guideAcross.visible = sn.gy !== null;
+          if (sn.gx !== null) { guideDown.position.set((sn.gx - 0.5) * W, lvl, 0); guideDown.scale.set(1, 1, D * 1.1); }
+          if (sn.gy !== null) { guideAcross.position.set(0, lvl, (sn.gy - 0.5) * D); guideAcross.scale.set(W * 1.1, 1, 1); }
+        }
         press.at = press.ids.map((id) => {
           const [sx, sy] = press.start[id] || [0.5, 0.5];
           const x = clamp01(sx + dx), y = clamp01(sy + dy);
@@ -224,6 +240,7 @@ export default function Stage3D({
       const was = press;
       press = null;
       S.current.dragAt = null;
+      guideDown.visible = false; guideAcross.visible = false;
       controls.enabled = true;
       const tap = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6;
       down = null;
@@ -263,16 +280,19 @@ export default function Stage3D({
     S.current.clock = clock;
     const tmp = new THREE.Color();
     const tick = () => {
-      const t = clock.getElapsedTime();
+      const t0 = clock.getElapsedTime();
       const st = S.current;
       const L = st.look;
+      // Speed (job 399): the cue's chase, strobe, color fade and motion all
+      // run faster or slower.
+      const t = t0 * (L?.speed || 1);
       const beat = 60 / Math.max(40, Math.min(220, L?.bpm || 120));
       // A cue on some of the lights (job 393): the rest stay dark, and the
       // chase / color fade run across just those. It fades in over fadeIn s.
       const only = L?.only && L.only.length ? L.only : null;
       const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
       const n = act.length || 1;
-      const rise = L?.fadeIn ? Math.min(1, Math.max(0, (t - (st.lookStart || 0)) / L.fadeIn)) : 1;
+      const rise = L?.fadeIn ? Math.min(1, Math.max(0, (t0 - (st.lookStart || 0)) / L.fadeIn)) : 1;
       st.fixtures.forEach((f, k0) => {
         const k = only ? act.indexOf(f) : k0;
         let on = 0.85; // level 0..1
@@ -302,6 +322,23 @@ export default function Stage3D({
         if (L?.spot && (f.type === "spot" || f.type === "beam") && st.singers.length && !f.up) {
           const s = st.singers[Math.max(0, k) % st.singers.length];
           f.head.lookAt(s.x, DECK + 3, s.z);
+        } else if (L?.motion && L.motion !== "" && (f.type === "spot" || f.type === "beam" || f.type === "wash") && !(only && k < 0)) {
+          // Motion (job 399): pan / tilt off where it's aimed.
+          const w = Math.PI * 0.5 * t; // a cycle every 4 s at x1
+          const kk = Math.max(0, k);
+          let pan = 0, tl = 0;
+          if (L.motion === "sweep") pan = 0.6 * Math.sin(w + kk * 0.4);
+          else if (L.motion === "nod") tl = 0.5 * Math.sin(w + kk * 0.4);
+          else if (L.motion === "circle") { pan = 0.35 * Math.cos(w + kk * 0.6); tl = 0.35 * Math.sin(w + kk * 0.6); }
+          else if (L.motion === "figure8") { pan = 0.45 * Math.sin(w); tl = 0.28 * Math.sin(2 * w); }
+          else if (L.motion === "fan") pan = ((kk - (n - 1) / 2) / Math.max(1, n)) * 1.4 * (0.5 + 0.5 * Math.sin(w));
+          else if (L.motion === "ballyhoo") { pan = 0.6 * Math.sin(w * 1.3 + kk * 1.7); tl = 0.4 * Math.sin(w * 0.9 + kk * 2.3); }
+          // Swing it side to side (about the light's front-back line) and
+          // front to back (about its side-to-side line).
+          f.mv.copy(f.dir).applyAxisAngle(f.fwdAxis, pan).applyAxisAngle(f.rightAxis, tl);
+          f.head.getWorldPosition(f.wp);
+          f.head.lookAt(f.wp.x + f.mv.x * 20, f.wp.y + f.mv.y * 20, f.wp.z + f.mv.z * 20 + 0.0001);
+          f.pool.material.opacity = 0; // the pool stays under it; hide it while it moves
         } else {
           // Where it's tilted to (straight down / up at 0).
           f.head.getWorldPosition(f.wp);
@@ -544,7 +581,7 @@ export default function Stage3D({
         }
         // Aim: straight down (floor lights: up) unless a look turns it (tick).
         const dir = new THREE.Vector3(0, up ? Math.cos(tilt) : -Math.cos(tilt), Math.sin(tilt)).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.rotation.y);
-        st.fixtures.push({ id: it.id, type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, off: !!it.off, wp: new THREE.Vector3() });
+        st.fixtures.push({ mv: new THREE.Vector3(), rightAxis: new THREE.Vector3(Math.cos(g.rotation.y), 0, -Math.sin(g.rotation.y)), fwdAxis: new THREE.Vector3(Math.sin(g.rotation.y), 0, Math.cos(g.rotation.y)), id: it.id, type: it.type, base: color, y: it.y, mat, pool, body, head: aim, up, dir, off: !!it.off, wp: new THREE.Vector3() });
       }
       world.add(g);
       st.items[it.id] = g;

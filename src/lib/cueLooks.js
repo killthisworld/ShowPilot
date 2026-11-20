@@ -2,6 +2,14 @@
 // strobes on the drop" -> { color, wash, strobe, ... }. Used to play an act's
 // cue sheet on the LD's 3D stage, and by the look keys in Rig the stage.
 
+// How the moving lights move in a cue (job 399), and how fast.
+export const MOTIONS = [
+  { id: "", label: "Still" }, { id: "sweep", label: "Sweep" }, { id: "nod", label: "Nod" }, { id: "circle", label: "Circle" },
+  { id: "figure8", label: "Figure 8" }, { id: "fan", label: "Fan" }, { id: "ballyhoo", label: "Ballyhoo" },
+];
+const motionOk = (m) => (MOTIONS.some((x) => x.id === m) ? m : "");
+const speedOk = (v) => Math.min(4, Math.max(0.25, Number(v) || 1));
+
 export const LOOK_KEYS = [
   { id: "wash", label: "Full wash" },
   { id: "spot", label: "Spot on vocals" },
@@ -23,7 +31,7 @@ const colorWord = (t) => COLOR_WORDS.find(([w]) => new RegExp(`\\b${w}\\b`).test
 export function lookFromCue(cue, song = null) {
   const t = String(cue?.look || "").toLowerCase();
   // The LD set this cue's look on the 3D stage (job 387): that wins.
-  if (cue?.keys && typeof cue.keys === "object") return lookFromKeys(cue.keys, cue.color || colorWord(t) || song?.color || "", Number(song?.bpm) || 120);
+  if (cue?.keys && typeof cue.keys === "object") return { ...lookFromKeys(cue.keys, cue.color || colorWord(t) || song?.color || "", Number(song?.bpm) || 120), motion: motionOk(cue.motion), speed: speedOk(cue.speed) };
   const look = {
     color: cue?.color || colorWord(t) || song?.color || "",
     bpm: Number(song?.bpm) || 120,
@@ -81,5 +89,7 @@ export function normalizeStageCues(list) {
     // Which lights (none picked = all of them) and the fade in, s (job 393).
     lights: Array.isArray(c.lights) ? c.lights.map(String).slice(0, 300) : [],
     fadeIn: Math.min(30, Math.max(0, Number(c.fadeIn) || 0)),
+    motion: motionOk(c.motion),
+    speed: speedOk(c.speed),
   }));
 }

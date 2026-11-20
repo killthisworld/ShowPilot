@@ -170,3 +170,19 @@ export function rigSummary(r) {
   const f = items.filter((i) => isLight(i.type)).length;
   return [t ? `${t} truss${t === 1 ? "" : "es"}` : "", f ? `${f} light${f === 1 ? "" : "s"}` : "", p ? `${p} ${p === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ");
 }
+
+// Click to place, lined up (job 399): a truss or screen being placed at x, y
+// snaps (within 1.5 ft) to the middle of the stage, its quarter lines, and
+// the trusses / screens already there - in line with them, level with them,
+// or mirrored across the middle from them. -> { x, y, gx, gy } (gx / gy: the
+// line it snapped to, for a guide; null when it didn't).
+export function snapPlace(x, y, rig, skip = []) {
+  const W = rig?.width_ft || 32, D = rig?.depth_ft || 24;
+  const others = (rig?.items || []).filter((i) => spinsFully(i.type) && !skip.includes(i.id));
+  const xs = [0.5, 0.25, 0.75, ...others.map((o) => o.x), ...others.map((o) => 1 - o.x)];
+  const ys = [0.5, ...others.map((o) => o.y)];
+  const near = (v, list, tol) => list.reduce((best, c) => (Math.abs(v - c) <= tol && (best === null || Math.abs(v - c) < Math.abs(v - best)) ? c : best), null);
+  const gx = near(x, xs, 1.5 / W);
+  const gy = near(y, ys, 1.5 / D);
+  return { x: gx ?? x, y: gy ?? y, gx, gy };
+}

@@ -2,8 +2,8 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss } from "@/lib/lightingRig";
-import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss, snapPlace } from "@/lib/lightingRig";
+import { MOTIONS, LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
 import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
@@ -187,8 +187,11 @@ export default function StageBuilder({
   const onTapDeck = (x, y) => {
     if (moving && sel.length && x !== null) {
       // Tap where it goes: the picked ones move there together.
-      const cx = picked.reduce((n, i) => n + i.x, 0) / picked.length;
-      const cy = picked.reduce((n, i) => n + i.y, 0) / picked.length;
+      let cx = picked.reduce((n, i) => n + i.x, 0) / picked.length;
+      let cy = picked.reduce((n, i) => n + i.y, 0) / picked.length;
+      // One truss / screen: click to place, lined up with the stage and the
+      // rest of the rig (job 399).
+      if (one && spinsFully(one.type)) { const sn = snapPlace(x, y, rig, [...sel, ...hungOn(sel)]); x = sn.x; y = sn.y; cx = one.x; cy = one.y; }
       patchMany([...sel, ...hungOn(sel)], (i) => ({ x: clamp(i.x + x - cx, 0, 1), y: clamp(i.y + y - cy, 0, 1) }));
       return;
     }
@@ -226,7 +229,7 @@ export default function StageBuilder({
     const own = c === draft || !isAct;
     const base = own ? lookFromKeys(c.keys || {}, c.color, c.bpm) : c.cue.keys ? lookFromCue(c.cue, c.song) : c.look;
     const q = own ? c : c.cue;
-    return { ...base, only: q.lights && q.lights.length ? q.lights : null, fadeIn: Number(q.fadeIn) || 0 };
+    return { ...base, only: q.lights && q.lights.length ? q.lights : null, fadeIn: Number(q.fadeIn) || 0, motion: q.motion || "", speed: Number(q.speed) || 1 };
   };
   const playing = play ? (play.i === "draft" ? draft : list[play.i]) : null;
   const look = useMemo(() => lookOf(playing), [playing, play?.key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -595,6 +598,29 @@ export default function StageBuilder({
               <span className="w-10 text-right text-white text-[14px] tabular-nums">{cur.bpm}</span>
             </div>
           )}
+          {/* Motion and speed (job 399): how the moving lights move, how fast it all goes. */}
+          {(() => {
+            const q = draft || (isAct ? cur.cue : cur);
+            const sp = Number(q.speed) || 1;
+            return (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <span className={lbl} style={mono}>MOTION</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {MOTIONS.map((m) => (
+                      <button key={m.id || "still"} type="button" onClick={() => setCue({ motion: m.id })} aria-pressed={(q.motion || "") === m.id}
+                        className="h-10 rounded-[6px] border text-[12px] font-bold" style={(q.motion || "") === m.id ? keyOn : keyOff}>{m.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={lbl + " w-12"} style={mono}>SPEED</span>
+                  <input type="range" min="0.25" max="4" step="0.25" value={sp} onChange={(e) => setCue({ speed: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Speed" />
+                  <span className="w-10 text-right text-white text-[14px] tabular-nums">×{sp}</span>
+                </div>
+              </>
+            );
+          })()}
           {/* 3, the fade: how long it takes to come up. */}
           <div className="flex items-center gap-2">
             <span className={lbl + " shrink-0 whitespace-nowrap"} style={mono}>3 · FADE</span>
