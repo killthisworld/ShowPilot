@@ -398,16 +398,35 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   useEffect(() => { setName(template?.name || ""); setData(template?.data || {}); first.current = true; }, [template?.id, template?.rev]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Autosave a moment after a change.
+  const pending = useRef(false);
   useEffect(() => {
     if (first.current) { first.current = false; return undefined; }
     if (!template?.id) return undefined;
     setSaveState("saving");
+    pending.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       try { await onSave(name.trim() || template.name, data); setSaveState("saved"); } catch (e) { console.error(e); setSaveState("error"); }
+      pending.current = false;
     }, 800);
     return () => clearTimeout(timer.current);
   }, [name, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Changed on another device or tab (job 441): My Templates looks again
+  // every 20 s and when you come back to it; take that copy in, unless a
+  // change made here is still waiting to save. Without this, a page left
+  // open on a computer saved its old copy over a section you'd taken out on
+  // your phone, and it came back.
+  const seen = useRef(JSON.stringify(template?.data || {}));
+  useEffect(() => {
+    const incoming = JSON.stringify(template?.data || {});
+    if (incoming === seen.current) return;
+    seen.current = incoming;
+    if (pending.current || incoming === JSON.stringify(data)) return;
+    first.current = true;
+    setData(template?.data || {});
+    if (template?.name) setName(template.name);
+  }, [template?.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const page = pageOf(data);
   const look = page.look;
