@@ -118,14 +118,15 @@ export function OfferProfileRead({ pkg }) {
 }
 
 // ---------- Dates ----------
-export function OfferDatesBody({ wants, setWants }) {
+// defaults (job 429): the offer template's usual times, for the first date.
+export function OfferDatesBody({ wants, setWants, defaults = null }) {
   const dates = Array.isArray(wants.dates) ? wants.dates : [];
   const [pick, setPick] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const setDates = (list) => setWants({ ...wants, dates: list });
   const add = () => {
     if (!pick || pick < today || dates.some((d) => d.date === pick) || dates.length >= 10) return;
-    const last = dates[dates.length - 1] || {};
+    const last = dates[dates.length - 1] || defaults || {};
     setDates([...dates, { date: pick, set_time: last.set_time || "", load_in: last.load_in || "", billing: last.billing || "Headliner" }].sort((a, b) => a.date.localeCompare(b.date)));
     setPick("");
   };
@@ -252,11 +253,13 @@ export function OfferNeedsBody({ data, setData }) {
 }
 export const offerNeedsDone = (d = {}) => Array.isArray(d.needs) && d.needs.length > 0;
 
-// ---------- Files (job 355) ----------
-// data.files = [{ url, name, type, kind }]: the venue's stage plot, tech spec,
-// house rules. `uploadFile(file)` returns the public url.
-export const FILE_KINDS = [["plot", "Stage plot"], ["spec", "Tech spec"], ["rules", "House rules"], ["other", "Other"]];
-const kindText = (k) => (FILE_KINDS.find(([x]) => x === k) || [])[1] || "Other";
+// ---------- Documents (job 355; job 429) ----------
+// data.files = [{ url, name, type, kind }]: documents and agreements the venue
+// wants the act / management to know before they answer. `uploadFile(file)`
+// returns the public url. Older offers may still have a stage plot or tech spec.
+export const FILE_KINDS = [["agreement", "Agreement"], ["rules", "House rules"], ["policy", "Policy"], ["other", "Other"]];
+const OLD_KINDS = { plot: "Stage plot", spec: "Tech spec" };
+const kindText = (k) => (FILE_KINDS.find(([x]) => x === k) || [])[1] || OLD_KINDS[k] || "Other";
 export function OfferFilesBody({ data, setData, uploadFile }) {
   const ref = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -273,7 +276,7 @@ export function OfferFilesBody({ data, setData, uploadFile }) {
       if (f.size > 15 * 1024 * 1024) { setErr(`${f.name} is over 15 MB. Try a smaller copy.`); continue; }
       try {
         const url = await uploadFile(f);
-        const kind = /plot|stage/i.test(f.name) ? "plot" : /spec|rider|tech/i.test(f.name) ? "spec" : /rule|polic/i.test(f.name) ? "rules" : "other";
+        const kind = /agree|contract|deal|offer/i.test(f.name) ? "agreement" : /rule/i.test(f.name) ? "rules" : /polic|insur|coi/i.test(f.name) ? "policy" : "other";
         next = [...next, { url, name: f.name, type: f.type || "", kind }];
         setData({ ...data, files: next });
       } catch (x) { console.error(x); setErr("A file didn't upload. Check your signal and try again."); }
@@ -283,7 +286,7 @@ export function OfferFilesBody({ data, setData, uploadFile }) {
   const setKind = (i, kind) => setData({ ...data, files: files.map((d, j) => (j === i ? { ...d, kind } : d)) });
   return (
     <div className="flex flex-col gap-2.5">
-      <span className="text-[12.5px] text-white/55">Your stage plot, tech spec or house rules. The act can open them from the offer.</span>
+      <span className="text-[12.5px] text-white/55">Agreements, house rules, policies: anything you want the act or their management to read before they say yes. They open them from the offer.</span>
       {files.map((d, i) => (
         <div key={`${d.url}-${i}`} className="flex flex-col gap-1.5 rounded-[12px] border border-[#242424] bg-[#101010] p-2.5">
           <div className="flex items-center gap-2">
@@ -291,14 +294,14 @@ export function OfferFilesBody({ data, setData, uploadFile }) {
             <a href={d.url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 truncate text-[14px] font-semibold" style={{ color: BLUE }}>{d.name || "File"}</a>
             <button type="button" onClick={() => setData({ ...data, files: files.filter((_, j) => j !== i) })} aria-label={`Remove ${d.name || "the file"}`} className="w-10 h-10 -my-2 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>
           </div>
-          <select value={d.kind || "other"} onChange={(e) => setKind(i, e.target.value)} aria-label={`What ${d.name || "this file"} is`} className={inputCls}>
+          <select value={FILE_KINDS.some(([v]) => v === d.kind) ? d.kind : "other"} onChange={(e) => setKind(i, e.target.value)} aria-label={`What ${d.name || "this file"} is`} className={inputCls}>
             {FILE_KINDS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
           </select>
         </div>
       ))}
       <input ref={ref} type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx" className="hidden" onChange={onFiles} />
       <button type="button" disabled={busy} onClick={() => ref.current?.click()} className="min-h-[44px] rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60" style={{ color: BLUE }}>
-        <Upload className="w-4 h-4" />{busy ? "Uploading…" : files.length ? "Add another file" : "Upload a file (PDF or picture)"}
+        <Upload className="w-4 h-4" />{busy ? "Uploading…" : files.length ? "Add another document" : "Upload a document (PDF, Word or picture)"}
       </button>
       {err && <p className="m-0 text-[12.5px] text-[#F87171]">{err}</p>}
     </div>
@@ -378,7 +381,7 @@ export function offerReadCircles(pkg) {
         {needs.map((t) => <div key={t} className="min-h-[44px] px-3.5 rounded-[12px] border border-[#262626] bg-[#101010] flex items-center gap-3 text-[14.5px]"><span style={{ color: BLUE }}>✓</span>{t}</div>)}
         <span className="text-[12.5px] text-white/50" style={MONO}>You attach these when you answer.</span>
       </div>) },
-    { key: "files", label: "Files", short: "Files", icon: <Paperclip />, done: offerFilesDone(data), body: () => (
+    { key: "files", label: "Documents", short: "Documents", icon: <Paperclip />, done: offerFilesDone(data), body: () => (
       <div className="flex flex-col gap-2">
         {(data.files || []).map((f, i) => (
           <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noreferrer" className="min-h-[48px] px-3.5 rounded-[12px] border border-[#262626] bg-[#101010] flex items-center gap-3 text-[14.5px]">

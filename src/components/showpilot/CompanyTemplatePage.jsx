@@ -71,7 +71,9 @@ function summaries(role, data = {}) {
   };
 }
 
-function Sheet({ title, kicker, color, onClose, children, wide = false }) {
+// big (job 429): a section's window on a computer is a wide, two-column
+// desktop window instead of a narrow centred card.
+function Sheet({ title, kicker, color, onClose, children, wide = false, big = false }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -80,7 +82,7 @@ function Sheet({ title, kicker, color, onClose, children, wide = false }) {
   return createPortal(
     <div className="fixed inset-0 z-[85] bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose} style={{ fontFamily: SCENE_FONT }}>
       <div role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}
-        className={`w-full ${wide ? "sm:max-w-[620px]" : "sm:max-w-[460px]"} max-h-[92dvh] overflow-y-auto bg-[#141414] border border-[#2a2a2a] rounded-t-[20px] sm:rounded-[20px] p-5 flex flex-col gap-4 text-white`}>
+        className={`w-full ${big ? "sm:max-w-[620px] lg:max-w-[1120px] lg:p-7" : wide ? "sm:max-w-[620px]" : "sm:max-w-[460px]"} max-h-[92dvh] overflow-y-auto bg-[#141414] border border-[#2a2a2a] rounded-t-[20px] sm:rounded-[20px] p-5 flex flex-col gap-4 text-white`}>
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             {kicker && <div className="text-[11px] tracking-[0.14em]" style={{ ...MONO, color }}>{kicker}</div>}
@@ -572,7 +574,10 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       const removeSection = () => { setData((d) => { const p = pageOf(d); return withPage(d, { custom: p.custom.filter((c) => c.id !== key), order: p.order.filter((k) => k !== key) }); }); setSheet(null); };
       const currentName = s.builtIn ? (page.names[key] ?? "") : (page.custom.find((c) => c.id === key)?.name ?? "");
       sheetEl = (
-        <Sheet title={s.label} kicker={s.builtIn ? "SECTION" : "YOUR OWN SECTION"} color={ring} onClose={() => setSheet(null)}>
+        <Sheet title={s.label} kicker={s.builtIn ? "SECTION" : "YOUR OWN SECTION"} color={ring} onClose={() => setSheet(null)} big>
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-7 lg:items-start">
+          {/* Left on a computer: the section's own details. */}
+          <div className="flex flex-col gap-4 min-w-0">
           {!s.builtIn && (
             <label>
               <span className={label} style={MONO}>SECTION NAME</span>
@@ -587,10 +592,19 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
               <button type="button" onClick={showHidden} className="min-h-[38px] px-2 text-[13px] font-semibold" style={{ color: ring }}>Load {hiddenList.length === 1 ? "it" : "them"}</button>
             </div>
           )}
-          <div className="flex flex-col gap-1.5">
-            <span className={label + " mb-0"} style={MONO}>{s.builtIn ? "YOUR OWN FIELDS" : "FIELDS"}</span>
-            <FieldsEditor fields={s.builtIn ? s.extra : (page.custom.find((c) => c.id === key)?.fields || [])} onChange={setFields} color={ring} />
+          {!s.builtIn && (
+            <div className="flex flex-col gap-1.5">
+              <span className={label + " mb-0"} style={MONO}>FIELDS</span>
+              <FieldsEditor fields={page.custom.find((c) => c.id === key)?.fields || []} onChange={setFields} color={ring} />
+            </div>
+          )}
           </div>
+          {/* Right on a computer: your own fields and how it loads. */}
+          <div className="flex flex-col gap-4 min-w-0 lg:sticky lg:top-0">
+          {s.builtIn && <div className="flex flex-col gap-1.5">
+            <span className={label + " mb-0"} style={MONO}>YOUR OWN FIELDS</span>
+            <FieldsEditor fields={s.extra} onChange={setFields} color={ring} />
+          </div>}
           <div className="flex flex-col gap-1.5">
             <span className={label + " mb-0"} style={MONO}>ON EVERY NEW EVENT</span>
             <ModePicker value={s.mode} kept={s.mode === "kept"} onChange={(m) => setData((d) => setMode(role, d, key, m))} color={ring} />
@@ -603,6 +617,8 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
           )}
           {!s.builtIn && <button type="button" onClick={removeSection} className="min-h-[44px] rounded-[12px] text-[14px] font-semibold text-red-400 border border-red-500/30">Delete this section</button>}
           <button type="button" onClick={() => setSheet(null)} className="min-h-[50px] rounded-[12px] font-bold text-[15px]" style={{ background: ring, color: "#0d0d0d" }}>Done</button>
+          </div>
+          </div>
         </Sheet>
       );
     }

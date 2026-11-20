@@ -5,7 +5,10 @@ import { Clock, Megaphone, SlidersHorizontal, Folder, FileText, Download, Extern
 import { supabase } from "@/api/supabaseClient";
 import IntakeKeyWeb from "@/components/showpilot/IntakeKeyWeb";
 import { StagePlotView, StageIcon, hasStagePlot, instrumentsOf } from "@/components/showpilot/StagePlotView";
-import { promoFormat } from "@/lib/newEventWeb";
+import { promoFormat, promoLinkLabel } from "@/lib/newEventWeb";
+import { LINK_KINDS } from "@/lib/eventLink";
+
+const LINK_KIND_LABEL = Object.fromEntries(LINK_KINDS.map((k) => [k.key, k.label]));
 
 // A venue's invite to an event, as a web (job 322; piece 2 of job 321). The
 // invite link opens a key, then the event: whoever sent it in the middle
@@ -114,6 +117,9 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
   const firstName = senderName.split(/\s+/)[0] || senderName;
   const promo = (Array.isArray(mi.promo) ? mi.promo : []).filter((p) => p?.url);
   const photos = bands.filter((b) => has(b.photo_url)).map((b) => ({ url: b.photo_url, name: `${b.band_name} photo` }));
+  const promoLinks = (Array.isArray(mi.promo_links) && mi.promo_links.some((l) => has(l?.url)))
+    ? mi.promo_links.filter((l) => has(l?.url))
+    : has(mi.facebook_event) ? [{ kind: "facebook", url: mi.facebook_event }] : [];
   const crew = mi.crew || {};
   // Who's on it, when the act's side already put them on (job 326).
   const techName = (k) => ((gig.engineer_info || {})[k === "sound" ? "audio" : "lighting"] || {}).contact_name || "";
@@ -158,7 +164,7 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
       ),
     },
     {
-      key: "promo", label: "Promo kit", icon: <Megaphone />, done: promo.length > 0 || photos.length > 0 || has(mi.facebook_event),
+      key: "promo", label: "Promo kit", icon: <Megaphone />, done: promo.length > 0 || photos.length > 0 || promoLinks.length > 0,
       body: () => (
         <div className="flex flex-col gap-4">
           {promo.length > 0 ? (
@@ -188,11 +194,13 @@ export default function EventInviteView({ invite, gig, shareToken, inviteToken, 
               </div>
             </div>
           )}
-          {has(mi.facebook_event) && (
-            <a href={mi.facebook_event} target="_blank" rel="noreferrer" className="min-h-[48px] px-3.5 rounded-[12px] border border-[#333] flex items-center gap-2 text-[14.5px] font-semibold text-white no-underline">
-              <span className="flex-1">Facebook event</span><ExternalLink className="w-4 h-4 text-white/60" />
+          {/* Every promo link the venue added, by platform (job 429); older
+              events only have the Facebook one. */}
+          {promoLinks.map((l, i) => (
+            <a key={`${l.url}${i}`} href={/^https?:\/\//i.test(l.url) ? l.url : `https://${l.url}`} target="_blank" rel="noreferrer" className="min-h-[48px] px-3.5 rounded-[12px] border border-[#333] flex items-center gap-2 text-[14.5px] font-semibold text-white no-underline">
+              <span className="flex-1 min-w-0 truncate">{promoLinkLabel(l.kind) || LINK_KIND_LABEL[l.kind] || "Link"}</span><ExternalLink className="w-4 h-4 text-white/60 shrink-0" />
             </a>
-          )}
+          ))}
           {allFiles.length > 1 && (
             <button type="button" onClick={saveAll} disabled={saving === "all"} className="min-h-[50px] rounded-[12px] border-[1.5px] text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-60" style={{ borderColor: BLUE, color: BLUE }}>
               <Download className="w-4 h-4" />{saving === "all" ? "Saving…" : `Download all · ${allFiles.length} files`}

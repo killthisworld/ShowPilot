@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { saveOffer, sendPackage, counterPackage, loadPackage, packageUrl, OFFER_BLUE } from "@/lib/bookingPackage";
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
+import { loadOfferTemplate, saveOfferTemplate } from "@/lib/offerTemplate";
 import OfferDates from "@/components/showpilot/OfferDates";
 import {
   OfferDatesBody, offerDatesDone, OfferDealBody, offerDealDone, OfferRoomBody, offerRoomDone, OfferHospBody, offerHospDone,
@@ -71,6 +72,11 @@ export default function VenueOffer() {
   const [to, setTo] = useState({ name: "", email: "", phone: "" });
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
+  // The offer template (job 429): new dates start from its times.
+  const [tplTimes, setTplTimes] = useState(null);
+  const [fromTpl, setFromTpl] = useState(false);
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [tplMsg, setTplMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sentOff, setSentOff] = useState(false);
@@ -112,12 +118,18 @@ export default function VenueOffer() {
           }
         } catch (e) { console.error(e); }
       } else {
-        // A new offer starts from what the venue's template already has.
+        // A new offer starts from the venue's offer template when it has one
+        // (job 429), else from what its venue template already has.
         try {
-          const { data: tpl } = await supabase.from("saved_templates").select("data").eq("owner_id", user.id).eq("category", "venue").order("updated_at", { ascending: false }).limit(1);
-          const t = fromVenueTemplate(tpl?.[0]?.data);
+          const { latest, row: offerRow, offer } = await loadOfferTemplate(user.id);
+          const t = fromVenueTemplate((offerRow || latest)?.data);
           const base = { name: prefs?.display_name || "", photo_url: prefs?.profile_photo_url || "" };
-          if (!gone) setData((d) => ({ ...d, profile: { ...base, ...pick(t.profile), ...pick(d.profile) }, room: { ...t.room, ...d.room }, hosp: { ...t.hosp, ...d.hosp }, logi: { ...t.logi, ...d.logi } }));
+          if (!gone && offer) {
+            const o = offer.data || {};
+            setData((d) => ({ ...d, ...o, profile: { ...base, ...pick(t.profile), ...pick(o.profile) }, room: { ...t.room, ...(o.room || {}) }, hosp: { ...t.hosp, ...(o.hosp || {}) }, logi: { ...t.logi, ...(o.logi || {}) } }));
+            setTplTimes(offer.times || null);
+            setFromTpl(true);
+          } else if (!gone) setData((d) => ({ ...d, profile: { ...base, ...pick(t.profile), ...pick(d.profile) }, room: { ...t.room, ...d.room }, hosp: { ...t.hosp, ...d.hosp }, logi: { ...t.logi, ...d.logi } }));
         } catch (e) { console.error(e); }
       }
       setLoading(false);
@@ -158,12 +170,12 @@ export default function VenueOffer() {
   const actLabel = actName || to.name || "the act";
 
   const circles = [
-    { key: "dates", label: "Dates", short: "Dates", hint: "The nights you're offering, with times", required: true, icon: <CalendarDays />, done: offerDatesDone(wants), body: () => <OfferDatesBody wants={wants} setWants={setWantsD} /> },
+    { key: "dates", label: "Dates", short: "Dates", hint: "The nights you're offering, with times", required: true, icon: <CalendarDays />, done: offerDatesDone(wants), body: () => <OfferDatesBody wants={wants} setWants={setWantsD} defaults={tplTimes} /> },
     { key: "deal", label: "The deal", short: "The deal", hint: "Guarantee, door, tickets, ages, merch", required: false, icon: <DollarSign />, done: offerDealDone(data), body: () => <OfferDealBody data={data} setData={setDataD} /> },
     { key: "room", label: "Room and production", short: "Room", hint: "Capacity, stage, house sound and lights, backline", required: false, icon: <Speaker />, done: offerRoomDone(data), body: () => <OfferRoomBody data={data} setData={setDataD} /> },
     { key: "hosp", label: "Hospitality and lodging", short: "Hospitality", hint: "Meals, drinks, green room, guest list, lodging", required: false, icon: <Utensils />, done: offerHospDone(data), body: () => <OfferHospBody data={data} setData={setDataD} /> },
     { key: "logi", label: "Load-in and logistics", short: "Logistics", hint: "Load-in, soundcheck, curfew, merch table", required: false, icon: <Truck />, done: offerLogiDone(data), body: () => <OfferLogiBody data={data} setData={setDataD} /> },
-    { key: "files", label: "Files", short: "Files", hint: "Your stage plot, tech spec, house rules", required: false, icon: <Paperclip />, done: offerFilesDone(data), body: () => <OfferFilesBody data={data} setData={setDataD} uploadFile={uploadFile} /> },
+    { key: "files", label: "Documents", short: "Documents", hint: "Agreements and anything they should know first", required: false, icon: <Paperclip />, done: offerFilesDone(data), body: () => <OfferFilesBody data={data} setData={setDataD} uploadFile={uploadFile} /> },
   ];
 
   const onSend = async () => {
@@ -284,6 +296,32 @@ export default function VenueOffer() {
     );
   }
 
+  // Save as the offer template (job 429): everything but the dates and who
+  // it goes to, so the next offer is just dates and Send to.
+  const saveAsTemplate = async () => {
+    setSavingTpl(true);
+    setTplMsg("");
+    try {
+      const how = await saveOfferTemplate(user.id, data, wants, venueName);
+      const d0 = (wants.dates || [])[0];
+      if (d0) setTplTimes({ set_time: d0.set_time || "", load_in: d0.load_in || "", billing: d0.billing || "" });
+      setTplMsg(how === "created" ? "Saved, with a new venue template in My Templates. Your next offer starts from this." : "Saved. Your next offer starts from this: just add dates and who it goes to.");
+    } catch (e) {
+      console.error(e);
+      setTplMsg(e?.message && !/^[A-Z_]+$/.test(e.message) ? e.message : "Couldn't save it. Try again.");
+    }
+    setSavingTpl(false);
+  };
+  const belowSend = (
+    <>
+      {fromTpl && !tplMsg && <p className="m-0 text-center text-[12.5px] text-white/50">Filled in from your offer template.</p>}
+      <button type="button" onClick={saveAsTemplate} disabled={savingTpl} className="min-h-[44px] text-[14px] font-semibold disabled:opacity-60" style={{ color: BLUE }}>
+        {savingTpl ? "Saving…" : fromTpl ? "Update my offer template" : "Save as my offer template"}
+      </button>
+      {tplMsg && <p className="m-0 text-center text-[13px] text-white/70">{tplMsg}</p>}
+    </>
+  );
+
   return (
     <IntakeKeyWeb
       fill // the whole desktop width (job 361)
@@ -310,6 +348,7 @@ export default function VenueOffer() {
       canSend={canSend}
       sending={sending}
       sendLabel="Send offer"
+      belowSend={belowSend}
       error={error}
       sent={sent}
       onSentOff={() => setSentOff(true)}

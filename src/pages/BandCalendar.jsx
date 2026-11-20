@@ -22,6 +22,8 @@ import ActSwitcher from "@/components/showpilot/ActSwitcher";
 import { useActGigs } from "@/lib/acts";
 import DayEventOverview from "@/components/showpilot/DayEventOverview";
 import { BookingsCalendarRow } from "@/components/showpilot/BookingsNeeds";
+import { accountTypeOf } from "@/lib/accountTypeStyle";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const GREEN = "#8CFF3D";
 const PINK = "#F472B6";
@@ -48,6 +50,9 @@ export default function BandCalendar() {
   const [restoreTop, setRestoreTop] = useState(0);
   // Dates (job 73, On the road stage 5; was "Tours"): upcoming dates in order, tours and single dates.
   const [tours, setTours] = useState(false);
+  // Venues don't get Today / Dates (job 429): their acts tour, they don't.
+  const { preferences } = usePreferences();
+  const isVenue = accountTypeOf(preferences) === "venue";
   const [dayModalKey, setDayModalKey] = useState(null);
   // Desktop: which of the selected day's events the right side shows (job 126).
   const [focusKey, setFocusKey] = useState(null);
@@ -184,8 +189,8 @@ export default function BandCalendar() {
             onSelect={pickMonth}
             className="-ml-2 px-2 py-0.5 text-white text-[32px] font-bold tracking-[0.02em]"
           />
-          <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>
-          <button type="button" onClick={() => setTours(true)} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Dates</button>
+          {!isVenue && <button type="button" onClick={goToday} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Today</button>}
+          {!isVenue && <button type="button" onClick={() => setTours(true)} className="h-[38px] px-4 rounded-[10px] bg-[#111] border border-[#222] text-white/70 hover:text-white text-base font-semibold">Dates</button>}
           <ActSwitcher className="min-w-0 max-w-[420px]" />
           <div className="flex-1 max-w-[440px] ml-auto"><StatusStrip cells={headerCells} /></div>
           <button type="button" onClick={() => newShowOnDate(activeKey)} className="flex items-center gap-2 h-11 px-[18px] rounded-[10px] bg-[#8CFF3D] hover:bg-[#7ae62e] text-[#0d0d0d] text-lg font-bold shrink-0 transition-colors">
@@ -312,12 +317,12 @@ export default function BandCalendar() {
       {/* Dates on hold from booking packages (job 246). */}
       <div className="px-4 pt-3 max-w-lg mx-auto empty:hidden"><BookingsCalendarRow /></div>
       <ActSwitcher className="px-4 pt-3 max-w-lg mx-auto" />
-      <div className="px-4 pt-3 max-w-lg mx-auto">
+      {!isVenue && <div className="px-4 pt-3 max-w-lg mx-auto">
         <button type="button" onClick={() => setTours(true)} className="w-full min-h-[52px] px-4 rounded-xl bg-[#151515] border border-[#262626] flex items-center gap-3 text-left" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
           <span className="flex-1 flex flex-col"><span className="text-[15px] font-semibold text-white">Dates</span><span className="text-[12.5px] text-white/50">Tours and single dates in order, with the drive between</span></span>
           <span className="text-white/40 text-lg" aria-hidden>›</span>
         </button>
-      </div>
+      </div>}
 
       {loading ? (
         <div className="flex justify-center py-20">

@@ -10,7 +10,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useGoBack } from "@/lib/navHistory";
 import {
   emptyForm, eventName, loadSources, actTemplate, onFileItems, uploadPromo, createEventFromWeb,
-  PROMO_FORMATS, has, dateSettled, venueFromSources, venueTimes, venueFileItems, uploadStagePlot,
+  PROMO_FORMATS, PROMO_LINK_KINDS, guessPromoLinkKind, has, dateSettled, venueFromSources, venueTimes, venueFileItems, uploadStagePlot,
 } from "@/lib/newEventWeb";
 
 // New event as a web (job 321), for manager / artist accounts. The sender
@@ -186,19 +186,33 @@ export default function NewEventWeb({ side = "manager" }) {
         <>
           <DatesBody wants={f.wants} setWants={(w) => set({ wants: w })} noteFor={venueSide ? "THE ACT" : "THE VENUE"} notePlaceholder={venueSide ? "A Friday or Saturday in the spring, whichever you can do" : ""} />
           <p className={note}>It's held as a request until the date is set. Set the date on the event when it's settled.</p>
+          <label><span className={lab}>EVENT NAME</span>
+            <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={name || "Low Tide Radio at Clown House"} className={inputCls} />
+          </label>
         </>
       ) : (
-      <label><span className={lab}>DATE</span>
-        <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
-      </label>
+        <>
+          {/* Fits the window without scrolling (job 429): date and name side by
+              side on a computer, each time on one line with its label. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="min-w-0"><span className={lab}>DATE</span>
+              <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
+            </label>
+            <label className="min-w-0"><span className={lab}>EVENT NAME</span>
+              <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={name || "Low Tide Radio at Clown House"} className={inputCls} />
+            </label>
+          </div>
+          <div className="flex flex-col gap-2">
+            {[["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
+              <div key={k} className="flex items-center gap-3">
+                <span className={lab + " mb-0 w-[100px] shrink-0 whitespace-nowrap"}>{l}</span>
+                <TimeSelect value={f[k]} onChange={(v) => set({ [k]: v })} color={ACCENT} label={`${l.toLowerCase()} time`} />
+              </div>
+            ))}
+          </div>
+          <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Times start from My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>
+        </>
       )}
-      {f.dateMode !== "request" && [["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
-        <div key={k}><span className={lab}>{l}</span><TimeSelect value={f[k]} onChange={(v) => set({ [k]: v })} color={ACCENT} label={`${l.toLowerCase()} time`} /></div>
-      ))}
-      <label><span className={lab}>EVENT NAME</span>
-        <input value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder={name || "Low Tide Radio at Clown House"} className={inputCls} />
-      </label>
-      {f.dateMode !== "request" && <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Load-in, doors and curfew start from your schedule in My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>}
     </div>
   );
 
@@ -388,6 +402,8 @@ export default function NewEventWeb({ side = "manager" }) {
   );
 
   const PH = desktop ? 128 : 112;
+  const promoLinks = Array.isArray(f.promo.links) && f.promo.links.length ? f.promo.links : [{ kind: "", url: "" }];
+  const setLink = (i, patch) => setPromo({ links: promoLinks.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const promoBody = () => (
     <div className="flex flex-col gap-4">
       <span className={lab + " mb-0"}>WHAT SIZES DID YOU MAKE?</span>
@@ -404,9 +420,8 @@ export default function NewEventWeb({ side = "manager" }) {
           );
         })}
       </div>
-      {f.promo.picked.length === 0 ? (
-        <p className="rounded-[12px] border border-dashed border-[#333] px-3 py-4 text-center text-[13px] text-white/55">Pick the sizes you have. Each one gets its own upload.</p>
-      ) : (
+      {/* No "pick the sizes" line (job 429): nothing shows until a size is picked. */}
+      {f.promo.picked.length > 0 && (
         <div className="flex flex-wrap gap-3 items-end">
           {f.promo.picked.map((id) => {
             const p = PROMO_FORMATS.find((x) => x.id === id);
@@ -432,9 +447,21 @@ export default function NewEventWeb({ side = "manager" }) {
           })}
         </div>
       )}
-      <label><span className={lab}>FACEBOOK EVENT</span>
-        <input value={f.promo.facebook} onChange={(e) => setPromo({ facebook: e.target.value })} placeholder="Paste the event link" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} className={inputCls} />
-      </label>
+      {/* Links (job 429): as many as you have, each with its platform. */}
+      <div className="flex flex-col gap-2">
+        <span className={lab + " mb-0"}>LINKS</span>
+        {promoLinks.map((r, i) => (
+          <div key={i} className="flex gap-2">
+            <select value={r.kind || ""} onChange={(e) => setLink(i, { kind: e.target.value })} aria-label="Which platform" className={`${inputCls} !w-[172px] shrink-0 !px-2`}>
+              <option value="">Platform…</option>
+              {PROMO_LINK_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+            </select>
+            <input value={r.url || ""} onChange={(e) => setLink(i, { url: e.target.value, kind: r.kind || guessPromoLinkKind(e.target.value) })} placeholder="Paste the link" aria-label="Link" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} className={inputCls} />
+            {promoLinks.length > 1 && <button type="button" onClick={() => setPromo({ links: promoLinks.filter((_, j) => j !== i) })} aria-label="Remove link" className="min-h-[44px] w-[40px] shrink-0 flex items-center justify-center text-white/45"><X className="w-4 h-4" /></button>}
+          </div>
+        ))}
+        <button type="button" onClick={() => setPromo({ links: [...promoLinks, { kind: "", url: "" }] })} className="self-start min-h-[44px] px-3.5 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: ACCENT }}><Plus className="w-4 h-4" />Add a link</button>
+      </div>
       <p className={note}>Skip any of it now and add it later. Everyone on the event sees the update.</p>
     </div>
   );
@@ -567,7 +594,7 @@ export default function NewEventWeb({ side = "manager" }) {
     { key: "act", label: firstNamed ? firstNamed.name + (namedActs.length > 1 ? ` +${namedActs.length - 1}` : "") : "The act", short: firstNamed ? firstNamed.name : "The act", done: namedActs.length > 0, hint: "Who's playing, and their invites",
       ...(firstNamed ? { photo: firstPilot?.profile_photo_url || "", initials: initialsOf(firstNamed.name), ring: RED } : { icon: <Music /> }), body: actBodyVenue },
     { key: "crew", label: "Sound / Lights", short: "Sound / Lights", done: crewDone, hint: "Who covers sound and lights", icon: <SlidersHorizontal />, body: crewBody },
-    { key: "promo", label: "Promo", short: "Promo", done: uploads.length > 0 || has(f.promo.facebook), hint: "This show only", icon: <Megaphone />, body: promoBody },
+    { key: "promo", label: "Promo", short: "Promo", done: uploads.length > 0 || (f.promo.links || []).some((l) => has(l.url)), hint: "This show only", icon: <Megaphone />, body: promoBody },
     { key: "files", label: "House info", short: "House info", done: fileItems.some((it) => f.onFile[it.key] !== false), hint: "From My Template, on every event", icon: <Building2 />, body: filesBody },
     { key: "paper", label: "Paperwork", short: "Paperwork", done: paperCount > 0, hint: "Contract, insurance", icon: <FileText />, body: paperBody },
     { key: "people", label: "Co-hosts", short: "Co-hosts", done: f.people.length > 0, hint: "A co-host or promoter", icon: <UserPlus />, body: peopleBody },

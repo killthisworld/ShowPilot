@@ -47,6 +47,29 @@ export const PROMO_FORMATS = [
 ];
 export const promoFormat = (id) => PROMO_FORMATS.find((p) => p.id === id);
 
+// Promo links for an event (job 429): as many as the venue has, each with
+// its platform. Saved as manager_info.promo_links [{ kind, url }]; the first
+// Facebook one also goes in manager_info.facebook_event for older screens.
+export const PROMO_LINK_KINDS = [
+  { key: "facebook", label: "Facebook event" },
+  { key: "tickets", label: "Tickets" },
+  { key: "instagram", label: "Instagram" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "website", label: "Website" },
+  { key: "x", label: "X / Twitter" },
+  { key: "youtube", label: "YouTube" },
+  { key: "spotify", label: "Spotify" },
+  { key: "other", label: "Other" },
+];
+export function guessPromoLinkKind(url) {
+  const u = String(url || "").toLowerCase();
+  const map = [["facebook.", "facebook"], ["fb.me", "facebook"], ["fb.com", "facebook"], ["instagram.", "instagram"], ["tiktok.", "tiktok"], ["twitter.", "x"], ["x.com", "x"], ["youtube.", "youtube"], ["youtu.be", "youtube"], ["spotify.", "spotify"],
+    ["eventbrite.", "tickets"], ["dice.fm", "tickets"], ["ticketmaster.", "tickets"], ["axs.", "tickets"], ["seetickets.", "tickets"], ["etix.", "tickets"], ["ticketweb.", "tickets"], ["tixr.", "tickets"], ["showclix.", "tickets"], ["eventim.", "tickets"], ["ra.co", "tickets"], ["bandsintown.", "tickets"], ["songkick.", "tickets"]];
+  const hit = map.find(([m]) => u.includes(m));
+  return hit ? hit[1] : u ? "website" : "";
+}
+export const promoLinkLabel = (kind) => PROMO_LINK_KINDS.find((k) => k.key === kind)?.label || "";
+
 export const MANAGER_PART_LABELS = {
   advance: "Advance checklist", travel: "Travel", guests: "Guest list", merch: "Merch", documents: "Documents",
 };
@@ -65,7 +88,7 @@ export const emptyForm = () => ({
   acts: [], // [{ name, pilotId?, invite? }] in billing order, the first is the headliner (venues invite each)
   // soundTech / lightsTech: typed in when they aren't a Fellow Pilot (job 326).
   crew: { sound: "venue", lights: "venue", soundPilot: "", lightsPilot: "", soundTech: { name: "", phone: "", email: "" }, lightsTech: { name: "", phone: "", email: "" } },
-  promo: { picked: [], files: {}, facebook: "" }, // files: format -> { url, name }
+  promo: { picked: [], files: {}, links: [{ kind: "", url: "" }] }, // files: format -> { url, name }; links: [{ kind, url }] (job 429)
   onFile: {}, // item key -> false when switched off for this event
   paper: { w9: null, agreement: null, coi: null, other: [] }, // File objects, filed on create
   people: [], // [{ id, role: "manager" | "band", label, pilotId }]
@@ -195,6 +218,7 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
   const pilot = (id) => (id ? sources.pilots.find((p) => p.id === id) || null : null);
   const promo = f.promo.picked.filter((id) => f.promo.files[id]?.url).map((id) => ({ format: id, ...f.promo.files[id] }));
   const square = promo.find((p) => p.format === "sq") || promo[0] || null;
+  const promoLinks = (f.promo.links || []).filter((l) => has(l.url)).map((l) => ({ kind: l.kind || guessPromoLinkKind(l.url), url: l.url.trim() }));
   const photoOn = f.onFile.photo !== false;
   const icon = square?.url || (photoOn ? firstTpl?.data?.photo_url : "") || null;
   const house = venueSide ? venueFromSources(sources) : null;
@@ -247,7 +271,8 @@ export async function createEventFromWeb(userId, sources, f, side = "manager") {
       ...(first && has(f.onStage) ? { set_times: { [first.name]: f.onStage } } : {}),
       crew: { sound: f.crew.sound, lights: f.crew.lights },
       ...(promo.length ? { promo } : {}),
-      ...(has(f.promo.facebook) ? { facebook_event: f.promo.facebook.trim() } : {}),
+      ...(promoLinks.length ? { promo_links: promoLinks } : {}),
+      ...(promoLinks.find((l) => l.kind === "facebook") ? { facebook_event: promoLinks.find((l) => l.kind === "facebook").url } : {}),
       // Made from the New event web (Bookings lists a venue's, job 323).
       made_with: "event_web",
       ...(requesting ? { date_request: { months: f.wants.months || [], days: f.wants.days || [], note: (f.wants.note || "").trim() } } : {}),
