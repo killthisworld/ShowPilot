@@ -81,7 +81,10 @@ export default function StageBuilder({
   const [draft, setDraft] = useState(null); // a new stage cue, until Save
   const [play, startPlay, stopPlay, plays] = useCuePlayer();
   const [newPerson, setNewPerson] = useState({ name: "", part: "", alone: false }); // alone: an instrument with no one at it (job 395)
-  const [rigDark, setRigDark] = useState(false); // all the lights off (job 392)
+  // All the lights off (job 392), kept with the stage (job 422) so its
+  // saved picture shows it the same way.
+  const rigDark = !!rig.dark;
+  const setRigDark = (f) => setRig((r) => { const d = typeof f === "function" ? f(!!r.dark) : f; const { dark, ...rest } = r; return d ? { ...rest, dark: true } : rest; });
   const colors = useMyStageColors();
   const dragFromPlaced = useRef(false);
 

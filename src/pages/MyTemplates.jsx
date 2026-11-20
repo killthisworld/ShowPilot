@@ -79,7 +79,7 @@ export default function MyTemplates() {
   // The LD's 3D stages and bands pictured as built, like Rig the stage (job 407).
   const rigShots = useMemo(() => templates.filter((t) => rigHasItems(t.data?.lighting_rig)).map((t) => {
     const rig = normalizeRig(t.data.lighting_rig);
-    const txt = JSON.stringify(rig.items);
+    const txt = JSON.stringify([rig.items, !!rig.dark]);
     let h = 0;
     for (let k = 0; k < txt.length; k++) h = (h * 31 + txt.charCodeAt(k)) | 0;
     return { id: t.key, rig, updated_at: `${rig.width_ft}x${rig.depth_ft}:${h}` };

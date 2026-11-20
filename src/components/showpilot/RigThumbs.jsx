@@ -35,7 +35,7 @@ export default function useRigThumbs(stages) {
   const drawer = next ? (
     <div aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 480, height: 360, pointerEvents: "none" }}>
       <Suspense fallback={null}>
-        <Stage3D key={`${next.id}:${ver(next)}`} rig={next.rig} labels={false} mode="view"
+        <Stage3D key={`${next.id}:${ver(next)}`} rig={next.rig} labels={false} mode="view" dark={!!next.rig.dark}
           onSnapshot={(url) => {
             const shot = { at: ver(next), url: url || "" };
             setShots((t) => ({ ...t, [next.id]: shot }));

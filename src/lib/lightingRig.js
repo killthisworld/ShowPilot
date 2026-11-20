@@ -89,6 +89,9 @@ export function normalizeRig(r) {
       ...(i.type === "person" || i.type === "instrument" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),
     })),
     cues: normalizeStageCues(r.cues),
+    // Lights on / off as set in the editor (job 422): saved with the stage
+    // so its picture matches.
+    ...(r.dark ? { dark: true } : {}),
   };
 }
 
