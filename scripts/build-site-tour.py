@@ -27,7 +27,7 @@ SHOT = {  # name -> (width, height)
 # Several desktop shots show as steps, cascaded, each named on its window bar
 # as (shot, step label).
 F = {
-  'web': ('One page per event', 'Every profile around the show, and how ready each one is.', 'event-web', ['event-web-phone'], 'The event web: the event in the middle with Venue, Manager, Artist, Audio and Lights around it, the board and the flight log.'),
+  'web': ('One page per event', 'Every profile around the show, and how ready each one is.', 'event-web', ['event-web-phone'], 'The event web: the event in the middle with Venue, Artist / Mgmt and Audio / Lights around it, the board with pinned sheets (day-of schedule, lineup, set list, guest list) and the flight log.'),
   'pkgin': ('Packages in, dates and techs', 'An artist or manager sends a package. Confirm a date, then ask a tech you trust.', [('pkg-web', '1 · Their package comes in'), ('pkg-confirm', '2 · Confirm a date'), ('ask-tech', '3 · Ask a tech')], ['pkg-confirm-phone', 'ask-tech-phone'], 'A booking package from an artist manager, the three dates they want with one picked to confirm, and Ask a tech with the techs you have worked with.'),
   'loadvenue': ('Your venue as a web', 'Your room filled in once, every section a circle. It fills each event, and acts and techs can open it.', 'venue-web', ['venue-web-phone'], 'The Foundry Hall as a web: venue and address, load-in, schedule, Wi-Fi and power, house gear and hospitality, with House gear open.'),
   'tasks': ('Tasks with due dates', "Hand out what needs doing, and see who has it and when it's due.", 'tasks', ['tasks-phone'], 'Tasks in a column for each profile, each with a due date and who has claimed it.'),
