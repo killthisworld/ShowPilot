@@ -90,7 +90,8 @@ const boxOf = (it) => {
 export default function RigLayer({ rig, selected = null, onItemDown = null, className = "", dim = false }) {
   const items = rig?.items || [];
   // Trusses first, lights on top of them.
-  const order = [...items].sort((a, b) => (isTruss(a.type) ? 0 : 1) - (isTruss(b.type) ? 0 : 1));
+  const rank = (t) => (t === "riser" ? 0 : isTruss(t) ? 1 : 2); // risers under it all
+  const order = [...items].sort((a, b) => rank(a.type) - rank(b.type));
   return (
     <svg viewBox={`0 0 ${RIG_W} ${RIG_H}`} preserveAspectRatio="none" className={`absolute inset-0 w-full h-full ${onItemDown ? "" : "pointer-events-none"} ${className}`}
       style={{ opacity: dim ? 0.55 : 1, overflow: "visible" }} aria-hidden={!onItemDown}>
@@ -103,7 +104,9 @@ export default function RigLayer({ rig, selected = null, onItemDown = null, clas
             style={{ cursor: onItemDown ? "grab" : undefined }}>
             {/* A bigger, invisible target to grab. */}
             {onItemDown && <rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} fill="transparent" />}
-            {isTruss(it.type) ? <Truss it={it} /> : <Fixture it={it} />}
+            {it.type === "riser"
+              ? <rect x={-((it.rw || 8) / (rig?.width_ft || 32)) * RIG_W / 2} y={-((it.rd || 8) / (rig?.depth_ft || 24)) * RIG_H / 2} width={((it.rw || 8) / (rig?.width_ft || 32)) * RIG_W} height={((it.rd || 8) / (rig?.depth_ft || 24)) * RIG_H} fill="#1f1f1f" stroke="#6b7280" strokeWidth="1.5" />
+              : isTruss(it.type) ? <Truss it={it} /> : <Fixture it={it} />}
             {on && <rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx="5" fill="none" stroke="#8CFF3D" strokeWidth="1.5" strokeDasharray="4 3" />}
           </g>
         );

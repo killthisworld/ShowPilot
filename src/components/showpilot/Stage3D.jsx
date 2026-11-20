@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { isTruss } from "@/lib/lightingRig";
-import { personFigure, instrumentProp, personOffset, PERSON_TOP } from "@/lib/stageProps3D";
+import { personFigure, instrumentProp, personOffset, isSeated, PERSON_TOP } from "@/lib/stageProps3D";
 
 // The LD's 3D stage (job 383): the deck to scale, trusses at their trim,
 // every light with its beam, and the members standing where they are.
@@ -317,19 +317,41 @@ export default function Stage3D({
     st.items = {};
     st.fixtures = [];
     const rigSingers = [];
+    // Risers (job 392): people standing on one stand on top of it.
+    const risers = (rig.items || []).filter((i) => i.type === "riser").map((r) => {
+      const [rx, rz] = pos(r.x, r.y);
+      return { rx, rz, a: -((r.rot || 0) * Math.PI) / 180, w: r.rw || 8, d: r.rd || 8, h: r.rh || 1 };
+    });
+    const riserTop = (wx, wz) => risers.reduce((top, r) => {
+      const dx = wx - r.rx, dz = wz - r.rz;
+      const lx = Math.cos(r.a) * dx - Math.sin(r.a) * dz, lz = Math.sin(r.a) * dx + Math.cos(r.a) * dz;
+      return Math.abs(lx) <= r.w / 2 && Math.abs(lz) <= r.d / 2 ? Math.max(top, r.h) : top;
+    }, 0);
     (rig.items || []).forEach((it) => {
       const [x, z] = pos(it.x, it.y);
       const g = new THREE.Group();
       g.userData.itemId = it.id;
       g.position.set(x, DECK + (it.h || 0), z);
       g.rotation.y = -((it.rot || 0) * Math.PI) / 180;
+      if (it.type === "riser") {
+        const w = it.rw || 8, d = it.rd || 8, h = it.rh || 1;
+        const top = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: "#1f1f1f", roughness: 0.9 }));
+        top.position.y = h / 2;
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(top.geometry), new THREE.LineBasicMaterial({ color: stateColor(it.id) }));
+        edge.position.y = h / 2;
+        g.add(top, edge);
+        world.add(g);
+        st.items[it.id] = g;
+        return;
+      }
       if (it.type === "person") {
+        g.position.y += riserTop(x, z);
         // Someone the LD put on the stage (job 389): a figure in their
         // instrument's color, the ring under them green once placed.
         // Job 390: life size, with what they play; their name over their
         // head only while they're picked.
         const c = it.color || "#E5E7EB";
-        const fig = personFigure(c);
+        const fig = personFigure(c, { seated: isSeated(it.part) });
         fig.position.z = personOffset(it.part);
         const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, selIds.includes(it.id) ? 0.12 : 0.07, 6, 32), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : stateColor(it.id) }));
         ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.06, fig.position.z);
@@ -429,9 +451,9 @@ export default function Stage3D({
       const [x, z] = pos(m.x, m.y);
       const grp = new THREE.Group();
       grp.userData.memberIndex = i;
-      grp.position.set(x, DECK, z);
+      grp.position.set(x, DECK + riserTop(x, z), z);
       // The act's members: life size with their instruments too (job 390).
-      const fig = personFigure(m.color || "#ffffff", { emissive: pickedMember === i ? 0.6 : 0.12 });
+      const fig = personFigure(m.color || "#ffffff", { emissive: pickedMember === i ? 0.6 : 0.12, seated: isSeated(m.part) });
       fig.position.z = personOffset(m.part);
       grp.add(fig, instrumentProp(m.part, m.color, m.sings && m.part !== "vocals"));
       if (pickedMember === i) {

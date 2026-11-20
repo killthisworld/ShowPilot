@@ -38,8 +38,11 @@ export const RIG_COLORS = ["#FFFFFF", "#FBBF24", "#F59E0B", "#EF4444", "#EC4899"
 export const isTruss = (t) => String(t || "").startsWith("truss_");
 // People on the stage (job 389): { type: "person", label: name, part, color }.
 export const isPerson = (t) => t === "person";
+// Risers (job 392): { type: "riser", rw, rd, rh } - width, depth, height in feet.
+export const isRiser = (t) => t === "riser";
+export const isLight = (t) => !isTruss(t) && !isPerson(t) && !isRiser(t);
 export const fixtureInfo = (t) => FIXTURE_TYPES.find((f) => f.type === t) || null;
-export const rigTypeLabel = (t) => (t === "person" ? "Person" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
+export const rigTypeLabel = (t) => (t === "person" ? "Person" : t === "riser" ? "Riser" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -63,6 +66,7 @@ export function normalizeRig(r) {
       label: String(i.label || "").slice(0, 40),
       tilt: clamp(Number(i.tilt) || 0, -90, 90),
       ...(i.off ? { off: true } : {}),
+      ...(i.type === "riser" ? { rw: clamp(Number(i.rw) || 8, 1, 60), rd: clamp(Number(i.rd) || 8, 1, 60), rh: clamp(Number(i.rh) || 1, 0.25, 10) } : {}),
       ...(i.on ? { on: String(i.on) } : {}),
       // part: a stage plot position key (older ones were saved by label).
       ...(i.type === "person" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),
@@ -86,7 +90,8 @@ export function newRigItem(type, rig) {
     y: truss ? clamp(0.22 + (n % 4) * 0.16, 0.1, 0.9) : clamp(0.22 + Math.floor(n / 7) * 0.16, 0.1, 0.9),
     rot: 0,
     len: type === "truss_straight" ? 0.7 : type === "truss_box" ? 0.5 : type === "truss_circle" ? 0.35 : 0.1,
-    h: truss ? 18 : type === "fog" || type === "person" ? 0 : 18,
+    h: truss ? 18 : type === "fog" || type === "person" || type === "riser" ? 0 : 18,
+    ...(type === "riser" ? { rw: 8, rd: 8, rh: 1 } : {}),
     color: fixtureInfo(type)?.color || "#FFFFFF",
     label: "",
     tilt: 0,
@@ -128,7 +133,7 @@ export function rigGroups(rig) {
   (rig?.items || []).forEach((i) => {
     const key = isTruss(i.type) ? "truss" : i.type;
     let g = out.find((x) => x.type === key);
-    if (!g) { g = { type: key, label: key === "truss" ? "Truss" : key === "person" ? "People" : rigTypeLabel(i.type), color: key === "truss" ? "#8CFF3D" : key === "person" ? "#E5E7EB" : fixtureInfo(i.type)?.color || "#fff", ids: [] }; out.push(g); }
+    if (!g) { g = { type: key, label: key === "truss" ? "Truss" : key === "person" ? "People" : rigTypeLabel(i.type), color: key === "truss" ? "#8CFF3D" : key === "person" ? "#E5E7EB" : key === "riser" ? "#6b7280" : fixtureInfo(i.type)?.color || "#fff", ids: [] }; out.push(g); }
     g.ids.push(i.id);
   });
   return out.sort((a, b) => (a.type === "truss" ? -1 : b.type === "truss" ? 1 : 0));
@@ -139,6 +144,6 @@ export function rigSummary(r) {
   const items = r?.items || [];
   const t = items.filter((i) => isTruss(i.type)).length;
   const p = items.filter((i) => isPerson(i.type)).length;
-  const f = items.length - t - p;
+  const f = items.filter((i) => isLight(i.type)).length;
   return [t ? `${t} truss${t === 1 ? "" : "es"}` : "", f ? `${f} light${f === 1 ? "" : "s"}` : "", p ? `${p} ${p === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ");
 }

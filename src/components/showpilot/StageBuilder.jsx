@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -71,8 +71,8 @@ export default function StageBuilder({
   const items = rig.items;
   const picked = useMemo(() => items.filter((i) => sel.includes(i.id)), [items, sel]);
   const one = picked.length === 1 ? picked[0] : null;
-  const lights = picked.filter((i) => !isTruss(i.type) && !isPerson(i.type));
-  const aimable = picked.filter((i) => !isPerson(i.type)); // turns and tilts
+  const lights = picked.filter((i) => isLight(i.type));
+  const aimable = picked.filter((i) => !isPerson(i.type) && !isRiser(i.type)); // tilt and height
   const people = items.filter((i) => isPerson(i.type));
   const partColor = (part) => STAGE_POSITIONS.find((p) => p.key === part)?.color || "#E5E7EB";
   // Someone on the stage (job 389): Bob on drums, or just Bob.
@@ -338,6 +338,21 @@ export default function StageBuilder({
             <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
               className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
           )}
+          {one && isRiser(one.type) && (
+            // A riser's size (job 392): width x depth, and how tall.
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={lbl + " w-12"} style={mono}>SIZE</span>
+              {[["rw", "Width", 1], ["rd", "Depth", 1], ["rh", "Height", 0.25]].map(([k, label, by]) => (
+                <label key={k} className="flex items-center gap-1 text-[12px] text-white/60">
+                  {label}
+                  <input type="number" inputMode="decimal" min={k === "rh" ? 0.25 : 1} max={k === "rh" ? 10 : 60} step={by} value={one[k]} aria-label={`Riser ${label.toLowerCase()} in feet`}
+                    onChange={(e) => { const v = Number(e.target.value); if (v > 0) patch(one.id, { [k]: Math.min(k === "rh" ? 10 : 60, v) }); }}
+                    className="w-16 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-1.5 text-[14px] text-white text-center" />
+                  ft
+                </label>
+              ))}
+            </div>
+          )}
           {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
           {one && (isTruss(one.type) || one.type === "led_bar") && (
             <div className="flex items-center gap-2">
@@ -417,6 +432,12 @@ export default function StageBuilder({
             })}
           </div>
         ) : <p className="text-white/40 text-[12.5px]">Nothing rigged yet.</p>}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className={lbl} style={mono}>RISERS</span>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => add("riser")} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />Riser</button>
+        </div>
       </div>
       <div className="flex flex-col gap-1.5">
         <span className={lbl} style={mono}>TRUSS</span>
@@ -580,7 +601,7 @@ export default function StageBuilder({
           )}
           {editBox("stage")}
           {/* The house lights of the rig: all on / all off (job 392). */}
-          {tab === "rig" && items.some((i) => !isTruss(i.type) && !isPerson(i.type)) && (
+          {tab === "rig" && items.some((i) => isLight(i.type)) && (
             <button type="button" onClick={() => setRigDark((d) => !d)} aria-pressed={!rigDark} className={key + " absolute top-2 right-2"} style={rigDark ? keyOff : keyOn}>
               <Power className="w-4 h-4" />Lights {rigDark ? "off" : "on"}
             </button>
