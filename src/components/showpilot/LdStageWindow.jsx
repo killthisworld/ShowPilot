@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { normalizeRig, rigHasItems } from "@/lib/lightingRig";
-import { cueSteps, LOOK_KEYS, lookFromKeys, cueSecs } from "@/lib/cueLooks";
+import { LOOK_KEYS, lookFromKeys } from "@/lib/cueLooks";
 import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { memberLook } from "@/lib/customPositions";
 import { memberSings, isVocalInput } from "@/components/showpilot/VocalsQuestion";
@@ -27,9 +27,11 @@ const KEY = { background: "#262626", borderColor: "#333", color: "#d6d6d6" };
 
 // The LD's view of an act on the event (job 383): the event's 3D stage with
 // the act's members where they put themselves (look-only, no audio details),
-// and their cue sheet played on the rig - GO / BACK through the cues, or Auto
-// to step with the song's BPM.
-export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOpenCues = null }) {
+// and the stage's own cues played on the rig. The act's cue sheet is apart
+// from the stage (job 443): it opens from the cue sheet icon on the event.
+// A stage cue's look, on its lights (none picked = all), as the editor plays it.
+const stageCueLook = (c) => ({ ...lookFromKeys(c.keys || {}, c.color, c.bpm), only: c.lights && c.lights.length ? c.lights : null, fadeIn: Number(c.fadeIn) || 0, motion: c.motion || "", speed: Number(c.speed) || 1 });
+export default function LdStageWindow({ acts = [], start = 0, rig, onClose }) {
   const [cur, setCur] = useState(start);
   const [step, setStep] = useState(-1);
   const [play, startPlay, stopPlay, plays] = useCuePlayer(); // job 389: a tapped cue plays through once; job 421: several together
@@ -43,10 +45,10 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
   const act = acts[cur] || {};
   const r = useMemo(() => (rigHasItems(rig) ? normalizeRig(rig) : emptyRig()), [rig]);
   const members = useMemo(() => actMembers3D(act, colors), [act, colors]);
-  const steps = useMemo(() => cueSteps(act.lighting_cues), [act]);
+  const steps = r.cues || [];
   const s = play ? steps[play.i] : null;
   const look = plays.length
-    ? plays.map((p) => steps[p.i] && { ...steps[p.i].look, key: p.key, startAt: p.at }).filter(Boolean)
+    ? plays.map((p) => steps[p.i] && { ...stageCueLook(steps[p.i]), key: p.key, startAt: p.at }).filter(Boolean)
     : Object.values(keys).some(Boolean) ? lookFromKeys(keys) : null;
 
   useEffect(() => { setStep(-1); stopPlay(); }, [cur]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -59,7 +61,6 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
           <div className="text-[10px] tracking-[0.2em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>3D STAGE</div>
           <div className="text-[17px] font-semibold truncate">{act.band_name || `Act ${cur + 1}`}</div>
         </div>
-        {onOpenCues && <button type="button" onClick={() => onOpenCues(cur)} className="h-10 px-3 rounded-[6px] border text-[13px] font-semibold" style={KEY}>Cue sheet</button>}
       </div>
       {acts.length > 1 && (
         <div className="shrink-0 px-3 py-2 flex gap-1.5 overflow-x-auto border-b border-[#222]">
@@ -77,27 +78,27 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
           {!members.length && <p className="absolute top-3 left-0 right-0 text-center text-white/50 text-[13px] pointer-events-none px-6">No one placed on the stage yet. They place themselves on your intake link.</p>}
           {s && (
             <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none">
-              <div className="text-[10px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>CUE {play.i + 1} / {steps.length} · {(s.song.title || `SONG ${s.songIndex + 1}`).toUpperCase()}</div>
-              <div className="text-[15px] font-semibold truncate">{s.cue.at ? `${s.cue.at.trim()}: ` : ""}{s.cue.look || "—"}</div>
+              <div className="text-[10px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>{plays.length > 1 ? `${plays.length} CUES PLAYING · ` : ""}CUE {play.i + 1} / {steps.length}</div>
+              <div className="text-[15px] font-semibold truncate">{s.name || "Cue"}</div>
             </div>
           )}
         </div>
-        {/* The playback: the act's cues, MA style. */}
+        {/* The playback: the stage's cues, MA style. */}
         <div className="lg:w-[360px] shrink-0 border-t lg:border-t-0 lg:border-l border-[#2a2a2a] bg-[#141414] p-3 pb-[max(14px,env(safe-area-inset-bottom))] flex flex-col gap-3 max-h-[46dvh] lg:max-h-none overflow-y-auto">
           {steps.length ? (
             <>
               <p className="text-white/45 text-[12.5px]">Tap a cue to play it through on the stage.</p>
               <div className="flex flex-col gap-1">
                 {steps.map((x, i) => (
-                  <CueRow key={i} n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
-                    color={x.cue.color || x.song.color || ""} active={i === step} play={plays.find((p) => p.i === i) || null}
-                    onTap={() => { setStep(i); if (plays.some((p) => p.i === i)) stopPlay(i); else startPlay(i, cueSecs(x.cue.secs, x.song.bpm)); }} />
+                  <CueRow key={x.id || i} n={i + 1} title={x.name || `Cue ${i + 1}`}
+                    color={x.color || ""} active={i === step} play={plays.find((p) => p.i === i) || null}
+                    onTap={() => { setStep(i); if (plays.some((p) => p.i === i)) stopPlay(i); else startPlay(i, x.secs || 8); }} />
                 ))}
               </div>
             </>
           ) : (
             <>
-              <p className="text-white/50 text-[13px]">No cues from this act yet. Try looks on the rig:</p>
+              <p className="text-white/50 text-[13px]">No cues on this stage yet. Try looks on the rig:</p>
               <div className="grid grid-cols-3 gap-1.5">
                 {LOOK_KEYS.map((k) => (
                   <button key={k.id} type="button" onClick={() => setKeys((m) => (k.id === "blackout" ? { blackout: !m.blackout } : { ...m, blackout: false, [k.id]: !m[k.id] }))} aria-pressed={!!keys[k.id]}

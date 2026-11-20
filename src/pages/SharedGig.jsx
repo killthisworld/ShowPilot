@@ -1760,11 +1760,11 @@ export default function SharedGig() {
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {cuesAt !== null && (
         <CueSheetWindow acts={gig?.bands || []} start={cuesAt} onClose={() => setCuesAt(null)}
-          eventLine={[gig?.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", gig?.venue].filter(Boolean).join(" · ")} onPlay={isLightingViewer ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
+          eventLine={[gig?.date ? new Date(gig.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", gig?.venue].filter(Boolean).join(" · ")}
           onChange={canEditCues ? (i, v) => { setCuesAt(i); setGig((g) => ({ ...g, bands: (g.bands || []).map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)) })); } : null}
           onSave={canEditCues ? saveCues : null} saving={cuesSaving} />
       )}
-      {plotAt !== null && isLightingViewer && <LdStageWindow acts={gig?.bands || []} start={plotAt} rig={gig?.lighting_rig} onClose={() => setPlotAt(null)} onOpenCues={(i) => setCuesAt(i)} />}
+      {plotAt !== null && isLightingViewer && <LdStageWindow acts={gig?.bands || []} start={plotAt} rig={gig?.lighting_rig} onClose={() => setPlotAt(null)} />}
       {plotAt !== null && !isLightingViewer && <StagePlotView rig={gig?.lighting_rig} event={gig} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
       {fxOpen && (
         <FxNotesWindow

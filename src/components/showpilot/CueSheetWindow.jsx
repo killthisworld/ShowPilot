@@ -53,9 +53,8 @@ export function CueSheetButton({ act, onClick, size = "md" }) {
 
 // acts, start (index); onChange(i, sheet) when editable; onSave(i) (optional,
 // a Save button); onUpload(file) -> url for the cue sheet files.
-// onPlay(i): the LD plays the act's cues on the 3D stage (job 383).
 // eventLine: "Sat, Dec 5 · The Fillmore" on the PDF (job 418).
-export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, onPlay = null, eventLine = "" }) {
+export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, eventLine = "" }) {
   const [cur, setCur] = useState(start);
   const [making, setMaking] = useState(false);
   useEffect(() => {
@@ -84,7 +83,6 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
               <FileText className="w-4 h-4" />{making ? "…" : "PDF"}
             </button>
           )}
-          {onPlay && <button type="button" onClick={() => onPlay(cur)} className="h-10 px-3 rounded-[6px] text-[13px] font-bold shrink-0" style={{ background: G, color: "#111" }}>Play on stage</button>}
           <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 flex items-center justify-center text-white/50"><X className="w-5 h-5" /></button>
         </div>
         {acts.length > 1 && (

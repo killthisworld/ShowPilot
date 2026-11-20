@@ -1333,7 +1333,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
       {tracksAct && <ActTracksSheet entry={tracksFor(tracksAct)} actName={tracksAct} onClose={() => setTracksAct(null)} />}
       {cuesAt !== null && (
         <CueSheetWindow acts={bands} start={cuesAt} onClose={() => setCuesAt(null)}
-          eventLine={[show?.date ? new Date(show.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", show?.venue].filter(Boolean).join(" · ")} onPlay={isLightingAccount ? (i) => { setCuesAt(null); setPlotAt(i); } : null}
+          eventLine={[show?.date ? new Date(show.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", show?.venue].filter(Boolean).join(" · ")}
           onChange={(i, v) => setBands((prev) => prev.map((b, k) => (k === i ? { ...b, lighting_cues: v } : b)))}
           onSave={!isNew ? (i) => {
             setSaveAfter((n) => n + 1); setCuesAt(null);
