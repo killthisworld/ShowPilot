@@ -454,7 +454,9 @@ export default function Stage3D({
           it.type === "led_bar" ? new THREE.BoxGeometry(Math.max(1.5, it.len * W), 0.5, 0.5) : new THREE.CylinderGeometry(0.55, 0.7, 1.1, 14),
           new THREE.MeshStandardMaterial({ color: "#1b1b1b", emissive: new THREE.Color(color), emissiveIntensity: 0.6 })
         );
-        head.add(body);
+        // The light itself tips with its tilt and aim, not just its beam
+        // (job 397): it sits in the aim group, lens toward the beam.
+        body.rotation.x = -Math.PI / 2;
         // Tilt (job 387): the beam leans toward the front (local +z) and
         // lands further out, so it's longer.
         const tilt = ((it.tilt || 0) * Math.PI) / 180;
@@ -465,9 +467,9 @@ export default function Stage3D({
         // The cone points down its -Z, so lookAt aims it.
         const cone = new THREE.Mesh(new THREE.ConeGeometry(r, len, 24, 1, true), mat);
         cone.rotation.x = -Math.PI / 2;
-        cone.position.z = len / 2;
+        cone.position.z = len / 2 + 0.45;
         const aim = new THREE.Group();
-        aim.add(cone);
+        aim.add(body, cone);
         head.add(aim);
         const pool = new THREE.Mesh(new THREE.CircleGeometry(r, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
         pool.rotation.x = -Math.PI / 2;
