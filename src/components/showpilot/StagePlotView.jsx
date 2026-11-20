@@ -14,7 +14,7 @@ import { normalizeRig, rigHasItems } from "@/lib/lightingRig";
 import { StagePdfButton } from "@/components/showpilot/StagePlotBuilder";
 import { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 
-const Rig3D = lazy(() => import("@/components/showpilot/Rig3D"));
+const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
 
 // The engineer's stage plot for show night (job 251): each act's stage as the
 // act laid it out on the intake form (members' stage_x / stage_y), in the
@@ -297,7 +297,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
           </div>
           <div className="flex-1 min-h-0">
             <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading 3D…</div>}>
-              <Rig3D rig={rigN} members={list.filter(placed).map((m) => ({ x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name }))} />
+              <Stage3D rig={rigN} members={list.filter(placed).map((m) => ({ x: m.stage_x, y: m.stage_y, color: memberLook(m, instrumentsOf, colors).color, name: m.name }))} />
             </Suspense>
           </div>
           <p className="text-center text-white/40 text-[12.5px] py-2 pb-[max(10px,env(safe-area-inset-bottom))]">Drag to turn it, pinch or scroll to zoom.</p>

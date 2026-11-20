@@ -23,6 +23,7 @@ import ProfileWeb from "@/components/showpilot/ProfileWeb";
 import TaskSheet, { claimText } from "@/components/showpilot/TaskSheet";
 import { RequirementsList, ROLE_OPTIONS } from "@/pages/SharedGig";
 import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
+import LdStageWindow from "@/components/showpilot/LdStageWindow";
 import EventPaperwork, { paperworkState, paperworkSummary } from "@/components/showpilot/EventPaperwork";
 import { useEventBusiness, saveDeal, dealSummary, fileRecord } from "@/lib/eventBusiness";
 import { saveEventLink } from "@/lib/eventLink";
@@ -1229,7 +1230,10 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   // The full stage plot page (job 278). Whoever can edit the lineup edits
   // members there (each change saved straight away, onto the latest lineup
   // so nobody else's edits are lost); Audio / Lighting crew can move people.
-  const stageSheet = stageAt !== null && !template && (
+  const stageSheet = stageAt !== null && !template && (role === "lighting" ? (
+    // The LD: the event's 3D stage with the act and its cues (job 383).
+    <LdStageWindow acts={gig.bands || []} start={stageAt} rig={gig.lighting_rig || null} onClose={() => setStageAt(null)} />
+  ) : (
     <StagePlotView
       acts={gig.bands || []}
       start={stageAt}
@@ -1240,9 +1244,8 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
       busColors={p.iemMonitorColors || null}
       onOpenNotes={(i) => { setFxAct(i); setFxTarget(i); }}
       rig={gig.lighting_rig || null}
-      lighting={role === "lighting"}
     />
-  );
+  ));
   // Pages opened from a feature button stay off the web and the page cards.
   const webTabs = tabs.filter((t) => !t.feature);
   const eventFormOn = tabs.some((t) => t.key === "event_link" && t.feature);

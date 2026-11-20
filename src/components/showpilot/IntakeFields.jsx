@@ -2,10 +2,9 @@ import React from "react";
 import { X, Paperclip, User } from "lucide-react";
 import StagePlotPdfActions from "@/components/showpilot/StagePlotBuilder";
 import StageEditor from "@/components/showpilot/StageEditor";
-import RigLayer from "@/components/showpilot/RigLayer";
+import LdMembers3D from "@/components/showpilot/LdMembers3D";
 import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
 import { cueSheetHasAny } from "@/lib/cueSheet";
-import { rigHasItems } from "@/lib/lightingRig";
 import UploadTemplateButton from "@/components/showpilot/UploadTemplate";
 
 // The parts of the engineers' intake forms (Performer Intake and Opener Set
@@ -95,24 +94,12 @@ function MembersBody({ h }) {
   );
 }
 
-// An LD's intake (job 377): who plays what and where they stand, over the
-// LD's rig for the venue (look-only). No inputs, monitors or stage plot files.
+// An LD's intake (jobs 377 / 383): who plays what and where they stand on the
+// LD's 3D stage for the venue. No inputs, monitors or stage plot files.
 function LdMembersBody({ h, rig }) {
-  const { form, update, getInstruments, removeMember, stageColors } = h;
-  return (
-    <div className="flex flex-col gap-3">
-      <StageEditor
-        lighting
-        underlay={rigHasItems(rig) ? <RigLayer rig={rig} dim /> : null}
-        members={form.band_members || []}
-        setMembers={(list) => update("band_members", list)}
-        getInstruments={getInstruments}
-        colors={stageColors}
-        onRemoveMember={removeMember}
-      />
-      {rigHasItems(rig) && <p className="text-center text-white/40 text-[12px] -mt-1">The trusses and lights are your LD's rig for this venue.</p>}
-    </div>
-  );
+  // On the LD's 3D stage (job 383): names, what they play, where they stand.
+  const { form, update, getInstruments, stageColors } = h;
+  return <LdMembers3D members={form.band_members || []} setMembers={(list) => update("band_members", list)} getInstruments={getInstruments} colors={stageColors} rig={rig} />;
 }
 
 function CuesBody({ h }) {

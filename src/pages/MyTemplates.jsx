@@ -23,7 +23,7 @@ import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { addGenreTag } from "@/lib/eventTypes";
 import TemplatePlansSheet, { useTemplatePlan, templateLimitKind } from "@/components/showpilot/TemplatePlans";
 import CompanyTemplatePage from "@/components/showpilot/CompanyTemplatePage";
-import LightingRigEditor from "@/components/showpilot/LightingRigEditor";
+import StageBuilder from "@/components/showpilot/StageBuilder";
 import RigLayer from "@/components/showpilot/RigLayer";
 import { normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingRig";
 
@@ -418,9 +418,9 @@ export default function MyTemplates() {
                         <RigLayer rig={normalizeRig(t.data.lighting_rig)} />
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>LIGHTING RIG</span>
+                        <span className="block text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>3D STAGE</span>
                         <span className="block text-white text-[15px] font-semibold">{rigHasItems(t.data.lighting_rig) ? rigSummary(t.data.lighting_rig) : "Set up the stage"}</span>
-                        <span className="block text-[#8CFF3D] text-[13px] mt-0.5">{rigHasItems(t.data.lighting_rig) ? "Open to edit or see it in 3D" : "Trusses, lights, 3D view"}</span>
+                        <span className="block text-[#8CFF3D] text-[13px] mt-0.5">{rigHasItems(t.data.lighting_rig) ? "Open to rig it in 3D" : "Rig it in 3D: trusses, lights, looks"}</span>
                       </span>
                     </button>
                   )}
@@ -821,19 +821,20 @@ export default function MyTemplates() {
         return (
           <>
             {rt && (
-              <LightingRigEditor
+              <StageBuilder
                 rig={rt.data.lighting_rig}
-                venueName={rt.name}
+                name={rt.name}
                 onClose={() => setRigKey(null)}
-                // Done keeps the rig with the template and saves it (when
-                // it has a name; otherwise it saves with the template).
-                onSave={async (rig) => {
+                // Save keeps the 3D stage with the template (job 383) and
+                // renames it if the name changed.
+                onSave={async ({ name: nm, rig }) => {
                   setData(rt.key, "lighting_rig", rig);
+                  if (nm && nm !== rt.name) setTemplate(rt.key, { name: nm });
                   setRigKey(null);
-                  if (!rt.name.trim() || !user) return;
+                  if (!(nm || rt.name).trim() || !user) return;
                   try {
-                    const k = await writeTemplate(rt, rt.name.trim(), { ...rt.data, lighting_rig: rig });
-                    toast({ title: "Lighting rig saved" });
+                    const k = await writeTemplate(rt, (nm || rt.name).trim(), { ...rt.data, lighting_rig: rig });
+                    toast({ title: "3D stage saved" });
                     if (k) setTemplate(k, { saved: true });
                   } catch (e) { console.error(e); toast({ title: "Couldn't save the rig", variant: "destructive" }); }
                 }}

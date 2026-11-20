@@ -35,7 +35,8 @@ export function ActCuesButton({ act, onClick, size = "md" }) {
 
 // acts, start (index); onChange(i, sheet) when editable; onSave() (optional,
 // a Save button); onUpload(file) -> url for the cue sheet files.
-export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose }) {
+// onPlay(i): the LD plays the act's cues on the 3D stage (job 383).
+export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, onPlay = null }) {
   const [cur, setCur] = useState(start);
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -55,6 +56,7 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
             <div className="text-white text-[18px] font-semibold truncate">{act.band_name || `Act ${cur + 1}`}</div>
             {summary && <div className="text-white/45 text-[12.5px]">{summary}</div>}
           </div>
+          {onPlay && <button type="button" onClick={() => onPlay(cur)} className="h-10 px-3 rounded-[6px] text-[13px] font-bold shrink-0" style={{ background: "#FFB400", color: "#111" }}>Play on stage</button>}
           <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 flex items-center justify-center text-white/50"><X className="w-5 h-5" /></button>
         </div>
         {acts.length > 1 && (
