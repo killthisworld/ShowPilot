@@ -14,14 +14,43 @@ const cyl = (rt, rb, h, m, seg = 20) => new THREE.Mesh(new THREE.CylinderGeometr
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
 const at = (o, x, y, z) => { o.position.set(x, y, z); return o; };
 
-function micStand(z = 1.0) {
+// A rod from a to b (vectors), radius r.
+function rod(a, b, r, m, seg = 10) {
+  const v = new THREE.Vector3().subVectors(b, a);
+  const o = cyl(r, r, v.length(), m, seg);
+  o.position.copy(a).addScaledVector(v, 0.5);
+  o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.normalize());
+  return o;
+}
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+export const MOUTH_Y = 3.56; // ft, the person's mouth (job 391)
+
+// A mic on a stand, up at the mouth (job 391): tripod legs, the pole, a boom
+// when the stand is off to the side, the clip and a mic with its grille
+// just in front of their lips. Stand at (sx, sz); mouth at (0, MOUTH_Y, mz).
+function micStand({ sx = 0, sz = 0.85, mz = 0.28 } = {}) {
   const g = new THREE.Group();
-  const m = std(DARK, { metalness: 0.6 });
-  g.add(at(cyl(0.45, 0.45, 0.06, m), 0, 0.03, z));
-  g.add(at(cyl(0.035, 0.035, 4.3, m), 0, 2.15, z));
-  const mic = at(cyl(0.09, 0.06, 0.45, std("#9aa0a8", { metalness: 0.7 })), 0, 4.35, z - 0.15);
-  mic.rotation.x = Math.PI / 3;
-  g.add(mic);
+  const black = std("#151515", { metalness: 0.5, roughness: 0.4 });
+  const chrome = std("#b8bcc2", { metalness: 0.9, roughness: 0.25 });
+  // Tripod.
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2 + 0.5;
+    g.add(rod(V(sx, 0.55, sz), V(sx + Math.cos(a) * 0.55, 0.02, sz + Math.sin(a) * 0.55), 0.022, black));
+  }
+  const grille = V(0, MOUTH_Y - 0.02, mz + 0.2);
+  const side = Math.abs(sx) > 0.3;
+  const top = V(sx, side ? 3.0 : MOUTH_Y - 0.42, sz);
+  g.add(rod(V(sx, 0.5, sz), top, 0.03, black));
+  g.add(at(cyl(0.045, 0.045, 0.1, black, 10), top.x, top.y - 0.12, top.z)); // the clutch
+  // The mic's tail sits a little back from the grille, angled up to the mouth.
+  const tail = side ? V(grille.x + (sx > 0 ? 0.35 : -0.35), grille.y - 0.12, grille.z + 0.3) : V(0, grille.y - 0.3, grille.z + 0.32);
+  if (side) g.add(rod(top, tail, 0.022, black)); // boom arm
+  else g.add(rod(top, tail, 0.025, black));
+  g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), black), tail.x, tail.y, tail.z)); // clip
+  g.add(rod(tail, grille, 0.045, black, 14)); // handle
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 12), chrome);
+  head.position.copy(grille);
+  g.add(head);
   return g;
 }
 
@@ -58,14 +87,14 @@ function percussion(c) {
   return g;
 }
 
-function stringed(c, { neck = 2.0, body = 0.55, amp = [1.6, 1.3, 0.8] } = {}) {
+function stringed(c, { neck = 1.75, body = 0.42, amp = [1.6, 1.3, 0.8] } = {}) {
   const g = new THREE.Group();
   const held = new THREE.Group();
   const b = cyl(body, body, 0.25, std(c, { roughness: 0.3 }), 24); b.rotation.x = Math.PI / 2; b.scale.set(0.85, 1, 1.2);
   held.add(b);
   held.add(at(box(neck, 0.16, 0.08, std("#3b2a1a")), body + neck / 2 - 0.1, 0, 0.05));
   held.add(at(box(0.35, 0.22, 0.08, std(DARK)), body + neck + 0.05, 0, 0.05));
-  held.position.set(-0.15, 2.0, 0.75);
+  held.position.set(-0.12, 2.1, 0.38);
   held.rotation.z = 0.45;
   g.add(held);
   // The amp behind them.
@@ -119,14 +148,18 @@ function dj(c) {
   return g;
 }
 
+// A slim figure (job 391): legs, torso, arms, neck and head.
 export function personFigure(color, { emissive = 0.12 } = {}) {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, emissive: new THREE.Color(color), emissiveIntensity: emissive });
-  g.add(at(cyl(0.55, 0.7, 3.0, mat, 16), 0, 1.5, 0));
-  g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), mat), 0, 3.55, 0));
+  [-0.14, 0.14].forEach((x) => g.add(at(cyl(0.11, 0.09, 1.9, mat, 10), x, 0.95, 0)));
+  g.add(at(cyl(0.3, 0.23, 1.35, mat, 14), 0, 2.55, 0));
+  [-1, 1].forEach((s2) => { const arm = at(cyl(0.075, 0.065, 1.25, mat, 8), s2 * 0.38, 2.55, 0.02); arm.rotation.z = s2 * 0.12; g.add(arm); });
+  g.add(at(cyl(0.09, 0.1, 0.22, mat, 8), 0, 3.3, 0));
+  g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.29, 16, 12), mat), 0, MOUTH_Y + 0.1, 0));
   return g;
 }
-export const PERSON_TOP = 4.1; // ft, the top of their head
+export const PERSON_TOP = 4.0; // ft, the top of their head
 
 export function instrumentProp(part, color, sings = false) {
   const c = color || "#cccccc";
@@ -135,13 +168,17 @@ export function instrumentProp(part, color, sings = false) {
   if (p === "drums") g.add(drums(c));
   else if (p === "percussion") g.add(percussion(c));
   else if (p === "guitar") g.add(stringed(c));
-  else if (p === "bass") g.add(stringed(c, { neck: 2.6, body: 0.62, amp: [1.9, 2.6, 1.2] }));
+  else if (p === "bass") g.add(stringed(c, { neck: 2.3, body: 0.48, amp: [1.9, 2.6, 1.2] }));
   else if (p === "keys") g.add(keys(c));
   else if (p === "horns") g.add(horns(c));
   else if (p === "strings") g.add(cello(c));
   else if (p === "dj") g.add(dj(c));
   // A mic for singers; a drummer's sits off to the side of the kit.
-  if (p === "vocals" || sings) g.add(p === "drums" ? at(micStand(0), -1.9, 0, 0.3) : p === "keys" || p === "dj" ? at(micStand(0), 0, 0, 0.35) : micStand());
+  // The mic comes to the mouth: from in front, or on a boom past the kit / keys / decks.
+  if (p === "vocals" || sings) {
+    const mz = personOffset(p) + 0.28;
+    g.add(p === "drums" ? micStand({ sx: -1.55, sz: mz + 0.2, mz }) : p === "keys" || p === "dj" ? micStand({ sx: 1.0, sz: mz + 0.35, mz }) : micStand({ sz: mz + 0.62, mz }));
+  }
   return g;
 }
 
