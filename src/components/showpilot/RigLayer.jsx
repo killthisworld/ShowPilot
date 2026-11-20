@@ -106,7 +106,9 @@ export default function RigLayer({ rig, selected = null, onItemDown = null, clas
             style={{ cursor: onItemDown ? "grab" : undefined }}>
             {/* A bigger, invisible target to grab. */}
             {onItemDown && <rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} fill="transparent" />}
-            {it.type === "riser"
+            {it.type === "screen"
+              ? <rect x={-((it.sw || 16) / (rig?.width_ft || 32)) * RIG_W / 2} y="-2.5" width={((it.sw || 16) / (rig?.width_ft || 32)) * RIG_W} height="5" fill="#0c4a6e" stroke="#38BDF8" strokeWidth="1.2" />
+              : it.type === "riser"
               ? <rect x={-((it.rw || 8) / (rig?.width_ft || 32)) * RIG_W / 2} y={-((it.rd || 8) / (rig?.depth_ft || 24)) * RIG_H / 2} width={((it.rw || 8) / (rig?.width_ft || 32)) * RIG_W} height={((it.rd || 8) / (rig?.depth_ft || 24)) * RIG_H} fill="#1f1f1f" stroke="#6b7280" strokeWidth="1.5" />
               : isTruss(it.type) ? <Truss it={it} /> : <Fixture it={it} />}
             {on && <rect x={-b.w / 2} y={-b.h / 2} width={b.w} height={b.h} rx="5" fill="none" stroke="#8CFF3D" strokeWidth="1.5" strokeDasharray="4 3" />}

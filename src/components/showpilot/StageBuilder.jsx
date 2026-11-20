@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss } from "@/lib/lightingRig";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId, trussToStage, stageToTruss } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -118,7 +118,7 @@ export default function StageBuilder({
       const t = byId[id];
       if (!t) return;
       // Trusses turn, tilt and roll all the way round (job 392); lights tilt to 90.
-      const round = k === "rot" || ((k === "tilt" || k === "roll") && isTruss(t.type));
+      const round = k === "rot" || ((k === "tilt" || k === "roll") && spinsFully(t.type));
       const v = (t[k] || 0) + by;
       out[id] = { [k]: !round ? clamp(v, lo, hi) : k === "rot" ? norm360(v) : ((((v + 180) % 360) + 360) % 360) - 180 };
       const kids = r.items.filter((i) => i.on === id && !sel.includes(i.id));
@@ -318,7 +318,8 @@ export default function StageBuilder({
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
   const turnShown = picked.length && picked.every((i) => norm360(i.rot) === norm360(picked[0].rot)) ? `${norm360(picked[0].rot)}°` : "±";
-  const trussesPicked = picked.length > 0 && picked.every((i) => isTruss(i.type));
+  // Trusses and LED screens turn, tilt and roll all the way round.
+  const trussesPicked = picked.length > 0 && picked.every((i) => spinsFully(i.type));
   const lightsOff = lights.length > 0 && lights.every((l) => l.off);
 
   // --- The edit box (jobs 387-392): what's picked - Move, Duplicate, Delete,
@@ -369,7 +370,22 @@ export default function StageBuilder({
               <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : isInstrument(one.type) ? "Label (e.g. spare synth)" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
                 className={`${isPerson(one.type) ? "w-full max-w-[220px]" : ""} min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none`} />
             )}
-            {one && isRiser(one.type) && (
+            {one && isScreen(one.type) && (
+            // An LED screen's size (job 398): width x height.
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={lbl + " w-12"} style={mono}>SIZE</span>
+              {[["sw", "Width"], ["sh", "Height"]].map(([k, label]) => (
+                <label key={k} className="flex items-center gap-1 text-[12px] text-white/60">
+                  {label}
+                  <input type="number" inputMode="decimal" min="1" max={k === "sw" ? 120 : 60} step="1" value={one[k]} aria-label={`Screen ${label.toLowerCase()} in feet`}
+                    onChange={(e) => { const v = Number(e.target.value); if (v > 0) patch(one.id, { [k]: Math.min(k === "sw" ? 120 : 60, v) }); }}
+                    className="w-16 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-1.5 text-[14px] text-white text-center" />
+                  ft
+                </label>
+              ))}
+            </div>
+          )}
+          {one && isRiser(one.type) && (
               // A riser's size (job 392): width x depth, and how tall.
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={lbl + " w-12"} style={mono}>SIZE</span>
@@ -450,9 +466,10 @@ export default function StageBuilder({
         ) : <p className="text-white/40 text-[12.5px]">Nothing rigged yet.</p>}
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className={lbl} style={mono}>TRUSS</span>
+        <span className={lbl} style={mono}>TRUSS & SCREENS</span>
         <div className="flex flex-wrap gap-1.5">
           {TRUSS_TYPES.map((t) => <button key={t.type} type="button" onClick={() => add(t.type)} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />{t.label}</button>)}
+          <button type="button" onClick={() => add("screen")} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />LED screen</button>
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

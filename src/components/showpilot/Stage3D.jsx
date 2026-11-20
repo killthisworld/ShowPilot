@@ -308,6 +308,20 @@ export default function Stage3D({
           f.head.lookAt(f.wp.x + f.dir.x * 20, f.wp.y + f.dir.y * 20, f.wp.z + f.dir.z * 20 + 0.0001);
         }
       });
+      // LED screens: the look's color while a cue plays, else the rig blue.
+      (st.screens || []).forEach((sc, k) => {
+        const L2 = st.look;
+        let col = "#1d4ed8", lvl = 0.9;
+        if (L2) {
+          col = L2.color || col;
+          if (L2.fade) { tmp.setHSL(((t / 8) + k * 0.2) % 1, 0.9, 0.5); col = "#" + tmp.getHexString(); }
+          if (L2.chase) lvl = 0.4 + 0.6 * (Math.floor(t / (60 / Math.max(40, L2.bpm || 120))) % 2);
+          if (L2.strobe) lvl = Math.floor(t * 12) % 2 ? 1 : 0.1;
+          if (L2.blackout) lvl = 0;
+        } else if (st.dark) lvl = 0.05;
+        sc.mat.emissive.set(col);
+        sc.mat.emissiveIntensity = sc.off ? 0.02 : lvl;
+      });
       if (st.hazeMesh) st.hazeMesh.material.opacity = L?.haze ? 0.08 + 0.02 * Math.sin(t) : 0;
       controls.update();
       renderer.render(scene, camera);
@@ -372,6 +386,7 @@ export default function Stage3D({
     const stateColor = (id) => (movingIds.includes(id) ? GREY : selIds.includes(id) ? PICKED : PLACED);
     st.items = {};
     st.fixtures = [];
+    st.screens = [];
     const rigSingers = [];
     // Risers (job 392): people standing on one stand on top of it.
     const risers = (rig.items || []).filter((i) => i.type === "riser").map((r) => {
@@ -392,6 +407,25 @@ export default function Stage3D({
       g.userData.itemId = it.id;
       g.position.set(x, DECK + (it.h || 0), z);
       g.rotation.y = -((it.rot || 0) * Math.PI) / 180;
+      if (it.type === "screen") {
+        // An LED screen (job 398): a frame and a face that glows - the rig's
+        // blue, or the look's color when a cue plays. Turns, tilts and rolls
+        // all the way round.
+        g.rotation.order = "YXZ";
+        g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
+        g.rotation.z = ((it.roll || 0) * Math.PI) / 180;
+        const w = it.sw || 16, hh = it.sh || 9;
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, hh + 0.4, 0.4), new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.7 }));
+        const faceMat = new THREE.MeshStandardMaterial({ color: "#050505", emissive: new THREE.Color("#1d4ed8"), emissiveIntensity: 0.9 });
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(w, hh), faceMat);
+        face.position.z = 0.21;
+        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(frame.geometry), new THREE.LineBasicMaterial({ color: stateColor(it.id) }));
+        g.add(frame, face, edge);
+        st.screens.push({ mat: faceMat, off: !!it.off });
+        world.add(g);
+        st.items[it.id] = g;
+        return;
+      }
       if (it.type === "riser") {
         const w = it.rw || 8, d = it.rd || 8, h = it.rh || 1;
         const top = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: "#1f1f1f", roughness: 0.9 }));

@@ -30,8 +30,9 @@ export const FIXTURE_TYPES = [
   { type: "strobe", label: "Strobe", color: "#FFFFFF" },
   { type: "blinder", label: "Blinder", color: "#FBBF24" },
   { type: "led_bar", label: "LED bar", color: "#22D3EE" },
-  { type: "fog", label: "Fog / haze", color: "#9CA3AF" },
 ];
+// Fog / haze is gone from the palette (job 398); older stages may still have one.
+const OLD_FIXTURES = [{ type: "fog", label: "Fog / haze", color: "#9CA3AF" }];
 
 export const RIG_COLORS = ["#FFFFFF", "#FDE047", "#F59E0B", "#EF4444", "#EC4899", "#C084FC", "#60A5FA", "#22D3EE", "#8CFF3D"];
 
@@ -42,9 +43,14 @@ export const isPerson = (t) => t === "person";
 export const isRiser = (t) => t === "riser";
 // An instrument on its own, no one at it (job 394): { type: "instrument", part }.
 export const isInstrument = (t) => t === "instrument";
-export const isLight = (t) => !isTruss(t) && !isPerson(t) && !isRiser(t) && !isInstrument(t);
-export const fixtureInfo = (t) => FIXTURE_TYPES.find((f) => f.type === t) || null;
-export const rigTypeLabel = (t) => (t === "person" ? "Person" : t === "riser" ? "Riser" : t === "instrument" ? "Instrument" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
+// An LED screen (job 398): { type: "screen", sw, sh } - width and height in
+// feet; h is its centre's height; it turns, tilts and rolls all the way round.
+export const isScreen = (t) => t === "screen";
+// Turns, tilts and rolls all the way round, not just aims.
+export const spinsFully = (t) => isTruss(t) || isScreen(t);
+export const isLight = (t) => !isTruss(t) && !isPerson(t) && !isRiser(t) && !isInstrument(t) && !isScreen(t);
+export const fixtureInfo = (t) => FIXTURE_TYPES.find((f) => f.type === t) || OLD_FIXTURES.find((f) => f.type === t) || null;
+export const rigTypeLabel = (t) => (t === "person" ? "Person" : t === "riser" ? "Riser" : t === "instrument" ? "Instrument" : t === "screen" ? "LED screen" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -67,9 +73,10 @@ export function normalizeRig(r) {
       color: i.color || fixtureInfo(i.type)?.color || "#FFFFFF",
       label: String(i.label || "").slice(0, 40),
       // Trusses tilt and roll all the way round (job 392); lights tilt to 90.
-      tilt: isTruss(i.type) ? ((((Number(i.tilt) || 0) + 180) % 360 + 360) % 360) - 180 : clamp(Number(i.tilt) || 0, -90, 90),
-      ...(isTruss(i.type) && Number(i.roll) ? { roll: ((((Number(i.roll) || 0) + 180) % 360 + 360) % 360) - 180 } : {}),
+      tilt: spinsFully(i.type) ? ((((Number(i.tilt) || 0) + 180) % 360 + 360) % 360) - 180 : clamp(Number(i.tilt) || 0, -90, 90),
+      ...(spinsFully(i.type) && Number(i.roll) ? { roll: ((((Number(i.roll) || 0) + 180) % 360 + 360) % 360) - 180 } : {}),
       ...(i.off ? { off: true } : {}),
+      ...(i.type === "screen" ? { sw: clamp(Number(i.sw) || 16, 1, 120), sh: clamp(Number(i.sh) || 9, 1, 60) } : {}),
       ...(i.type === "riser" ? { rw: clamp(Number(i.rw) || 8, 1, 60), rd: clamp(Number(i.rd) || 8, 1, 60), rh: clamp(Number(i.rh) || 1, 0.25, 10) } : {}),
       ...(i.on ? { on: String(i.on) } : {}),
       // part: a stage plot position key (older ones were saved by label).
@@ -96,6 +103,7 @@ export function newRigItem(type, rig) {
     len: type === "truss_straight" ? 0.7 : type === "truss_box" ? 0.5 : type === "truss_circle" ? 0.35 : 0.1,
     h: truss ? 18 : type === "fog" || type === "person" || type === "riser" || type === "instrument" ? 0 : 18,
     ...(type === "riser" ? { rw: 8, rd: 8, rh: 1 } : {}),
+    ...(type === "screen" ? { sw: 16, sh: 9, h: 9, x: 0.5, y: 0.06 } : {}),
     color: fixtureInfo(type)?.color || "#FFFFFF",
     label: "",
     tilt: 0,
@@ -148,7 +156,7 @@ export function rigGroups(rig) {
   (rig?.items || []).forEach((i) => {
     const key = isTruss(i.type) ? "truss" : i.type;
     let g = out.find((x) => x.type === key);
-    if (!g) { g = { type: key, label: key === "truss" ? "Truss" : key === "person" ? "People" : rigTypeLabel(i.type), color: key === "truss" ? "#8CFF3D" : key === "person" ? "#E5E7EB" : key === "riser" ? "#6b7280" : fixtureInfo(i.type)?.color || "#fff", ids: [] }; out.push(g); }
+    if (!g) { g = { type: key, label: key === "truss" ? "Truss" : key === "person" ? "People" : rigTypeLabel(i.type), color: key === "truss" ? "#8CFF3D" : key === "person" ? "#E5E7EB" : key === "riser" ? "#6b7280" : key === "screen" ? "#38BDF8" : fixtureInfo(i.type)?.color || "#fff", ids: [] }; out.push(g); }
     g.ids.push(i.id);
   });
   return out.sort((a, b) => (a.type === "truss" ? -1 : b.type === "truss" ? 1 : 0));
