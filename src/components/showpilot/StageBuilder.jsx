@@ -1,9 +1,11 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb, SkipBack, SkipForward, Play, Pause, Square, X } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
-import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue } from "@/lib/cueLooks";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
+import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
+import { STAGE_POSITIONS } from "@/lib/stagePositions";
+import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { normalizeCueSheet } from "@/lib/cueSheet";
 import { useMyStageColors } from "@/components/showpilot/StagePlotView";
 import { actMembers3D } from "@/components/showpilot/LdStageWindow";
@@ -51,8 +53,10 @@ export default function StageBuilder({
   const [touchedActs, setTouchedActs] = useState(false);
   const [src, setSrc] = useState(acts && acts.length ? clamp(startAct, 0, acts.length - 1) : "stage");
   const [cueAt, setCueAt] = useState(-1);
-  const [playing, setPlaying] = useState(false);
-  const [auto, setAuto] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null); // a new stage cue, until Save
+  const [play, startPlay, stopPlay] = useCuePlayer();
+  const [newPerson, setNewPerson] = useState({ name: "", part: "" });
   const colors = useMyStageColors();
   const dragFromPlaced = useRef(false);
 
@@ -65,7 +69,17 @@ export default function StageBuilder({
   const items = rig.items;
   const picked = useMemo(() => items.filter((i) => sel.includes(i.id)), [items, sel]);
   const one = picked.length === 1 ? picked[0] : null;
-  const lights = picked.filter((i) => !isTruss(i.type));
+  const lights = picked.filter((i) => !isTruss(i.type) && !isPerson(i.type));
+  const aimable = picked.filter((i) => !isPerson(i.type)); // turns and tilts
+  const people = items.filter((i) => isPerson(i.type));
+  const partColor = (part) => STAGE_POSITIONS.find((p) => p.label === part)?.color || "#E5E7EB";
+  // Someone on the stage (job 389): Bob on drums, or just Bob.
+  const addPerson = () => {
+    const nm = newPerson.name.trim();
+    if (!nm) return;
+    addItems([{ ...newRigItem("person", rig), x: 0.5, y: 0.6, label: nm, part: newPerson.part, color: partColor(newPerson.part) }]);
+    setNewPerson({ name: "", part: "" });
+  };
   const patchMany = (ids, fn) => setRig((r) => ({ ...r, items: r.items.map((i) => (ids.includes(i.id) ? { ...i, ...fn(i) } : i)) }));
   const patch = (id, p) => patchMany([id], () => p);
   const pick = (ids, inHand = false) => { setSel(ids); setMoving(inHand && ids.length > 0); setAdding(null); };
@@ -181,35 +195,49 @@ export default function StageBuilder({
     if (dragFromPlaced.current) setMoving(false);
   };
 
-  // --- Cues. ---
+  // --- Cues (job 389): tap a cue and it plays through once - its row fills
+  // left to right for its length - then stops. Swipe a cue left to delete it.
   const stageCues = rig.cues || [];
   const actSheet = useMemo(() => (typeof src === "number" ? normalizeCueSheet(sheets[src]) : null), [sheets, src]);
   const steps = useMemo(() => (actSheet ? cueSteps(actSheet) : []), [actSheet]);
-  const list = typeof src === "number" ? steps : stageCues;
-  const cur = cueAt >= 0 ? list[cueAt] : null;
-  const curKeys = !cur ? {} : typeof src === "number" ? (cur.cue.keys || keysFromCue(cur.cue, cur.song)) : cur.keys || {};
-  const curColor = !cur ? "" : typeof src === "number" ? (cur.cue.keys ? cur.cue.color : "") || "" : cur.color || "";
-  const curBpm = !cur ? 120 : typeof src === "number" ? Number(cur.song.bpm) || 120 : cur.bpm || 120;
-  const look = useMemo(() => {
-    if (!playing || !cur) return null;
-    if (typeof src === "number") return cur.cue.keys ? lookFromCue(cur.cue, cur.song) : cur.look;
-    return lookFromKeys(cur.keys || {}, cur.color, cur.bpm);
-  }, [playing, cur, src]);
-  const go = (i) => { if (!list.length) return; setCueAt(clamp(i, 0, list.length - 1)); setPlaying(true); };
-  useEffect(() => { setCueAt(-1); setAuto(false); }, [src]);
-  // Auto: the next cue after 16 beats.
-  useEffect(() => {
-    if (!auto || !playing || !list.length) return undefined;
-    const id = window.setTimeout(() => setCueAt((i) => (i + 1 < list.length ? i + 1 : (setAuto(false), i))), (60 / curBpm) * 16 * 1000);
-    return () => window.clearTimeout(id);
-  }, [auto, playing, cueAt, list.length, curBpm]);
+  const isAct = typeof src === "number";
+  const list = isAct ? steps : stageCues;
+  // The cue being edited: a new one (draft) or the one picked.
+  const cur = draft || (cueAt >= 0 ? list[cueAt] : null);
+  const curKeys = !cur ? {} : draft ? draft.keys : isAct ? (cur.cue.keys || keysFromCue(cur.cue, cur.song)) : cur.keys || {};
+  const curColor = !cur ? "" : draft ? draft.color : isAct ? (cur.cue.keys ? cur.cue.color : "") || "" : cur.color || "";
+  const secsOf = (c) => (!c ? 8 : c === draft || !isAct ? c.secs || 8 : cueSecs(c.cue.secs, c.song.bpm));
+  const lookOf = (c) => (!c ? null : c === draft || !isAct ? lookFromKeys(c.keys || {}, c.color, c.bpm) : c.cue.keys ? lookFromCue(c.cue, c.song) : c.look);
+  const playing = play ? (play.i === "draft" ? draft : list[play.i]) : null;
+  const look = useMemo(() => lookOf(playing), [playing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const playCue = (i) => { setDraft(null); setCueAt(i); setEditing(true); startPlay(i, secsOf(list[i])); };
+  useEffect(() => { setCueAt(-1); setDraft(null); setEditing(false); stopPlay(); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
+  // An edit plays the cue again, so the change is seen.
+  const replay = (next) => (draft ? startPlay("draft", next?.secs || draft.secs) : cueAt >= 0 && startPlay(cueAt, next?.secs || secsOf(cur)));
 
   const setStageCue = (i, p) => setRig((r) => ({ ...r, cues: r.cues.map((c, k) => (k === i ? { ...c, ...p } : c)) }));
-  const addStageCue = () => { setRig((r) => ({ ...r, cues: [...(r.cues || []), newStageCue((r.cues || []).length)] })); setCueAt(stageCues.length); setPlaying(true); };
-  const removeStageCue = (i) => { setRig((r) => ({ ...r, cues: r.cues.filter((_, k) => k !== i) })); setCueAt(-1); };
+  const newCue = () => { const d = newStageCue(stageCues.length); setDraft(d); setCueAt(-1); setEditing(true); startPlay("draft", d.secs); };
+  const saveCue = () => {
+    if (draft) { setRig((r) => ({ ...r, cues: [...(r.cues || []), draft] })); setCueAt(stageCues.length); setDraft(null); }
+    setEditing(false);
+  };
+  const deleteCue = (i) => {
+    if (isAct) {
+      const st = steps[i];
+      if (!st?.cue?.id) return;
+      const sheet = normalizeCueSheet(sheets[src]);
+      const song = sheet.songs[st.songIndex];
+      if (song) song.cues = song.cues.filter((q) => q.id !== st.cue.id);
+      setSheets((all) => all.map((x, k) => (k === src ? sheet : x)));
+      setTouchedActs(true);
+    } else setRig((r) => ({ ...r, cues: r.cues.filter((_, k) => k !== i) }));
+    if (cueAt === i) { setCueAt(-1); setEditing(false); }
+    else if (cueAt > i) setCueAt(cueAt - 1);
+    if (play?.i === i) stopPlay();
+  };
   // The LD sets the look of an act's cue: kept on that cue (cue.keys).
   const setActCue = (p) => {
-    if (typeof src !== "number" || !cur) return;
+    if (!isAct || !cur) return;
     const sheet = normalizeCueSheet(sheets[src]);
     const song = sheet.songs[cur.songIndex];
     if (!song) return;
@@ -219,13 +247,14 @@ export default function StageBuilder({
     setSheets((all) => all.map((x, k) => (k === src ? sheet : x)));
     setTouchedActs(true);
   };
-  const toggleCueKey = (id) => {
-    const k = id === "blackout" ? { blackout: !curKeys.blackout } : { ...curKeys, blackout: false, [id]: !curKeys[id] };
-    setPlaying(true);
-    if (typeof src === "number") setActCue({ keys: k });
-    else setStageCue(cueAt, { keys: k });
+  const setCue = (p) => {
+    if (draft) setDraft((d) => ({ ...d, ...p }));
+    else if (isAct) setActCue(p);
+    else setStageCue(cueAt, p);
+    replay(p);
   };
-  const setCueColor = (c) => { setPlaying(true); if (typeof src === "number") setActCue({ color: c }); else setStageCue(cueAt, { color: c }); };
+  const toggleCueKey = (id) => setCue({ keys: id === "blackout" ? { blackout: !curKeys.blackout } : { ...curKeys, blackout: false, [id]: !curKeys[id] } });
+  const setCueColor = (c) => setCue({ color: c });
 
   const shownMembers = useMemo(() => {
     if (!acts || !acts.length) return members;
@@ -244,6 +273,8 @@ export default function StageBuilder({
   const pickedLabel = one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
+  const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
+  const turnShown = aimable.length && aimable.every((i) => norm360(i.rot) === norm360(aimable[0].rot)) ? `${norm360(aimable[0].rot)}°` : "±";
   // --- Quick commands, over the stage, for what's picked. ---
   const quick = sel.length > 0 && tab === "rig" && (
     <div className="absolute left-2 right-2 bottom-2 rounded-[10px] border p-2 flex flex-col gap-2" style={{ background: "rgba(16,16,16,0.94)", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
@@ -281,22 +312,22 @@ export default function StageBuilder({
             )}
             <button type="button" onClick={place} className={qk} style={{ background: MA.green, borderColor: MA.green, color: "#111" }}><Check className="w-4 h-4" />Place</button>
           </div>
+          {aimable.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {lights.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <span className={lbl + " w-9"} style={mono}>TILT</span>
-                <button type="button" className={step} style={keyOff} aria-label="Tilt back" onClick={() => nudge("tilt", -10, -90, 90)}><Minus className="w-4 h-4" /></button>
-                <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{lights.every((l) => l.tilt === lights[0].tilt) ? `${lights[0].tilt}°` : "±"}</span>
-                <button type="button" className={step} style={keyOff} aria-label="Tilt forward" onClick={() => nudge("tilt", 10, -90, 90)}><Plus className="w-4 h-4" /></button>
-              </span>
-            )}
+            <span className="flex items-center gap-1.5">
+              <span className={lbl + " w-9"} style={mono}>TILT</span>
+              <button type="button" className={step} style={keyOff} aria-label="Tilt back" onClick={() => nudge("tilt", -10, -90, 90)}><Minus className="w-4 h-4" /></button>
+              <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{tiltShown}</span>
+              <button type="button" className={step} style={keyOff} aria-label="Tilt forward" onClick={() => nudge("tilt", 10, -90, 90)}><Plus className="w-4 h-4" /></button>
+            </span>
             <span className="flex items-center gap-1.5">
               <span className={lbl + " w-9"} style={mono}>TURN</span>
               <button type="button" className={step} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><RotateCcw className="w-4 h-4" /></button>
-              <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{picked.every((i) => norm360(i.rot) === norm360(picked[0].rot)) ? `${norm360(picked[0].rot)}°` : "±"}</span>
+              <span className="w-11 text-center text-[14px] font-semibold tabular-nums">{turnShown}</span>
               <button type="button" className={step} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><RotateCw className="w-4 h-4" /></button>
             </span>
           </div>
+          )}
         </>
       )}
     </div>
@@ -323,15 +354,38 @@ export default function StageBuilder({
       {picked.length > 0 && (
         <div className="rounded-[8px] border p-3 flex flex-col gap-3" style={{ background: MA.panel, borderColor: one && !isTruss(one.type) ? one.color : "#3d5c2a" }}>
           {one && (
-            <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder="Name (e.g. SL wash 1)" aria-label="Name" maxLength={40}
+            <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
               className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
           )}
-          <div className="flex items-center gap-2">
+          {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
+          {aimable.length > 0 && (
+            // Aim it, all four ways (job 389): left / right turns it,
+            // up / down tilts it upstage / downstage.
+            <div className="flex items-center gap-3">
+              <span className={lbl + " w-14"} style={mono}>AIM</span>
+              <div className="grid grid-cols-3 gap-1" style={{ width: 128 }}>
+                <span />
+                <button type="button" className={step} style={keyOff} aria-label="Tilt upstage" onClick={() => nudge("tilt", -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
+                <span />
+                <button type="button" className={step} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><ChevronLeft className="w-5 h-5" /></button>
+                <span className="w-10 h-10 rounded-full border border-[#333] bg-[#0e0e0e]" aria-hidden="true" />
+                <button type="button" className={step} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><ChevronRight className="w-5 h-5" /></button>
+                <span />
+                <button type="button" className={step} style={keyOff} aria-label="Tilt downstage" onClick={() => nudge("tilt", 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
+                <span />
+              </div>
+              <div className="flex flex-col text-[13px] tabular-nums text-white/75 gap-1">
+                <span>Turn <b className="text-white">{turnShown}</b></span>
+                <span>Tilt <b className="text-white">{tiltShown}</b></span>
+              </div>
+            </div>
+          )}
+          {aimable.length > 0 && <div className="flex items-center gap-2">
             <span className={lbl + " w-14"} style={mono}>HEIGHT</span>
             <button type="button" className={step} style={keyOff} aria-label="Lower" onClick={() => nudge("h", -1, 0, 80)}><Minus className="w-4 h-4" /></button>
             <span className="w-14 text-center text-white text-[15px] font-semibold tabular-nums">{picked.every((i) => i.h === picked[0].h) ? `${picked[0].h} ft` : "±1 ft"}</span>
             <button type="button" className={step} style={keyOff} aria-label="Higher" onClick={() => nudge("h", 1, 0, 80)}><Plus className="w-4 h-4" /></button>
-          </div>
+          </div>}
           {one && (isTruss(one.type) || one.type === "led_bar") && (
             <div className="flex items-center gap-2">
               <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
@@ -375,6 +429,29 @@ export default function StageBuilder({
           className="w-16 min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2 text-[14px] text-white text-center" />
         <span className="text-white/45 text-[12.5px]">ft deep</span>
       </div>
+      {/* People on the stage (job 389): a name, and what they play if anything. */}
+      <div className="flex flex-col gap-2">
+        <span className={lbl} style={mono}>PEOPLE</span>
+        <div className="flex gap-1.5">
+          <input value={newPerson.name} onChange={(e) => setNewPerson((p) => ({ ...p, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") addPerson(); }}
+            placeholder="Name (e.g. Bob)" aria-label="New person's name" maxLength={40}
+            className="flex-1 min-w-0 min-h-[40px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
+          <button type="button" onClick={addPerson} disabled={!newPerson.name.trim()} className={key + " disabled:opacity-40"} style={{ background: MA.amber, borderColor: MA.amber, color: "#111" }}><Plus className="w-4 h-4" />Add</button>
+        </div>
+        <PartChips value={newPerson.part} onChange={(part) => setNewPerson((p) => ({ ...p, part }))} />
+        {people.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {people.map((p) => (
+              <button key={p.id} type="button" onClick={() => pick([p.id])} aria-pressed={sel.includes(p.id)}
+                className="min-h-[40px] px-2.5 rounded-[6px] border flex items-center gap-2 text-left" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: p.color }} />
+                <span className="text-[14px] font-semibold text-white truncate">{p.label || "Someone"}</span>
+                {p.part && <span className="text-[12.5px] truncate" style={{ color: p.color }}>{p.part}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </>
   );
 
@@ -388,56 +465,35 @@ export default function StageBuilder({
           <button type="button" onClick={() => setSrc("stage")} aria-pressed={src === "stage"} className={key + " shrink-0"} style={src === "stage" ? keyOn : keyOff}>Stage cues</button>
         </div>
       )}
-      {/* The playback. */}
-      <div className="grid grid-cols-5 gap-1.5">
-        <button type="button" onClick={() => go(cueAt - 1)} disabled={cueAt <= 0} aria-label="Back a cue" className="h-14 rounded-[6px] border flex items-center justify-center disabled:opacity-40" style={keyOff}><SkipBack className="w-5 h-5" /></button>
-        <button type="button" onClick={() => { setAuto((a) => !a); setPlaying(true); if (cueAt < 0) go(0); }} disabled={!list.length} aria-pressed={auto} aria-label={auto ? "Stop auto" : "Auto"}
-          className="h-14 rounded-[6px] border flex flex-col items-center justify-center text-[10px] font-bold tracking-[0.1em] disabled:opacity-40" style={auto ? { background: "#0f2f37", borderColor: MA.cyan, color: MA.cyan } : keyOff}>{auto ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}AUTO</button>
-        <button type="button" onClick={() => go(cueAt + 1)} disabled={!list.length || cueAt >= list.length - 1} aria-label="Go: next cue"
-          className="col-span-2 h-14 rounded-[6px] text-[20px] font-black tracking-[0.16em] flex items-center justify-center gap-1.5 disabled:opacity-40" style={{ background: MA.amber, color: "#111" }}>GO<SkipForward className="w-5 h-5" /></button>
-        <button type="button" onClick={() => { setPlaying(false); setAuto(false); }} aria-label="Release" className="h-14 rounded-[6px] border flex flex-col items-center justify-center text-[10px] font-bold tracking-[0.1em]" style={keyOff}><Square className="w-4 h-4" />REL</button>
-      </div>
+      <p className="text-white/45 text-[12.5px] leading-snug">Tap a cue to play it through on the stage. Swipe one left to delete it.</p>
       <div className="flex flex-col gap-1">
-        {typeof src === "number" ? (
+        {isAct ? (
           steps.length ? steps.map((x, i) => (
-            <button key={i} type="button" onClick={() => go(i)} className="min-h-[42px] px-2.5 rounded-[6px] border text-left flex items-center gap-2"
-              style={i === cueAt ? { background: "#3a2b00", borderColor: MA.amber } : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-              <span className="w-6 text-[11px] tabular-nums" style={{ fontFamily: SCENE_MONO, color: i === cueAt ? MA.amber : "#888" }}>{i + 1}</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[12px] text-white/50 truncate">{x.song.title || `Song ${x.songIndex + 1}`}{x.cue.at ? ` · ${x.cue.at.trim()}` : ""}</span>
-                <span className="block text-[13.5px] text-white truncate">{x.cue.look || "—"}</span>
-              </span>
-              {x.cue.keys && <span className="text-[9.5px] tracking-[0.12em] px-1.5 py-0.5 rounded border" style={{ fontFamily: SCENE_MONO, color: MA.green, borderColor: "#2f4d1f" }}>SET</span>}
-            </button>
+            <CueRow key={x.cue.id || `s${x.songIndex}`} n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
+              color={x.cue.color || x.song.color || ""} active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)}
+              onDelete={x.cue.id ? () => deleteCue(i) : null}
+              badge={x.cue.keys ? <span className="relative text-[9.5px] tracking-[0.12em] px-1.5 py-0.5 rounded border" style={{ fontFamily: SCENE_MONO, color: MA.green, borderColor: "#2f4d1f" }}>SET</span> : null} />
           )) : <p className="text-white/45 text-[13px]">No cue sheet from {acts[src]?.band_name || "this act"} yet. It comes in with their intake (Lighting cues).</p>
         ) : (
           <>
             {stageCues.map((c, i) => (
-              <button key={c.id} type="button" onClick={() => go(i)} className="min-h-[42px] px-2.5 rounded-[6px] border text-left flex items-center gap-2"
-                style={i === cueAt ? { background: "#3a2b00", borderColor: MA.amber } : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-                <span className="w-6 text-[11px] tabular-nums" style={{ fontFamily: SCENE_MONO, color: i === cueAt ? MA.amber : "#888" }}>{i + 1}</span>
-                {c.color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />}
-                <span className="flex-1 min-w-0 text-[13.5px] text-white truncate">{c.name}</span>
-                <span className="text-[11px] text-white/45 truncate max-w-[45%]">{LOOK_KEYS.filter((k) => c.keys[k.id]).map((k) => k.label).join(", ")}</span>
-              </button>
+              <CueRow key={c.id} n={i + 1} title={c.name} sub={LOOK_KEYS.filter((k) => c.keys[k.id]).map((k) => k.label).join(", ")} color={c.color}
+                active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)} />
             ))}
-            <button type="button" onClick={addStageCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>
+            {!draft && <button type="button" onClick={newCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>}
           </>
         )}
       </div>
-      {/* The look of the cue that's up. */}
-      {cur && (
+      {/* The cue being made or changed; Save closes it (a new one is kept then). */}
+      {cur && (draft || editing) && (
         <div className="rounded-[8px] border p-3 flex flex-col gap-3" style={{ background: MA.panel, borderColor: MA.amber }}>
           <div className="flex items-center gap-2">
-            <span className={lbl} style={mono}>CUE {cueAt + 1}</span>
-            {typeof src === "number" ? (
+            <span className={lbl} style={mono}>{draft ? "NEW CUE" : `CUE ${cueAt + 1}`}</span>
+            {isAct && !draft ? (
               <span className="text-[13px] text-white/70 truncate">{cur.cue.at ? `${cur.cue.at.trim()}: ` : ""}{cur.cue.look || "—"}</span>
             ) : (
-              <>
-                <input value={cur.name} onChange={(e) => setStageCue(cueAt, { name: e.target.value })} aria-label="Cue name" maxLength={60}
-                  className="flex-1 min-w-0 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white focus:outline-none" />
-                <button type="button" onClick={() => removeStageCue(cueAt)} aria-label="Delete cue" className="w-9 h-9 flex items-center justify-center text-white/40 hover:text-red-400"><X className="w-4 h-4" /></button>
-              </>
+              <input value={cur.name} onChange={(e) => (draft ? setDraft((d) => ({ ...d, name: e.target.value })) : setStageCue(cueAt, { name: e.target.value }))} aria-label="Cue name" maxLength={60}
+                className="flex-1 min-w-0 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white focus:outline-none" />
             )}
           </div>
           <div className="grid grid-cols-3 gap-1.5">
@@ -451,19 +507,28 @@ export default function StageBuilder({
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className={lbl + " w-12"} style={mono}>COLOR</span>
-            <button type="button" onClick={() => setCueColor("")} aria-pressed={!curColor} className="h-7 px-2 rounded-full border text-[11px]" style={!curColor ? { borderColor: "#fff", color: "#fff" } : { borderColor: "#444", color: "#999" }}>{typeof src === "number" ? "Their color" : "Rig"}</button>
+            <button type="button" onClick={() => setCueColor("")} aria-pressed={!curColor} className="h-7 px-2 rounded-full border text-[11px]" style={!curColor ? { borderColor: "#fff", color: "#fff" } : { borderColor: "#444", color: "#999" }}>{isAct && !draft ? "Their color" : "Rig"}</button>
             {RIG_COLORS.map((c) => (
               <button key={c} type="button" onClick={() => setCueColor(c)} aria-label={`Cue color ${c}`} aria-pressed={curColor === c}
                 className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: curColor === c ? "#fff" : "transparent" }} />
             ))}
           </div>
-          {typeof src !== "number" && (
+          {(draft || !isAct) && (
             <div className="flex items-center gap-2">
               <span className={lbl + " w-12"} style={mono}>BPM</span>
-              <input type="range" min="60" max="180" value={cur.bpm} onChange={(e) => setStageCue(cueAt, { bpm: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="BPM" />
+              <input type="range" min="60" max="180" value={cur.bpm} onChange={(e) => setCue({ bpm: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="BPM" />
               <span className="w-10 text-right text-white text-[14px] tabular-nums">{cur.bpm}</span>
             </div>
           )}
+          <div className="flex items-center gap-2">
+            <span className={lbl + " w-12"} style={mono}>LENGTH</span>
+            <input type="range" min="2" max="60" value={Math.round(secsOf(cur))} onChange={(e) => setCue({ secs: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length in seconds" />
+            <span className="w-10 text-right text-white text-[14px] tabular-nums">{Math.round(secsOf(cur))}s</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {draft && <button type="button" onClick={() => { setDraft(null); setEditing(false); stopPlay(); }} className="text-white/55 text-[13px] px-2 min-h-[42px]">Cancel</button>}
+            <button type="button" onClick={saveCue} className="ml-auto h-11 px-5 rounded-[6px] font-bold text-[14px] flex items-center gap-1.5" style={{ background: MA.green, color: "#111" }}><Check className="w-4 h-4" />Save cue</button>
+          </div>
         </div>
       )}
     </>
@@ -471,6 +536,7 @@ export default function StageBuilder({
 
   return createPortal(
     <div className="fixed inset-0 z-[85] flex flex-col text-white" style={{ height: "100dvh", background: MA.bg }} role="dialog" aria-label="Rig the stage">
+      <style>{"@keyframes sp-cue-fill { from { width: 0% } to { width: 100% } }"}</style>
       <div className="shrink-0 flex items-center gap-2 px-3 pt-[max(10px,env(safe-area-inset-top))] pb-2 border-b" style={{ borderColor: MA.line, background: "#101010" }}>
         <button type="button" onClick={onClose} aria-label="Back" className="w-10 h-10 -ml-1 flex items-center justify-center text-white/70"><ChevronLeft className="w-6 h-6" /></button>
         <div className="flex-1 min-w-0">
@@ -492,10 +558,11 @@ export default function StageBuilder({
               onTapItem={onTapItem} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
           </Suspense>
           {!items.length && <p className="absolute top-3 left-0 right-0 text-center text-white/45 text-[13px] pointer-events-none px-8">An empty stage. Add trusses and fixtures to rig it.</p>}
-          {tab === "cues" && cur && (
-            <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none">
-              <div className="text-[10px] tracking-[0.16em]" style={mono}>CUE {cueAt + 1} / {list.length}{typeof src === "number" ? ` · ${(cur.song.title || `SONG ${cur.songIndex + 1}`).toUpperCase()}` : ""}</div>
-              <div className="text-[15px] font-semibold truncate">{typeof src === "number" ? `${cur.cue.at ? `${cur.cue.at.trim()}: ` : ""}${cur.cue.look || "—"}` : cur.name}</div>
+          {tab === "cues" && playing && (
+            <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none overflow-hidden">
+              <span key={play.key} aria-hidden="true" className="absolute left-0 top-0 bottom-0" style={{ background: (playing === draft || !isAct ? playing.color : playing.cue.color || playing.song.color) || MA.amber, opacity: 0.3, animation: `sp-cue-fill ${play.secs}s linear forwards` }} />
+              <div className="relative text-[10px] tracking-[0.16em]" style={mono}>{play.i === "draft" ? "NEW CUE" : `CUE ${play.i + 1} / ${list.length}`}{isAct && play.i !== "draft" ? ` · ${(playing.song.title || `SONG ${playing.songIndex + 1}`).toUpperCase()}` : ""}</div>
+              <div className="relative text-[15px] font-semibold truncate">{playing === draft || !isAct ? playing.name : `${playing.cue.at ? `${playing.cue.at.trim()}: ` : ""}${playing.cue.look || "—"}`}</div>
             </div>
           )}
           {quick}
@@ -504,7 +571,7 @@ export default function StageBuilder({
           <div className="flex flex-col gap-3">
             <div className="flex gap-1.5" role="tablist">
               {[["rig", "RIG"], ["cues", "CUES"]].map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); if (id === "cues") pick([]); }}
+                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); if (id === "cues") pick([]); else stopPlay(); }}
                   className="flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, ...(tab === id ? { background: MA.amber, borderColor: MA.amber, color: "#111" } : keyOff) }}>{label}</button>
               ))}
             </div>
@@ -514,5 +581,20 @@ export default function StageBuilder({
       </div>
     </div>,
     document.body
+  );
+}
+
+// What someone plays: none, or one of the stage plot's instruments (job 389).
+function PartChips({ value, onChange }) {
+  const chip = "min-h-[32px] px-2.5 rounded-full border text-[12px] font-semibold";
+  return (
+    <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Plays">
+      <button type="button" onClick={() => onChange("")} aria-pressed={!value} className={chip}
+        style={!value ? { background: "#E5E7EB", borderColor: "#E5E7EB", color: "#111" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}>No instrument</button>
+      {STAGE_POSITIONS.map((p) => (
+        <button key={p.key} type="button" onClick={() => onChange(p.label)} aria-pressed={value === p.label} className={chip}
+          style={value === p.label ? { background: p.color, borderColor: p.color, color: "#111" } : { borderColor: "#333", color: "rgba(255,255,255,0.65)" }}>{p.label}</button>
+      ))}
+    </div>
   );
 }

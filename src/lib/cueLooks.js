@@ -66,7 +66,10 @@ export function cueSteps(sheet) {
 }
 
 // The LD's own cues, saved with the stage (job 387): rig.cues.
-export const newStageCue = (n = 0) => ({ id: Math.random().toString(36).slice(2, 10), name: `Cue ${n + 1}`, keys: { wash: true }, color: "", bpm: 120 });
+export const newStageCue = (n = 0) => ({ id: Math.random().toString(36).slice(2, 10), name: `Cue ${n + 1}`, keys: { wash: true }, color: "", bpm: 120, secs: 8 });
+
+// How long a cue plays when tapped (job 389): its own length, else 16 beats.
+export const cueSecs = (secs, bpm = 120) => Math.min(300, Math.max(1, Number(secs) || (60 / (Number(bpm) || 120)) * 16));
 export function normalizeStageCues(list) {
   return (Array.isArray(list) ? list : []).filter((c) => c && typeof c === "object").slice(0, 200).map((c, i) => ({
     id: c.id || Math.random().toString(36).slice(2, 10),
@@ -74,5 +77,6 @@ export function normalizeStageCues(list) {
     keys: c.keys && typeof c.keys === "object" ? Object.fromEntries(LOOK_KEYS.map((k) => [k.id, !!c.keys[k.id]]).filter(([, v]) => v)) : {},
     color: String(c.color || ""),
     bpm: Math.min(220, Math.max(40, Number(c.bpm) || 120)),
+    secs: Math.min(300, Math.max(1, Number(c.secs) || 8)),
   }));
 }

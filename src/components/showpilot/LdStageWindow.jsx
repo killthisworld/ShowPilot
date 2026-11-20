@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { normalizeRig, rigHasItems } from "@/lib/lightingRig";
-import { cueSteps, LOOK_KEYS, lookFromKeys } from "@/lib/cueLooks";
+import { cueSteps, LOOK_KEYS, lookFromKeys, cueSecs } from "@/lib/cueLooks";
+import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { memberLook } from "@/lib/customPositions";
 import { memberSings, isVocalInput } from "@/components/showpilot/VocalsQuestion";
 import { useMyStageColors, instrumentsOf } from "@/components/showpilot/StagePlotView";
@@ -29,8 +30,8 @@ const KEY = { background: "#262626", borderColor: "#333", color: "#d6d6d6" };
 // to step with the song's BPM.
 export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOpenCues = null }) {
   const [cur, setCur] = useState(start);
-  const [step, setStep] = useState(-1); // -1 = house look (no cue)
-  const [auto, setAuto] = useState(false);
+  const [step, setStep] = useState(-1);
+  const [play, startPlay, stopPlay] = useCuePlayer(); // job 389: a tapped cue plays through once
   const [keys, setKeys] = useState({});
   const colors = useMyStageColors();
   useEffect(() => {
@@ -42,17 +43,10 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
   const r = useMemo(() => (rigHasItems(rig) ? normalizeRig(rig) : emptyRig()), [rig]);
   const members = useMemo(() => actMembers3D(act, colors), [act, colors]);
   const steps = useMemo(() => cueSteps(act.lighting_cues), [act]);
-  const s = step >= 0 ? steps[step] : null;
+  const s = play ? steps[play.i] : null;
   const look = s ? s.look : Object.values(keys).some(Boolean) ? lookFromKeys(keys) : null;
 
-  // Auto: the next cue after 16 beats of the song's tempo.
-  useEffect(() => {
-    if (!auto || !steps.length) return undefined;
-    const bpm = Number(s?.song?.bpm) || 120;
-    const id = window.setTimeout(() => setStep((i) => (i + 1 < steps.length ? i + 1 : (setAuto(false), i))), (60 / bpm) * 16 * 1000);
-    return () => window.clearTimeout(id);
-  }, [auto, step, steps, s]);
-  useEffect(() => { setStep(-1); setAuto(false); }, [cur]);
+  useEffect(() => { setStep(-1); stopPlay(); }, [cur]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return createPortal(
     <div className="fixed inset-0 z-[85] bg-[#111] text-white flex flex-col" style={{ height: "100dvh" }} role="dialog" aria-label="3D stage">
@@ -80,7 +74,7 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
           {!members.length && <p className="absolute top-3 left-0 right-0 text-center text-white/50 text-[13px] pointer-events-none px-6">No one placed on the stage yet. They place themselves on your intake link.</p>}
           {s && (
             <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none">
-              <div className="text-[10px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>CUE {step + 1} / {steps.length} · {(s.song.title || `SONG ${s.songIndex + 1}`).toUpperCase()}</div>
+              <div className="text-[10px] tracking-[0.16em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>CUE {play.i + 1} / {steps.length} · {(s.song.title || `SONG ${s.songIndex + 1}`).toUpperCase()}</div>
               <div className="text-[15px] font-semibold truncate">{s.cue.at ? `${s.cue.at.trim()}: ` : ""}{s.cue.look || "—"}</div>
             </div>
           )}
@@ -89,24 +83,12 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
         <div className="lg:w-[360px] shrink-0 border-t lg:border-t-0 lg:border-l border-[#2a2a2a] bg-[#141414] p-3 pb-[max(14px,env(safe-area-inset-bottom))] flex flex-col gap-3 max-h-[46dvh] lg:max-h-none overflow-y-auto">
           {steps.length ? (
             <>
-              <div className="grid grid-cols-4 gap-1.5">
-                <button type="button" onClick={() => setStep((i) => Math.max(-1, i - 1))} aria-label="Back a cue" className="h-14 rounded-[6px] border flex items-center justify-center" style={KEY}><SkipBack className="w-5 h-5" /></button>
-                <button type="button" onClick={() => setAuto((a) => !a)} aria-pressed={auto} aria-label={auto ? "Stop auto" : "Auto"} className="h-14 rounded-[6px] border flex flex-col items-center justify-center text-[10px] font-bold tracking-[0.1em]"
-                  style={auto ? { background: "#0f2f37", borderColor: "#3DD6F5", color: "#3DD6F5" } : KEY}>{auto ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}AUTO</button>
-                <button type="button" onClick={() => setStep((i) => Math.min(steps.length - 1, i + 1))} aria-label="Go: next cue"
-                  className="col-span-2 h-14 rounded-[6px] text-[20px] font-black tracking-[0.16em] flex items-center justify-center gap-1.5" style={{ background: AMBER, color: "#111" }}>GO<SkipForward className="w-5 h-5" /></button>
-              </div>
+              <p className="text-white/45 text-[12.5px]">Tap a cue to play it through on the stage.</p>
               <div className="flex flex-col gap-1">
                 {steps.map((x, i) => (
-                  <button key={i} type="button" onClick={() => setStep(i)} className="min-h-[40px] px-2.5 rounded-[6px] border text-left flex items-center gap-2"
-                    style={i === step ? { background: "#3a2b00", borderColor: AMBER } : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
-                    <span className="w-7 text-[11px] tabular-nums" style={{ fontFamily: SCENE_MONO, color: i === step ? AMBER : "#888" }}>{i + 1}</span>
-                    {(x.cue.color || x.song.color) && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: x.cue.color || x.song.color }} />}
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-[12.5px] text-white/50 truncate">{x.song.title || `Song ${x.songIndex + 1}`}{x.cue.at ? ` · ${x.cue.at.trim()}` : ""}</span>
-                      <span className="block text-[13.5px] text-white truncate">{x.cue.look || "—"}</span>
-                    </span>
-                  </button>
+                  <CueRow key={i} n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
+                    color={x.cue.color || x.song.color || ""} active={i === step} play={play?.i === i ? play : null}
+                    onTap={() => { setStep(i); startPlay(i, cueSecs(x.cue.secs, x.song.bpm)); }} />
                 ))}
               </div>
             </>

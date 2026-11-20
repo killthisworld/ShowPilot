@@ -68,6 +68,8 @@ function Fixture({ it }) {
       const L = Math.max(16, it.len * RIG_W);
       return (<g><rect x={-L / 2} y="-3.5" width={L} height="7" rx="2" fill="#111" stroke={c} strokeWidth="1.6" /><line x1={-L / 2 + 4} y1="0" x2={L / 2 - 4} y2="0" stroke={c} strokeWidth="2" strokeDasharray="3 3" /></g>);
     }
+    case "person": // someone standing there (job 389)
+      return (<g><circle r="9" fill={c} opacity="0.9" /><circle r="9" fill="none" stroke="#111" strokeWidth="1.2" /></g>);
     case "fog":
       return (<g><rect x="-10" y="-6" width="20" height="12" rx="6" fill="#111" stroke={c} strokeWidth="1.6" /><path d="M-6,1 q3,-4 6,0 q3,4 6,0" fill="none" stroke={c} strokeWidth="1.4" /></g>);
     default: // spot (moving head)

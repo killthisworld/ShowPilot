@@ -26,7 +26,7 @@ export function normalizeCueSheet(c) {
       bpm: s.bpm === null || s.bpm === undefined ? "" : String(s.bpm),
       feel: String(s.feel || ""),
       color: String(s.color || ""),
-      cues: (Array.isArray(s.cues) ? s.cues : []).map((q) => ({ id: q.id || newId(), at: String(q.at || ""), look: String(q.look || ""), color: String(q.color || ""), ...(q.keys && typeof q.keys === "object" ? { keys: q.keys } : {}) })),
+      cues: (Array.isArray(s.cues) ? s.cues : []).map((q) => ({ id: q.id || newId(), at: String(q.at || ""), look: String(q.look || ""), color: String(q.color || ""), ...(q.keys && typeof q.keys === "object" ? { keys: q.keys } : {}), ...(Number(q.secs) > 0 ? { secs: Number(q.secs) } : {}) })),
     })),
   };
 }

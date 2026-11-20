@@ -314,13 +314,33 @@ export default function Stage3D({
     const stateColor = (id) => (movingIds.includes(id) ? GREY : selIds.includes(id) ? PICKED : PLACED);
     st.items = {};
     st.fixtures = [];
+    const rigSingers = [];
     (rig.items || []).forEach((it) => {
       const [x, z] = pos(it.x, it.y);
       const g = new THREE.Group();
       g.userData.itemId = it.id;
       g.position.set(x, DECK + (it.h || 0), z);
       g.rotation.y = -((it.rot || 0) * Math.PI) / 180;
+      if (it.type === "person") {
+        // Someone the LD put on the stage (job 389): a figure in their
+        // instrument's color, the ring under them green once placed.
+        const c = it.color || "#E5E7EB";
+        const mat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, emissive: new THREE.Color(c), emissiveIntensity: 0.12 });
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 4, 16), mat); b.position.y = 2;
+        const hd = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), mat); hd.position.y = 4.8;
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, selIds.includes(it.id) ? 0.16 : 0.1, 6, 32), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : stateColor(it.id) }));
+        ring.rotation.x = Math.PI / 2; ring.position.y = 0.1;
+        g.add(b, hd, ring);
+        if (labels && it.label) { const sp = labelSprite(it.label, it.part, c); sp.position.y = 7.4; g.add(sp); }
+        if (/vocal/i.test(it.part || "")) rigSingers.push({ x, z });
+        world.add(g);
+        st.items[it.id] = g;
+        return;
+      }
       if (isTruss(it.type)) {
+        // Tilt (job 389): a truss leans forward / back too.
+        g.rotation.order = "YXZ";
+        g.rotation.x = ((it.tilt || 0) * Math.PI) / 180;
         const tm = trussMat(stateColor(it.id));
         const beam = (len) => new THREE.Mesh(new THREE.BoxGeometry(len, 1, 1), tm);
         const L = it.len * W;
@@ -409,6 +429,7 @@ export default function Stage3D({
       st.memberObjs.push(grp);
       if (m.sings) st.singers.push({ x, z });
     });
+    st.singers.push(...rigSingers);
     if (!st.singers.length) st.singers = st.memberObjs.slice(0, 2).map((o) => ({ x: o.position.x, z: o.position.z }));
 
     // Frame it once, from the house.
