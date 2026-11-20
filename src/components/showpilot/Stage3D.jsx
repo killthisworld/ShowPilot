@@ -166,7 +166,13 @@ export default function Stage3D({
           const sel = cb.current.selIds;
           const base = sel.includes(press.id) ? sel : [press.id];
           // Lights hung on a truss go with it (job 388).
-          press.ids = [...base, ...(cb.current.rig?.items || []).filter((it) => it.on && base.includes(it.on) && !base.includes(it.id)).map((it) => it.id)];
+          const all = cb.current.rig?.items || [];
+          // Lights hung on a truss go with it (job 388); people standing on a
+          // riser ride along with it (job 393).
+          const { W, D, riserUnder } = S.current;
+          const riders = all.filter((it) => it.type === "person" && !base.includes(it.id) && base.includes(riserUnder?.((it.x - 0.5) * W, (it.y - 0.5) * D)));
+          press.ids = [...base, ...all.filter((it) => it.on && base.includes(it.on) && !base.includes(it.id)).map((it) => it.id), ...riders.map((it) => it.id)];
+          press.lift = !all.some((it) => it.type === "riser" && press.ids.includes(it.id)); // people step up onto risers as they go
           press.start = {};
           (cb.current.rig?.items || []).forEach((it) => { if (press.ids.includes(it.id)) press.start[it.id] = [it.x, it.y]; });
           cb.current.onDragStart?.(press.id);
@@ -182,13 +188,17 @@ export default function Stage3D({
           const [sx, sy] = press.start[id] || [0.5, 0.5];
           const x = clamp01(sx + dx), y = clamp01(sy + dy);
           const o = items[id]; // looked up each time: the scene may have been rebuilt
-          if (o) { o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D; }
+          if (o) {
+            o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
+            if (press.lift && o.userData.person) o.position.y = DECK + (S.current.riserTop?.(o.position.x, o.position.z) || 0);
+          }
           return { id, x, y };
         });
       } else {
         const x = clamp01(p[0]), y = clamp01(p[1]);
         const o = S.current.memberObjs.find((g) => g.userData.memberIndex === press.i) || press.obj;
         o.position.x = (x - 0.5) * W; o.position.z = (y - 0.5) * D;
+        o.position.y = DECK + (S.current.riserTop?.(o.position.x, o.position.z) || 0);
         press.at = [x, y];
       }
     };
@@ -203,7 +213,14 @@ export default function Stage3D({
         else cb.current.onMoveMember?.(was.i, was.at[0], was.at[1]);
         return;
       }
-      if (was?.kind === "item" || (was?.kind === "pick" && tap)) { cb.current.onTapItem?.(was.id); return; }
+      if (was?.kind === "item" || (was?.kind === "pick" && tap)) {
+        // With where on the stage it was tapped, so tapping a riser can put
+        // someone there (job 393).
+        toNdc(e);
+        const p = deckXY();
+        cb.current.onTapItem?.(was.id, p?.[0], p?.[1]);
+        return;
+      }
       if (was) return;
       // A tap (not an orbit) on the stage.
       if (tap && cb.current.mode !== "view") {
@@ -333,13 +350,16 @@ export default function Stage3D({
     // Risers (job 392): people standing on one stand on top of it.
     const risers = (rig.items || []).filter((i) => i.type === "riser").map((r) => {
       const [rx, rz] = pos(r.x, r.y);
-      return { rx, rz, a: -((r.rot || 0) * Math.PI) / 180, w: r.rw || 8, d: r.rd || 8, h: r.rh || 1 };
+      return { id: r.id, rx, rz, a: -((r.rot || 0) * Math.PI) / 180, w: r.rw || 8, d: r.rd || 8, h: r.rh || 1 };
     });
-    const riserTop = (wx, wz) => risers.reduce((top, r) => {
+    const onRiser = (r, wx, wz) => {
       const dx = wx - r.rx, dz = wz - r.rz;
       const lx = Math.cos(r.a) * dx - Math.sin(r.a) * dz, lz = Math.sin(r.a) * dx + Math.cos(r.a) * dz;
-      return Math.abs(lx) <= r.w / 2 && Math.abs(lz) <= r.d / 2 ? Math.max(top, r.h) : top;
-    }, 0);
+      return Math.abs(lx) <= r.w / 2 && Math.abs(lz) <= r.d / 2;
+    };
+    const riserTop = (wx, wz) => risers.reduce((top, r) => (onRiser(r, wx, wz) ? Math.max(top, r.h) : top), 0);
+    st.riserTop = riserTop;
+    st.riserUnder = (wx, wz) => risers.filter((r) => onRiser(r, wx, wz)).sort((a, b) => b.h - a.h)[0]?.id || null;
     (rig.items || []).forEach((it) => {
       const [x, z] = pos(it.x, it.y);
       const g = new THREE.Group();
@@ -359,6 +379,7 @@ export default function Stage3D({
       }
       if (it.type === "person") {
         g.position.y += riserTop(x, z);
+        g.userData.person = true;
         // Someone the LD put on the stage (job 389): a figure in their
         // instrument's color, the ring under them green once placed.
         // Job 390: life size, with what they play; their name over their

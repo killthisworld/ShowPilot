@@ -171,7 +171,10 @@ export default function StageBuilder({
   }, []);
 
   // --- Taps and drags from the stage. ---
-  const onTapItem = (id) => {
+  const onTapItem = (id, x, y) => {
+    // Someone in hand, tapped onto a riser: they go up there (job 393).
+    const tapped = items.find((i) => i.id === id);
+    if (moving && sel.length && !sel.includes(id) && tapped && isRiser(tapped.type) && typeof x === "number") return onTapDeck(x, y);
     if (sel.includes(id) && moving) return place(); // tap it again: placed
     if (sel.includes(id)) return sel.length > 1 ? pick([id]) : pick([]);
     pick([id]);
@@ -302,7 +305,7 @@ export default function StageBuilder({
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = rigGroups(rig).filter((g) => g.type !== "person"); // people have their own list
+  const groups = rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser"); // people and risers are listed on their own
   const pickedLabel = one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
@@ -357,7 +360,7 @@ export default function StageBuilder({
             <div className="flex flex-col gap-2 min-w-0">
             {one && (
               <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
-                className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
+                className={`${isPerson(one.type) ? "w-full max-w-[220px]" : ""} min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none`} />
             )}
             {one && isRiser(one.type) && (
               // A riser's size (job 392): width x depth, and how tall.
@@ -374,7 +377,7 @@ export default function StageBuilder({
                 ))}
               </div>
             )}
-            {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
+            {one && isPerson(one.type) && <PartChips small value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
             {one && (isTruss(one.type) || one.type === "led_bar") && (
               <div className="flex items-center gap-2">
                 <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
@@ -666,10 +669,11 @@ function PartIcon({ part, color, size = 26 }) {
   if (!part) return <UserRound className="shrink-0" style={{ width: size, height: size, color: color || "#E5E7EB" }} aria-hidden="true" />;
   return <span aria-hidden="true" className="block shrink-0 [&>svg]:w-full [&>svg]:h-full" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: stageIconSvg(part, color, size) }} />;
 }
-function PartChips({ value, onChange }) {
-  const chip = "w-12 h-12 rounded-[10px] border flex items-center justify-center";
+// Two rows of six (job 393); small in the edit box.
+function PartChips({ value, onChange, small = false }) {
+  const chip = `${small ? "h-10" : "h-12"} w-full rounded-[10px] border flex items-center justify-center`;
   return (
-    <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Plays">
+    <div className="grid grid-cols-6 gap-1.5" style={{ maxWidth: small ? 300 : 360 }} role="group" aria-label="Plays">
       <button type="button" onClick={() => onChange("")} aria-pressed={!value} aria-label="No instrument" title="No instrument" className={chip}
         style={!value ? { background: "#2a2a2a", borderColor: "#E5E7EB" } : { background: "#161616", borderColor: "#333" }}><PartIcon part="" color={!value ? "#fff" : "#9a9a9a"} size={24} /></button>
       {STAGE_POSITIONS.map((p) => (
