@@ -50,6 +50,9 @@ export default function StageBuilder({
   const [moving, setMoving] = useState(false); // the picked ones are in hand (grey)
   const [adding, setAdding] = useState(null); // { type, count } - lights onto a truss
   const [tab, setTab] = useState(startTab); // rig | cues
+  // On a phone the rig side is two short panes, RIG and PEOPLE, so nothing
+  // needs a long scroll; a computer shows both at once (job 401).
+  const [rigPane, setRigPane] = useState("rig");
   const [sheets, setSheets] = useState(() => (acts || []).map((a) => a?.lighting_cues || null));
   const [touchedActs, setTouchedActs] = useState(false);
   const [src, setSrc] = useState(acts && acts.length ? clamp(startAct, 0, acts.length - 1) : "stage");
@@ -426,7 +429,7 @@ export default function StageBuilder({
             </div>
             {/* How it sits: the aim pad, and each move with its value. */}
             <div className="flex items-start gap-3">
-              <div className="grid grid-cols-3 gap-1 shrink-0" style={{ width: 116 }} role="group" aria-label="Aim">
+              <div className="hidden lg:grid grid-cols-3 gap-1 shrink-0" style={{ width: 116 }} role="group" aria-label="Aim">
                 <span />
                 <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt up / upstage" onClick={() => nudge("tilt", trussesPicked ? -15 : -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
                 <span />
@@ -450,10 +453,14 @@ export default function StageBuilder({
     </div>
   );
 
+  // Phone: only the pane that's up, and none while something's picked (its
+  // edit box takes the space). Computer: everything.
+  const pane = (p) => `${!sel.length && rigPane === p ? "flex" : "hidden"} lg:flex flex-col gap-3`;
   const rigPanel = (
     <>
+      <div className={pane("rig")}>
       {/* What's on the stage, by kind: tap a kind to pick them all. */}
-      <div className="rounded-[8px] border p-2.5 flex flex-col gap-2" style={{ background: MA.panel, borderColor: MA.line }}>
+      <div className="lg:rounded-[8px] lg:border lg:p-2.5 flex flex-col gap-1.5 lg:gap-2" style={{ background: "transparent", borderColor: MA.line }}>
         <span className={lbl} style={mono}>ON STAGE</span>
         {groups.length ? (
           <div className="flex flex-wrap gap-1.5">
@@ -472,7 +479,7 @@ export default function StageBuilder({
         <span className={lbl} style={mono}>TRUSS & SCREENS</span>
         <div className="flex flex-wrap gap-1.5">
           {TRUSS_TYPES.map((t) => <button key={t.type} type="button" onClick={() => add(t.type)} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />{t.label}</button>)}
-          <button type="button" onClick={() => add("screen")} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />LED screen</button>
+          <button type="button" onClick={() => add("screen")} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" /><span className="lg:hidden">Screen</span><span className="hidden lg:inline">LED screen</span></button>
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -496,10 +503,11 @@ export default function StageBuilder({
         {/* Risers go on the stage, so they're added here (job 394). */}
         <button type="button" onClick={() => add("riser")} className={key + " ml-1"} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />Riser</button>
       </div>
+      </div>
       {/* People and instruments (jobs 389, 394, 395): one place to add both -
           a person (name, and what they play if anything) or just an
           instrument with no one at it. */}
-      <div className="flex flex-col gap-2">
+      <div className={pane("people").replace("gap-3", "gap-2")}>
         <span className={lbl} style={mono}>PEOPLE & INSTRUMENTS</span>
         <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Add">
           {[[false, "A person"], [true, "Just an instrument"]].map(([alone, label]) => (
@@ -698,7 +706,7 @@ export default function StageBuilder({
         )}
       </div>
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        <div className="relative lg:flex-1 min-h-0 h-[52dvh] lg:h-auto">
+        <div className="relative lg:flex-1 min-h-0 h-[44dvh] [@media(max-height:720px)]:h-[36dvh] lg:h-auto lg:[@media(max-height:720px)]:h-auto shrink-0">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
             <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look}
               mode={tab === "rig" ? "build" : cur && (draft || editing) ? "pick" : "view"}
@@ -723,11 +731,19 @@ export default function StageBuilder({
         </div>
         <div className="lg:w-[380px] shrink-0 flex-1 lg:flex-none min-h-0 overflow-y-auto overscroll-contain p-3 pb-[max(16px,env(safe-area-inset-bottom))] border-t lg:border-t-0 lg:border-l" style={{ borderColor: MA.line, background: "#121212" }}>
           <div className="flex flex-col gap-3">
-            <div className="flex gap-1.5" role="tablist">
-              {[["rig", "RIG"], ["cues", "CUES"]].map(([id, label]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => { setTab(id); if (id === "cues") pick([]); else stopPlay(); }}
-                  className="flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, ...(tab === id ? { background: MA.amber, borderColor: MA.amber, color: "#111" } : keyOff) }}>{label}</button>
-              ))}
+            {/* RIG / PEOPLE / CUES on a phone, RIG / CUES on a computer; it stays
+                at the top as the panel scrolls (job 401). */}
+            <div className="flex gap-1.5 sticky top-0 z-10 -mx-3 -mt-3 px-3 pt-3 pb-2 bg-[#121212]" role="tablist">
+              {[["rig", "RIG", ""], ["people", "PEOPLE", "lg:hidden"], ["cues", "CUES", ""]].map(([id, label, cls]) => {
+                const on = id === "cues" ? tab === "cues" : tab === "rig" && (id === "rig" ? rigPane === "rig" : rigPane === "people");
+                const onWide = id === "rig" ? tab === "rig" : on;
+                return (
+                  <button key={id} type="button" role="tab" aria-selected={on}
+                    onClick={() => { if (id === "cues") { setTab("cues"); pick([]); } else { setTab("rig"); setRigPane(id); pick([]); stopPlay(); } }}
+                    className={`flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em] ${cls} ${on ? "" : onWide ? "lg:!bg-[#FFB400] lg:!border-[#FFB400] lg:!text-[#111]" : ""}`}
+                    style={{ fontFamily: SCENE_MONO, ...(on ? { background: MA.amber, borderColor: MA.amber, color: "#111" } : keyOff) }}>{label}</button>
+                );
+              })}
             </div>
             {tab === "rig" && editBox("panel")}
             {tab === "rig" ? rigPanel : cuesPanel}

@@ -541,7 +541,7 @@ export default function Stage3D({
         const color = it.color || "#ffffff";
         const head = new THREE.Group(); // turns to aim
         const body = new THREE.Mesh(
-          it.type === "led_bar" ? new THREE.BoxGeometry(Math.max(1.5, it.len * W), 0.5, 0.5) : new THREE.CylinderGeometry(0.55, 0.7, 1.1, 14),
+          it.type === "led_bar" ? new THREE.BoxGeometry(Math.max(1.5, it.len * W), 0.3, 0.3) : new THREE.CylinderGeometry(0.3, 0.38, 0.62, 14), // about half the old size (job 401)
           new THREE.MeshStandardMaterial({ color: "#1b1b1b", emissive: new THREE.Color(color), emissiveIntensity: 0.6 })
         );
         // The light itself tips with its tilt and aim, not just its beam
@@ -557,7 +557,7 @@ export default function Stage3D({
         // The cone points down its -Z, so lookAt aims it.
         const cone = new THREE.Mesh(new THREE.ConeGeometry(r, len, 24, 1, true), mat);
         cone.rotation.x = -Math.PI / 2;
-        cone.position.z = len / 2 + 0.45;
+        cone.position.z = len / 2 + 0.3;
         // Beams and their pools can't be clicked: a tap goes through the
         // light to the riser / person / truss under it (job 400).
         cone.raycast = () => {};
@@ -571,8 +571,8 @@ export default function Stage3D({
         pool.position.z = (it.h || 0) * Math.tan(Math.max(-1.3, Math.min(1.3, tilt)));
         if (Math.abs(it.tilt || 0) > 70) pool.visible = false;
         // The mount: green once placed, grey while in hand.
-        const mount = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.35, 1.5), new THREE.MeshBasicMaterial({ color: stateColor(it.id) }));
-        mount.position.y = (it.h || 0) > 0 ? 0.75 : -0.6;
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.8), new THREE.MeshBasicMaterial({ color: stateColor(it.id) }));
+        mount.position.y = (it.h || 0) > 0 ? 0.45 : -0.38;
         g.add(mount);
         g.add(head);
         if ((it.h || 0) > 0 && it.type !== "fog") g.add(pool);
@@ -580,7 +580,7 @@ export default function Stage3D({
         const up = (it.h || 0) === 0 && it.type !== "fog"; // floor lights point up
         if (up) pool.visible = false;
         if (selIds.includes(it.id)) {
-          const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.14, 6, 24), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : PICKED }));
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.1, 6, 24), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : PICKED }));
           ring.rotation.x = Math.PI / 2;
           g.add(ring);
         }
