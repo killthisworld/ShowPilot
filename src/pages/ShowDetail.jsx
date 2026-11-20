@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { rigHasItems } from "@/lib/lightingRig";
 import { cropImage } from "@/lib/cropImage";
 import FxNotesWindow, { ActNotesButton } from "@/components/showpilot/FxNotesWindow";
 import { useEventTracks, ActTracksButton, ActTracksSheet } from "@/components/showpilot/ActTracks";
@@ -6,7 +7,7 @@ import { StagePlotView, StagePlotCard, ActStagePlotButton } from "@/components/s
 import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWindow";
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
-import LdStageCard, { EventStageBuilder } from "@/components/showpilot/LdStageCard";
+import { EventStageBuilder } from "@/components/showpilot/LdStageCard";
 import { StagePlotInbox } from "@/components/showpilot/StagePlotShare";
 import { LdActStage } from "@/components/showpilot/LdStageWindow";
 import { openCueSheetPdf } from "@/lib/cueSheetPdf";
@@ -1176,7 +1177,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             {/* The LD's 3D stage for this event (job 383). */}
             {/* Stage plots audio engineers sent this LD (job 400). */}
             {isLightingAccount && <div className="mb-3"><StagePlotInbox date={show.date} onLoad={loadSentPlot} /></div>}
-            {isLightingAccount && <div className="mb-3"><LdStageCard rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} /></div>}
+            {/* No 3D stage card here (job 431): the LD opens the stage from
+                each act in Performer; an empty one offers their templates. */}
             <VenueInfoFields
               value={show}
               onChange={update}
@@ -1322,7 +1324,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
       )}
       {/* The LD sees the act on the event's 3D stage, cues and all (job 383). */}
       {/* The LD runs the act's cues on the event's stage (job 387). */}
-      {plotAt !== null && isLightingAccount && <EventStageBuilder rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} startAct={plotAt} startTab="cues" onClose={() => setPlotAt(null)} />}
+      {plotAt !== null && isLightingAccount && <EventStageBuilder rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} startAct={plotAt} startTab={rigHasItems(show.lighting_rig || myVenueRig) ? "cues" : "rig"} onClose={() => setPlotAt(null)} />}
       {plotAt !== null && !isLightingAccount && <StagePlotView show={show?.id ? show : null} acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow

@@ -850,6 +850,7 @@ export default function MyTemplates() {
                 // this template, the band to an artist template. It stays
                 // open after saving.
                 saveParts={rt.category === "venue"}
+                offerTemplates={rt.category === "venue"}
                 // Save keeps the 3D stage with the template (job 383) and
                 // renames it if the name changed.
                 onSave={async ({ name: nm, rig: whole, parts, artist }) => {

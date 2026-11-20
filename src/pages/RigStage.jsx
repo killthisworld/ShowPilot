@@ -152,7 +152,7 @@ export default function RigStage() {
       {drawer}
       {open && (open.band
         ? <StageBuilder name={open.name} rig={open.rig} saving={saving} onSave={save} onClose={() => { setOpen(null); reloadBands(); }}
-            title="THE BAND ON STAGE" nameLabel="Artist name (e.g. The Midnight)" />
+            title="THE BAND ON STAGE" nameLabel="Artist name (e.g. The Midnight)" offerTemplates={false} />
         : <StageBuilder name={open.name} rig={open.rig} saving={saving} onSave={save} onClose={() => { setOpen(null); reload(); }} saveParts />)}
       {/* Bottom tabs on a phone, the tech rail on a computer (job 420: it
           was hidden there, leaving an empty strip on the left). */}

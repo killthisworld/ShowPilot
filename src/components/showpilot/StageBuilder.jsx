@@ -10,7 +10,9 @@ import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { normalizeCueSheet } from "@/lib/cueSheet";
 import { useMyStageColors } from "@/components/showpilot/StagePlotView";
 import { actMembers3D } from "@/components/showpilot/LdStageWindow";
-import { useLdBands, isBandItem, isLightsItem } from "@/lib/ldStages";
+import { useLdBands, useLdStages, isBandItem, isLightsItem } from "@/lib/ldStages";
+import RigLayer from "@/components/showpilot/RigLayer";
+import useRigThumbs from "@/components/showpilot/RigThumbs";
 
 const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
 // Job 407: the lighting tech's green throughout (was amber); "amber" kept as
@@ -37,6 +39,7 @@ export default function StageBuilder({
   name: startName = "", rig: start, members = [], acts = null, startAct = 0, startTab = "rig",
   onSave, onClose, saving = false, title = "RIG THE STAGE", nameLabel = "Stage name (e.g. the venue)",
   saveParts = false,
+  offerTemplates = true, // an empty stage offers the LD's saved stages (job 431); not for a band
 }) {
   const [name, setName] = useState(startName);
   const [rig, setRigNow] = useState(() => normalizeRig(start));
@@ -95,6 +98,19 @@ export default function StageBuilder({
   }, []);
 
   const items = rig.items;
+  // An empty stage starts from one of the LD's saved stages, or from
+  // scratch (job 431).
+  const [savedStages] = useLdStages();
+  const [scratch, setScratch] = useState(false);
+  const offering = !rig.items.length && !scratch && offerTemplates && (savedStages || []).some((s) => s.hasRig);
+  const offerList = useMemo(() => (offering ? (savedStages || []).filter((s) => s.hasRig) : []), [offering, savedStages]);
+  const [tplThumbs, tplDrawer] = useRigThumbs(offerList); // their 3D pictures, as on Rig the stage
+  const loadTemplate = (s) => {
+    const t = normalizeRig(s.rig);
+    setRig((r) => ({ ...t, cues: (r.cues || []).length ? r.cues : t.cues }));
+    if (!name.trim() && s.name) setName(s.name);
+    pick([]);
+  };
   // The Save window (job 407): what to save, and the band's artist name.
   const [saveWin, setSaveWin] = useState(null);
   const lastArtist = useRef("");
@@ -809,7 +825,30 @@ export default function StageBuilder({
               selected={tab === "rig" ? sel : cur && (draft || editing) ? curLights : []} moving={moving && tab === "rig" ? sel : []}
               onTapItem={tab === "rig" ? onTapItem : toggleCueLight} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
           </Suspense>
-          {!items.length && <p className="absolute top-3 left-0 right-0 text-center text-white/45 text-[13px] pointer-events-none px-8">An empty stage. Add trusses and fixtures to rig it.</p>}
+          {!items.length && (scratch || !offerTemplates || !(savedStages || []).some((s) => s.hasRig)) && <p className="absolute top-3 left-0 right-0 text-center text-white/45 text-[13px] pointer-events-none px-8">An empty stage. Add trusses and fixtures to rig it.</p>}
+          {/* Empty: load one of your stages, or start from scratch (job 431). */}
+          {!items.length && !scratch && offerTemplates && tab === "rig" && (savedStages || []).some((s) => s.hasRig) && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center p-3 bg-black/55">
+              <div className="w-full max-w-[560px] max-h-full overflow-y-auto rounded-[12px] border p-3 flex flex-col gap-2.5" style={{ background: "#141414", borderColor: "#2f4d1f" }} role="dialog" aria-label="Start the stage">
+                <div>
+                  <div className="text-[10.5px] tracking-[0.18em] font-bold" style={{ fontFamily: SCENE_MONO, color: MA.green }}>EMPTY STAGE</div>
+                  <div className="text-white text-[16px] font-semibold">Load a template, or start from scratch</div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(savedStages || []).filter((s) => s.hasRig).map((s) => (
+                    <button key={s.id} type="button" onClick={() => loadTemplate(s)} className="rounded-[8px] border border-[#2c2c2c] bg-[#1a1a1a] p-1.5 text-left hover:border-[#8CFF3D]/60">
+                      <span className="relative block w-full rounded-[6px] border border-[#333] bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
+                        {tplThumbs[s.id] ? <img src={tplThumbs[s.id]} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <span className="absolute inset-0 opacity-50"><RigLayer rig={s.rig} /></span>}
+                      </span>
+                      <span className="block mt-1.5 px-0.5 text-[13px] font-semibold text-white truncate">{s.name || "Untitled stage"}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setScratch(true)} className="h-11 rounded-[8px] border border-dashed border-[#3a3a3a] text-[13.5px] font-semibold text-white/80 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />Start from scratch</button>
+                {tplDrawer}
+              </div>
+            </div>
+          )}
           {tab === "cues" && playing && (
             <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none overflow-hidden">
               <span key={play.key} aria-hidden="true" className="absolute left-0 top-0 bottom-0" style={{ background: (playing === draft || !isAct ? playing.color : playing.cue.color || playing.song.color) || MA.amber, opacity: 0.3, animation: `sp-cue-fill ${play.secs}s linear forwards` }} />
