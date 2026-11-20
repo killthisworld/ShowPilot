@@ -16,7 +16,8 @@ const speedOk = (v) => Math.min(4, Math.max(0.25, Number(v) || 1));
 export const LOOK_KEYS = [
   { id: "wash", label: "Full wash" },        // all of them up, full
   { id: "spot", label: "Spot the singer" },  // all of them aimed at the singer, full
-  { id: "back", label: "Back light" },       // the ones behind the band full, the rest dark
+  { id: "fanUp", label: "Fan up" },          // aimed up, spread in a fan (job 422; was Back light)
+  { id: "side", label: "Sideways" },         // aimed across the stage, the two sides crossing
   { id: "chase", label: "Chase" },           // one at a time, to the beat
   { id: "fade", label: "Color fade" },       // colors rolling across them
   { id: "strobe", label: "Strobe" },         // all of them flashing
@@ -38,14 +39,15 @@ export function lookFromCue(cue, song = null) {
     bpm: Number(song?.bpm) || 120,
     wash: has(t, "wash", "full", "everything", "all on", "bright"),
     spot: has(t, "spot", "vocal", "singer", "follow"),
-    back: has(t, "back light", "backlight", "silhouette", "upstage"),
+    fanUp: has(t, "fan up", "fan out", "beams up", "sky"),
+    side: has(t, "sideways", "side light", "cross", "across"),
     chase: has(t, "chase", "beat", "pulse", "bounce"),
     fade: has(t, "fade", "rainbow", "cycle", "slow color"),
     strobe: has(t, "strobe", "flash"),
     blackout: has(t, "blackout", "black out", "dark", "lights out"),
   };
   // Nothing we recognise: just bring the stage up in its color.
-  if (!["wash", "spot", "back", "chase", "fade", "strobe", "blackout"].some((k) => look[k])) look.wash = true;
+  if (!["wash", "spot", "fanUp", "side", "chase", "fade", "strobe", "blackout"].some((k) => look[k])) look.wash = true;
   return look;
 }
 

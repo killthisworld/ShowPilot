@@ -351,12 +351,8 @@ export default function Stage3D({
       const runs = looks.map((lk) => {
         const only = lk.only && lk.only.length ? lk.only : null;
         const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
-        // Back light: the cue's lights behind the band (the upstage half of
-        // them); if they're all level, the back row of them.
-        const ys = act.map((f) => f.y);
-        const backEdge = ys.length ? Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) / 2 : 0.5;
         return {
-          L: lk, only, act, n: act.length || 1, backEdge: Math.max(...ys, 0) - Math.min(...ys, 0) < 0.05 ? Infinity : backEdge,
+          L: lk, only, act, n: act.length || 1,
           t: t0 * (lk.speed || 1),
           beat: 60 / Math.max(40, Math.min(220, lk.bpm || 120)),
           rise: lk.fadeIn ? Math.min(1, Math.max(0, (nowS - (lk.startAt || 0)) / lk.fadeIn)) : 1,
@@ -370,7 +366,6 @@ export default function Stage3D({
         if (lk.color) col = lk.color;
         if (lk.fade) { tmp.setHSL(((t / 8) + k / n) % 1, 0.9, 0.55); col = "#" + tmp.getHexString(); }
         let on = 1; // Full wash, Spot the singer, Color fade: all up
-        if (lk.back) on = f.y <= r.backEdge || r.backEdge === Infinity ? 1 : 0;
         // Chase: one light at a time (two across a long row), to the beat.
         if (lk.chase) { const step = Math.floor(t / beat) % n; on = k === step || (n >= 6 && k === (step + Math.floor(n / 2)) % n) ? 1 : 0.06; }
         if (lk.strobe) on = (Math.floor(t * 10) % 2) ? 1 : 0;
@@ -404,6 +399,24 @@ export default function Stage3D({
         f.body.material.emissive.set(col);
         f.body.material.emissiveIntensity = 0.15 + 0.85 * on;
         // Spots / beams find the singers when "Spot on vocals" is up.
+        // Fan up / Sideways (job 422): the cue's lights aimed up in a fan
+        // (spread left to right in order across the stage), or straight
+        // across the stage, each side toward the other so the beams cross.
+        if ((W2?.fanUp || W2?.side) && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
+          const order = [...win.act].sort((a, b2) => (st.items[a.id]?.position.x || 0) - (st.items[b2.id]?.position.x || 0));
+          const kx = order.indexOf(f), nn = order.length;
+          const at = nn > 1 ? kx / (nn - 1) : 0.5; // 0 = stage left .. 1 = stage right
+          f.head.getWorldPosition(f.wp);
+          if (W2.fanUp) {
+            const a = (at - 0.5) * 1.6; // about -45..45 degrees
+            f.mv.set(Math.sin(a), Math.cos(a), 0.3).normalize();
+          } else {
+            const sgn = f.wp.x <= 0 ? 1 : -1; // left side aims right, right aims left
+            f.mv.set(sgn, -0.12, 0.06 * (at - 0.5)).normalize();
+          }
+          f.head.lookAt(f.wp.x + f.mv.x * 20, f.wp.y + f.mv.y * 20, f.wp.z + f.mv.z * 20 + 0.0001);
+          f.pool.material.opacity = 0; // aimed away from the deck
+        } else
         // Spot the singer (job 421): every light in the cue (not LED bars or
         // strobes) aims at the singer - or the front middle if there's none.
         if (W2?.spot && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
