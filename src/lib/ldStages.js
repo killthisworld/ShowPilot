@@ -59,7 +59,7 @@ export function stagePart(rig, { lights = false, band = false, risers = false })
   return { ...r, items: r.items.filter((i) => (lights && isLightsItem(i)) || (band && isBandItem(i)) || (risers && isRiser(i.type))), ...(lights ? {} : { cues: [] }) };
 }
 
-// The LD's bands: artist templates with a band on a 3D stage.
+// The LD's bands: their artist templates (hasRig: a band on a 3D stage).
 export function useLdBands(on = true) {
   const [bands, setBands] = useState(null);
   const load = useCallback(async () => {
@@ -69,7 +69,8 @@ export function useLdBands(on = true) {
     const { data, error } = await supabase.from("saved_templates").select("id, name, data, updated_at")
       .eq("owner_id", user.id).eq("category", "artist").order("updated_at", { ascending: false, nullsFirst: false });
     if (error) { console.error(error); setBands([]); return; }
-    setBands((data || []).filter((t) => rigHasItems(t.data?.lighting_rig)).map((t) => ({ id: t.id, name: t.name || "", rig: normalizeRig(t.data.lighting_rig), updated_at: t.updated_at })));
+    // Every artist template; hasRig marks the ones with a band on a 3D stage.
+    setBands((data || []).map((t) => ({ id: t.id, name: t.name || "", rig: normalizeRig(t.data?.lighting_rig), hasRig: rigHasItems(t.data?.lighting_rig), updated_at: t.updated_at })));
   }, [on]);
   useEffect(() => { load(); }, [load]);
   return [bands, load];

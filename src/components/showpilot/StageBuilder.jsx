@@ -579,10 +579,10 @@ export default function StageBuilder({
           instrument with no one at it. */}
       <div className={pane("people").replace("gap-3", "gap-2")}>
         <span className={lbl} style={mono}>PEOPLE & INSTRUMENTS</span>
-        {saveParts && (savedBands || []).length > 0 && (
+        {saveParts && (savedBands || []).some((b) => b.hasRig) && (
           <div className="flex flex-wrap gap-1.5 items-center">
             <span className="text-[12px] text-white/45">Load a band:</span>
-            {savedBands.map((b) => <button key={b.id} type="button" onClick={() => loadBand(b)} className={key} style={keyOff}><UserRound className="w-3.5 h-3.5 text-white/45" />{b.name}</button>)}
+            {savedBands.filter((b) => b.hasRig).map((b) => <button key={b.id} type="button" onClick={() => loadBand(b)} className={key} style={keyOff}><UserRound className="w-3.5 h-3.5 text-white/45" />{b.name}</button>)}
           </div>
         )}
         <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Add">

@@ -21,7 +21,7 @@ import SettingsDrawer from "@/components/showpilot/SettingsDrawer";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import useIsDesktop from "@/hooks/useIsDesktop";
 import TechConsoleDesk from "@/components/showpilot/TechConsoleDesk";
-import LightingDesk, { PhoneExecutors } from "@/components/showpilot/LightingDesk";
+import LightingDesk, { RigTheStageKey } from "@/components/showpilot/LightingDesk";
 import TechAsksCard from "@/components/showpilot/TechAsksCard";
 import { usePreferences } from "@/hooks/usePreferences";
 import { getAccountTypeStyle, accountTypeOf } from "@/lib/accountTypeStyle";
@@ -684,10 +684,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* This Week: executors for an LD (job 383), tickets for everyone else */}
-      {isLighting ? (
-        <div className="px-4 pt-3 max-w-lg mx-auto"><PhoneExecutors shows={shows} onOpenShow={openShow} /></div>
-      ) : (
+      {/* This Week: tickets, the same for an LD's phone as the audio tech's
+          (job 415; the faders stay on the LD's computer desk). The LD gets
+          RIG THE STAGE above them. */}
+      {isLighting && (
+        <div className="px-4 pt-3 max-w-lg mx-auto"><RigTheStageKey className="w-full justify-center !h-11" /></div>
+      )}
       <div className="px-4 pt-3 max-w-lg mx-auto">
         <div className="bg-[#111] border border-white/25 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -728,7 +730,6 @@ export default function Home() {
           )}
         </div>
       </div>
-      )}
 
       {/* Scene list */}
       <div className="px-4 pt-4 max-w-lg mx-auto">
