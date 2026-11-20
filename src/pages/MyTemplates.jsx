@@ -28,6 +28,7 @@ import RigLayer from "@/components/showpilot/RigLayer";
 import { normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingRig";
 import useRigThumbs from "@/components/showpilot/RigThumbs";
 import { saveLdBand, stagePart, syncIntakeRigs } from "@/lib/ldStages";
+import { keepNamed } from "@/lib/namedTemplates";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -267,6 +268,9 @@ export default function MyTemplates() {
   const writeTemplate = async (t, name, data) => {
     forgetActs();
     if (t.id) {
+      // Named offer / event templates are only changed from the webs and the
+      // Saved templates list (job 434): keep them as they are now.
+      if (["venue", "manager"].includes(t.category)) data = await keepNamed(t.id, data);
       const { error } = await supabase.from("saved_templates").update({ name, data, updated_at: new Date().toISOString() }).eq("id", t.id);
       if (error) throw error;
       setTemplate(t.key, { name, data });

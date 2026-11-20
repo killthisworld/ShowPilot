@@ -6,7 +6,9 @@ import { useAuth } from "@/lib/AuthContext";
 import { saveOffer, sendPackage, counterPackage, loadPackage, packageUrl, OFFER_BLUE } from "@/lib/bookingPackage";
 import { ConfirmDates, BookedBurst } from "@/components/showpilot/BookingConfirm";
 import IntakeKeyWeb, { IntakeSent } from "@/components/showpilot/IntakeKeyWeb";
-import { loadOfferTemplate, saveOfferTemplate } from "@/lib/offerTemplate";
+import { snapshotOf, offerTemplateLine } from "@/lib/offerTemplate";
+import { loadNamed, saveNamed } from "@/lib/namedTemplates";
+import { TemplateChooser, SaveAsTemplate } from "@/components/showpilot/TemplateChooser";
 import OfferDates from "@/components/showpilot/OfferDates";
 import {
   OfferDatesBody, offerDatesDone, OfferDealBody, offerDealDone, OfferRoomBody, offerRoomDone, OfferHospBody, offerHospDone,
@@ -74,11 +76,9 @@ export default function VenueOffer() {
   const [loading, setLoading] = useState(true);
   // The offer template (job 429): new dates start from its times.
   const [tplTimes, setTplTimes] = useState(null);
-  const [fromTpl, setFromTpl] = useState(false);
-  const [savingTpl, setSavingTpl] = useState(false);
-  const [tplMsg, setTplMsg] = useState("");
-  // With an offer template saved, Offer dates first asks: use it, or start
-  // fresh (job 432). tplStart = { offer, t, base } while there's a choice.
+  const [fromTpl, setFromTpl] = useState(""); // the name of the template in use (job 434)
+  // With offer templates saved, Offer dates first asks which one, or start
+  // fresh (job 432; named, job 434). tplStart = { items, t, base }.
   const [tplStart, setTplStart] = useState(null);
   const [choosing, setChoosing] = useState(false);
   const [sending, setSending] = useState(false);
@@ -125,13 +125,12 @@ export default function VenueOffer() {
         // A new offer starts from the venue's offer template when it has one
         // (job 429), else from what its venue template already has.
         try {
-          const { latest, row: offerRow, offer } = await loadOfferTemplate(user.id);
-          const t = fromVenueTemplate((offerRow || latest)?.data);
+          const { row: house, items } = await loadNamed(user.id, "venue", "offer");
+          const t = fromVenueTemplate(house?.data);
           const base = { name: prefs?.display_name || "", photo_url: prefs?.profile_photo_url || "" };
-          if (!gone && offer) {
-            setTplStart({ offer, t, base });
-            setChoosing(true);
-          } else if (!gone) fillFresh(t, base);
+          if (!gone) setTplStart({ items, t, base });
+          if (!gone && items.length) setChoosing(true);
+          else if (!gone) fillFresh(t, base);
         } catch (e) { console.error(e); }
       }
       setLoading(false);
@@ -143,20 +142,21 @@ export default function VenueOffer() {
   const fillFresh = (t, base) => {
     setData({ profile: { ...base, ...pick(t.profile) }, deal: {}, room: { ...t.room }, hosp: { ...t.hosp }, logi: { ...t.logi } });
     setTplTimes(null);
-    setFromTpl(false);
+    setFromTpl("");
   };
   // From the offer template: everything but the dates and who it goes to.
-  const fillFromTemplate = ({ offer, t, base }) => {
+  const fillFromTemplate = (offer, { t, base }) => {
     const o = offer.data || {};
     setData({ deal: {}, ...o, profile: { ...base, ...pick(t.profile), ...pick(o.profile) }, room: { ...t.room, ...(o.room || {}) }, hosp: { ...t.hosp, ...(o.hosp || {}) }, logi: { ...t.logi, ...(o.logi || {}) } });
     setTplTimes(offer.times || null);
-    setFromTpl(true);
+    setFromTpl(offer.name || "");
   };
-  const choose = (useTpl) => {
+  // id: a template's id, or "" to start fresh.
+  const choose = (id) => {
     if (!tplStart) return;
-    if (useTpl) fillFromTemplate(tplStart); else fillFresh(tplStart.t, tplStart.base);
+    const item = tplStart.items.find((x) => x.id === id);
+    if (item) fillFromTemplate(item, tplStart); else fillFresh(tplStart.t, tplStart.base);
     setChoosing(false);
-    setTplMsg("");
   };
 
   const saveNow = async () => {
@@ -226,26 +226,13 @@ export default function VenueOffer() {
     );
   }
 
-  // Offer dates with a saved offer template: use it, or start fresh (job 432).
+  // Offer dates with offer templates saved: pick one, or start fresh (job 432; named, job 434).
   if (choosing && tplStart) {
-    const o = tplStart.offer.data || {};
-    const docs = Array.isArray(o.files) ? o.files.length : 0;
-    const deal = o.deal && Object.values(o.deal).some((v) => has(v));
-    const parts = [deal && "the deal", o.room && Object.values(o.room).some((v) => has(v)) && "the room", o.hosp && Object.values(o.hosp).some((v) => has(v)) && "hospitality", o.logi && Object.values(o.logi).some((v) => has(v)) && "logistics", docs && `${docs} document${docs === 1 ? "" : "s"}`, tplStart.offer.times?.set_time && "your usual times"].filter(Boolean);
-    let saved = "";
-    try { saved = tplStart.offer.saved_at ? new Date(tplStart.offer.saved_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""; } catch { saved = ""; }
     return (
-      <IntakeSent seed="offer" bare>
-        <CalendarDays className="w-14 h-14 mx-auto mb-4" style={{ color: BLUE }} />
-        <h2 className="text-[30px] font-bold mb-2" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Make an offer</h2>
-        <p className="text-white/60 text-[15px]">Start from your offer template and just add the dates and who it goes to, or start a fresh one.</p>
-        <button type="button" onClick={() => choose(true)} className={`mt-6 ${btn} flex-col !gap-0.5 py-2.5`} style={{ background: BLUE, color: "#0d0d0d" }}>
-          <span>Use my offer template</span>
-          {(parts.length > 0 || saved) && <span className="text-[12.5px] font-semibold opacity-75">{[parts.length ? `With ${parts.join(", ")}` : "", saved ? `saved ${saved}` : ""].filter(Boolean).join(" · ")}</span>}
-        </button>
-        <button type="button" onClick={() => choose(false)} className={`mt-3 ${btn} border border-[#333] text-white`}>Start fresh</button>
-        <button type="button" onClick={goBack} className="mt-3 min-h-[44px] text-[14px] text-white/60">Back</button>
-      </IntakeSent>
+      <TemplateChooser seed="offer" icon={CalendarDays} color={BLUE} title="Make an offer"
+        line="Start from one of your offer templates and just add the dates and who it goes to, or start fresh."
+        items={tplStart.items.map((x) => ({ ...x, line: offerTemplateLine(x) }))}
+        onPick={choose} onFresh={() => choose("")} onBack={goBack} />
     );
   }
 
@@ -341,33 +328,20 @@ export default function VenueOffer() {
     );
   }
 
-  // Save as the offer template (job 429): everything but the dates and who
-  // it goes to, so the next offer is just dates and Send to.
-  const saveAsTemplate = async () => {
-    setSavingTpl(true);
-    setTplMsg("");
-    try {
-      const how = await saveOfferTemplate(user.id, data, wants, venueName);
-      const d0 = (wants.dates || [])[0];
-      if (d0) setTplTimes({ set_time: d0.set_time || "", load_in: d0.load_in || "", billing: d0.billing || "" });
-      setTplMsg(how === "created" ? "Saved, with a new venue template in My Templates. Your next offer starts from this." : "Saved. Your next offer starts from this: just add dates and who it goes to.");
-    } catch (e) {
-      console.error(e);
-      setTplMsg(e?.message && !/^[A-Z_]+$/.test(e.message) ? e.message : "Couldn't save it. Try again.");
-    }
-    setSavingTpl(false);
+  // Save as a named offer template (job 429; named, job 434): everything but
+  // the dates and who it goes to, so the next offer is just dates and Send to.
+  const saveAsTemplate = async (name) => {
+    const snap = snapshotOf(data, wants);
+    const { item, how } = await saveNamed(user.id, "venue", "offer", { name, data: snap.data, times: snap.times }, venueName);
+    setTplTimes(snap.times);
+    setFromTpl(item.name);
+    setTplStart((st) => st ? { ...st, items: how === "created" ? [...st.items, item] : st.items.map((x) => (x.id === item.id ? item : x)) } : st);
+    return how === "created" ? `Saved "${item.name}". It's in the list next time you tap Offer dates.` : `Updated "${item.name}".`;
   };
   const belowSend = (
-    <>
-      {fromTpl && !tplMsg && <p className="m-0 text-center text-[12.5px] text-white/50">Filled in from your offer template.</p>}
-      {!fromTpl && tplStart && !dirty.current && (
-        <button type="button" onClick={() => choose(true)} className="min-h-[44px] text-[14px] font-semibold" style={{ color: BLUE }}>Use my offer template instead</button>
-      )}
-      <button type="button" onClick={saveAsTemplate} disabled={savingTpl} className="min-h-[44px] text-[14px] font-semibold disabled:opacity-60" style={{ color: BLUE }}>
-        {savingTpl ? "Saving…" : fromTpl ? "Update my offer template" : "Save as my offer template"}
-      </button>
-      {tplMsg && <p className="m-0 text-center text-[13px] text-white/70">{tplMsg}</p>}
-    </>
+    <SaveAsTemplate color={BLUE} current={fromTpl} names={(tplStart?.items || []).map((x) => x.name)}
+      suggest={(tplStart?.items || []).length ? (actName ? `${actName} offer` : "") : "House offer"}
+      note={fromTpl ? `Filled in from "${fromTpl}".` : ""} onSave={saveAsTemplate} />
   );
 
   return (

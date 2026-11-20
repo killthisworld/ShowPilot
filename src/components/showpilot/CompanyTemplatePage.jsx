@@ -6,6 +6,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { gigFromTemplate, templateFromGig, templateExclude, VENUE_TECH_KEYS } from "@/lib/roleTemplates";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
+import SavedTemplatesList from "@/components/showpilot/SavedTemplatesList";
 import { useAuth } from "@/lib/AuthContext";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { cropImage } from "@/lib/cropImage";
@@ -526,6 +527,9 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     </section>
   );
 
+  // Named offer / event templates on top of this house template (job 434).
+  const savedBlock = <SavedTemplatesList category={role === "venue" ? "venue" : "manager"} kinds={role === "venue" ? ["offer", "event"] : ["event"]} color={ring} desktop={desktop} />;
+
   const progress = (
     <div className="flex items-center gap-3 rounded-[12px] bg-[#151515] border border-[#262626] px-3 py-2.5">
       <div className="flex-1">
@@ -673,6 +677,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
           <div className="flex flex-col gap-4 min-w-0">
             {progress}
             {sectionsBlock}
+            {savedBlock}
           </div>
           <div className="flex flex-col gap-3 min-w-0">
             <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-3">
@@ -697,6 +702,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       {nameInput}
       {progress}
       {sectionsBlock}
+      {savedBlock}
       {sheetEl}
     </div>
   );

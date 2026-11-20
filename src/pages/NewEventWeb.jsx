@@ -6,6 +6,24 @@ import { Clock, MapPin, Music, SlidersHorizontal, Megaphone, FileText, UserPlus,
 import { useAuth } from "@/lib/AuthContext";
 import IntakeKeyWeb, { IntakeSent, useIsDesktop } from "@/components/showpilot/IntakeKeyWeb";
 import TimeSelect from "@/components/showpilot/TimeSelect";
+import { loadNamed, saveNamed } from "@/lib/namedTemplates";
+import { TemplateChooser, SaveAsTemplate } from "@/components/showpilot/TemplateChooser";
+
+// Event templates (job 434): what a Create event web keeps under a name.
+// Not the date, the event name, promo (this show only) or paperwork files.
+const EVENT_KEYS = ["loadIn", "doors", "onStage", "curfew", "crew", "onFile", "people", "acts", "stagePlot", "stagePlotSave"];
+const eventSnapshot = (f) => Object.fromEntries(EVENT_KEYS.filter((k) => f[k] !== undefined && f[k] !== null).map((k) => [k, f[k]]));
+function eventTemplateLine(item) {
+  const d = item?.data || {};
+  const acts = Array.isArray(d.acts) ? d.acts.length : 0;
+  const people = Array.isArray(d.people) ? d.people.length : 0;
+  return [
+    (d.loadIn || d.doors || d.onStage || d.curfew) && "times",
+    acts && (acts === 1 ? d.acts[0].name : `${acts} acts`),
+    d.crew && "sound / lights",
+    people && `${people} co-host${people === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(", ");
+}
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useGoBack } from "@/lib/navHistory";
 import {
@@ -104,6 +122,11 @@ export default function NewEventWeb({ side = "manager" }) {
   const [pilotQuery, setPilotQuery] = useState("");
   const [newAct, setNewAct] = useState("");
   const [copied, setCopied] = useState("");
+  // Event templates (job 434): { items } once looked up; choosing shows the
+  // pick-a-template screen first; fromTpl is the name of the one in use.
+  const [tpl, setTpl] = useState(null);
+  const [choosing, setChoosing] = useState(false);
+  const [fromTpl, setFromTpl] = useState("");
   const promoInput = useRef(null);
   const promoFor = useRef("");
   const paperInput = useRef(null);
@@ -121,8 +144,28 @@ export default function NewEventWeb({ side = "manager" }) {
       // A venue's times start from its template's schedule.
       if (venueSide) { const t = venueTimes(s); setF((cur) => ({ ...cur, loadIn: cur.loadIn || t.loadIn, doors: cur.doors || t.doors, curfew: cur.curfew || t.curfew })); }
     }).catch((e) => { console.error(e); setSrc({ me: {}, managerTpl: null, venueTpl: null, acts: [], pilots: [] }); });
+    loadNamed(user.id, venueSide ? "venue" : "manager", "event").then(({ items }) => {
+      if (gone) return;
+      setTpl({ items });
+      if (items.length) setChoosing(true);
+    }).catch((e) => { console.error(e); setTpl({ items: [] }); });
     return () => { gone = true; };
   }, [user]);
+  const pickTemplate = (id) => {
+    const item = (tpl?.items || []).find((x) => x.id === id);
+    if (item) {
+      const d = item.data || {};
+      setF((cur) => ({ ...cur, ...d, crew: { ...cur.crew, ...(d.crew || {}) }, onFile: { ...(d.onFile || {}) } }));
+      setFromTpl(item.name);
+    }
+    setChoosing(false);
+  };
+  const saveAsTemplate = async (nm) => {
+    const { item, how } = await saveNamed(user.id, venueSide ? "venue" : "manager", "event", { name: nm, data: eventSnapshot(f) }, (src?.me?.display_name || ""));
+    setFromTpl(item.name);
+    setTpl((t) => ({ items: how === "created" ? [...(t?.items || []), item] : (t?.items || []).map((x) => (x.id === item.id ? item : x)) }));
+    return how === "created" ? `Saved "${item.name}". It's in the list next time you make an event.` : `Updated "${item.name}".`;
+  };
 
   const set = (patch) => { setError(""); setF((cur) => ({ ...cur, ...(typeof patch === "function" ? patch(cur) : patch) })); };
   const setVenue = (patch) => set((cur) => ({ venue: { ...cur.venue, ...patch } }));
@@ -173,10 +216,12 @@ export default function NewEventWeb({ side = "manager" }) {
   // simply on; with none or several, who's playing is picked here.
   const pickAct = !venueSide && sources.acts.length !== 1;
   const showBody = () => (
-    <div className="flex flex-col gap-4">
+    // With the act picker, two columns on a computer (job 434).
+    <div className={pickAct && desktop ? "grid grid-cols-2 gap-6 items-start" : "flex flex-col gap-4"}>
       {pickAct && (
         <div className="pb-1">{actBody()}</div>
       )}
+      <div className="flex flex-col gap-4 min-w-0">
       {/* Set the date if it's settled, or ask for one (months, nights, a note) like a booking package; job 329. */}
       <div className="grid grid-cols-2 gap-2" role="group" aria-label="Date">
         <Choice on={f.dateMode !== "request"} color={ACCENT} onClick={() => set({ dateMode: "set" })}>Set the date</Choice>
@@ -194,7 +239,8 @@ export default function NewEventWeb({ side = "manager" }) {
         <>
           {/* Fits the window without scrolling (job 429): date and name side by
               side on a computer, each time on one line with its label. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={desktop && !pickAct ? "grid grid-cols-2 gap-6 items-start" : "flex flex-col gap-4"}>
+          <div className={desktop && !pickAct ? "flex flex-col gap-3" : "grid grid-cols-1 sm:grid-cols-2 gap-3"}>
             <label className="min-w-0"><span className={lab}>DATE</span>
               <input type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} className={`${inputCls} [color-scheme:dark]`} />
             </label>
@@ -204,27 +250,41 @@ export default function NewEventWeb({ side = "manager" }) {
           </div>
           <div className="flex flex-col gap-2">
             {[["LOAD-IN", "loadIn"], ["DOORS", "doors"], ["SHOW STARTS", "onStage"], ...(venueSide ? [["CURFEW", "curfew"]] : [])].map(([l, k]) => (
-              <div key={k} className="flex items-center gap-3">
+              <div key={k} className="flex items-center gap-3 min-w-0">
                 <span className={lab + " mb-0 w-[100px] shrink-0 whitespace-nowrap"}>{l}</span>
                 <TimeSelect value={f[k]} onChange={(v) => set({ [k]: v })} color={ACCENT} label={`${l.toLowerCase()} time`} />
               </div>
             ))}
           </div>
+          </div>
           <p className={note}>{firstAct?.name ? `Show starts is ${firstAct.name}'s set time. ` : ""}{venueSide ? `Times start from My Template${house?.name ? ` (${house.name})` : ""}.` : "The venue can change these once they're in."}</p>
         </>
       )}
+      </div>
     </div>
   );
 
+  const inviteVenue = (
+    <div className="flex items-center gap-3 rounded-[12px] border border-[#2a2a2a] bg-[#101010] pl-3">
+      <span className="flex-1 min-w-0 py-2">
+        <span className="block text-[14.5px] font-semibold">Invite them to the event</span>
+        <span className="block text-[12.5px] text-white/55">You'll get their link to text or email when you create it.</span>
+      </span>
+      <Toggle on={f.venue.invite} label="Invite the venue" onClick={() => setVenue({ invite: !f.venue.invite })} />
+    </div>
+  );
   const pilotMatches = sources.pilots.filter((p) => !pilotQuery.trim() || `${p.display_name} ${p.job_title}`.toLowerCase().includes(pilotQuery.trim().toLowerCase()));
   const venueBody = () => (
-    <div className="flex flex-col gap-4">
+    <div className={desktop && sources.pilots.length > 0 ? "grid grid-cols-2 gap-6 items-start" : "flex flex-col gap-4"}>
+      <div className="flex flex-col gap-4 min-w-0">
       <label><span className={lab}>VENUE</span>
         <input value={f.venue.name} onChange={(e) => setVenue({ name: e.target.value, pilotId: null })} placeholder="Clown House" autoComplete="organization" className={inputCls} />
       </label>
       <div className="grid grid-cols-[1fr_96px] gap-3">
         <label><span className={lab}>CITY</span><input value={f.venue.city} onChange={(e) => setVenue({ city: e.target.value })} placeholder="Nashville" className={inputCls} /></label>
         <label><span className={lab}>STATE</span><input value={f.venue.state} onChange={(e) => setVenue({ state: e.target.value })} placeholder="TN" className={inputCls} /></label>
+      </div>
+      {inviteVenue}
       </div>
       {sources.pilots.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -237,13 +297,6 @@ export default function NewEventWeb({ side = "manager" }) {
           </div>
         </div>
       )}
-      <div className="flex items-center gap-3 rounded-[12px] border border-[#2a2a2a] bg-[#101010] pl-3">
-        <span className="flex-1 min-w-0 py-2">
-          <span className="block text-[14.5px] font-semibold">Invite them to the event</span>
-          <span className="block text-[12.5px] text-white/55">You'll get their link to text or email when you create it.</span>
-        </span>
-        <Toggle on={f.venue.invite} label="Invite the venue" onClick={() => setVenue({ invite: !f.venue.invite })} />
-      </div>
     </div>
   );
 
@@ -297,8 +350,9 @@ export default function NewEventWeb({ side = "manager" }) {
     </div>
   );
 
+  // Side by side on a computer, so the window doesn't scroll (job 434).
   const crewBody = () => (
-    <div className="flex flex-col gap-5">
+    <div className={desktop ? "grid grid-cols-2 gap-5 items-start" : "flex flex-col gap-5"}>
       {[["sound", "SOUND", "soundPilot", "engineer"], ["lights", "LIGHTS", "lightsPilot", "LD"]].map(([k, title, pk, who]) => (
         <div key={k} className="flex flex-col gap-2">
           <span className={lab + " mb-0"}>{title}</span>
@@ -405,7 +459,9 @@ export default function NewEventWeb({ side = "manager" }) {
   const promoLinks = Array.isArray(f.promo.links) && f.promo.links.length ? f.promo.links : [{ kind: "", url: "" }];
   const setLink = (i, patch) => setPromo({ links: promoLinks.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const promoBody = () => (
-    <div className="flex flex-col gap-4">
+    // Graphics left, links right on a computer (job 434).
+    <div className={desktop ? "grid grid-cols-2 gap-6 items-start" : "flex flex-col gap-4"}>
+      <div className="flex flex-col gap-4 min-w-0">
       <span className={lab + " mb-0"}>WHAT SIZES DID YOU MAKE?</span>
       <div className="flex flex-wrap gap-2">
         {PROMO_FORMATS.map((p) => {
@@ -447,6 +503,8 @@ export default function NewEventWeb({ side = "manager" }) {
           })}
         </div>
       )}
+      </div>
+      <div className="flex flex-col gap-4 min-w-0">
       {/* Links (job 429): as many as you have, each with its platform. */}
       <div className="flex flex-col gap-2">
         <span className={lab + " mb-0"}>LINKS</span>
@@ -463,6 +521,7 @@ export default function NewEventWeb({ side = "manager" }) {
         <button type="button" onClick={() => setPromo({ links: [...promoLinks, { kind: "", url: "" }] })} className="self-start min-h-[44px] px-3.5 rounded-[10px] border border-dashed border-[#444] text-[14px] font-semibold flex items-center gap-1.5" style={{ color: ACCENT }}><Plus className="w-4 h-4" />Add a link</button>
       </div>
       <p className={note}>Skip any of it now and add it later. Everyone on the event sees the update.</p>
+      </div>
     </div>
   );
 
@@ -636,6 +695,16 @@ export default function NewEventWeb({ side = "manager" }) {
     return <div className="min-h-screen bg-[#05060d] flex items-center justify-center"><div className="w-6 h-6 border-2 border-[#F87171]/30 border-t-[#F87171] rounded-full animate-spin" /></div>;
   }
 
+  // Event templates saved: pick one, or start fresh (job 434).
+  if (choosing && tpl?.items?.length) {
+    return (
+      <TemplateChooser seed={user?.id || "new-event"} icon={Clock} color={ACCENT} title="New event"
+        line="Start from one of your event templates and just add the date, or start fresh."
+        items={tpl.items.map((x) => ({ ...x, line: eventTemplateLine(x) }))}
+        onPick={pickTemplate} onFresh={() => pickTemplate("")} onBack={() => goBack()} />
+    );
+  }
+
   // ---------- made: hand over the invite links ----------
   if (made && !sent) {
     const token = made.show.share_token;
@@ -682,6 +751,7 @@ export default function NewEventWeb({ side = "manager" }) {
     <>
       {hiddenInputs}
       <IntakeKeyWeb
+        fill // the whole desktop width, like the booking webs (job 433)
         startOpen
         color={ACCENT}
         seed={user?.id || "new-event"}
@@ -694,6 +764,11 @@ export default function NewEventWeb({ side = "manager" }) {
         canSend={dateSettled(f) && (venueSide || f.acts.length > 0)}
         sending={sending}
         sendLabel="Create event"
+        belowSend={tpl ? (
+          <SaveAsTemplate color={ACCENT} current={fromTpl} names={tpl.items.map((x) => x.name)}
+            suggest={tpl.items.length ? (firstAct?.name || "") : venueSide ? "House night" : (firstAct?.name || "My usual show")}
+            note={fromTpl ? `Filled in from "${fromTpl}".` : ""} onSave={saveAsTemplate} />
+        ) : null}
         error={error}
         sent={sent}
         onSentOff={() => setSent(false)}
