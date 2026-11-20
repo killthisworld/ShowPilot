@@ -399,10 +399,11 @@ export default function Stage3D({
         f.body.material.emissive.set(col);
         f.body.material.emissiveIntensity = 0.15 + 0.85 * on;
         // Spots / beams find the singers when "Spot on vocals" is up.
-        // Fan up / Sideways motions (job 424): the cue's lights aimed up in a
-        // fan that opens and closes (spread left to right in stage order),
-        // or aimed across the stage, each side toward the other, swinging so
-        // the beams cross and uncross.
+        // Fan up / Sideways motions (jobs 424, 425). Fan up: the cue's lights
+        // start pointed at the stage floor and tilt up through the room to
+        // the roof and back, spread in a fan left to right (stage order).
+        // Sideways: they face straight ahead (out at the audience) and pan
+        // side to side together.
         if ((W2?.motion === "fanup" || W2?.motion === "sideways") && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
           const order = [...win.act].sort((a, b2) => (st.items[a.id]?.position.x || 0) - (st.items[b2.id]?.position.x || 0));
           const kx = order.indexOf(f), nn = order.length;
@@ -410,12 +411,13 @@ export default function Stage3D({
           const w = Math.PI * 0.5 * t; // a cycle every 4 s at x1
           f.head.getWorldPosition(f.wp);
           if (W2.motion === "fanup") {
-            const a = (at - 0.5) * 1.7 * (0.15 + 0.85 * (0.5 + 0.5 * Math.sin(w))); // closed .. about +-48 degrees
-            f.mv.set(Math.sin(a), Math.cos(a), 0.3).normalize();
+            const rise = 0.5 - 0.5 * Math.cos(w); // 0 at the floor .. 1 up
+            const e = -Math.PI / 2 + rise * (Math.PI / 2 + 1.25); // straight down .. about 70 degrees up
+            const a = (at - 0.5) * 1.4 * rise; // the fan opens as it rises
+            f.mv.set(Math.cos(e) * Math.sin(a), Math.sin(e), Math.cos(e) * Math.cos(a) + 0.0001).normalize();
           } else {
-            const sgn = f.wp.x <= 0 ? 1 : -1; // left side aims right, right aims left
-            const yaw = 0.55 * Math.sin(w + at * Math.PI); // swings upstage / downstage
-            f.mv.set(sgn * Math.cos(yaw), -0.12, Math.sin(yaw)).normalize();
+            const yaw = 0.7 * Math.sin(w); // about 40 degrees each way
+            f.mv.set(Math.sin(yaw), -0.08, Math.cos(yaw)).normalize();
           }
           f.head.lookAt(f.wp.x + f.mv.x * 20, f.wp.y + f.mv.y * 20, f.wp.z + f.mv.z * 20 + 0.0001);
           f.pool.material.opacity = 0; // aimed away from the deck
