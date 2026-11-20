@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { createPortal } from "react-dom";
 import { Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
-import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
+import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
 import { STAGE_POSITIONS } from "@/lib/stagePositions";
 import { stageIconSvg } from "@/lib/stageIcons";
@@ -72,8 +72,11 @@ export default function StageBuilder({
   const picked = useMemo(() => items.filter((i) => sel.includes(i.id)), [items, sel]);
   const one = picked.length === 1 ? picked[0] : null;
   const lights = picked.filter((i) => isLight(i.type));
-  const aimable = picked.filter((i) => !isPerson(i.type) && !isRiser(i.type)); // tilt and height
+  const aimable = picked.filter((i) => !isPerson(i.type) && !isRiser(i.type) && !isInstrument(i.type)); // tilt and height
   const people = items.filter((i) => isPerson(i.type));
+  const gear = items.filter((i) => isInstrument(i.type)); // instruments with no one at them (job 394)
+  const partLabel = (part) => STAGE_POSITIONS.find((p) => p.key === part)?.label || "Instrument";
+  const addInstrument = (part) => addItems([{ ...newRigItem("instrument", rig), x: 0.7, y: 0.6, part, color: partColor(part) }]);
   const partColor = (part) => STAGE_POSITIONS.find((p) => p.key === part)?.color || "#E5E7EB";
   // Someone on the stage (job 389): Bob on drums, or just Bob.
   const addPerson = () => {
@@ -305,8 +308,8 @@ export default function StageBuilder({
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
   const mono = { fontFamily: SCENE_MONO, color: MA.amber };
-  const groups = rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser"); // people and risers are listed on their own
-  const pickedLabel = one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
+  const groups = rigGroups(rig).filter((g) => g.type !== "person" && g.type !== "riser" && g.type !== "instrument"); // listed on their own
+  const pickedLabel = one && isInstrument(one.type) ? `${partLabel(one.part)} · no one at it` : one ? `${rigTypeLabel(one.type)}${isTruss(one.type) ? " truss" : ""}${one.label ? ` · ${one.label}` : ""}`
     : (() => { const g = rigGroups({ items: picked }); return g.map((x) => `${x.ids.length} ${x.label}${x.ids.length > 1 ? (x.type === "truss" ? "es" : "s") : ""}`).join(" + "); })();
 
   const tiltShown = aimable.length && aimable.every((l) => l.tilt === aimable[0].tilt) ? `${aimable[0].tilt}°` : "±";
@@ -359,7 +362,7 @@ export default function StageBuilder({
             </div>
             <div className="flex flex-col gap-2 min-w-0">
             {one && (
-              <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
+              <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : isInstrument(one.type) ? "Label (e.g. spare synth)" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
                 className={`${isPerson(one.type) ? "w-full max-w-[220px]" : ""} min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none`} />
             )}
             {one && isRiser(one.type) && (
@@ -377,7 +380,7 @@ export default function StageBuilder({
                 ))}
               </div>
             )}
-            {one && isPerson(one.type) && <PartChips small value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
+            {one && (isPerson(one.type) || isInstrument(one.type)) && <PartChips small noNone={isInstrument(one.type)} value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
             {one && (isTruss(one.type) || one.type === "led_bar") && (
               <div className="flex items-center gap-2">
                 <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
@@ -443,12 +446,6 @@ export default function StageBuilder({
         ) : <p className="text-white/40 text-[12.5px]">Nothing rigged yet.</p>}
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className={lbl} style={mono}>RISERS</span>
-        <div className="flex flex-wrap gap-1.5">
-          <button type="button" onClick={() => add("riser")} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />Riser</button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-1.5">
         <span className={lbl} style={mono}>TRUSS</span>
         <div className="flex flex-wrap gap-1.5">
           {TRUSS_TYPES.map((t) => <button key={t.type} type="button" onClick={() => add(t.type)} className={key} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />{t.label}</button>)}
@@ -467,11 +464,13 @@ export default function StageBuilder({
       <div className="flex items-center gap-2 flex-wrap">
         <span className={lbl} style={mono}>STAGE</span>
         <input type="number" inputMode="numeric" min="8" max="200" value={rig.width_ft} onChange={(e) => setRig((r) => ({ ...r, width_ft: clamp(Number(e.target.value) || 8, 8, 200) }))} aria-label="Stage width in feet"
-          className="w-16 min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2 text-[14px] text-white text-center" />
-        <span className="text-white/45 text-[12.5px]">ft wide ×</span>
+          className="w-14 min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2 text-[14px] text-white text-center" />
+        <span className="text-white/45 text-[12.5px]">×</span>
         <input type="number" inputMode="numeric" min="6" max="150" value={rig.depth_ft} onChange={(e) => setRig((r) => ({ ...r, depth_ft: clamp(Number(e.target.value) || 6, 6, 150) }))} aria-label="Stage depth in feet"
-          className="w-16 min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2 text-[14px] text-white text-center" />
-        <span className="text-white/45 text-[12.5px]">ft deep</span>
+          className="w-14 min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2 text-[14px] text-white text-center" />
+        <span className="text-white/45 text-[12.5px]">ft</span>
+        {/* Risers go on the stage, so they're added here (job 394). */}
+        <button type="button" onClick={() => add("riser")} className={key + " ml-1"} style={keyOff}><Plus className="w-3.5 h-3.5 text-white/45" />Riser</button>
       </div>
       {/* People on the stage (job 389): a name, and what they play if anything. */}
       <div className="flex flex-col gap-2">
@@ -491,6 +490,29 @@ export default function StageBuilder({
                 className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1" style={sel.includes(p.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a" }}>
                 <PartIcon part={p.part} color={p.color} size={28} />
                 <span className="w-full text-center text-[11.5px] font-semibold text-white truncate">{p.label || "Someone"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Instruments with no one at them (job 394): a synth off to the side,
+          a spare guitar on a stand, a mic for whoever steps up. */}
+      <div className="flex flex-col gap-2">
+        <span className={lbl} style={mono}>INSTRUMENTS</span>
+        <span className="text-[11.5px] text-white/45 -mt-1">On their own, no one at them. Tap one to add it, then put it on the deck or a riser.</span>
+        <div className="grid grid-cols-6 gap-1.5" style={{ maxWidth: 360 }}>
+          {STAGE_POSITIONS.map((p) => (
+            <button key={p.key} type="button" onClick={() => addInstrument(p.key)} aria-label={`Add ${p.label.toLowerCase()} on its own`} title={p.label}
+              className="h-12 w-full rounded-[10px] border flex items-center justify-center" style={{ background: "#161616", borderColor: "#333" }}><PartIcon part={p.key} color={p.color} size={30} /></button>
+          ))}
+        </div>
+        {gear.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {gear.map((g) => (
+              <button key={g.id} type="button" onClick={() => pick([g.id])} aria-pressed={sel.includes(g.id)} aria-label={g.label || partLabel(g.part)}
+                className="w-[68px] h-[68px] rounded-[8px] border flex flex-col items-center justify-center gap-1 px-1" style={sel.includes(g.id) ? keyOn : { background: "#1b1b1b", borderColor: "#2a2a2a", borderStyle: "dashed" }}>
+                <PartIcon part={g.part} color={g.color} size={28} />
+                <span className="w-full text-center text-[11px] font-semibold text-white/80 truncate">{g.label || partLabel(g.part)}</span>
               </button>
             ))}
           </div>
@@ -670,12 +692,12 @@ function PartIcon({ part, color, size = 26 }) {
   return <span aria-hidden="true" className="block shrink-0 [&>svg]:w-full [&>svg]:h-full" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: stageIconSvg(part, color, size) }} />;
 }
 // Two rows of six (job 393); small in the edit box.
-function PartChips({ value, onChange, small = false }) {
+function PartChips({ value, onChange, small = false, noNone = false }) {
   const chip = `${small ? "h-10" : "h-12"} w-full rounded-[10px] border flex items-center justify-center`;
   return (
     <div className="grid grid-cols-6 gap-1.5" style={{ maxWidth: small ? 300 : 360 }} role="group" aria-label="Plays">
-      <button type="button" onClick={() => onChange("")} aria-pressed={!value} aria-label="No instrument" title="No instrument" className={chip}
-        style={!value ? { background: "#2a2a2a", borderColor: "#E5E7EB" } : { background: "#161616", borderColor: "#333" }}><PartIcon part="" color={!value ? "#fff" : "#9a9a9a"} size={24} /></button>
+      {!noNone && <button type="button" onClick={() => onChange("")} aria-pressed={!value} aria-label="No instrument" title="No instrument" className={chip}
+        style={!value ? { background: "#2a2a2a", borderColor: "#E5E7EB" } : { background: "#161616", borderColor: "#333" }}><PartIcon part="" color={!value ? "#fff" : "#9a9a9a"} size={24} /></button>}
       {STAGE_POSITIONS.map((p) => (
         <button key={p.key} type="button" onClick={() => onChange(p.key)} aria-pressed={value === p.key} aria-label={p.label} title={p.label} className={chip}
           style={value === p.key ? { background: p.color + "33", borderColor: p.color } : { background: "#161616", borderColor: "#333" }}><PartIcon part={p.key} color={p.color} size={30} /></button>

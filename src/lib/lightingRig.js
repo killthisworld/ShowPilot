@@ -40,9 +40,11 @@ export const isTruss = (t) => String(t || "").startsWith("truss_");
 export const isPerson = (t) => t === "person";
 // Risers (job 392): { type: "riser", rw, rd, rh } - width, depth, height in feet.
 export const isRiser = (t) => t === "riser";
-export const isLight = (t) => !isTruss(t) && !isPerson(t) && !isRiser(t);
+// An instrument on its own, no one at it (job 394): { type: "instrument", part }.
+export const isInstrument = (t) => t === "instrument";
+export const isLight = (t) => !isTruss(t) && !isPerson(t) && !isRiser(t) && !isInstrument(t);
 export const fixtureInfo = (t) => FIXTURE_TYPES.find((f) => f.type === t) || null;
-export const rigTypeLabel = (t) => (t === "person" ? "Person" : t === "riser" ? "Riser" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
+export const rigTypeLabel = (t) => (t === "person" ? "Person" : t === "riser" ? "Riser" : t === "instrument" ? "Instrument" : null) || (TRUSS_TYPES.find((x) => x.type === t) || FIXTURE_TYPES.find((x) => x.type === t) || { label: "Item" }).label;
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -71,7 +73,7 @@ export function normalizeRig(r) {
       ...(i.type === "riser" ? { rw: clamp(Number(i.rw) || 8, 1, 60), rd: clamp(Number(i.rd) || 8, 1, 60), rh: clamp(Number(i.rh) || 1, 0.25, 10) } : {}),
       ...(i.on ? { on: String(i.on) } : {}),
       // part: a stage plot position key (older ones were saved by label).
-      ...(i.type === "person" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),
+      ...(i.type === "person" || i.type === "instrument" ? { part: (STAGE_POSITIONS.find((p) => p.key === i.part || p.label === i.part) || {}).key || "" } : {}),
     })),
     cues: normalizeStageCues(r.cues),
   };
@@ -92,7 +94,7 @@ export function newRigItem(type, rig) {
     y: truss ? clamp(0.22 + (n % 4) * 0.16, 0.1, 0.9) : clamp(0.22 + Math.floor(n / 7) * 0.16, 0.1, 0.9),
     rot: 0,
     len: type === "truss_straight" ? 0.7 : type === "truss_box" ? 0.5 : type === "truss_circle" ? 0.35 : 0.1,
-    h: truss ? 18 : type === "fog" || type === "person" || type === "riser" ? 0 : 18,
+    h: truss ? 18 : type === "fog" || type === "person" || type === "riser" || type === "instrument" ? 0 : 18,
     ...(type === "riser" ? { rw: 8, rd: 8, rh: 1 } : {}),
     color: fixtureInfo(type)?.color || "#FFFFFF",
     label: "",

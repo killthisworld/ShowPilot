@@ -101,7 +101,7 @@ function guitarBody(scale) {
   shape.splineThru(pts.slice(1));
   return shape;
 }
-function stringed(c, { bass = false } = {}) {
+function stringed(c, { bass = false, alone = false } = {}) {
   const g = new THREE.Group();
   const held = new THREE.Group();
   const sc = bass ? 1.0 : 0.88;
@@ -140,6 +140,16 @@ function stringed(c, { bass = false } = {}) {
     pts.push(new THREE.Vector3(-0.48 * sc, y, face + 0.05), new THREE.Vector3(x0 + neckLen, y, thick / 2 + 0.115));
   }
   held.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: "#e8e8e8" })));
+  if (alone) {
+    // On a guitar stand: upright, leaning back a little, on an A-frame.
+    held.position.set(0, 0.95 * sc, 0.6);
+    held.rotation.set(-0.18, 0, Math.PI / 2);
+    g.add(held);
+    g.add(rod(V(-0.35, 0.02, 0.85), V(0, 0.75, 0.6), 0.03, black));
+    g.add(rod(V(0.35, 0.02, 0.85), V(0, 0.75, 0.6), 0.03, black));
+    g.add(rod(V(0, 0.02, 0.2), V(0, 1.9, 0.42), 0.03, black));
+    return g;
+  }
   // Slung across the body: low at the right hip, the neck up to their left.
   held.position.set(-0.1, 2.05, 0.28);
   held.rotation.z = 0.42;
@@ -233,16 +243,26 @@ export function personFigure(color, { emissive = 0.12, seated = false } = {}) {
 }
 export const PERSON_TOP = 4.0; // ft, the top of their head
 
-export function instrumentProp(part, color, sings = false) {
+// alone (job 394): no one at it - a guitar / bass / horn stands on a stand.
+export function instrumentProp(part, color, sings = false, { alone = false } = {}) {
   const c = color || "#cccccc";
   const g = new THREE.Group();
   const p = String(part || "").toLowerCase();
   if (p === "drums") g.add(drums(c));
   else if (p === "percussion") g.add(percussion(c));
-  else if (p === "guitar") g.add(stringed(c));
-  else if (p === "bass") g.add(stringed(c, { bass: true }));
+  else if (p === "guitar") g.add(stringed(c, { alone }));
+  else if (p === "bass") g.add(stringed(c, { bass: true, alone }));
   else if (p === "keys") g.add(keys(c));
-  else if (p === "horns") g.add(horns(c));
+  else if (p === "horns") {
+    const h = horns(c);
+    if (alone) {
+      // Set down on a horn stand.
+      h.position.y = -1.0;
+      const black = std("#151515", { metalness: 0.5 });
+      for (let k = 0; k < 3; k++) { const a = (k / 3) * Math.PI * 2; g.add(rod(V(0.4, 0.45, 0.8), V(0.4 + Math.cos(a) * 0.35, 0.02, 0.8 + Math.sin(a) * 0.35), 0.025, black)); }
+    }
+    g.add(h);
+  }
   else if (p === "strings") g.add(cello(c));
   else if (p === "dj") g.add(dj(c));
   if (isSeated(p)) g.add(stool(personOffset(p)));

@@ -68,6 +68,8 @@ function Fixture({ it }) {
       const L = Math.max(16, it.len * RIG_W);
       return (<g><rect x={-L / 2} y="-3.5" width={L} height="7" rx="2" fill="#111" stroke={c} strokeWidth="1.6" /><line x1={-L / 2 + 4} y1="0" x2={L / 2 - 4} y2="0" stroke={c} strokeWidth="2" strokeDasharray="3 3" /></g>);
     }
+    case "instrument": // an instrument on its own (job 394)
+      return (<g><rect x="-8" y="-8" width="16" height="16" rx="3" fill="#111" stroke={c} strokeWidth="2" /><circle r="3" fill={c} /></g>);
     case "person": // someone standing there (job 389)
       return (<g><circle r="9" fill={c} opacity="0.9" /><circle r="9" fill="none" stroke="#111" strokeWidth="1.2" /></g>);
     case "fog":

@@ -170,7 +170,7 @@ export default function Stage3D({
           // Lights hung on a truss go with it (job 388); people standing on a
           // riser ride along with it (job 393).
           const { W, D, riserUnder } = S.current;
-          const riders = all.filter((it) => it.type === "person" && !base.includes(it.id) && base.includes(riserUnder?.((it.x - 0.5) * W, (it.y - 0.5) * D)));
+          const riders = all.filter((it) => (it.type === "person" || it.type === "instrument") && !base.includes(it.id) && base.includes(riserUnder?.((it.x - 0.5) * W, (it.y - 0.5) * D)));
           press.ids = [...base, ...all.filter((it) => it.on && base.includes(it.on) && !base.includes(it.id)).map((it) => it.id), ...riders.map((it) => it.id)];
           press.lift = !all.some((it) => it.type === "riser" && press.ids.includes(it.id)); // people step up onto risers as they go
           press.start = {};
@@ -373,6 +373,18 @@ export default function Stage3D({
         const edge = new THREE.LineSegments(new THREE.EdgesGeometry(top.geometry), new THREE.LineBasicMaterial({ color: stateColor(it.id) }));
         edge.position.y = h / 2;
         g.add(top, edge);
+        world.add(g);
+        st.items[it.id] = g;
+        return;
+      }
+      if (it.type === "instrument") {
+        // An instrument with no one at it (job 394): on the deck or a riser.
+        g.position.y += riserTop(x, z);
+        g.userData.person = true; // steps up onto risers like people do
+        const c = it.color || "#cccccc";
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(1.2, selIds.includes(it.id) ? 0.12 : 0.06, 6, 32), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : stateColor(it.id) }));
+        ring.rotation.x = Math.PI / 2; ring.position.set(0, 0.06, 0.6);
+        g.add(instrumentProp(it.part, c, false, { alone: true }), ring);
         world.add(g);
         st.items[it.id] = g;
         return;
