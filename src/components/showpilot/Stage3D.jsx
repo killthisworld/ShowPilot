@@ -353,7 +353,9 @@ export default function Stage3D({
         const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
         return {
           L: lk, only, act, n: act.length || 1,
-          t: t0 * (lk.speed || 1),
+          // Time since the cue started (job 426), so its motion, chase and
+          // fade begin from the top - Fan up from the stage floor.
+          t: Math.max(0, nowS - (lk.startAt ?? nowS)) * (lk.speed || 1),
           beat: 60 / Math.max(40, Math.min(220, lk.bpm || 120)),
           rise: lk.fadeIn ? Math.min(1, Math.max(0, (nowS - (lk.startAt || 0)) / lk.fadeIn)) : 1,
         };
