@@ -399,20 +399,23 @@ export default function Stage3D({
         f.body.material.emissive.set(col);
         f.body.material.emissiveIntensity = 0.15 + 0.85 * on;
         // Spots / beams find the singers when "Spot on vocals" is up.
-        // Fan up / Sideways (job 422): the cue's lights aimed up in a fan
-        // (spread left to right in order across the stage), or straight
-        // across the stage, each side toward the other so the beams cross.
-        if ((W2?.fanUp || W2?.side) && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
+        // Fan up / Sideways motions (job 424): the cue's lights aimed up in a
+        // fan that opens and closes (spread left to right in stage order),
+        // or aimed across the stage, each side toward the other, swinging so
+        // the beams cross and uncross.
+        if ((W2?.motion === "fanup" || W2?.motion === "sideways") && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
           const order = [...win.act].sort((a, b2) => (st.items[a.id]?.position.x || 0) - (st.items[b2.id]?.position.x || 0));
           const kx = order.indexOf(f), nn = order.length;
           const at = nn > 1 ? kx / (nn - 1) : 0.5; // 0 = stage left .. 1 = stage right
+          const w = Math.PI * 0.5 * t; // a cycle every 4 s at x1
           f.head.getWorldPosition(f.wp);
-          if (W2.fanUp) {
-            const a = (at - 0.5) * 1.6; // about -45..45 degrees
+          if (W2.motion === "fanup") {
+            const a = (at - 0.5) * 1.7 * (0.15 + 0.85 * (0.5 + 0.5 * Math.sin(w))); // closed .. about +-48 degrees
             f.mv.set(Math.sin(a), Math.cos(a), 0.3).normalize();
           } else {
             const sgn = f.wp.x <= 0 ? 1 : -1; // left side aims right, right aims left
-            f.mv.set(sgn, -0.12, 0.06 * (at - 0.5)).normalize();
+            const yaw = 0.55 * Math.sin(w + at * Math.PI); // swings upstage / downstage
+            f.mv.set(sgn * Math.cos(yaw), -0.12, Math.sin(yaw)).normalize();
           }
           f.head.lookAt(f.wp.x + f.mv.x * 20, f.wp.y + f.mv.y * 20, f.wp.z + f.mv.z * 20 + 0.0001);
           f.pool.material.opacity = 0; // aimed away from the deck

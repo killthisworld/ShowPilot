@@ -678,7 +678,7 @@ export default function StageBuilder({
             <span className="text-[11.5px] text-white/45">{curLights.length ? `${curLights.length} light${curLights.length > 1 ? "s" : ""} in this cue · ` : ""}Tap lights on the stage to add or take them out.</span>
           </div>
           <span className={lbl} style={mono}>2 · FUNCTION</span>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {LOOK_KEYS.map((k) => {
               const on = !!curKeys[k.id];
               return (

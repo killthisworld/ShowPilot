@@ -6,6 +6,9 @@
 export const MOTIONS = [
   { id: "", label: "Still" }, { id: "sweep", label: "Sweep" }, { id: "nod", label: "Nod" }, { id: "circle", label: "Circle" },
   { id: "figure8", label: "Figure 8" }, { id: "fan", label: "Fan" }, { id: "ballyhoo", label: "Ballyhoo" },
+  // Job 424: aimed up, the fan opening and closing; aimed across, the two
+  // sides swinging so the beams cross and uncross.
+  { id: "fanup", label: "Fan up" }, { id: "sideways", label: "Sideways" },
 ];
 const motionOk = (m) => (MOTIONS.some((x) => x.id === m) ? m : "");
 const speedOk = (v) => Math.min(4, Math.max(0.25, Number(v) || 1));
@@ -16,8 +19,6 @@ const speedOk = (v) => Math.min(4, Math.max(0.25, Number(v) || 1));
 export const LOOK_KEYS = [
   { id: "wash", label: "Full wash" },        // all of them up, full
   { id: "spot", label: "Spot the singer" },  // all of them aimed at the singer, full
-  { id: "fanUp", label: "Fan up" },          // aimed up, spread in a fan (job 422; was Back light)
-  { id: "side", label: "Sideways" },         // aimed across the stage, the two sides crossing
   { id: "chase", label: "Chase" },           // one at a time, to the beat
   { id: "fade", label: "Color fade" },       // colors rolling across them
   { id: "strobe", label: "Strobe" },         // all of them flashing
@@ -39,15 +40,13 @@ export function lookFromCue(cue, song = null) {
     bpm: Number(song?.bpm) || 120,
     wash: has(t, "wash", "full", "everything", "all on", "bright"),
     spot: has(t, "spot", "vocal", "singer", "follow"),
-    fanUp: has(t, "fan up", "fan out", "beams up", "sky"),
-    side: has(t, "sideways", "side light", "cross", "across"),
     chase: has(t, "chase", "beat", "pulse", "bounce"),
     fade: has(t, "fade", "rainbow", "cycle", "slow color"),
     strobe: has(t, "strobe", "flash"),
     blackout: has(t, "blackout", "black out", "dark", "lights out"),
   };
   // Nothing we recognise: just bring the stage up in its color.
-  if (!["wash", "spot", "fanUp", "side", "chase", "fade", "strobe", "blackout"].some((k) => look[k])) look.wash = true;
+  if (!["wash", "spot", "chase", "fade", "strobe", "blackout"].some((k) => look[k])) look.wash = true;
   return look;
 }
 
