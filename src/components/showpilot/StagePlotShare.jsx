@@ -4,56 +4,191 @@ import { Lightbulb, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { toast } from "@/components/ui/use-toast";
+import { loadFellowPilots } from "@/lib/assignTech";
 
 const AMBER = "#FFB400";
+const G = "#8CFF3D";
+const mono = { fontFamily: SCENE_MONO };
 
-// The audio engineer sends the event's stage plot to the LD (job 400): who
-// stands where and what they play, every act. The LD gets it on their event.
-export function SendPlotToLdButton({ acts, show, className = "" }) {
+// The acts as the LD needs them: who stands where and what they play.
+const actsToSend = (acts) => (acts || []).filter((a) => (a.band_members || []).length)
+  .map((a) => ({ band_name: a.band_name || "", band_members: a.band_members || [] }));
+const isLd = (p) => /light|\bld\b|\blx\b|lighting/i.test(p.job_title || "");
+
+// Share with LD (job 400, job 440): the audio engineer's stage plot to the
+// LD's 3D stage. An LD in Fellow Pilots gets it straight on their account;
+// anyone else gets a link (text, AirDrop, email) - signed in, they load it.
+//   show  - the engineer's own event (its id goes along)
+//   event - just what the event is (name, date, venue) when it isn't his
+export function SendPlotToLdButton({ acts, show = null, event = null, className = "" }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-label="Send the stage plot to my LD" title="Send to my LD" className={className} style={{ color: AMBER }}>
-        <Lightbulb className="w-[18px] h-[18px]" />
+      <button type="button" onClick={() => setOpen(true)} aria-label="Share with LD" title="Share with LD"
+        className={`${className} lg:w-auto lg:px-3 lg:gap-1.5 text-[12.5px] font-bold`} style={{ color: G }}>
+        <Lightbulb className="w-[18px] h-[18px]" /><span className="hidden lg:inline">Share with LD</span>
       </button>
-      {open && <SendPlotToLd acts={acts} show={show} onClose={() => setOpen(false)} />}
+      {open && <SharePlotWithLd acts={acts} show={show} event={event} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function SendPlotToLd({ acts, show, onClose }) {
+export function SharePlotWithLd({ acts, show = null, event = null, onClose }) {
+  const placed = actsToSend(acts);
+  const info = show || event || {};
+  const where = {
+    p_show_id: show?.id || null,
+    p_event_name: info.event_name || info.band_name || null,
+    p_date: info.date || null,
+    p_venue: info.venue || null,
+  };
+  const [signedIn, setSignedIn] = useState(null);
+  const [pilots, setPilots] = useState(null);
+  const [sent, setSent] = useState({}); // pilot_user_id -> "busy" | "sent"
+  const [link, setLink] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
-  const placed = (acts || []).filter((a) => (a.band_members || []).length);
-  const send = async () => {
-    setBusy(true);
-    const { data, error } = await supabase.rpc("send_stage_plot", {
-      p_email: email.trim(),
-      p_acts: placed.map((a) => ({ band_name: a.band_name || "", band_members: a.band_members || [] })),
-      p_show_id: show?.id || null, p_event_name: show?.event_name || show?.band_name || null, p_date: show?.date || null, p_venue: show?.venue || null,
-    });
-    setBusy(false);
+  const [mailBusy, setMailBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!live) return;
+      setSignedIn(!!user);
+      if (!user) return;
+      const list = (await loadFellowPilots()).filter((p) => p.pilot_user_id);
+      if (live) setPilots([...list.filter(isLd), ...list.filter((p) => !isLd(p))]);
+    })();
+    return () => { live = false; };
+  }, []);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const sendTo = async (p) => {
+    setSent((s) => ({ ...s, [p.pilot_user_id]: "busy" }));
+    const { error } = await supabase.rpc("send_stage_plot_to_pilot", { p_user: p.pilot_user_id, p_acts: placed, ...where });
+    if (error) {
+      setSent((s) => ({ ...s, [p.pilot_user_id]: undefined }));
+      toast({ title: "Couldn't send it", description: error.message, variant: "destructive" });
+      return;
+    }
+    setSent((s) => ({ ...s, [p.pilot_user_id]: "sent" }));
+    toast({ title: `Sent to ${p.display_name || "your LD"}`, description: "It's waiting on their event." });
+  };
+  const makeLink = async () => {
+    if (link) return link;
+    setLinkBusy(true);
+    const { data, error } = await supabase.rpc("create_stage_plot_link", { p_acts: placed, ...where });
+    setLinkBusy(false);
+    if (error || !data) { toast({ title: "Couldn't make the link", description: error?.message, variant: "destructive" }); return ""; }
+    const url = `${window.location.origin}/plot/${data}`;
+    setLink(url);
+    return url;
+  };
+  const copy = async () => {
+    const url = await makeLink();
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { toast({ title: "Copy the link below" }); }
+  };
+  const shareLink = async () => {
+    const url = await makeLink();
+    if (!url) return;
+    try { await navigator.share({ title: "Stage plot", text: `The stage plot for ${placed.map((a) => a.band_name || "the act").join(", ")} - load it onto your 3D stage`, url }); }
+    catch { /* closed the share sheet */ }
+  };
+  const mail = async () => {
+    setMailBusy(true);
+    const { data, error } = await supabase.rpc("send_stage_plot", { p_email: email.trim(), p_acts: placed, ...where });
+    setMailBusy(false);
     if (error) { toast({ title: "Couldn't send it", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Stage plot sent to your LD", description: data?.has_account ? "It's waiting on their event." : "They'll see it once they sign in to ShowPilot with that email." });
-    onClose();
+    setEmail("");
   };
+
+  const head = "text-[10px] tracking-[0.18em] text-white/45";
+  const canShare = typeof navigator !== "undefined" && !!navigator.share;
   return createPortal(
     <div className="fixed inset-0 z-[95] bg-black/75 flex items-end sm:items-center justify-center p-3" onClick={onClose}>
-      <div role="dialog" aria-label="Send the stage plot to your LD" onClick={(e) => e.stopPropagation()} className="w-full max-w-[440px] rounded-2xl border border-[#2a2a2a] bg-[#141414] p-4 flex flex-col gap-3">
+      <div role="dialog" aria-label="Share with LD" onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[460px] max-h-[88dvh] overflow-y-auto rounded-2xl border border-[#2a2a2a] bg-[#141414] p-4 flex flex-col gap-4">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <div className="text-[10px] tracking-[0.18em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>SEND TO MY LD</div>
+            <div className="text-[10px] tracking-[0.18em]" style={{ ...mono, color: G }}>SHARE WITH LD</div>
             <div className="text-white text-[17px] font-semibold">The stage plot, for their 3D stage</div>
+            <p className="text-white/55 text-[13px] leading-snug mt-1">
+              {placed.length ? `${placed.map((a) => a.band_name || "An act").join(", ")}: who stands where and what they play. No notes or audio details.` : "No one is on the stage plot yet."}
+            </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="w-9 h-9 -mr-1 flex items-center justify-center text-white/50"><X className="w-5 h-5" /></button>
         </div>
-        <p className="text-white/55 text-[13px] leading-snug">
-          {placed.length ? `${placed.map((a) => a.band_name || "An act").join(", ")}: who stands where and what they play.` : "No one is on the stage plot yet."} Your LD loads it onto their 3D stage from their event.
-        </p>
-        <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your LD's email" aria-label="Your LD's email"
-          className="h-11 rounded-xl bg-[#0e0e0e] border border-[#2c2c2c] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#FFB400]/60" />
-        <button type="button" onClick={send} disabled={busy || !placed.length || !/^\S+@\S+\.\S+$/.test(email.trim())}
-          className="h-11 rounded-xl font-bold text-[14.5px] disabled:opacity-40" style={{ background: AMBER, color: "#111" }}>{busy ? "Sending…" : "Send"}</button>
+
+        {signedIn === false ? (
+          <p className="text-white/60 text-[13.5px]">Sign in to ShowPilot to share the stage plot.</p>
+        ) : !placed.length ? null : (
+          <>
+            {/* 1. Straight to an LD's account */}
+            <div className="flex flex-col gap-1.5">
+              <div className={head} style={mono}>ON SHOW PILOT · FELLOW PILOTS</div>
+              {pilots === null ? (
+                <div className="text-white/40 text-[13px]">Loading…</div>
+              ) : !pilots.length ? (
+                <div className="text-white/45 text-[13px] leading-snug">No Fellow Pilots yet. Add your LD's digital card to send it straight to their account, or use a link below.</div>
+              ) : pilots.map((p) => {
+                const st = sent[p.pilot_user_id];
+                return (
+                  <div key={p.id || p.pilot_user_id} className="flex items-center gap-2.5 rounded-[10px] border border-[#262626] bg-[#101010] px-2.5 py-2">
+                    {p.profile_photo_url
+                      ? <img src={p.profile_photo_url} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                      : <span className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-[14px] font-bold bg-[#1f1f1f] text-white/70">{(p.display_name || "?").trim().charAt(0).toUpperCase()}</span>}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-[14px] font-semibold truncate">{p.display_name || "Fellow Pilot"}</div>
+                      <div className="text-[12px] truncate" style={{ color: isLd(p) ? G : "rgba(255,255,255,0.45)" }}>{p.job_title || "Fellow Pilot"}</div>
+                    </div>
+                    <button type="button" onClick={() => sendTo(p)} disabled={!!st}
+                      className="h-9 px-3.5 rounded-[8px] text-[13px] font-bold shrink-0 disabled:opacity-70"
+                      style={st === "sent" ? { background: "transparent", color: G, border: `1px solid ${G}66` } : { background: G, color: "#111" }}>
+                      {st === "sent" ? "Sent ✓" : st === "busy" ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 2. A link that anyone can open */}
+            <div className="flex flex-col gap-1.5">
+              <div className={head} style={mono}>A LINK · TEXT, AIRDROP, ANYWHERE</div>
+              <div className="flex gap-2">
+                <button type="button" onClick={copy} disabled={linkBusy || signedIn === null}
+                  className="flex-1 h-11 rounded-xl border text-[14px] font-bold disabled:opacity-50" style={{ borderColor: `${G}66`, color: G, background: "#0f150b" }}>
+                  {linkBusy ? "Making the link…" : copied ? "Link copied ✓" : "Copy link"}
+                </button>
+                {canShare && (
+                  <button type="button" onClick={shareLink} disabled={linkBusy || signedIn === null}
+                    className="h-11 px-4 rounded-xl border border-[#333] text-white/80 text-[14px] font-bold disabled:opacity-50">Share…</button>
+                )}
+              </div>
+              {link && <input readOnly value={link} onFocus={(e) => e.target.select()} aria-label="The link"
+                className="h-9 rounded-lg bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[12.5px] text-white/70" />}
+              <div className="text-white/40 text-[12px] leading-snug">The LD opens it, signs in, and it loads onto their event for that date.</div>
+            </div>
+
+            {/* 3. By email */}
+            <div className="flex flex-col gap-1.5">
+              <div className={head} style={mono}>BY EMAIL</div>
+              <div className="flex gap-2">
+                <input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your LD's email" aria-label="Your LD's email"
+                  className="flex-1 min-w-0 h-11 rounded-xl bg-[#0e0e0e] border border-[#2c2c2c] px-3 text-[15px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#8CFF3D]/60" />
+                <button type="button" onClick={mail} disabled={mailBusy || !/^\S+@\S+\.\S+$/.test(email.trim())}
+                  className="h-11 px-4 rounded-xl font-bold text-[14px] disabled:opacity-40" style={{ background: G, color: "#111" }}>{mailBusy ? "Sending…" : "Send"}</button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body

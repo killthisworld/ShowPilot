@@ -187,8 +187,9 @@ function PersonCard({ m, i, colors, onClose }) {
 //   neither: look only; a member's line opens their card.
 // rig / lighting (job 377): the LD's rig for the venue drawn under the
 // members (with a 3D view), and no audio details for an LD.
-// show (job 400): the audio engineer's own event - a "Send to my LD" key.
-export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null, rig = null, lighting = false, show = null }) {
+// show (job 400): the audio engineer's own event; event (job 440): what the
+// event is when it isn't his. Either way a "Share with LD" key.
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null, rig = null, lighting = false, show = null, event = null }) {
   const colors = useMyStageColors();
   const rigN = rigHasItems(rig) ? normalizeRig(rig) : null;
   const [show3d, setShow3d] = useState(false);
@@ -251,7 +252,9 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
         {/* Keep this act's stage in My Templates (job 254), right of notes;
             always there (job 287), ready once someone is on the stage. */}
         {act && <SaveStageTemplateButton key={cur} act={{ ...act, band_members: list }} iconOnly className={iconBtn} />}
-        {show && <SendPlotToLdButton acts={acts} show={show} className={iconBtn} />}
+        {/* Share with LD (job 440): wherever the stage plot opens, with who
+            stands where as shown here. */}
+        {!lighting && acts.some(hasStagePlot) && <SendPlotToLdButton acts={acts.map((a, i) => (i === cur ? { ...a, band_members: list } : a))} show={show} event={event} className={iconBtn} />}
       </div>
       {tabs.length > 1 && (
         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto shrink-0">

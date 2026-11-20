@@ -1765,7 +1765,7 @@ export default function SharedGig() {
           onSave={canEditCues ? saveCues : null} saving={cuesSaving} />
       )}
       {plotAt !== null && isLightingViewer && <LdStageWindow acts={gig?.bands || []} start={plotAt} rig={gig?.lighting_rig} onClose={() => setPlotAt(null)} onOpenCues={(i) => setCuesAt(i)} />}
-      {plotAt !== null && !isLightingViewer && <StagePlotView rig={gig?.lighting_rig} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
+      {plotAt !== null && !isLightingViewer && <StagePlotView rig={gig?.lighting_rig} event={gig} acts={gig?.bands || []} start={plotAt} onClose={() => setPlotAt(null)} token={resolvedToken} onActs={(bands) => setGig((g) => ({ ...g, bands }))} busColors={iemMonitorColors} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setFxDirty({ acts: false, show: false }); setFxOpen(true); }} />}
       {fxOpen && (
         <FxNotesWindow
           acts={gig.bands || []}

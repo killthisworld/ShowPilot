@@ -48,6 +48,7 @@ import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
 import PublicLogbook from '@/pages/PublicLogbook';
 import SharedGig from '@/pages/SharedGig';
+import PlotLink from '@/pages/PlotLink';
 import GigWeb from '@/pages/GigWeb';
 import FanEvent from '@/pages/FanEvent';
 import FanUnsubscribe from '@/pages/FanUnsubscribe';
@@ -97,6 +98,8 @@ const AuthenticatedApp = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/email-change" element={<EmailChange />} />
       <Route path="/shared/:id" element={<SharedShow />} />
+      {/* A stage plot shared with an LD by link (job 440). */}
+      <Route path="/plot/:token" element={<PlotLink />} />
       <Route path="/tm-intake" element={<TourManagerIntake />} />
       <Route path="/intake/:code" element={<IntakeShortLink />} />
       <Route path="/v/:code" element={<EventLink />} />

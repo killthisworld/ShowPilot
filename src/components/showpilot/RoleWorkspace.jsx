@@ -1243,6 +1243,7 @@ export default function RoleWorkspace({ role, p, onClose, onOpenRole, modal = fa
   ) : (
     <StagePlotView
       acts={gig.bands || []}
+      event={template ? null : gig}
       start={stageAt}
       onClose={() => setStageAt(null)}
       token={p.token || null}
