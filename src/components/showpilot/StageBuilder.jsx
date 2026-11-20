@@ -48,7 +48,7 @@ export default function StageBuilder({
     boxObs.current?.disconnect();
     boxObs.current = null;
     if (!el) { setBoxH(0); return; }
-    const ro = new ResizeObserver(() => setBoxH(el.offsetHeight || 0));
+    const ro = new ResizeObserver(() => setBoxH(el.getBoundingClientRect().height || 0));
     ro.observe(el);
     boxObs.current = ro;
   };
@@ -384,7 +384,8 @@ export default function StageBuilder({
   // Over the stage on a computer, at the top of the panel on a phone.
   const editBox = (where) => sel.length > 0 && tab === "rig" && (
     <div ref={where === "stage" ? boxRef : undefined} className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
-      style={{ background: "#101010", borderColor: moving ? "#9a9a9a" : "#2f4d1f" }} role="toolbar" aria-label="Picked">
+      // Over the stage it's drawn a little smaller (job 409).
+      style={{ background: "#101010", borderColor: moving ? "#9a9a9a" : "#2f4d1f", ...(where === "stage" ? { zoom: 0.85 } : {}) }} role="toolbar" aria-label="Picked">
       <div className="flex items-center gap-2 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: moving ? "#8a8f96" : MA.green }} />
         <span className="text-[13.5px] font-semibold truncate">{pickedLabel}</span>
