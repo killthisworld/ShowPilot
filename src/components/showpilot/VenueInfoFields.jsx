@@ -46,7 +46,7 @@ export const formatPhoneNumber = (value) => {
 };
 
 // withPhoto=false hides the venue photo (tech phone event page, job 148).
-export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name", withPhoto = true }) {
+export default function VenueInfoFields({ value, onChange, nameAction = null, namePlaceholder = "Venue name", withPhoto = true, withProvides = true }) {
   const [openNotesKey, setOpenNotesKey] = useState(null);
   const v = value || {};
   const contacts = v.contacts || [];
@@ -118,7 +118,7 @@ export default function VenueInfoFields({ value, onChange, nameAction = null, na
         </div>
       </div>
 
-      <div className="pt-1">
+      {withProvides && <div className="pt-1">
         <Label className="text-white/50 text-xs mb-2 block">Venue Provides</Label>
         <div className="flex gap-1">
           {VENUE_CHECKLIST_ITEMS.map((item) => {
@@ -173,7 +173,7 @@ export default function VenueInfoFields({ value, onChange, nameAction = null, na
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       <div>
         <Label className="text-white/50 text-xs">Power Notes</Label>

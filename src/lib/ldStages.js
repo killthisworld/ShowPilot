@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { emptyVenueTemplate } from "@/lib/showTemplates";
-import { normalizeRig, rigHasItems } from "@/lib/lightingRig";
+import { emptyVenueTemplate, emptyArtistTemplate } from "@/lib/showTemplates";
+import { normalizeRig, rigHasItems, isPerson, isInstrument, isRiser } from "@/lib/lightingRig";
 
 // An LD's 3D stages (job 383): their venue templates, each with a lighting
 // rig (data.lighting_rig). A stage saved from Rig the stage is a venue
@@ -46,4 +46,60 @@ export async function saveLdStage({ id = null, name, rig }) {
   const { data, error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "venue", name: clean, data: { ...emptyVenueTemplate(), lighting_rig: rig } }).select("id").single();
   if (error) throw error;
   return data.id;
+}
+
+// --- Saving parts of a stage (job 407) ---------------------------------
+// The lights (trusses, fixtures, LED screens) are the venue's; the band
+// (people and instruments) is the artist's. Risers go with whichever the LD
+// picks. parts: { lights, band, risers }.
+export const isBandItem = (i) => isPerson(i.type) || isInstrument(i.type);
+export const isLightsItem = (i) => !isBandItem(i) && !isRiser(i.type);
+export function stagePart(rig, { lights = false, band = false, risers = false }) {
+  const r = normalizeRig(rig);
+  return { ...r, items: r.items.filter((i) => (lights && isLightsItem(i)) || (band && isBandItem(i)) || (risers && isRiser(i.type))), ...(lights ? {} : { cues: [] }) };
+}
+
+// The LD's bands: artist templates with a band on a 3D stage.
+export function useLdBands(on = true) {
+  const [bands, setBands] = useState(null);
+  const load = useCallback(async () => {
+    if (!on) { setBands([]); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBands([]); return; }
+    const { data, error } = await supabase.from("saved_templates").select("id, name, data, updated_at")
+      .eq("owner_id", user.id).eq("category", "artist").order("updated_at", { ascending: false, nullsFirst: false });
+    if (error) { console.error(error); setBands([]); return; }
+    setBands((data || []).filter((t) => rigHasItems(t.data?.lighting_rig)).map((t) => ({ id: t.id, name: t.name || "", rig: normalizeRig(t.data.lighting_rig), updated_at: t.updated_at })));
+  }, [on]);
+  useEffect(() => { load(); }, [load]);
+  return [bands, load];
+}
+
+// Save a band to the artist template with this name (made if new). Its
+// other info (genre, notes...) is kept.
+export async function saveLdBand({ name, rig }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Sign in to save bands");
+  const clean = String(name || "").trim();
+  if (!clean) throw new Error("Name the artist");
+  const { data: row } = await supabase.from("saved_templates").select("id, data").eq("owner_id", user.id).eq("category", "artist").eq("name", clean).maybeSingle();
+  const now = new Date().toISOString();
+  if (row) {
+    const { error } = await supabase.from("saved_templates").update({ data: { ...(row.data || {}), lighting_rig: rig }, updated_at: now }).eq("id", row.id);
+    if (error) throw error;
+    return row.id;
+  }
+  const { data, error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "artist", name: clean, data: { ...emptyArtistTemplate(), lighting_rig: rig } }).select("id").single();
+  if (error) throw error;
+  return data.id;
+}
+
+// The Save window's choice: the venue's stage gets what was ticked (it
+// keeps the band too when the band is ticked); the band also goes to its
+// artist template. Returns { venueId, bandId }.
+export async function saveStageParts({ id = null, name, rig, parts, artist = "" }) {
+  const out = {};
+  if (parts.lights) out.venueId = await saveLdStage({ id, name, rig: stagePart(rig, parts) });
+  if (parts.band) out.bandId = await saveLdBand({ name: artist, rig: stagePart(rig, { band: true, risers: parts.risers }) });
+  return out;
 }

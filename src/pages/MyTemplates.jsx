@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { forgetActs } from "@/lib/acts";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import { useGoBack } from "@/lib/navHistory";
@@ -26,6 +26,8 @@ import CompanyTemplatePage from "@/components/showpilot/CompanyTemplatePage";
 import StageBuilder from "@/components/showpilot/StageBuilder";
 import RigLayer from "@/components/showpilot/RigLayer";
 import { normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingRig";
+import useRigThumbs from "@/components/showpilot/RigThumbs";
+import { saveLdBand, stagePart } from "@/lib/ldStages";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -74,6 +76,15 @@ export default function MyTemplates() {
   const [stageKey, setStageKey] = useState(null);
   // A lighting tech's rig for a venue template (job 377): the template's key.
   const [rigKey, setRigKey] = useState(null);
+  // The LD's 3D stages and bands pictured as built, like Rig the stage (job 407).
+  const rigShots = useMemo(() => templates.filter((t) => rigHasItems(t.data?.lighting_rig)).map((t) => {
+    const rig = normalizeRig(t.data.lighting_rig);
+    const txt = JSON.stringify(rig.items);
+    let h = 0;
+    for (let k = 0; k < txt.length; k++) h = (h * 31 + txt.charCodeAt(k)) | 0;
+    return { id: t.key, rig, updated_at: `${rig.width_ft}x${rig.depth_ft}:${h}` };
+  }), [templates]);
+  const [rigThumbs, rigDrawer] = useRigThumbs(rigShots);
   const stageChanged = useRef(false);
   // "Put on your dates" (job 73, On the road stage 4): the template's key.
   const [applyKey, setApplyKey] = useState(null);
@@ -407,20 +418,24 @@ export default function MyTemplates() {
                       value={{ ...t.data, venue: t.name }}
                       onChange={(field, val) => (field === "venue" ? setTemplate(t.key, { name: val }) : setData(t.key, field, val))}
                       namePlaceholder="e.g. The Fillmore"
+                      // An LD's venue: no Venue provides (job 407).
+                      withProvides={accountType !== "lighting"}
                     />
                   ) : null}
                   {/* LDs keep a lighting rig per venue (job 377): trusses and
                       lights on the stage, shown under the members on the
                       stage plot their intake links send. */}
-                  {category === "venue" && accountType === "lighting" && (
+                  {accountType === "lighting" && (category === "venue" || category === "artist") && (
                     <button type="button" onClick={() => setRigKey(t.key)} className="w-full rounded-[12px] border border-[#2a2a2a] bg-black p-2 flex items-center gap-3 text-left hover:border-[#8CFF3D]/50">
-                      <span className="relative w-[120px] shrink-0 rounded-[8px] border border-[#333] border-b-2 border-b-white overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
-                        <RigLayer rig={normalizeRig(t.data.lighting_rig)} />
+                      <span className="relative w-[120px] shrink-0 rounded-[8px] border border-[#333] bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}>
+                        {rigThumbs[t.key]
+                          ? <img src={rigThumbs[t.key]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          : <span className="absolute inset-0 opacity-50"><RigLayer rig={normalizeRig(t.data.lighting_rig)} /></span>}
                       </span>
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>3D STAGE</span>
-                        <span className="block text-white text-[15px] font-semibold">{rigHasItems(t.data.lighting_rig) ? rigSummary(t.data.lighting_rig) : "Set up the stage"}</span>
-                        <span className="block text-[#8CFF3D] text-[13px] mt-0.5">{rigHasItems(t.data.lighting_rig) ? "Open to rig it in 3D" : "Rig it in 3D: trusses, lights, looks"}</span>
+                        <span className="block text-[10.5px] tracking-[0.16em] text-white/45" style={{ fontFamily: SCENE_MONO }}>{category === "venue" ? "3D STAGE" : "BAND ON THE 3D STAGE"}</span>
+                        <span className="block text-white text-[15px] font-semibold">{rigHasItems(t.data.lighting_rig) ? rigSummary(t.data.lighting_rig) : category === "venue" ? "Set up the stage" : "Place the band"}</span>
+                        <span className="block text-[#8CFF3D] text-[13px] mt-0.5">{category === "venue" ? (rigHasItems(t.data.lighting_rig) ? "Open to rig it in 3D" : "Rig it in 3D: trusses, lights, looks") : "Who stands where, what they play, risers"}</span>
                       </span>
                     </button>
                   )}
@@ -430,6 +445,9 @@ export default function MyTemplates() {
                       // Venue / manager / artist: no act photo here, their
                       // banner and circle are enough (job 303). Techs keep it.
                       withPhoto={isTech}
+                      // An LD's act: the band is on the 3D stage above, no
+                      // stage plot here (job 407).
+                      withStage={accountType !== "lighting"}
                       onPatch={({ band_name, ...rest }) => setTemplate(t.key, (cur) => ({
                         ...cur,
                         ...(band_name !== undefined ? { name: band_name } : {}),
@@ -446,7 +464,7 @@ export default function MyTemplates() {
                       setLengthAction={(
                         <div className="flex items-center gap-2">
                           <ActNotesButton act={{ ...t.data, band_name: t.name }} onClick={() => setNotesKey(t.key)} />
-                          <ActStagePlotButton act={{ ...t.data, band_name: t.name }} always onClick={() => setStageKey(t.key)} />
+                          {accountType !== "lighting" && <ActStagePlotButton act={{ ...t.data, band_name: t.name }} always onClick={() => setStageKey(t.key)} />}
                         </div>
                       )}
                       // No Contact box here (Jay 2026-11-18): contact info has its own
@@ -820,22 +838,39 @@ export default function MyTemplates() {
         const rt = rigKey && templates.find((x) => x.key === rigKey);
         return (
           <>
+            {rigDrawer}
             {rt && (
               <StageBuilder
                 rig={rt.data.lighting_rig}
                 name={rt.name}
+                title={rt.category === "artist" ? "THE BAND ON STAGE" : "RIG THE STAGE"}
+                nameLabel={rt.category === "artist" ? "Artist name" : "Stage name (e.g. the venue)"}
                 onClose={() => setRigKey(null)}
+                // A venue's stage: the Save window (job 407) - the lights to
+                // this template, the band to an artist template. It stays
+                // open after saving.
+                saveParts={rt.category === "venue"}
                 // Save keeps the 3D stage with the template (job 383) and
                 // renames it if the name changed.
-                onSave={async ({ name: nm, rig }) => {
-                  setData(rt.key, "lighting_rig", rig);
-                  if (nm && nm !== rt.name) setTemplate(rt.key, { name: nm });
-                  setRigKey(null);
-                  if (!(nm || rt.name).trim() || !user) return;
+                onSave={async ({ name: nm, rig: whole, parts, artist }) => {
+                  const keep = !parts || parts.lights;
+                  const rig = parts ? stagePart(whole, parts) : whole;
                   try {
-                    const k = await writeTemplate(rt, (nm || rt.name).trim(), { ...rt.data, lighting_rig: rig });
-                    toast({ title: "3D stage saved" });
-                    if (k) setTemplate(k, { saved: true });
+                    if (keep) {
+                      setData(rt.key, "lighting_rig", rig);
+                      if (nm && nm !== rt.name) setTemplate(rt.key, { name: nm });
+                      if ((nm || rt.name).trim() && user) {
+                        const k = await writeTemplate(rt, (nm || rt.name).trim(), { ...rt.data, lighting_rig: rig });
+                        if (k) setTemplate(k, { saved: true });
+                      }
+                    }
+                    if (parts?.band) {
+                      const band = stagePart(whole, { band: true, risers: parts.risers });
+                      await saveLdBand({ name: artist, rig: band });
+                      const have = templates.find((x) => x.category === "artist" && x.name.trim().toLowerCase() === artist.trim().toLowerCase());
+                      if (have) setData(have.key, "lighting_rig", band); // a new one shows on the next refresh
+                    }
+                    toast({ title: parts ? [keep && "Lights saved", parts.band && `Band saved to ${artist}`].filter(Boolean).join(" · ") : "3D stage saved" });
                   } catch (e) { console.error(e); toast({ title: "Couldn't save the rig", variant: "destructive" }); }
                 }}
               />

@@ -17,12 +17,13 @@ import TechRail from "@/components/showpilot/TechRail";
 
 export const MA = {
   bg: "#0b0b0b", panel: "#161616", key: "#232323", keyLine: "#363636",
-  amber: "#FFB400", amberDim: "#5c4300", cyan: "#3DD6F5", text: "#e8e8e8",
+  // Job 407: the lighting tech is green, like the audio tech (was amber).
+  amber: "#8CFF3D", amberDim: "#2f4d1f", cyan: "#3DD6F5", text: "#e8e8e8",
 };
 const ROLES = [
   { id: "venue", label: "VEN", color: "#60A5FA" },
   { id: "manager", label: "MGR", color: "#EF4444" },
-  { id: "engineer", label: "LX", color: "#FFB400" },
+  { id: "engineer", label: "LX", color: "#8CFF3D" },
 ];
 const ROLE_BOX = { venue: "venue", manager: "manager", band: "manager", engineer: "engineer", lighting: "engineer" };
 const monoStyle = { fontFamily: SCENE_MONO };
@@ -84,8 +85,7 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
     return (
       <div className="h-full min-h-0 rounded-[6px] border flex flex-col" style={{ background: "#101010", borderColor: "#1e1e1e" }}>
         <div className="h-[78px] m-1.5 rounded-[3px] flex flex-col justify-between p-1.5" style={{ background: "#070707", border: "1px solid #1c1c1c" }}>
-          <span className="text-[10px]" style={{ ...monoStyle, color: "#4a4a4a" }}>{n ? `EXEC ${n}` : ""}</span>
-          <span className="text-[10.5px]" style={{ ...monoStyle, color: "#5a5a5a" }}>{dayLabel}</span>
+          <span />
         </div>
         <div className="flex-1" />
       </div>
@@ -102,13 +102,13 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
     <div className="h-full min-h-0 rounded-[6px] border flex flex-col" style={{ background: MA.panel, borderColor: "#262626" }}>
       {/* Label screen */}
       <button type="button" onClick={() => onGo(s)} title="Open the show" className="m-1.5 rounded-[3px] p-1.5 text-left flex flex-col gap-0.5 overflow-hidden"
-        style={{ background: "#050505", border: `1px solid ${MA.amberDim}`, height: compact ? 92 : 104, boxShadow: "inset 0 0 12px rgba(255,180,0,0.06)" }}>
-        <span className="flex items-center gap-1 text-[10px]" style={{ ...monoStyle, color: MA.amber }}>
-          {n ? <span>EXEC {n}</span> : null}
-          <span className="ml-auto">{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
-        </span>
-        <span className="text-[14px] font-bold leading-tight line-clamp-2" style={{ color: "#fff2cc" }}>{sceneTitle(s)}</span>
-        <span className="text-[11.5px] truncate" style={{ color: "rgba(255,230,180,0.6)" }}>{s.venue || "No venue yet"}</span>
+        style={{ background: "#050505", border: `1px solid ${MA.amberDim}`, height: compact ? 92 : 104, boxShadow: "inset 0 0 12px rgba(140,255,61,0.06)" }}>
+        {/* The date only where no day header sits above it (job 407). */}
+        {!dayLabel && (
+          <span className="text-[10px]" style={{ ...monoStyle, color: MA.amber }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
+        )}
+        <span className="text-[14px] font-bold leading-tight line-clamp-2" style={{ color: "#effbe6" }}>{sceneTitle(s)}</span>
+        <span className="text-[11.5px] truncate" style={{ color: "rgba(225,245,210,0.6)" }}>{s.venue || "No venue yet"}</span>
       </button>
       {/* Who's on: three LEDs */}
       <div className="mx-1.5 grid grid-cols-3 gap-1">
@@ -123,7 +123,7 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
       {/* Keys above the fader */}
       <div className="mx-1.5 mt-1 grid grid-cols-2 gap-1">
         <Link to={`/gig/tasks?token=${s.share_token}`} aria-label={myTasks ? `${myTasks} tasks for you` : "Tasks"} className={keyBase + " h-9 text-[12px]"}
-          style={myTasks ? { background: "#3a2400", borderColor: MA.amber, color: MA.amber } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" }}>
+          style={myTasks ? { background: "#1a2e0e", borderColor: MA.amber, color: MA.amber } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" }}>
           <ClipboardList className="w-3.5 h-3.5" />{myTasks || ""}
         </Link>
         <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} className={keyBase + " h-9 text-[12px]"}
@@ -153,7 +153,7 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
 export function RigTheStageKey({ className = "" }) {
   return (
     <Link to="/rig" className={`h-10 px-3.5 rounded-[5px] border flex items-center gap-2 text-[13.5px] font-bold tracking-[0.06em] whitespace-nowrap ${className}`}
-      style={{ ...monoStyle, background: "#1f1800", borderColor: MA.amber, color: MA.amber, boxShadow: "0 0 12px rgba(255,180,0,0.18)" }}>
+      style={{ ...monoStyle, background: "#13200b", borderColor: MA.amber, color: MA.amber, boxShadow: "0 0 12px rgba(140,255,61,0.18)" }}>
       <Box className="w-4 h-4" />RIG THE STAGE
     </Link>
   );
@@ -188,8 +188,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Title bar */}
         <div className="h-[60px] shrink-0 flex items-center gap-3 px-5 border-b" style={{ borderColor: "#1f1f1f", background: "#0f0f0f" }}>
-          <span className="text-[13px] tracking-[0.24em] font-bold" style={{ ...monoStyle, color: MA.amber }}>SHOWPILOT · LX</span>
-          <label className="ml-4 flex-1 min-w-[150px] max-w-[300px] flex items-center gap-2 h-10 px-3 rounded-[5px] border text-[#8a8a8a]" style={{ background: "#121212", borderColor: "#2a2a2a" }}>
+          <label className="flex-1 min-w-[150px] max-w-[300px] flex items-center gap-2 h-10 px-3 rounded-[5px] border text-[#8a8a8a]" style={{ background: "#121212", borderColor: "#2a2a2a" }}>
             <Search className="w-4 h-4 shrink-0" />
             <input type="search" aria-label="Search shows" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search shows" className="flex-1 min-w-0 bg-transparent border-none outline-none text-[14px] text-white placeholder:text-[#777]" />
             {search && <button type="button" aria-label="Clear search" onClick={() => setSearch("")}><X className="w-4 h-4" /></button>}
@@ -230,7 +229,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
                 const label = day.d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }).toUpperCase();
                 return (
                   <div key={day.key} className="min-h-0 min-w-0 flex flex-col gap-1.5">
-                    <div className="h-8 shrink-0 flex items-center px-2 rounded-[4px] border text-[11px]" style={{ ...monoStyle, background: isToday ? "#2a1e00" : "#121212", borderColor: isToday ? MA.amber : "#222", color: isToday ? MA.amber : "#9a9a9a" }}>
+                    <div className="h-8 shrink-0 flex items-center px-2 rounded-[4px] border text-[11px]" style={{ ...monoStyle, background: isToday ? "#16240d" : "#121212", borderColor: isToday ? MA.amber : "#222", color: isToday ? MA.amber : "#9a9a9a" }}>
                       {label}{isToday && <span className="ml-1.5 text-[9px]">TODAY</span>}
                       {list.length > 1 && (
                         <span className="ml-auto flex items-center">

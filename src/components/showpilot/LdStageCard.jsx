@@ -8,7 +8,7 @@ import { emptyRig, normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingR
 import { useLdStages, saveLdStage } from "@/lib/ldStages";
 import { toast } from "@/components/ui/use-toast";
 
-const AMBER = "#FFB400";
+const AMBER = "#8CFF3D"; // job 407: lighting is green (was amber)
 
 // The event's 3D stage, for the LD (job 383): load one of their stages or
 // build one from scratch. It goes out with their intake links (artists place
@@ -55,7 +55,7 @@ export default function LdStageCard({ rig, onChange, venueName = "", acts = null
               <div className="grid grid-cols-2 gap-2">
                 {usable.map((s) => (
                   <button key={s.id} type="button" onClick={() => { onChange(s.rig); setPicking(false); toast({ title: `Loaded ${s.name || "the stage"}` }); }}
-                    className="rounded-[8px] border border-[#2c2c2c] bg-[#1a1a1a] p-1.5 text-left hover:border-[#FFB400]/60">
+                    className="rounded-[8px] border border-[#2c2c2c] bg-[#1a1a1a] p-1.5 text-left hover:border-[#8CFF3D]/60">
                     <span className="relative block w-full rounded-[6px] border border-[#333] border-b-2 border-b-white bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}><RigLayer rig={s.rig} /></span>
                     <span className="block mt-1.5 px-0.5 text-[13.5px] font-semibold text-white truncate">{s.name || "Untitled"}</span>
                   </button>

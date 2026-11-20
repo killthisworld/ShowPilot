@@ -10,9 +10,12 @@ import { CueRow, useCuePlayer } from "@/components/showpilot/CueRow";
 import { normalizeCueSheet } from "@/lib/cueSheet";
 import { useMyStageColors } from "@/components/showpilot/StagePlotView";
 import { actMembers3D } from "@/components/showpilot/LdStageWindow";
+import { useLdBands, isBandItem, isLightsItem } from "@/lib/ldStages";
 
 const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
-const MA = { bg: "#141414", panel: "#1b1b1b", key: "#262626", line: "#333", amber: "#FFB400", cyan: "#3DD6F5", green: "#8CFF3D" };
+// Job 407: the lighting tech's green throughout (was amber); "amber" kept as
+// the accent's name.
+const MA = { bg: "#141414", panel: "#1b1b1b", key: "#262626", line: "#333", amber: "#8CFF3D", cyan: "#3DD6F5", green: "#8CFF3D" };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const norm360 = (r) => ((r % 360) + 360) % 360;
 
@@ -26,9 +29,14 @@ const norm360 = (r) => ((r % 360) + 360) % 360;
 //  - CUES: the LD's own cues for the stage, and each act's cue sheet (on an
 //    event) - set a look on every cue and run through them on the rig.
 // onSave({ name, rig, acts }) - acts only when act cue sheets were changed.
+// saveParts (job 407): Save opens a small window - save the lights (to the
+// venue's stage), the band (to an artist template), or both, risers with
+// them or not - and onSave also gets { parts: { lights, band, risers },
+// artist }. The LD's saved bands can be loaded onto the stage (PEOPLE).
 export default function StageBuilder({
   name: startName = "", rig: start, members = [], acts = null, startAct = 0, startTab = "rig",
   onSave, onClose, saving = false, title = "RIG THE STAGE", nameLabel = "Stage name (e.g. the venue)",
+  saveParts = false,
 }) {
   const [name, setName] = useState(startName);
   const [rig, setRigNow] = useState(() => normalizeRig(start));
@@ -84,6 +92,29 @@ export default function StageBuilder({
   }, []);
 
   const items = rig.items;
+  // The Save window (job 407): what to save, and the band's artist name.
+  const [saveWin, setSaveWin] = useState(null);
+  const lastArtist = useRef("");
+  const [savedBands, reloadBands] = useLdBands(saveParts);
+  const openSave = () => setSaveWin({
+    lights: items.some(isLightsItem) || !items.some(isBandItem), band: items.some(isBandItem), risers: items.some((i) => isRiser(i.type)), artist: lastArtist.current,
+  });
+  const doSave = async () => {
+    const w = saveWin;
+    if (!w || (!w.lights && !w.band) || (w.band && !w.artist.trim())) return;
+    setSaveWin(null);
+    if (w.band) lastArtist.current = w.artist.trim();
+    await onSave({ name: name.trim(), rig, parts: { lights: w.lights, band: w.band, risers: w.risers }, artist: w.artist.trim(), ...(touchedActs ? { acts: (acts || []).map((a, i) => ({ ...a, lighting_cues: sheets[i] })) } : {}) });
+    if (w.band) reloadBands();
+  };
+  // A saved band onto this stage: in place of the people and instruments on
+  // it now (their risers come too, in place of these).
+  const loadBand = (b) => {
+    const bandRisers = b.rig.items.some((i) => isRiser(i.type));
+    const copy = b.rig.items.filter((i) => isBandItem(i) || isRiser(i.type)).map((i) => ({ ...i, id: newRigId() }));
+    setRig((r) => ({ ...r, items: [...r.items.filter((i) => !isBandItem(i) && !(bandRisers && isRiser(i.type))), ...copy] }));
+    pick([]);
+  };
   const picked = useMemo(() => items.filter((i) => sel.includes(i.id)), [items, sel]);
   const one = picked.length === 1 ? picked[0] : null;
   const lights = picked.filter((i) => isLight(i.type));
@@ -319,7 +350,7 @@ export default function StageBuilder({
 
   const key = "min-h-[40px] px-3 rounded-[6px] border text-[12.5px] font-semibold flex items-center gap-1.5 tracking-[0.02em]";
   const keyOff = { background: MA.key, borderColor: MA.line, color: "#d6d6d6" };
-  const keyOn = { background: "#3a2b00", borderColor: MA.amber, color: MA.amber };
+  const keyOn = { background: "#16240d", borderColor: MA.amber, color: MA.amber };
   // A quick command: icon over its name on a phone, side by side when there's room.
   const qk = "min-h-[46px] px-1 rounded-[6px] border text-[11.5px] sm:text-[12.5px] font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 leading-tight text-center";
   // A command in the edit box: icon over its name on a phone, in a column on a computer.
@@ -353,7 +384,7 @@ export default function StageBuilder({
   // Over the stage on a computer, at the top of the panel on a phone.
   const editBox = (where) => sel.length > 0 && tab === "rig" && (
     <div ref={where === "stage" ? boxRef : undefined} className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
-      style={{ background: "#101010", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
+      style={{ background: "#101010", borderColor: moving ? "#9a9a9a" : "#2f4d1f" }} role="toolbar" aria-label="Picked">
       <div className="flex items-center gap-2 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: moving ? "#8a8f96" : MA.green }} />
         <span className="text-[13.5px] font-semibold truncate">{pickedLabel}</span>
@@ -433,7 +464,7 @@ export default function StageBuilder({
             {one && (isTruss(one.type) || one.type === "led_bar") && (
               <div className="flex items-center gap-2">
                 <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
-                <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length" />
+                <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#8CFF3D]" aria-label="Length" />
                 <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
               </div>
             )}
@@ -543,6 +574,12 @@ export default function StageBuilder({
           instrument with no one at it. */}
       <div className={pane("people").replace("gap-3", "gap-2")}>
         <span className={lbl} style={mono}>PEOPLE & INSTRUMENTS</span>
+        {saveParts && (savedBands || []).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className="text-[12px] text-white/45">Load a band:</span>
+            {savedBands.map((b) => <button key={b.id} type="button" onClick={() => loadBand(b)} className={key} style={keyOff}><UserRound className="w-3.5 h-3.5 text-white/45" />{b.name}</button>)}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Add">
           {[[false, "A person"], [true, "Just an instrument"]].map(([alone, label]) => (
             <button key={label} type="button" role="radio" aria-checked={newPerson.alone === alone}
@@ -636,7 +673,7 @@ export default function StageBuilder({
           {(draft || !isAct) && (
             <div className="flex items-center gap-2">
               <span className={lbl + " w-12"} style={mono}>BPM</span>
-              <input type="range" min="60" max="180" value={cur.bpm} onChange={(e) => setCue({ bpm: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="BPM" />
+              <input type="range" min="60" max="180" value={cur.bpm} onChange={(e) => setCue({ bpm: Number(e.target.value) })} className="flex-1 accent-[#8CFF3D]" aria-label="BPM" />
               <span className="w-10 text-right text-white text-[14px] tabular-nums">{cur.bpm}</span>
             </div>
           )}
@@ -657,7 +694,7 @@ export default function StageBuilder({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={lbl + " w-12"} style={mono}>SPEED</span>
-                  <input type="range" min="0.25" max="4" step="0.25" value={sp} onChange={(e) => setCue({ speed: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Speed" />
+                  <input type="range" min="0.25" max="4" step="0.25" value={sp} onChange={(e) => setCue({ speed: Number(e.target.value) })} className="flex-1 accent-[#8CFF3D]" aria-label="Speed" />
                   <span className="w-10 text-right text-white text-[14px] tabular-nums">×{sp}</span>
                 </div>
               </>
@@ -666,12 +703,12 @@ export default function StageBuilder({
           {/* 3, the fade: how long it takes to come up. */}
           <div className="flex items-center gap-2">
             <span className={lbl + " shrink-0 whitespace-nowrap"} style={mono}>3 · FADE</span>
-            <input type="range" min="0" max="10" step="0.5" value={Number((draft ? draft.fadeIn : isAct ? cur.cue.fadeIn : cur.fadeIn) || 0)} onChange={(e) => setCue({ fadeIn: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Fade in, seconds" />
+            <input type="range" min="0" max="10" step="0.5" value={Number((draft ? draft.fadeIn : isAct ? cur.cue.fadeIn : cur.fadeIn) || 0)} onChange={(e) => setCue({ fadeIn: Number(e.target.value) })} className="flex-1 accent-[#8CFF3D]" aria-label="Fade in, seconds" />
             <span className="w-10 text-right text-white text-[14px] tabular-nums">{Number((draft ? draft.fadeIn : isAct ? cur.cue.fadeIn : cur.fadeIn) || 0)}s</span>
           </div>
           <div className="flex items-center gap-2">
             <span className={lbl + " w-12"} style={mono}>LENGTH</span>
-            <input type="range" min="2" max="60" value={Math.round(secsOf(cur))} onChange={(e) => setCue({ secs: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length in seconds" />
+            <input type="range" min="2" max="60" value={Math.round(secsOf(cur))} onChange={(e) => setCue({ secs: Number(e.target.value) })} className="flex-1 accent-[#8CFF3D]" aria-label="Length in seconds" />
             <span className="w-10 text-right text-white text-[14px] tabular-nums">{Math.round(secsOf(cur))}s</span>
           </div>
           <div className="flex items-center gap-2">
@@ -735,7 +772,7 @@ export default function StageBuilder({
         <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo" className="w-10 h-10 rounded-[6px] border flex items-center justify-center disabled:opacity-30" style={keyOff}><Undo2 className="w-[18px] h-[18px]" /></button>
         <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo" className="w-10 h-10 rounded-[6px] border flex items-center justify-center disabled:opacity-30" style={keyOff}><Redo2 className="w-[18px] h-[18px]" /></button>
         {onSave && (
-          <button type="button" onClick={() => onSave({ name: name.trim(), rig, ...(touchedActs ? { acts: (acts || []).map((a, i) => ({ ...a, lighting_cues: sheets[i] })) } : {}) })} disabled={saving || !name.trim()}
+          <button type="button" onClick={() => (saveParts ? openSave() : onSave({ name: name.trim(), rig, ...(touchedActs ? { acts: (acts || []).map((a, i) => ({ ...a, lighting_cues: sheets[i] })) } : {}) }))} disabled={saving || !name.trim()}
             className="h-10 px-4 rounded-[6px] font-bold text-[14px] disabled:opacity-40" style={{ background: MA.amber, color: "#111" }}>{saving ? "Saving…" : "Save"}</button>
         )}
       </div>
@@ -774,7 +811,7 @@ export default function StageBuilder({
                 return (
                   <button key={id} type="button" role="tab" aria-selected={on}
                     onClick={() => { if (id === "cues") { setTab("cues"); pick([]); } else { setTab("rig"); setRigPane(id); pick([]); stopPlay(); } }}
-                    className={`flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em] ${cls} ${on ? "" : onWide ? "lg:!bg-[#FFB400] lg:!border-[#FFB400] lg:!text-[#111]" : ""}`}
+                    className={`flex-1 h-10 rounded-[6px] border text-[13px] font-bold tracking-[0.12em] ${cls} ${on ? "" : onWide ? "lg:!bg-[#8CFF3D] lg:!border-[#8CFF3D] lg:!text-[#111]" : ""}`}
                     style={{ fontFamily: SCENE_MONO, ...(on ? { background: MA.amber, borderColor: MA.amber, color: "#111" } : keyOff) }}>{label}</button>
                 );
               })}
@@ -784,6 +821,46 @@ export default function StageBuilder({
           </div>
         </div>
       </div>
+      {saveWin && (() => {
+        const n = (f) => items.filter(f).length;
+        const rows = [
+          ["lights", "Lights", `${n((i) => isTruss(i.type) || isScreen(i.type))} truss & screens · ${n((i) => isLight(i.type))} fixtures`, "To this venue's stage"],
+          ["band", "Band", `${n((i) => isPerson(i.type))} people · ${n((i) => isInstrument(i.type))} instruments`, "To an artist template"],
+          ["risers", "Risers", `${n((i) => isRiser(i.type))} on stage`, "With what you save"],
+        ];
+        const ok = (saveWin.lights || saveWin.band) && (!saveWin.band || saveWin.artist.trim());
+        return (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/70" onClick={(e) => { if (e.target === e.currentTarget) setSaveWin(null); }}>
+            <div className="w-full max-w-[380px] rounded-[10px] border p-3 flex flex-col gap-2.5" style={{ background: "#141414", borderColor: "#2f4d1f" }} role="dialog" aria-label="Save">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] tracking-[0.18em] font-bold" style={mono}>SAVE</span>
+                <span className="text-white/50 text-[12.5px] truncate">{name.trim()}</span>
+              </div>
+              {rows.map(([k, label, sub, where]) => (
+                <button key={k} type="button" role="checkbox" aria-checked={!!saveWin[k]} onClick={() => setSaveWin((w) => ({ ...w, [k]: !w[k] }))}
+                  className="min-h-[52px] rounded-[8px] border px-3 py-2 flex items-center gap-3 text-left" style={saveWin[k] ? { background: "#16240d", borderColor: MA.green } : { background: "#1b1b1b", borderColor: "#2c2c2c" }}>
+                  <span className="w-5 h-5 rounded-[4px] border flex items-center justify-center shrink-0" style={{ borderColor: saveWin[k] ? MA.green : "#555", background: saveWin[k] ? MA.green : "transparent" }}>{saveWin[k] && <Check className="w-3.5 h-3.5 text-black" strokeWidth={3} />}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[14.5px] font-semibold">{label}</span>
+                    <span className="block text-[12px] text-white/50 truncate">{sub}</span>
+                  </span>
+                  <span className="text-[11px] text-white/40 text-right shrink-0 max-w-[110px]">{where}</span>
+                </button>
+              ))}
+              {saveWin.band && (
+                <input value={saveWin.artist} onChange={(e) => setSaveWin((w) => ({ ...w, artist: e.target.value }))} placeholder="Artist name (e.g. The Midnight)" aria-label="Artist name for the band" maxLength={80} list="sp-ld-bands"
+                  className="min-h-[42px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[16px] text-white placeholder:text-white/30 focus:outline-none" />
+              )}
+              <datalist id="sp-ld-bands">{(savedBands || []).map((b) => <option key={b.id} value={b.name} />)}</datalist>
+              {!saveWin.lights && saveWin.band && <p className="text-[12px] text-white/45">Only the band is saved: this venue's stage stays as it was.</p>}
+              <div className="flex gap-2 pt-0.5">
+                <button type="button" onClick={() => setSaveWin(null)} className="flex-1 h-11 rounded-[6px] border text-[14px] font-semibold" style={keyOff}>Cancel</button>
+                <button type="button" onClick={doSave} disabled={!ok || saving} className="flex-1 h-11 rounded-[6px] text-[14px] font-bold disabled:opacity-40" style={{ background: MA.green, color: "#111" }}>Save</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>,
     document.body
   );

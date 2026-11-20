@@ -13,8 +13,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { getAccountTypeStyle } from "@/lib/accountTypeStyle";
 import { signOutCurrent } from "@/lib/accounts";
 import SettingsPanel from "@/components/showpilot/SettingsPanel";
-import { isDesktopNow } from "@/lib/showRoute";
-import { isCompanyType } from "@/lib/needsMe";
 
 // `avatar`: the trigger is the person's profile photo (tech desktop rail)
 // instead of the menu icon.
@@ -155,10 +153,9 @@ export default function SettingsDrawer({ preferences, onPreferencesUpdate, avata
           prefs={prefs} setPrefs={setPrefs} user={user} accountStyle={accountStyle} onPhoto={handlePhotoUpload}
           navItems={[
             { icon: Archive, label: "Archived Shows", color: "#8CFF3D", onClick: () => { setOpen(false); navigate("/archived"); } },
-            // Tech accounts on desktop: intake links live in the Links feature on
-            // each event's Audio / Lighting web (Oct 26). Phones and company
-            // accounts keep Manage Links here.
-            ...(isDesktopNow() && !isCompanyType(preferences?.account_type) ? [] : [{ icon: Mail, label: "Manage Links", color: "#60A5FA", onClick: () => { setOpen(false); navigate("/manager-links"); } }]),
+            // Manage Links sits between Archived Shows and My Templates for
+            // every account, phone and computer - both tech profiles too (job 407).
+            { icon: Mail, label: "Manage Links", color: "#60A5FA", onClick: () => { setOpen(false); navigate("/manager-links"); } },
             { icon: FolderOpen, label: "My Templates", sub: "Save venue and artist info to reuse on repeat shows", color: "#FB923C", onClick: () => { setOpen(false); navigate("/my-templates"); } },
           ]}
           onSave={save} saving={saving}

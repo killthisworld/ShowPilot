@@ -22,7 +22,7 @@ export function actMembers3D(act, colors) {
 }
 
 const Stage3D = lazy(() => import("@/components/showpilot/Stage3D"));
-const AMBER = "#FFB400";
+const AMBER = "#8CFF3D"; // job 407: lighting is green (was amber)
 const KEY = { background: "#262626", borderColor: "#333", color: "#d6d6d6" };
 
 // The LD's view of an act on the event (job 383): the event's 3D stage with
@@ -99,7 +99,7 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
               <div className="grid grid-cols-3 gap-1.5">
                 {LOOK_KEYS.map((k) => (
                   <button key={k.id} type="button" onClick={() => setKeys((m) => (k.id === "blackout" ? { blackout: !m.blackout } : { ...m, blackout: false, [k.id]: !m[k.id] }))} aria-pressed={!!keys[k.id]}
-                    className="h-12 rounded-[6px] border text-[12px] font-bold" style={keys[k.id] ? { background: "#3a2b00", borderColor: AMBER, color: AMBER } : KEY}>{k.label}</button>
+                    className="h-12 rounded-[6px] border text-[12px] font-bold" style={keys[k.id] ? { background: "#16240d", borderColor: AMBER, color: AMBER } : KEY}>{k.label}</button>
                 ))}
               </div>
             </>

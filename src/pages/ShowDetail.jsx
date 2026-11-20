@@ -1190,8 +1190,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             return namedCount > 0 ? namedCount : undefined;
           })()}>
           <div className="space-y-3 pt-3">
-          {/* The stage plot on the desktop event page (job 255). */}
-          {isDesktop && stageRole && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
+          {/* The stage plot on the desktop event page (job 255). Not for the
+              audio tech (job 407): theirs is under the artist info below. */}
+          {isDesktop && stageRole && (preferences?.account_type || "engineer") !== "engineer" && <StagePlotCard acts={bands} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
           <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={addOpener} className="text-[#8CFF3D] hover:bg-[#8CFF3D]/10 h-8">
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Act

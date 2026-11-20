@@ -42,6 +42,7 @@ export default function PerformerFields({
   showNotes = false,     // the notes block (on a show these live in FX / Artist Notes)
   membersSlot = null,    // shown instead of the stage editor (My Templates passes its own, job 254)
   stagePlotExtra = null, // under the Stage Plot uploads (My Templates: make / save the PDF, job 254)
+  withStage = true,      // false: no stage / stage plot (an LD's artist templates, job 407)
 }) {
   const b = band || {};
   const members = b.band_members || [];
@@ -170,6 +171,7 @@ export default function PerformerFields({
 
       {/* Members are built on the stage (job 267): who stands where and what
           they play, instead of the old list of member rows. */}
+      {withStage && <>
       <div className="border-t border-[#222] pt-3">
         {membersSlot || (
           <StageEditor
@@ -211,6 +213,7 @@ export default function PerformerFields({
         </label>
         {stagePlotExtra && <div className="mt-3">{stagePlotExtra}</div>}
       </div>
+      </>}
 
       {showNotes && (
         <div className="border-t border-[#222] pt-3">
