@@ -20,6 +20,8 @@ SHOT = {  # name -> (width, height)
     'mgmt-home': (1600, 1000), 'mgmt-home-phone': (600, 1298), 'acts-templates': (1600, 1000), 'acts-calendar': (1600, 1000),
     'acts-templates-phone': (600, 1298), 'acts-calendar-phone': (600, 1298), 'djmode': (1600, 1000), 'djmode-phone': (600, 1298),
     # job 375
+    # job 408
+    'rig-pool': (1600, 1000), 'rig-build': (1600, 1000), 'rig-cues': (1600, 1000), 'rig-build-phone': (600, 1298), 'rig-cues-phone': (600, 1298),
     'book-template': (1600, 1000), 'book-template-phone': (600, 1298), 'djmode-set': (1600, 1000), 'djmode-upload': (1600, 1000), 'djmode-upload-phone': (600, 1298),
 }
 
@@ -47,7 +49,8 @@ F = {
   'wallets': ("Fellow pilots' wallets", "Save the crew you meet into wallets: by venue, tour or team.", 'wallets', ['wallets-phone'], "Fellow Pilots: wallets for a venue, a tour and a lighting crew, and the saved ID cards."),
   'pilot': ('Your pilot card', 'A card with your name, role and contact that people save to their wallet.', 'my-pilot', ['pilot-card'], 'A pilot card being set up, and the shared card on a phone.'),
   'logbook': ('Logbook', "Every show you've worked, by month, as stars you can share.", 'logbook-desk', ['logbook', 'pilot-card'], 'The logbook as stars for the month, and a shared pilot card.'),
-  'lightdesk': ('Lighting desk and cue pads', 'Your to-do as a desk with GO, and your shows as cue pads on the phone.', 'lighting-desk', ['lighting-phone'], 'The lighting desk with a NOW bar and GO, and cue pads on a phone.'),
+  'lightdesk': ('Your shows as a lighting desk', 'Each show this week is a playback: who has confirmed, its tasks and chat, and a fader that fills as the show gets ready.', 'lighting-desk', ['lighting-phone'], 'The lighting desk: this week as playbacks, each with VEN / MGR / LX, tasks, chat, a ready fader and GO; on the phone, the same playbacks under your show counts.'),
+  'rig': ('Rig the stage in 3D', 'Build each venue\'s stage once: trusses, lights, LED walls, risers and the band. Save looks as cues and play them on the stage.', [('rig-pool', '1 · Your stages'), ('rig-build', '2 · Build the rig'), ('rig-cues', '3 · Play your cues')], ['rig-build-phone', 'rig-cues-phone'], 'Rig the stage: the stage pool, The Foundry Hall built in 3D with three trusses of lights, an LED wall, a drum riser and the band, then the Chorus hit cue playing in pink.'),
 }
 
 P = [
@@ -58,7 +61,7 @@ P = [
    ['home', 'acts', 'book', 'rider', 'web', 'tasks', 'djmode']),
   # Audio and lighting are one profile (job 374).
   ('tech', 'Audio / Lighting', '#8CFF3D', "Know what every show needs before you get there, run it from your phone, and keep a record of the work you've done.", '',
-   ['console', 'lightdesk', 'intake', 'stage', 'loadinvite', 'wallets', 'pilot', 'logbook']),
+   ['console', 'lightdesk', 'rig', 'intake', 'stage', 'loadinvite', 'wallets', 'pilot', 'logbook']),
 ]
 
 def img(name, alt, lazy=True):
