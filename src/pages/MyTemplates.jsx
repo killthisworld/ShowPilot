@@ -27,7 +27,7 @@ import StageBuilder from "@/components/showpilot/StageBuilder";
 import RigLayer from "@/components/showpilot/RigLayer";
 import { normalizeRig, rigHasItems, rigSummary } from "@/lib/lightingRig";
 import useRigThumbs from "@/components/showpilot/RigThumbs";
-import { saveLdBand, stagePart } from "@/lib/ldStages";
+import { saveLdBand, stagePart, syncIntakeRigs } from "@/lib/ldStages";
 
 // One group per template kind, in the profile colors. Venue + Artist use
 // the show's own Venue Info / Performer fields for audio and lighting
@@ -862,6 +862,8 @@ export default function MyTemplates() {
                       if ((nm || rt.name).trim() && user) {
                         const k = await writeTemplate(rt, (nm || rt.name).trim(), { ...rt.data, lighting_rig: rig });
                         if (k) setTemplate(k, { saved: true });
+                        // Waiting intake links get the stage as saved (job 427).
+                        if (rt.category === "venue") await syncIntakeRigs(rt.id || (String(k || "").startsWith("id:") ? String(k).slice(3) : null), rig);
                       }
                     }
                     if (parts?.band) {

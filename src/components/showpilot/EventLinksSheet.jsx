@@ -86,7 +86,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
       const engineerName = prefs?.display_name || user.user_metadata?.full_name || user.email || "";
       const { data, error } = await supabase
         .from("tour_manager_requests")
-        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, ...(isLD ? { include_services: false, ...(ldStage.rig ? { lighting_rig: ldStage.rig } : {}) } : { include_services: services, ...(askTracks ? { ask_tracks: true } : {}) }) })
+        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, ...(isLD ? { include_services: false, ...(ldStage.rig ? { lighting_rig: { ...ldStage.rig, ...(ldStage.id && ldStage.id !== "event" ? { stage_id: ldStage.id } : {}) } } : {}) } : { include_services: services, ...(askTracks ? { ask_tracks: true } : {}) }) })
         .select().single();
       if (error) throw error;
       await load();

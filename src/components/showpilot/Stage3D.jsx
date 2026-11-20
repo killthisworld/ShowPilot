@@ -777,7 +777,9 @@ export default function Stage3D({
     S.current.looks = list.map((lk, i) => ({ ...lk, startAt: lk.startAt ?? (prev[i] && prev[i].key === lk.key && prev[i].key !== undefined ? prev[i].startAt : now) }));
     S.current.look = S.current.looks[S.current.looks.length - 1] || null;
   }, [look]);
-  useEffect(() => { if (S.current) S.current.dark = dark; }, [dark]);
+  // Lights off as saved with the stage (job 427): every 3D stage shows it -
+  // the intake form, the event, pictures - not just the editor.
+  useEffect(() => { if (S.current) S.current.dark = dark || !!rig?.dark; }, [dark, rig?.dark]);
   useEffect(() => { if (S.current) S.current.liftTo = lift; }, [lift]);
 
   return <div ref={host} className={`relative w-full h-full ${className}`} />;

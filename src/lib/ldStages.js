@@ -41,11 +41,33 @@ export async function saveLdStage({ id = null, name, rig }) {
   if (row) {
     const { error } = await supabase.from("saved_templates").update({ name: clean, data: { ...(row.data || {}), lighting_rig: rig }, updated_at: now }).eq("id", row.id);
     if (error) throw error;
+    await syncIntakeRigs(row.id, rig);
     return row.id;
   }
   const { data, error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "venue", name: clean, data: { ...emptyVenueTemplate(), lighting_rig: rig } }).select("id").single();
   if (error) throw error;
   return data.id;
+}
+
+// Intake links keep a copy of the stage they were sent with. Saving the
+// stage updates that copy on the LD's links still waiting for an answer
+// (job 427), so the act sees the stage as it was last saved - lights off
+// and all. A link's copy belongs to this stage when it carries the stage's
+// id (stage_id, links made since) or shares any item with it (older links).
+export async function syncIntakeRigs(stageId, rig) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !rig) return;
+    const { data } = await supabase.from("tour_manager_requests").select("id, lighting_rig")
+      .eq("engineer_user_id", user.id).eq("status", "pending").not("lighting_rig", "is", null);
+    const ids = new Set((rig.items || []).map((i) => i.id));
+    const mine = (data || []).filter((r) => {
+      const lr = r.lighting_rig || {};
+      if (stageId && lr.stage_id) return lr.stage_id === stageId;
+      return (lr.items || []).some((i) => ids.has(i.id));
+    });
+    await Promise.all(mine.map((r) => supabase.from("tour_manager_requests").update({ lighting_rig: { ...rig, ...(stageId ? { stage_id: stageId } : {}) } }).eq("id", r.id)));
+  } catch (e) { console.error("Couldn't update intake links' stage", e); }
 }
 
 // --- Saving parts of a stage (job 407) ---------------------------------
