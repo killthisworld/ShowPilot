@@ -10,6 +10,7 @@ import { normalizeStageCues } from "@/lib/cueLooks";
 //   len    trusses: straight = length as a share of the stage width;
 //          box = width share (depth is len * 0.6); circle = diameter share
 //   h      trim height in feet (fixtures on the floor: 0)
+//   on     lights hung on a truss: the truss's id - they go where it goes (job 388)
 //   tilt   lights: degrees off straight down (floor lights: off straight up),
 //          toward the front of the stage at 0 turn; -90..90 (job 387)
 // rig.cues: the LD's own cues for the stage (lib/cueLooks newStageCue).
@@ -58,6 +59,7 @@ export function normalizeRig(r) {
       color: i.color || fixtureInfo(i.type)?.color || "#FFFFFF",
       label: String(i.label || "").slice(0, 40),
       tilt: clamp(Number(i.tilt) || 0, -90, 90),
+      ...(i.on ? { on: String(i.on) } : {}),
     })),
     cues: normalizeStageCues(r.cues),
   };
@@ -110,7 +112,7 @@ export function lightsOnTruss(truss, type, count, rig) {
     }
   }
   return spots.map(([x, y]) => ({
-    ...newRigItem(type, rig), id: newId(), x, y, rot: truss.rot || 0, h: Math.max(0, (truss.h || 0) - 1),
+    ...newRigItem(type, rig), id: newId(), x, y, rot: truss.rot || 0, h: Math.max(0, (truss.h || 0) - 1), on: truss.id,
   }));
 }
 

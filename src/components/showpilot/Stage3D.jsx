@@ -158,7 +158,9 @@ export default function Stage3D({
         press.started = true;
         if (press.kind === "item") {
           const sel = cb.current.selIds;
-          press.ids = sel.includes(press.id) ? sel : [press.id];
+          const base = sel.includes(press.id) ? sel : [press.id];
+          // Lights hung on a truss go with it (job 388).
+          press.ids = [...base, ...(cb.current.rig?.items || []).filter((it) => it.on && base.includes(it.on) && !base.includes(it.id)).map((it) => it.id)];
           press.start = {};
           (cb.current.rig?.items || []).forEach((it) => { if (press.ids.includes(it.id)) press.start[it.id] = [it.x, it.y]; });
           cb.current.onDragStart?.(press.id);

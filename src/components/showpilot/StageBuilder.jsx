@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb, SkipBack, SkipForward, Play, Pause, Square, X } from "lucide-react";
+import { ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb, SkipBack, SkipForward, Play, Pause, Square, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, newRigId } from "@/lib/lightingRig";
 import { LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue } from "@/lib/cueLooks";
@@ -28,7 +28,21 @@ export default function StageBuilder({
   onSave, onClose, saving = false, title = "RIG THE STAGE", nameLabel = "Stage name (e.g. the venue)",
 }) {
   const [name, setName] = useState(startName);
-  const [rig, setRig] = useState(() => normalizeRig(start));
+  const [rig, setRigNow] = useState(() => normalizeRig(start));
+  // Undo / redo (job 388): every change to the rig goes through here. Quick
+  // runs of changes (a slider, typing a name) count as one step.
+  const hist = useRef({ past: [], future: [], at: 0 });
+  const [, bump] = useState(0);
+  const setRig = (fn) => setRigNow((prev) => {
+    const next = typeof fn === "function" ? fn(prev) : fn;
+    if (next === prev) return prev;
+    const h = hist.current;
+    const now = Date.now();
+    if (!(h.past.length && now - h.at < 350)) h.past = [...h.past.slice(-79), prev];
+    h.at = now;
+    h.future = [];
+    return next;
+  });
   const [sel, setSel] = useState([]);
   const [moving, setMoving] = useState(false); // the picked ones are in hand (grey)
   const [adding, setAdding] = useState(null); // { type, count } - lights onto a truss
@@ -57,14 +71,85 @@ export default function StageBuilder({
   const pick = (ids, inHand = false) => { setSel(ids); setMoving(inHand && ids.length > 0); setAdding(null); };
   const addItems = (list) => { setRig((r) => ({ ...r, items: [...r.items, ...list] })); pick(list.map((i) => i.id), true); setTab("rig"); };
   const add = (type) => addItems([newRigItem(type, rig)]);
-  const remove = () => { setRig((r) => ({ ...r, items: r.items.filter((i) => !sel.includes(i.id)) })); pick([]); };
-  const duplicate = () => addItems(picked.map((i) => ({ ...i, id: newRigId(), x: clamp(i.x + 0.06, 0, 1), y: clamp(i.y + 0.04, 0, 1) })));
+  // A truss goes with its lights; a copy of a truss brings copies of them.
+  const remove = () => { const gone = [...sel, ...hungOn(sel)]; setRig((r) => ({ ...r, items: r.items.filter((i) => !gone.includes(i.id)) })); pick([]); };
+  const duplicate = () => {
+    const ids = {};
+    picked.forEach((i) => { ids[i.id] = newRigId(); });
+    const shift = (i) => ({ x: clamp(i.x + 0.06, 0, 1), y: clamp(i.y + 0.04, 0, 1) });
+    const copies = picked.map((i) => ({ ...i, id: ids[i.id], ...shift(i), ...(i.on && ids[i.on] ? { on: ids[i.on] } : {}) }));
+    const kids = items.filter((i) => i.on && ids[i.on] && !ids[i.id]).map((i) => ({ ...i, id: newRigId(), on: ids[i.on], ...shift(i) }));
+    setRig((r) => ({ ...r, items: [...r.items, ...copies, ...kids] }));
+    pick(copies.map((i) => i.id), true);
+    setTab("rig");
+  };
   const place = () => pick([]);
   const hangLights = () => {
     if (!one || !isTruss(one.type) || !adding) return;
     addItems(lightsOnTruss(one, adding.type, adding.count, rig));
   };
-  const nudge = (k, by, lo, hi) => patchMany(sel, (i) => ({ [k]: k === "rot" ? norm360((i.rot || 0) + by) : clamp((i[k] || 0) + by, lo, hi) }));
+  // Lights hung on these trusses (job 388): they move, turn, rise and go with them.
+  const hungOn = (ids, list = items) => list.filter((i) => i.on && ids.includes(i.on) && !ids.includes(i.id)).map((i) => i.id);
+  const nudge = (k, by, lo, hi) => setRig((r) => {
+    const W = r.width_ft, D = r.depth_ft;
+    const byId = Object.fromEntries(r.items.map((i) => [i.id, i]));
+    const out = {};
+    sel.forEach((id) => {
+      const t = byId[id];
+      if (!t) return;
+      out[id] = { [k]: k === "rot" ? norm360((t.rot || 0) + by) : clamp((t[k] || 0) + by, lo, hi) };
+      const kids = r.items.filter((i) => i.on === id && !sel.includes(i.id));
+      kids.forEach((c) => {
+        if (k === "h") out[c.id] = { h: clamp((c.h || 0) + (out[id].h - (t.h || 0)), 0, 80) };
+        else if (k === "rot") {
+          // Round the truss's centre, and turned with it.
+          const a = (by * Math.PI) / 180;
+          const dx = (c.x - t.x) * W, dy = (c.y - t.y) * D;
+          out[c.id] = { x: clamp(t.x + (dx * Math.cos(a) - dy * Math.sin(a)) / W, 0, 1), y: clamp(t.y + (dx * Math.sin(a) + dy * Math.cos(a)) / D, 0, 1), rot: norm360((c.rot || 0) + by) };
+        }
+      });
+    });
+    return { ...r, items: r.items.map((i) => (out[i.id] ? { ...i, ...out[i.id] } : i)) };
+  });
+  const undo = () => {
+    const h = hist.current;
+    if (!h.past.length) return;
+    const prev = h.past[h.past.length - 1];
+    h.past = h.past.slice(0, -1);
+    h.future = [rig, ...h.future];
+    h.at = 0;
+    setRigNow(prev);
+    setSel((s) => s.filter((id) => prev.items.some((i) => i.id === id)));
+    setAdding(null);
+    bump((n) => n + 1);
+  };
+  const redo = () => {
+    const h = hist.current;
+    if (!h.future.length) return;
+    const next = h.future[0];
+    h.future = h.future.slice(1);
+    h.past = [...h.past, rig];
+    h.at = 0;
+    setRigNow(next);
+    setSel((s) => s.filter((id) => next.items.some((i) => i.id === id)));
+    setAdding(null);
+    bump((n) => n + 1);
+  };
+  const canUndo = hist.current.past.length > 0;
+  const canRedo = hist.current.future.length > 0;
+  // Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z (or Ctrl+Y) - not while typing.
+  const keysRef = useRef({});
+  keysRef.current = { undo, redo };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.metaKey || e.ctrlKey) || /INPUT|TEXTAREA/.test(e.target?.tagName || "")) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); keysRef.current.undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); keysRef.current.redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // --- Taps and drags from the stage. ---
   const onTapItem = (id) => {
@@ -77,7 +162,7 @@ export default function StageBuilder({
       // Tap where it goes: the picked ones move there together.
       const cx = picked.reduce((n, i) => n + i.x, 0) / picked.length;
       const cy = picked.reduce((n, i) => n + i.y, 0) / picked.length;
-      patchMany(sel, (i) => ({ x: clamp(i.x + x - cx, 0, 1), y: clamp(i.y + y - cy, 0, 1) }));
+      patchMany([...sel, ...hungOn(sel)], (i) => ({ x: clamp(i.x + x - cx, 0, 1), y: clamp(i.y + y - cy, 0, 1) }));
       return;
     }
     pick([]);
@@ -393,6 +478,8 @@ export default function StageBuilder({
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={nameLabel} aria-label="Stage name" maxLength={80}
             className="w-full bg-transparent text-white text-[17px] font-semibold placeholder:text-white/30 focus:outline-none" />
         </div>
+        <button type="button" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo" className="w-10 h-10 rounded-[6px] border flex items-center justify-center disabled:opacity-30" style={keyOff}><Undo2 className="w-[18px] h-[18px]" /></button>
+        <button type="button" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo" className="w-10 h-10 rounded-[6px] border flex items-center justify-center disabled:opacity-30" style={keyOff}><Redo2 className="w-[18px] h-[18px]" /></button>
         {onSave && (
           <button type="button" onClick={() => onSave({ name: name.trim(), rig, ...(touchedActs ? { acts: (acts || []).map((a, i) => ({ ...a, lighting_cues: sheets[i] })) } : {}) })} disabled={saving || !name.trim()}
             className="h-10 px-4 rounded-[6px] font-bold text-[14px] disabled:opacity-40" style={{ background: MA.amber, color: "#111" }}>{saving ? "Saving…" : "Save"}</button>
