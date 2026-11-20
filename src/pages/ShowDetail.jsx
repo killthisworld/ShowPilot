@@ -8,6 +8,7 @@ import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
 import LdStageWindow from "@/components/showpilot/LdStageWindow";
 import LdStageCard from "@/components/showpilot/LdStageCard";
+import { LdActMembers } from "@/components/showpilot/LdStageWindow";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -1247,6 +1248,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <PerformerFields
             band={activeBand}
             withPhoto={sectionPhotos}
+            // The LD doesn't edit the stage plot (job 383): who stands where
+            // comes from the act (they place themselves on the 3D stage).
+            membersSlot={isLightingAccount ? <LdActMembers act={activeBand} onOpen={() => setPlotAt(activeBandIndex)} /> : undefined}
             setLengthAction={
               <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}

@@ -15,12 +15,15 @@ export const LOOK_KEYS = [
 ];
 
 const has = (t, ...words) => words.some((w) => t.includes(w));
+// A color named in the cue ("blue wash") beats the song's color.
+const COLOR_WORDS = [["red", "#EF4444"], ["blue", "#3B82F6"], ["green", "#22C55E"], ["amber", "#F59E0B"], ["orange", "#F97316"], ["yellow", "#FACC15"], ["purple", "#A855F7"], ["violet", "#8B5CF6"], ["pink", "#EC4899"], ["magenta", "#D946EF"], ["cyan", "#22D3EE"], ["teal", "#14B8A6"], ["white", "#FFFFFF"], ["warm", "#FBBF77"], ["cold", "#BFDBFE"]];
+const colorWord = (t) => COLOR_WORDS.find(([w]) => new RegExp(`\\b${w}\\b`).test(t))?.[1] || "";
 
 // { color, bpm, wash, spot, back, chase, fade, strobe, blinder, haze, blackout }
 export function lookFromCue(cue, song = null) {
   const t = String(cue?.look || "").toLowerCase();
   const look = {
-    color: cue?.color || song?.color || "",
+    color: cue?.color || colorWord(t) || song?.color || "",
     bpm: Number(song?.bpm) || 120,
     wash: has(t, "wash", "full", "everything", "all on", "bright"),
     spot: has(t, "spot", "vocal", "singer", "follow"),
