@@ -78,6 +78,9 @@ export function normalizeRig(r) {
       tilt: spinsFully(i.type) ? ((((Number(i.tilt) || 0) + 180) % 360 + 360) % 360) - 180 : clamp(Number(i.tilt) || 0, -90, 90),
       ...(spinsFully(i.type) && Number(i.roll) ? { roll: ((((Number(i.roll) || 0) + 180) % 360 + 360) % 360) - 180 } : {}),
       ...(i.off ? { off: true } : {}),
+      // Which way a light faces (job 419): set by Flip; unset = hung lights
+      // face down, lights on the floor face up.
+      ...(typeof i.aimUp === "boolean" && isLight(i.type) ? { aimUp: i.aimUp } : {}),
       ...(i.group ? { group: String(i.group).slice(0, 40) } : {}),
       ...(i.type === "screen" ? { sw: clamp(Number(i.sw) || 16, 1, 120), sh: clamp(Number(i.sh) || 9, 1, 60) } : {}),
       ...(i.type === "riser" ? { rw: clamp(Number(i.rw) || 8, 1, 60), rd: clamp(Number(i.rd) || 8, 1, 60), rh: clamp(Number(i.rh) || 1, 0.25, 10) } : {}),

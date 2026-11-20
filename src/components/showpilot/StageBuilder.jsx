@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Tag, Music2, Power, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
+import { Tag, Music2, Power, FlipVertical2, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import { TRUSS_TYPES, FIXTURE_TYPES, RIG_COLORS, isTruss, isPerson, isRiser, isLight, isInstrument, isScreen, spinsFully, newRigItem, normalizeRig, rigTypeLabel, lightsOnTruss, rigGroups, rigNamedGroups, newRigId, trussToStage, stageToTruss, snapPlace } from "@/lib/lightingRig";
 import { MOTIONS, LOOK_KEYS, lookFromKeys, lookFromCue, keysFromCue, cueSteps, newStageCue, cueSecs } from "@/lib/cueLooks";
@@ -382,6 +382,9 @@ export default function StageBuilder({
   // Trusses and LED screens turn, tilt and roll all the way round.
   const trussesPicked = picked.length > 0 && picked.every((i) => spinsFully(i.type));
   const lightsOff = lights.length > 0 && lights.every((l) => l.off);
+  // Facing up or down (job 419): Flip turns the picked lights over.
+  const facesUp = (l) => (typeof l.aimUp === "boolean" ? l.aimUp : (l.h || 0) === 0);
+  const lightsUp = lights.length > 0 && lights.every(facesUp);
 
   // --- The edit box (jobs 387-392): what's picked - Move, Duplicate, Delete,
   // Add lights, Place - and its name, aim, height, length, color and on / off.
@@ -490,9 +493,12 @@ export default function StageBuilder({
                   <button key={c} type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ color: c }))} aria-label={`Color ${c}`} aria-pressed={lights.every((l) => l.color === c)}
                     className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: lights.every((l) => l.color === c) ? "#fff" : "transparent" }} />
                 ))}
+                {/* Flip (job 419): face up (on the floor, up-lighting) or down. */}
+                <button type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ aimUp: !lightsUp }))} aria-label={lightsUp ? "Flip to face down" : "Flip to face up"}
+                  className={key + " ml-auto"} style={keyOff}><FlipVertical2 className="w-4 h-4" />{lightsUp ? "Facing up" : "Facing down"}</button>
                 {/* On / off: an off light stays dark, cues too. */}
                 <button type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ off: !lightsOff }))} aria-pressed={!lightsOff}
-                  className={key + " ml-auto"} style={lightsOff ? keyOff : keyOn}><Power className="w-4 h-4" />{lightsOff ? "Off" : "On"}</button>
+                  className={key} style={lightsOff ? keyOff : keyOn}><Power className="w-4 h-4" />{lightsOff ? "Off" : "On"}</button>
               </div>
             )}
             </div>

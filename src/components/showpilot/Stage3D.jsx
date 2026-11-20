@@ -53,7 +53,7 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _up = new THREE.Vector
 function updatePipes(pipes, world) {
   world.updateMatrixWorld(true);
   pipes.forEach(({ pipe, lg, tg, type, L, Dd }) => {
-    _a.set(0, 0.45, 0); lg.localToWorld(_a);
+    _a.set(0, lg.userData.mountY ?? 0.45, 0); lg.localToWorld(_a);
     const p = tg.worldToLocal(_a.clone());
     const cl = (v, m) => Math.max(-m, Math.min(m, v));
     let q;
@@ -608,8 +608,12 @@ export default function Stage3D({
         // Tilt (job 387): the beam leans toward the front (local +z) and
         // lands further out, so it's longer.
         const tilt = ((it.tilt || 0) * Math.PI) / 180;
+        // Facing up or down (job 419): Flip sets it; else hung lights face
+        // down and lights on the floor face up.
+        const up = typeof it.aimUp === "boolean" ? it.aimUp : (it.h || 0) === 0 && it.type !== "fog";
         const reach = Math.cos(Math.min(1.3, Math.abs(tilt)));
-        const len = Math.max(2, ((it.h || 0) + 0.5) / reach);
+        // Facing up, the beam reaches toward the roof (about 30 ft up).
+        const len = up ? Math.max(8, (30 - (it.h || 0)) / reach) : Math.max(2, ((it.h || 0) + 0.5) / reach);
         const r = it.type === "beam" ? 0.5 : it.type === "spot" ? 2.2 : it.type === "par" ? 2.6 : it.type === "strobe" || it.type === "blinder" ? 3.2 : 4;
         const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.12, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
         // The cone points down its -Z, so lookAt aims it.
@@ -630,13 +634,15 @@ export default function Stage3D({
         if (Math.abs(it.tilt || 0) > 70) pool.visible = false;
         // The mount: green once placed, grey while in hand.
         const mount = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.8), new THREE.MeshBasicMaterial({ color: stateColor(it.id) }));
-        mount.position.y = (it.h || 0) > 0 ? 0.45 : -0.38;
+        // The mount on the side away from the beam: above a light facing
+        // down, under one facing up.
+        mount.position.y = up ? -0.38 : 0.45;
+        g.userData.mountY = mount.position.y;
         g.add(mount);
         g.add(head);
         if ((it.h || 0) > 0 && it.type !== "fog") g.add(pool);
         if (it.type === "fog") { cone.visible = false; pool.visible = false; }
-        const up = (it.h || 0) === 0 && it.type !== "fog"; // floor lights point up
-        if (up) pool.visible = false;
+        if (up) pool.visible = false; // facing up: no pool on the deck
         if (selIds.includes(it.id)) {
           const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.1, 6, 24), new THREE.MeshBasicMaterial({ color: movingIds.includes(it.id) ? "#FFB400" : PICKED }));
           ring.rotation.x = Math.PI / 2;
