@@ -230,7 +230,9 @@ export default function StageBuilder({
   };
   const playing = play ? (play.i === "draft" ? draft : list[play.i]) : null;
   const look = useMemo(() => lookOf(playing), [playing, play?.key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const playCue = (i) => { setDraft(null); setCueAt(i); setEditing(true); startPlay(i, secsOf(list[i])); };
+  // Tapping a cue plays it; its arrow opens its settings (job 398).
+  const playCue = (i) => { setDraft(null); if (cueAt !== i) setEditing(false); setCueAt(i); startPlay(i, secsOf(list[i])); };
+  const toggleEdit = (i) => { setDraft(null); if (editing && cueAt === i) { setEditing(false); return; } setCueAt(i); setEditing(true); };
   useEffect(() => { setCueAt(-1); setDraft(null); setEditing(false); stopPlay(); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   // An edit plays the cue again, so the change is seen.
   const replay = (next) => (draft ? startPlay("draft", next?.secs || draft.secs) : cueAt >= 0 && startPlay(cueAt, next?.secs || secsOf(cur)));
@@ -519,37 +521,9 @@ export default function StageBuilder({
     </>
   );
 
-  const cuesPanel = (
-    <>
-      {acts && acts.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
-          {acts.map((a, i) => (
-            <button key={i} type="button" onClick={() => setSrc(i)} aria-pressed={src === i} className={key + " shrink-0"} style={src === i ? keyOn : keyOff}>{a.band_name || `Act ${i + 1}`}</button>
-          ))}
-          <button type="button" onClick={() => setSrc("stage")} aria-pressed={src === "stage"} className={key + " shrink-0"} style={src === "stage" ? keyOn : keyOff}>Stage cues</button>
-        </div>
-      )}
-      <p className="text-white/45 text-[12.5px] leading-snug">Tap a cue to play it through on the stage. Swipe one left to delete it.</p>
-      <div className="flex flex-col gap-1">
-        {isAct ? (
-          steps.length ? steps.map((x, i) => (
-            <CueRow key={x.cue.id || `s${x.songIndex}`} n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
-              color={x.cue.color || x.song.color || ""} active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)}
-              onDelete={x.cue.id ? () => deleteCue(i) : null}
-              badge={x.cue.keys ? <span className="relative text-[9.5px] tracking-[0.12em] px-1.5 py-0.5 rounded border" style={{ fontFamily: SCENE_MONO, color: MA.green, borderColor: "#2f4d1f" }}>SET</span> : null} />
-          )) : <p className="text-white/45 text-[13px]">No cue sheet from {acts[src]?.band_name || "this act"} yet. It comes in with their intake (Lighting cues).</p>
-        ) : (
-          <>
-            {stageCues.map((c, i) => (
-              <CueRow key={c.id} n={i + 1} title={c.name} color={c.color} /* just the title once saved (job 398) */
-                active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)} />
-            ))}
-            {!draft && <button type="button" onClick={newCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>}
-          </>
-        )}
-      </div>
-      {/* The cue being made or changed; Save closes it (a new one is kept then). */}
-      {cur && (draft || editing) && (
+  // The cue's settings, opened from its row's arrow (job 398) or for a new
+  // one; Save closes it (a new one is kept then).
+  const cueEditor = cur && (
         <div className="rounded-[8px] border p-3 flex flex-col gap-3" style={{ background: MA.panel, borderColor: MA.amber }}>
           <div className="flex items-center gap-2">
             <span className={lbl} style={mono}>{draft ? "NEW CUE" : `CUE ${cueAt + 1}`}</span>
@@ -620,7 +594,46 @@ export default function StageBuilder({
             <button type="button" onClick={saveCue} className="ml-auto h-11 px-5 rounded-[6px] font-bold text-[14px] flex items-center gap-1.5" style={{ background: MA.green, color: "#111" }}><Check className="w-4 h-4" />Save cue</button>
           </div>
         </div>
+  );
+
+  const cuesPanel = (
+    <>
+      {acts && acts.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+          {acts.map((a, i) => (
+            <button key={i} type="button" onClick={() => setSrc(i)} aria-pressed={src === i} className={key + " shrink-0"} style={src === i ? keyOn : keyOff}>{a.band_name || `Act ${i + 1}`}</button>
+          ))}
+          <button type="button" onClick={() => setSrc("stage")} aria-pressed={src === "stage"} className={key + " shrink-0"} style={src === "stage" ? keyOn : keyOff}>Stage cues</button>
+        </div>
       )}
+      <p className="text-white/45 text-[12.5px] leading-snug">Tap a cue to play it through on the stage. Its arrow opens its settings; swipe one left to delete it.</p>
+      <div className="flex flex-col gap-1">
+        {isAct ? (
+          steps.length ? steps.map((x, i) => (
+            <React.Fragment key={x.cue.id || `s${x.songIndex}`}>
+            <CueRow n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
+              color={x.cue.color || x.song.color || ""} active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)}
+              onDelete={x.cue.id ? () => deleteCue(i) : null}
+              badge={x.cue.keys ? <span className="relative text-[9.5px] tracking-[0.12em] px-1.5 py-0.5 rounded border" style={{ fontFamily: SCENE_MONO, color: MA.green, borderColor: "#2f4d1f" }}>SET</span> : null}
+              open={editing && !draft && cueAt === i} onToggleOpen={() => toggleEdit(i)} />
+            {editing && !draft && cueAt === i && cueEditor}
+            </React.Fragment>
+          )) : <p className="text-white/45 text-[13px]">No cue sheet from {acts[src]?.band_name || "this act"} yet. It comes in with their intake (Lighting cues).</p>
+        ) : (
+          <>
+            {stageCues.map((c, i) => (
+              <React.Fragment key={c.id}>
+                <CueRow n={i + 1} title={c.name} color={c.color} /* just the title once saved (job 398) */
+                  active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)}
+                  open={editing && !draft && cueAt === i} onToggleOpen={() => toggleEdit(i)} />
+                {editing && !draft && cueAt === i && cueEditor}
+              </React.Fragment>
+            ))}
+            {!draft && <button type="button" onClick={newCue} className="h-11 rounded-[6px] border border-dashed border-[#3a3a3a] text-[13px] font-semibold text-white/75 flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />New cue</button>}
+          </>
+        )}
+      </div>
+      {draft && cueEditor}
     </>
   );
 

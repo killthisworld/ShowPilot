@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
 const AMBER = "#FFB400";
@@ -19,11 +19,13 @@ export function useCuePlayer() {
 
 // A cue in a list: tap to play it - the row fills left to right in the cue's
 // color for its length. Swipe it left to show Delete (when onDelete).
-export function CueRow({ n, title, sub = "", color = "", active = false, play = null, onTap, onDelete = null, badge = null }) {
+// open / onToggleOpen (job 398): an arrow at the end opens the cue's settings.
+export function CueRow({ n, title, sub = "", color = "", active = false, play = null, onTap, onDelete = null, badge = null, open = false, onToggleOpen = null }) {
   const [dx, setDx] = useState(0);
   const g = useRef(null);
   const fill = color || AMBER;
   const down = (e) => {
+    if (e.target.closest?.("[data-cue-open]")) return;
     if (!onDelete) return;
     g.current = { x: e.clientX, y: e.clientY, base: dx, swiping: false };
   };
@@ -38,7 +40,9 @@ export function CueRow({ n, title, sub = "", color = "", active = false, play = 
     }
     setDx(Math.max(-OPEN - 20, Math.min(0, s.base + mx)));
   };
-  const up = () => {
+  const up = (e) => {
+    if (e?.target?.closest?.("[data-cue-open]")) { g.current = null; return; }
+    if (!onDelete) return; // no swipe here: the click plays it
     const s = g.current;
     g.current = null;
     if (s?.swiping) { setDx((v) => (v < -OPEN / 2 ? -OPEN : 0)); return; }
@@ -70,6 +74,12 @@ export function CueRow({ n, title, sub = "", color = "", active = false, play = 
           <span className="block text-[13.5px] text-white truncate">{title}</span>
         </span>
         {badge}
+        {onToggleOpen && (
+          <button type="button" data-cue-open onClick={(e) => { e.stopPropagation(); onToggleOpen(); }} aria-expanded={open} aria-label={`${open ? "Close" : "Open"} cue ${n}'s settings`}
+            className="relative -mr-1 w-9 h-9 shrink-0 rounded-[6px] flex items-center justify-center text-white/60 hover:text-white">
+            <ChevronDown className="w-5 h-5 transition-transform" style={{ transform: open ? "rotate(180deg)" : "none" }} />
+          </button>
+        )}
       </div>
       <style>{"@keyframes sp-cue-fill { from { width: 0% } to { width: 100% } }"}</style>
     </div>
