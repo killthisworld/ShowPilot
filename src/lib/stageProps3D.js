@@ -89,20 +89,63 @@ function percussion(c) {
   return g;
 }
 
-function stringed(c, { neck = 1.75, body = 0.42, amp = [1.6, 1.3, 0.8] } = {}) {
+// A guitar or bass held across the body (job 392): a shaped, carved body
+// with a pickguard, pickups and bridge, a maple neck with a dark fretboard,
+// headstock and tuners, strings, and a strap. No amps behind them.
+function guitarBody(scale) {
+  const pts = [[-0.75, 0], [-0.62, 0.42], [-0.3, 0.5], [-0.05, 0.38], [0.15, 0.36], [0.38, 0.47], [0.62, 0.42], [0.5, 0.14],
+    [0.5, -0.14], [0.58, -0.3], [0.35, -0.42], [0.12, -0.34], [-0.08, -0.4], [-0.35, -0.5], [-0.65, -0.4], [-0.75, 0]]
+    .map(([x, y]) => new THREE.Vector2(x * scale, y * scale));
+  const shape = new THREE.Shape();
+  shape.moveTo(pts[0].x, pts[0].y);
+  shape.splineThru(pts.slice(1));
+  return shape;
+}
+function stringed(c, { bass = false } = {}) {
   const g = new THREE.Group();
   const held = new THREE.Group();
-  const b = cyl(body, body, 0.25, std(c, { roughness: 0.3 }), 24); b.rotation.x = Math.PI / 2; b.scale.set(0.85, 1, 1.2);
-  held.add(b);
-  held.add(at(box(neck, 0.16, 0.08, std("#3b2a1a")), body + neck / 2 - 0.1, 0, 0.05));
-  held.add(at(box(0.35, 0.22, 0.08, std(DARK)), body + neck + 0.05, 0, 0.05));
-  held.position.set(-0.12, 2.1, 0.38);
-  held.rotation.z = 0.45;
+  const sc = bass ? 1.0 : 0.88;
+  const thick = 0.14;
+  const bodyMat = std(c, { roughness: 0.25, metalness: 0.15 });
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(guitarBody(sc), { depth: thick, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.025, bevelSegments: 3, curveSegments: 24 }), bodyMat);
+  held.add(body);
+  const face = thick + 0.03; // the front of the body
+  // Pickguard.
+  const guard = new THREE.Shape();
+  guard.moveTo(-0.45 * sc, -0.32 * sc);
+  guard.splineThru([[-0.2, -0.38], [0.1, -0.25], [0.35, -0.08], [0.32, 0.18], [0.05, 0.22], [-0.3, 0.1], [-0.45, -0.32]].map(([x, y]) => new THREE.Vector2(x * sc, y * sc)));
+  const pg = new THREE.Mesh(new THREE.ShapeGeometry(guard, 16), std("#f2efe8", { roughness: 0.4 }));
+  pg.position.z = face + 0.002;
+  held.add(pg);
+  const black = std("#0c0c0c", { roughness: 0.4 });
+  const chrome = std("#c8ccd2", { metalness: 0.9, roughness: 0.25 });
+  // Pickups and bridge.
+  (bass ? [-0.05] : [-0.2, 0.02, 0.22]).forEach((x) => held.add(at(box(0.09, bass ? 0.3 : 0.24, 0.04, black), x * sc, 0, face + 0.02)));
+  held.add(at(box(0.12, bass ? 0.32 : 0.28, 0.04, chrome), -0.48 * sc, 0, face + 0.02));
+  // Neck: maple, a dark fretboard on top, then the headstock and tuners.
+  const neckLen = bass ? 2.55 : 1.85;
+  const x0 = 0.42 * sc;
+  held.add(at(box(neckLen, bass ? 0.15 : 0.14, 0.09, std("#d8b47c", { roughness: 0.5 })), x0 + neckLen / 2, 0, thick / 2 + 0.03));
+  held.add(at(box(neckLen, bass ? 0.15 : 0.14, 0.02, std("#2a1a10", { roughness: 0.6 })), x0 + neckLen / 2, 0, thick / 2 + 0.085));
+  for (let k = 1; k < 20; k++) held.add(at(box(0.008, 0.14, 0.012, chrome), x0 + neckLen * (1 - Math.pow(0.944, k)), 0, thick / 2 + 0.1));
+  const headLen = bass ? 0.62 : 0.48;
+  const head = at(box(headLen, bass ? 0.24 : 0.22, 0.06, std(bass ? "#d8b47c" : DARK, { roughness: 0.4 })), x0 + neckLen + headLen / 2, 0.03, thick / 2 + 0.03);
+  held.add(head);
+  const nTun = bass ? 4 : 6;
+  for (let k = 0; k < nTun; k++) held.add(at(cyl(0.025, 0.025, 0.06, chrome, 8), x0 + neckLen + 0.06 + (k * (headLen - 0.1)) / (nTun - 1), 0.16, thick / 2 + 0.03));
+  // Strings: bridge to nut.
+  const pts = [];
+  for (let k = 0; k < nTun; k++) {
+    const y = (k - (nTun - 1) / 2) * (bass ? 0.035 : 0.022);
+    pts.push(new THREE.Vector3(-0.48 * sc, y, face + 0.05), new THREE.Vector3(x0 + neckLen, y, thick / 2 + 0.115));
+  }
+  held.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: "#e8e8e8" })));
+  // Slung across the body: low at the right hip, the neck up to their left.
+  held.position.set(-0.1, 2.05, 0.28);
+  held.rotation.z = 0.42;
   g.add(held);
-  // The amp behind them.
-  const [w, h, d] = amp;
-  g.add(at(box(w, h, d, std(DARK)), 0.9, h / 2, -1.4));
-  g.add(at(box(w * 0.85, h * 0.7, 0.02, std("#2b2b2b", { emissive: new THREE.Color(c), emissiveIntensity: 0.15 })), 0.9, h * 0.45, -1.4 + d / 2 + 0.01));
+  // The strap, over the left shoulder.
+  g.add(rod(V(-0.78, 1.76, 0.3), V(0.3, 3.15, 0.05), 0.03, black));
   return g;
 }
 
@@ -197,7 +240,7 @@ export function instrumentProp(part, color, sings = false) {
   if (p === "drums") g.add(drums(c));
   else if (p === "percussion") g.add(percussion(c));
   else if (p === "guitar") g.add(stringed(c));
-  else if (p === "bass") g.add(stringed(c, { neck: 2.3, body: 0.48, amp: [1.9, 2.6, 1.2] }));
+  else if (p === "bass") g.add(stringed(c, { bass: true }));
   else if (p === "keys") g.add(keys(c));
   else if (p === "horns") g.add(horns(c));
   else if (p === "strings") g.add(cello(c));
