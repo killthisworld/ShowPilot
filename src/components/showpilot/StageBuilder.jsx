@@ -271,6 +271,17 @@ export default function StageBuilder({
   const keyOn = { background: "#3a2b00", borderColor: MA.amber, color: MA.amber };
   // A quick command: icon over its name on a phone, side by side when there's room.
   const qk = "min-h-[46px] px-1 rounded-[6px] border text-[11.5px] sm:text-[12.5px] font-semibold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 leading-tight text-center";
+  // A command in the edit box: icon over its name on a phone, in a column on a computer.
+  const cmd = "h-11 lg:h-9 px-1 lg:px-2.5 rounded-[6px] border text-[11px] lg:text-[12.5px] font-semibold flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-0.5 lg:gap-2 leading-tight";
+  // One move with its value: TURN  [<]  15  [>]  (aria labels on the buttons).
+  const stepRow = (label, value, less, more, lessName, moreName, LessIcon, MoreIcon) => (
+    <div className="flex items-center gap-1.5">
+      <span className={lbl + " w-12"} style={mono}>{label}</span>
+      <button type="button" className={aimKey} style={keyOff} aria-label={lessName} onClick={less}><LessIcon className="w-4 h-4" /></button>
+      <span className="w-12 text-center text-white text-[14px] font-semibold tabular-nums">{value}</span>
+      <button type="button" className={aimKey} style={keyOff} aria-label={moreName} onClick={more}><MoreIcon className="w-4 h-4" /></button>
+    </div>
+  );
   const aimKey = "w-9 h-9 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0 disabled:opacity-30";
   const step = "w-10 h-10 rounded-[6px] border flex items-center justify-center text-white/80 shrink-0";
   const lbl = "text-[10px] tracking-[0.16em]";
@@ -289,7 +300,7 @@ export default function StageBuilder({
   // Over the stage on a computer, at the top of the panel on a phone.
   const editBox = (where) => sel.length > 0 && tab === "rig" && (
     <div className={`${where === "stage" ? "absolute left-2 right-2 bottom-2 max-h-[60%] overflow-y-auto overscroll-contain hidden lg:flex" : "flex lg:hidden"} rounded-[10px] border p-2 flex-col gap-2`}
-      style={{ background: "rgba(16,16,16,0.95)", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
+      style={{ background: "#101010", borderColor: moving ? MA.amber : "#2f4d1f" }} role="toolbar" aria-label="Picked">
       <div className="flex items-center gap-2 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: moving ? "#8a8f96" : MA.green }} />
         <span className="text-[13.5px] font-semibold truncate">{pickedLabel}</span>
@@ -315,99 +326,79 @@ export default function StageBuilder({
       ) : (
         <>
           {/* Two columns on a computer: the commands and settings, then the aim. */}
-          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-4 lg:items-start">
+          {/* Organized in three parts (job 392): the commands, what it is
+              (name, size, instrument, length, color), and how it sits (aim). */}
+          <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-[112px_minmax(0,1fr)_auto] lg:gap-4 lg:items-start">
+            <div className="grid gap-1.5 lg:flex lg:flex-col" style={{ gridTemplateColumns: `repeat(${one && isTruss(one.type) ? 5 : 4}, minmax(0, 1fr))` }}>
+              <button type="button" onClick={place} className={cmd} style={{ background: MA.green, borderColor: MA.green, color: "#111" }}><Check className="w-4 h-4 shrink-0" />Place</button>
+              <button type="button" onClick={() => setMoving((m) => !m)} aria-pressed={moving} className={cmd} style={moving ? keyOn : keyOff}><Move className="w-4 h-4 shrink-0" />Move</button>
+              <button type="button" onClick={duplicate} className={cmd} style={keyOff}><Copy className="w-4 h-4 shrink-0" />Duplicate</button>
+              {one && isTruss(one.type) && (
+                <button type="button" onClick={() => setAdding({ type: "spot", count: 4 })} className={cmd} style={keyOff}><Lightbulb className="w-4 h-4 shrink-0" />Add lights</button>
+              )}
+              <button type="button" onClick={remove} className={cmd} style={{ ...keyOff, color: "#f87171" }}><Trash2 className="w-4 h-4 shrink-0" />Delete</button>
+            </div>
             <div className="flex flex-col gap-2 min-w-0">
-          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${one && isTruss(one.type) ? 5 : 4}, minmax(0, 1fr))` }}>
-            <button type="button" onClick={() => setMoving((m) => !m)} aria-pressed={moving} className={qk} style={moving ? keyOn : keyOff}><Move className="w-4 h-4" />Move</button>
-            <button type="button" onClick={duplicate} className={qk} style={keyOff}><Copy className="w-4 h-4" />Duplicate</button>
-            <button type="button" onClick={remove} className={qk} style={{ ...keyOff, color: "#f87171" }}><Trash2 className="w-4 h-4" />Delete</button>
-            {one && isTruss(one.type) && (
-              <button type="button" onClick={() => setAdding({ type: "spot", count: 4 })} className={qk} style={keyOff}><Lightbulb className="w-4 h-4" />Add lights</button>
+            {one && (
+              <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
+                className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
             )}
-            <button type="button" onClick={place} className={qk} style={{ background: MA.green, borderColor: MA.green, color: "#111" }}><Check className="w-4 h-4" />Place</button>
-          </div>
-          {one && (
-            <input value={one.label} onChange={(e) => patch(one.id, { label: e.target.value })} placeholder={isPerson(one.type) ? "Their name" : "Name (e.g. SL wash 1)"} aria-label="Name" maxLength={40}
-              className="min-h-[38px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-2.5 text-[14px] text-white placeholder:text-white/30 focus:outline-none" />
-          )}
-          {one && isRiser(one.type) && (
-            // A riser's size (job 392): width x depth, and how tall.
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={lbl + " w-12"} style={mono}>SIZE</span>
-              {[["rw", "Width", 1], ["rd", "Depth", 1], ["rh", "Height", 0.25]].map(([k, label, by]) => (
-                <label key={k} className="flex items-center gap-1 text-[12px] text-white/60">
-                  {label}
-                  <input type="number" inputMode="decimal" min={k === "rh" ? 0.25 : 1} max={k === "rh" ? 10 : 60} step={by} value={one[k]} aria-label={`Riser ${label.toLowerCase()} in feet`}
-                    onChange={(e) => { const v = Number(e.target.value); if (v > 0) patch(one.id, { [k]: Math.min(k === "rh" ? 10 : 60, v) }); }}
-                    className="w-16 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-1.5 text-[14px] text-white text-center" />
-                  ft
-                </label>
-              ))}
+            {one && isRiser(one.type) && (
+              // A riser's size (job 392): width x depth, and how tall.
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={lbl + " w-12"} style={mono}>SIZE</span>
+                {[["rw", "Width", 1], ["rd", "Depth", 1], ["rh", "Height", 0.25]].map(([k, label, by]) => (
+                  <label key={k} className="flex items-center gap-1 text-[12px] text-white/60">
+                    {label}
+                    <input type="number" inputMode="decimal" min={k === "rh" ? 0.25 : 1} max={k === "rh" ? 10 : 60} step={by} value={one[k]} aria-label={`Riser ${label.toLowerCase()} in feet`}
+                      onChange={(e) => { const v = Number(e.target.value); if (v > 0) patch(one.id, { [k]: Math.min(k === "rh" ? 10 : 60, v) }); }}
+                      className="w-16 min-h-[36px] rounded-[6px] bg-[#0e0e0e] border border-[#2c2c2c] px-1.5 text-[14px] text-white text-center" />
+                    ft
+                  </label>
+                ))}
+              </div>
+            )}
+            {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
+            {one && (isTruss(one.type) || one.type === "led_bar") && (
+              <div className="flex items-center gap-2">
+                <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
+                <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length" />
+                <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
+              </div>
+            )}
+            {lights.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={lbl + " w-14"} style={mono}>COLOR</span>
+                {RIG_COLORS.map((c) => (
+                  <button key={c} type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ color: c }))} aria-label={`Color ${c}`} aria-pressed={lights.every((l) => l.color === c)}
+                    className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: lights.every((l) => l.color === c) ? "#fff" : "transparent" }} />
+                ))}
+                {/* On / off: an off light stays dark, cues too. */}
+                <button type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ off: !lightsOff }))} aria-pressed={!lightsOff}
+                  className={key + " ml-auto"} style={lightsOff ? keyOff : keyOn}><Power className="w-4 h-4" />{lightsOff ? "Off" : "On"}</button>
+              </div>
+            )}
             </div>
-          )}
-          {one && isPerson(one.type) && <PartChips value={one.part || ""} onChange={(part) => patch(one.id, { part, color: partColor(part) })} />}
-          {one && (isTruss(one.type) || one.type === "led_bar") && (
-            <div className="flex items-center gap-2">
-              <span className={lbl + " w-14"} style={mono}>{one.type === "truss_circle" ? "SIZE" : "LENGTH"}</span>
-              <input type="range" min="0.05" max={one.type === "led_bar" ? 0.4 : 1.1} step="0.01" value={one.len} onChange={(e) => patch(one.id, { len: Number(e.target.value) })} className="flex-1 accent-[#FFB400]" aria-label="Length" />
-              <span className="w-12 text-right text-white/70 text-[13px] tabular-nums">{Math.round(one.len * rig.width_ft)} ft</span>
-            </div>
-          )}
-          {lights.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={lbl + " w-14"} style={mono}>COLOR</span>
-              {RIG_COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ color: c }))} aria-label={`Color ${c}`} aria-pressed={lights.every((l) => l.color === c)}
-                  className="w-7 h-7 rounded-full border-2" style={{ background: c, borderColor: lights.every((l) => l.color === c) ? "#fff" : "transparent" }} />
-              ))}
-              {/* On / off: an off light stays dark, cues too. */}
-              <button type="button" onClick={() => patchMany(lights.map((l) => l.id), () => ({ off: !lightsOff }))} aria-pressed={!lightsOff}
-                className={key + " ml-auto"} style={lightsOff ? keyOff : keyOn}><Power className="w-4 h-4" />{lightsOff ? "Off" : "On"}</button>
-            </div>
-          )}
-            </div>
-          <div className="flex items-start gap-3 flex-wrap">
-            {/* Aim, all four ways: left / right turns it, up / down tilts it
-                (people only turn). */}
-            <div className="flex flex-col gap-1">
-              <span className={lbl} style={mono}>AIM</span>
-              <div className="grid grid-cols-3 gap-1" style={{ width: 116 }}>
+            {/* How it sits: the aim pad, and each move with its value. */}
+            <div className="flex items-start gap-3">
+              <div className="grid grid-cols-3 gap-1 shrink-0" style={{ width: 116 }} role="group" aria-label="Aim">
                 <span />
                 <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt up / upstage" onClick={() => nudge("tilt", trussesPicked ? -15 : -10, -90, 90)}><ChevronUp className="w-5 h-5" /></button>
                 <span />
                 <button type="button" className={aimKey} style={keyOff} aria-label="Turn left" onClick={() => nudge("rot", -15)}><ChevronLeft className="w-5 h-5" /></button>
-                <span className="w-9 h-9 rounded-full border border-[#333] bg-[#0e0e0e]" aria-hidden="true" />
+                <span className="w-9 h-9 rounded-full border border-[#333] bg-[#0e0e0e] flex items-center justify-center text-[9px] tracking-[0.1em]" style={mono} aria-hidden="true">AIM</span>
                 <button type="button" className={aimKey} style={keyOff} aria-label="Turn right" onClick={() => nudge("rot", 15)}><ChevronRight className="w-5 h-5" /></button>
                 <span />
                 <button type="button" disabled={!aimable.length} className={aimKey} style={keyOff} aria-label="Tilt down / downstage" onClick={() => nudge("tilt", trussesPicked ? 15 : 10, -90, 90)}><ChevronDown className="w-5 h-5" /></button>
                 <span />
               </div>
-            </div>
-            <div className="flex flex-col gap-2 pt-4 min-w-0">
-              <div className="flex gap-3 text-[13px] tabular-nums text-white/75">
-                <span>Turn <b className="text-white">{turnShown}</b></span>
-                {aimable.length > 0 && <span>Tilt <b className="text-white">{tiltShown}</b></span>}
+              <div className="flex flex-col gap-1.5 min-w-0">
+                {stepRow("TURN", turnShown, () => nudge("rot", -15), () => nudge("rot", 15), "Turn left", "Turn right", RotateCcw, RotateCw)}
+                {aimable.length > 0 && stepRow("TILT", tiltShown, () => nudge("tilt", trussesPicked ? -15 : -10, -90, 90), () => nudge("tilt", trussesPicked ? 15 : 10, -90, 90), "Tilt up / upstage", "Tilt down / downstage", ChevronUp, ChevronDown)}
+                {trussesPicked && stepRow("ROLL", picked.every((i) => (i.roll || 0) === (picked[0].roll || 0)) ? `${picked[0].roll || 0}°` : "±", () => nudge("roll", -15), () => nudge("roll", 15), "Roll left", "Roll right", RotateCcw, RotateCw)}
+                {aimable.length > 0 && stepRow("HEIGHT", picked.every((i) => i.h === picked[0].h) ? `${picked[0].h} ft` : "±1", () => nudge("h", -1, 0, 80), () => nudge("h", 1, 0, 80), "Lower", "Higher", Minus, Plus)}
               </div>
-              {aimable.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className={lbl + " w-12"} style={mono}>HEIGHT</span>
-                  <button type="button" className={aimKey} style={keyOff} aria-label="Lower" onClick={() => nudge("h", -1, 0, 80)}><Minus className="w-4 h-4" /></button>
-                  <span className="w-12 text-center text-white text-[14px] font-semibold tabular-nums">{picked.every((i) => i.h === picked[0].h) ? `${picked[0].h} ft` : "±1"}</span>
-                  <button type="button" className={aimKey} style={keyOff} aria-label="Higher" onClick={() => nudge("h", 1, 0, 80)}><Plus className="w-4 h-4" /></button>
-                </div>
-              )}
-              {trussesPicked && (
-                // Roll: side to side, all the way round - with turn and tilt
-                // a truss can sit at any angle.
-                <div className="flex items-center gap-1.5">
-                  <span className={lbl + " w-12"} style={mono}>ROLL</span>
-                  <button type="button" className={aimKey} style={keyOff} aria-label="Roll left" onClick={() => nudge("roll", -15)}><RotateCcw className="w-4 h-4" /></button>
-                  <span className="w-12 text-center text-white text-[14px] font-semibold tabular-nums">{picked.every((i) => (i.roll || 0) === (picked[0].roll || 0)) ? `${picked[0].roll || 0}°` : "±"}</span>
-                  <button type="button" className={aimKey} style={keyOff} aria-label="Roll right" onClick={() => nudge("roll", 15)}><RotateCw className="w-4 h-4" /></button>
-                </div>
-              )}
             </div>
-          </div>
           </div>
         </>
       )}
