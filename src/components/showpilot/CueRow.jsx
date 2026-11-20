@@ -2,19 +2,33 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 
-const AMBER = "#FFB400";
+const AMBER = "#8CFF3D"; // job 421: lighting is green (was amber)
 const OPEN = 84; // px the row slides to show Delete
 
-// Playing one cue (job 389): tap a cue and it runs for its length, then stops.
-// [play, start(i, secs), stop] - play is { i, key, secs } while it runs.
+// Playing cues (jobs 389, 421): tap a cue and it runs for its length, then
+// stops. Several can run at once.
+// [play, start(i, secs), stop(i?), plays]
+//  - plays: [{ i, key, secs, at }] all running, oldest first
+//  - play: the latest one (or null)
+//  - start(i, secs): plays cue i (again from the top if it's running)
+//  - stop(i): stops cue i; stop() stops them all
 export function useCuePlayer() {
-  const [play, setPlay] = useState(null);
-  useEffect(() => {
-    if (!play) return undefined;
-    const t = window.setTimeout(() => setPlay(null), play.secs * 1000);
-    return () => window.clearTimeout(t);
-  }, [play]);
-  return [play, (i, secs) => setPlay({ i, key: Date.now(), secs: Math.max(0.5, Number(secs) || 8) }), () => setPlay(null)];
+  const [plays, setPlays] = useState([]);
+  const timers = useRef({});
+  useEffect(() => () => Object.values(timers.current).forEach((t) => window.clearTimeout(t)), []);
+  const stop = (i) => {
+    if (i === undefined) { Object.values(timers.current).forEach((t) => window.clearTimeout(t)); timers.current = {}; setPlays([]); return; }
+    window.clearTimeout(timers.current[i]); delete timers.current[i];
+    setPlays((ps) => ps.filter((p) => p.i !== i));
+  };
+  const start = (i, secs) => {
+    const s = Math.max(0.5, Number(secs) || 8);
+    const key = Date.now() + Math.random();
+    window.clearTimeout(timers.current[i]);
+    timers.current[i] = window.setTimeout(() => { delete timers.current[i]; setPlays((ps) => ps.filter((p) => p.key !== key)); }, s * 1000);
+    setPlays((ps) => [...ps.filter((p) => p.i !== i), { i, key, secs: s, at: performance.now() / 1000 }]);
+  };
+  return [plays[plays.length - 1] || null, start, stop, plays];
 }
 
 // A cue in a list: tap to play it - the row fills left to right in the cue's
@@ -62,7 +76,7 @@ export function CueRow({ n, title, sub = "", color = "", active = false, play = 
         onClick={onDelete ? undefined : onTap}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTap?.(); } }}
         className="relative min-h-[44px] px-2.5 border rounded-[6px] text-left flex items-center gap-2 select-none cursor-pointer"
-        style={{ transform: `translateX(${dx}px)`, transition: g.current?.swiping ? "none" : "transform 160ms ease", background: active ? "#2a2108" : "#1b1b1b", borderColor: active ? AMBER : "#2a2a2a" }}>
+        style={{ transform: `translateX(${dx}px)`, transition: g.current?.swiping ? "none" : "transform 160ms ease", background: active ? "#16240d" : "#1b1b1b", borderColor: active ? AMBER : "#2a2a2a" }}>
         {play && (
           <span key={play.key} aria-hidden="true" className="absolute left-0 top-0 bottom-0 pointer-events-none"
             style={{ background: fill, opacity: 0.38, animation: `sp-cue-fill ${play.secs}s linear forwards` }} />

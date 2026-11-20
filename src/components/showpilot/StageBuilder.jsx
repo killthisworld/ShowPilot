@@ -79,7 +79,7 @@ export default function StageBuilder({
   const [cueAt, setCueAt] = useState(-1);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null); // a new stage cue, until Save
-  const [play, startPlay, stopPlay] = useCuePlayer();
+  const [play, startPlay, stopPlay, plays] = useCuePlayer();
   const [newPerson, setNewPerson] = useState({ name: "", part: "", alone: false }); // alone: an instrument with no one at it (job 395)
   const [rigDark, setRigDark] = useState(false); // all the lights off (job 392)
   const colors = useMyStageColors();
@@ -279,9 +279,20 @@ export default function StageBuilder({
     return { ...base, only: q.lights && q.lights.length ? q.lights : null, fadeIn: Number(q.fadeIn) || 0, motion: q.motion || "", speed: Number(q.speed) || 1 };
   };
   const playing = play ? (play.i === "draft" ? draft : list[play.i]) : null;
-  const look = useMemo(() => lookOf(playing), [playing, play?.key]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Tapping a cue plays it; its arrow opens its settings (job 398).
-  const playCue = (i) => { setDraft(null); if (cueAt !== i) setEditing(false); setCueAt(i); startPlay(i, secsOf(list[i])); };
+  // Every cue playing, together (job 421): each its own look and fade in.
+  const look = useMemo(() => plays.map((p) => {
+    const lk = lookOf(p.i === "draft" ? draft : list[p.i]);
+    return lk && { ...lk, key: p.key, startAt: p.at };
+  }).filter(Boolean), [plays, draft, rig, sheets, src]); // eslint-disable-line react-hooks/exhaustive-deps
+  const playOf = (i) => plays.find((p) => p.i === i) || null;
+  // Tapping a cue plays it along with any already playing; tapping a playing
+  // cue stops it (job 421). Its arrow opens its settings (job 398).
+  const playCue = (i) => {
+    if (draft) { setDraft(null); stopPlay("draft"); }
+    if (cueAt !== i) setEditing(false);
+    setCueAt(i);
+    if (playOf(i)) stopPlay(i); else startPlay(i, secsOf(list[i]));
+  };
   const toggleEdit = (i) => { setDraft(null); if (editing && cueAt === i) { setEditing(false); return; } setCueAt(i); setEditing(true); };
   useEffect(() => { setCueAt(-1); setDraft(null); setEditing(false); stopPlay(); }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   // An edit plays the cue again, so the change is seen.
@@ -293,7 +304,7 @@ export default function StageBuilder({
     if (draft) {
       setRig((r) => ({ ...r, cues: [...(r.cues || []), draft] })); setCueAt(stageCues.length); setDraft(null);
       // A new cue playing goes on playing as the saved one (job 413).
-      if (play?.i === "draft") startPlay(stageCues.length, draft.secs);
+      if (playOf("draft")) { stopPlay("draft"); startPlay(stageCues.length, draft.secs); }
     }
     setEditing(false);
   };
@@ -309,7 +320,7 @@ export default function StageBuilder({
     } else setRig((r) => ({ ...r, cues: r.cues.filter((_, k) => k !== i) }));
     if (cueAt === i) { setCueAt(-1); setEditing(false); }
     else if (cueAt > i) setCueAt(cueAt - 1);
-    if (play?.i === i) stopPlay();
+    stopPlay(); // the cues after it move up one: stop them all
   };
   // The LD sets the look of an act's cue: kept on that cue (cue.keys).
   const setActCue = (p) => {
@@ -664,7 +675,7 @@ export default function StageBuilder({
             <span className="text-[11.5px] text-white/45">{curLights.length ? `${curLights.length} light${curLights.length > 1 ? "s" : ""} in this cue · ` : ""}Tap lights on the stage to add or take them out.</span>
           </div>
           <span className={lbl} style={mono}>2 · FUNCTION</span>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {LOOK_KEYS.map((k) => {
               const on = !!curKeys[k.id];
               return (
@@ -723,7 +734,7 @@ export default function StageBuilder({
             <span className="w-10 text-right text-white text-[14px] tabular-nums">{Math.round(secsOf(cur))}s</span>
           </div>
           <div className="flex items-center gap-2">
-            {draft && <button type="button" onClick={() => { setDraft(null); setEditing(false); stopPlay(); }} className="text-white/55 text-[13px] px-2 min-h-[42px]">Cancel</button>}
+            {draft && <button type="button" onClick={() => { setDraft(null); setEditing(false); stopPlay("draft"); }} className="text-white/55 text-[13px] px-2 min-h-[42px]">Cancel</button>}
             <button type="button" onClick={saveCue} className="ml-auto h-11 px-5 rounded-[6px] font-bold text-[14px] flex items-center gap-1.5" style={{ background: MA.green, color: "#111" }}><Check className="w-4 h-4" />Save cue</button>
           </div>
         </div>
@@ -739,13 +750,13 @@ export default function StageBuilder({
           <button type="button" onClick={() => setSrc("stage")} aria-pressed={src === "stage"} className={key + " shrink-0"} style={src === "stage" ? keyOn : keyOff}>Stage cues</button>
         </div>
       )}
-      <p className="text-white/45 text-[12.5px] leading-snug">Tap a cue to play it through on the stage. Its arrow opens its settings; swipe one left to delete it.</p>
+      <p className="text-white/45 text-[12.5px] leading-snug">Tap a cue to play it through on the stage; tap more to run them together, tap a playing one to stop it. Its arrow opens its settings; swipe one left to delete it.</p>
       <div className="flex flex-col gap-1">
         {isAct ? (
           steps.length ? steps.map((x, i) => (
             <React.Fragment key={x.cue.id || `s${x.songIndex}`}>
             <CueRow n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
-              color={x.cue.color || x.song.color || ""} active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)}
+              color={x.cue.color || x.song.color || ""} active={!draft && i === cueAt} play={playOf(i)} onTap={() => playCue(i)}
               onDelete={x.cue.id ? () => deleteCue(i) : null}
               badge={x.cue.keys ? <span className="relative text-[9.5px] tracking-[0.12em] px-1.5 py-0.5 rounded border" style={{ fontFamily: SCENE_MONO, color: MA.green, borderColor: "#2f4d1f" }}>SET</span> : null}
               open={editing && !draft && cueAt === i} onToggleOpen={() => toggleEdit(i)} />
@@ -757,7 +768,7 @@ export default function StageBuilder({
             {stageCues.map((c, i) => (
               <React.Fragment key={c.id}>
                 <CueRow n={i + 1} title={c.name} color={c.color} /* just the title once saved (job 398) */
-                  active={!draft && i === cueAt} play={play?.i === i ? play : null} onTap={() => playCue(i)} onDelete={() => deleteCue(i)}
+                  active={!draft && i === cueAt} play={playOf(i)} onTap={() => playCue(i)} onDelete={() => deleteCue(i)}
                   open={editing && !draft && cueAt === i} onToggleOpen={() => toggleEdit(i)} />
                 {editing && !draft && cueAt === i && cueEditor}
               </React.Fragment>
@@ -790,7 +801,7 @@ export default function StageBuilder({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="relative lg:flex-1 min-h-0 h-[44dvh] [@media(max-height:720px)]:h-[36dvh] lg:h-auto lg:[@media(max-height:720px)]:h-auto shrink-0">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
-            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look} lift={sel.length && tab === "rig" ? Math.round(boxH / 2) : 0}
+            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look.length} lift={sel.length && tab === "rig" ? Math.round(boxH / 2) : 0}
               mode={tab === "rig" ? "build" : cur && (draft || editing) ? "pick" : "view"}
               selected={tab === "rig" ? sel : cur && (draft || editing) ? curLights : []} moving={moving && tab === "rig" ? sel : []}
               onTapItem={tab === "rig" ? onTapItem : toggleCueLight} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
@@ -799,7 +810,7 @@ export default function StageBuilder({
           {tab === "cues" && playing && (
             <div className="absolute left-3 right-3 bottom-3 rounded-[8px] bg-black/70 border border-[#333] px-3 py-2 pointer-events-none overflow-hidden">
               <span key={play.key} aria-hidden="true" className="absolute left-0 top-0 bottom-0" style={{ background: (playing === draft || !isAct ? playing.color : playing.cue.color || playing.song.color) || MA.amber, opacity: 0.3, animation: `sp-cue-fill ${play.secs}s linear forwards` }} />
-              <div className="relative text-[10px] tracking-[0.16em]" style={mono}>{play.i === "draft" ? "NEW CUE" : `CUE ${play.i + 1} / ${list.length}`}{isAct && play.i !== "draft" ? ` · ${(playing.song.title || `SONG ${playing.songIndex + 1}`).toUpperCase()}` : ""}</div>
+              <div className="relative text-[10px] tracking-[0.16em]" style={mono}>{plays.length > 1 ? `${plays.length} CUES PLAYING · ` : ""}{play.i === "draft" ? "NEW CUE" : `CUE ${play.i + 1} / ${list.length}`}{isAct && play.i !== "draft" ? ` · ${(playing.song.title || `SONG ${playing.songIndex + 1}`).toUpperCase()}` : ""}</div>
               <div className="relative text-[15px] font-semibold truncate">{playing === draft || !isAct ? playing.name : `${playing.cue.at ? `${playing.cue.at.trim()}: ` : ""}${playing.cue.look || "—"}`}</div>
             </div>
           )}

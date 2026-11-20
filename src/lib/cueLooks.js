@@ -10,16 +10,17 @@ export const MOTIONS = [
 const motionOk = (m) => (MOTIONS.some((x) => x.id === m) ? m : "");
 const speedOk = (v) => Math.min(4, Math.max(0.25, Number(v) || 1));
 
+// Job 421: seven, each doing what it says on the cue's lights (Blinders and
+// Haze are gone - they did little you could see; an older cue's blinder /
+// haze is just ignored).
 export const LOOK_KEYS = [
-  { id: "wash", label: "Full wash" },
-  { id: "spot", label: "Spot on vocals" },
-  { id: "back", label: "Back light" },
-  { id: "chase", label: "Chase" },
-  { id: "fade", label: "Color fade" },
-  { id: "strobe", label: "Strobes" },
-  { id: "blinder", label: "Blinders" },
-  { id: "haze", label: "Haze" },
-  { id: "blackout", label: "Blackout" },
+  { id: "wash", label: "Full wash" },        // all of them up, full
+  { id: "spot", label: "Spot the singer" },  // all of them aimed at the singer, full
+  { id: "back", label: "Back light" },       // the ones behind the band full, the rest dark
+  { id: "chase", label: "Chase" },           // one at a time, to the beat
+  { id: "fade", label: "Color fade" },       // colors rolling across them
+  { id: "strobe", label: "Strobe" },         // all of them flashing
+  { id: "blackout", label: "Blackout" },     // all of them off
 ];
 
 const has = (t, ...words) => words.some((w) => t.includes(w));
@@ -41,12 +42,10 @@ export function lookFromCue(cue, song = null) {
     chase: has(t, "chase", "beat", "pulse", "bounce"),
     fade: has(t, "fade", "rainbow", "cycle", "slow color"),
     strobe: has(t, "strobe", "flash"),
-    blinder: has(t, "blinder", "audience", "crowd"),
-    haze: has(t, "haze", "fog", "smoke"),
     blackout: has(t, "blackout", "black out", "dark", "lights out"),
   };
   // Nothing we recognise: just bring the stage up in its color.
-  if (!["wash", "spot", "back", "chase", "fade", "strobe", "blinder", "blackout"].some((k) => look[k])) look.wash = true;
+  if (!["wash", "spot", "back", "chase", "fade", "strobe", "blackout"].some((k) => look[k])) look.wash = true;
   return look;
 }
 

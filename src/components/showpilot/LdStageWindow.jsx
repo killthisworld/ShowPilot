@@ -32,7 +32,7 @@ const KEY = { background: "#262626", borderColor: "#333", color: "#d6d6d6" };
 export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOpenCues = null }) {
   const [cur, setCur] = useState(start);
   const [step, setStep] = useState(-1);
-  const [play, startPlay, stopPlay] = useCuePlayer(); // job 389: a tapped cue plays through once
+  const [play, startPlay, stopPlay, plays] = useCuePlayer(); // job 389: a tapped cue plays through once; job 421: several together
   const [keys, setKeys] = useState({});
   const colors = useMyStageColors();
   useEffect(() => {
@@ -45,7 +45,9 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
   const members = useMemo(() => actMembers3D(act, colors), [act, colors]);
   const steps = useMemo(() => cueSteps(act.lighting_cues), [act]);
   const s = play ? steps[play.i] : null;
-  const look = s ? s.look : Object.values(keys).some(Boolean) ? lookFromKeys(keys) : null;
+  const look = plays.length
+    ? plays.map((p) => steps[p.i] && { ...steps[p.i].look, key: p.key, startAt: p.at }).filter(Boolean)
+    : Object.values(keys).some(Boolean) ? lookFromKeys(keys) : null;
 
   useEffect(() => { setStep(-1); stopPlay(); }, [cur]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,8 +90,8 @@ export default function LdStageWindow({ acts = [], start = 0, rig, onClose, onOp
               <div className="flex flex-col gap-1">
                 {steps.map((x, i) => (
                   <CueRow key={i} n={i + 1} title={x.cue.look || "—"} sub={`${x.song.title || `Song ${x.songIndex + 1}`}${x.cue.at ? ` · ${x.cue.at.trim()}` : ""}`}
-                    color={x.cue.color || x.song.color || ""} active={i === step} play={play?.i === i ? play : null}
-                    onTap={() => { setStep(i); startPlay(i, cueSecs(x.cue.secs, x.song.bpm)); }} />
+                    color={x.cue.color || x.song.color || ""} active={i === step} play={plays.find((p) => p.i === i) || null}
+                    onTap={() => { setStep(i); if (plays.some((p) => p.i === i)) stopPlay(i); else startPlay(i, cueSecs(x.cue.secs, x.song.bpm)); }} />
                 ))}
               </div>
             </>

@@ -341,57 +341,86 @@ export default function Stage3D({
         const w = el.clientWidth || 300, h = el.clientHeight || 300;
         if (st.lift) camera.setViewOffset(w, h, 0, st.lift, w, h); else camera.clearViewOffset();
       }
-      const L = st.look;
-      // Speed (job 399): the cue's chase, strobe, color fade and motion all
-      // run faster or slower.
-      const t = t0 * (L?.speed || 1);
-      const beat = 60 / Math.max(40, Math.min(220, L?.bpm || 120));
-      // A cue on some of the lights (job 393): the rest stay dark, and the
-      // chase / color fade run across just those. It fades in over fadeIn s.
-      const only = L?.only && L.only.length ? L.only : null;
-      const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
-      const n = act.length || 1;
-      const rise = L?.fadeIn ? Math.min(1, Math.max(0, (t0 - (st.lookStart || 0)) / L.fadeIn)) : 1;
+      // Cues playing (job 421): one or more at once, each over its own
+      // lights (none picked = all) with its own speed, beat and fade in.
+      // Each light shows the cue lighting it brightest (the later cue on a
+      // tie), so cues layer. A cue lights even a light switched off.
+      const looks = st.looks || [];
+      const L = looks.length ? looks[looks.length - 1] : null; // the latest
+      const nowS = performance.now() / 1000;
+      const runs = looks.map((lk) => {
+        const only = lk.only && lk.only.length ? lk.only : null;
+        const act = only ? st.fixtures.filter((f) => only.includes(f.id)) : st.fixtures;
+        // Back light: the cue's lights behind the band (the upstage half of
+        // them); if they're all level, the back row of them.
+        const ys = act.map((f) => f.y);
+        const backEdge = ys.length ? Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) / 2 : 0.5;
+        return {
+          L: lk, only, act, n: act.length || 1, backEdge: Math.max(...ys, 0) - Math.min(...ys, 0) < 0.05 ? Infinity : backEdge,
+          t: t0 * (lk.speed || 1),
+          beat: 60 / Math.max(40, Math.min(220, lk.bpm || 120)),
+          rise: lk.fadeIn ? Math.min(1, Math.max(0, (nowS - (lk.startAt || 0)) / lk.fadeIn)) : 1,
+        };
+      });
+      // One cue on one of its lights (job 421): its level 0..1 and color.
+      // Each function works on the cue's own lights, whatever kind they are.
+      const evalRun = (r, f, k) => {
+        const { L: lk, t, beat, n } = r;
+        let col = f.base;
+        if (lk.color) col = lk.color;
+        if (lk.fade) { tmp.setHSL(((t / 8) + k / n) % 1, 0.9, 0.55); col = "#" + tmp.getHexString(); }
+        let on = 1; // Full wash, Spot the singer, Color fade: all up
+        if (lk.back) on = f.y <= r.backEdge || r.backEdge === Infinity ? 1 : 0;
+        // Chase: one light at a time (two across a long row), to the beat.
+        if (lk.chase) { const step = Math.floor(t / beat) % n; on = k === step || (n >= 6 && k === (step + Math.floor(n / 2)) % n) ? 1 : 0.06; }
+        if (lk.strobe) on = (Math.floor(t * 10) % 2) ? 1 : 0;
+        if (lk.blackout) on = 0;
+        return { on: on * r.rise, col, dark: !!lk.blackout };
+      };
       st.fixtures.forEach((f, k0) => {
-        const k = only ? act.indexOf(f) : k0;
         let on = 0.85; // level 0..1
         let col = f.base;
-        if (L) {
-          if (L.color) col = L.color;
-          if (L.fade) { tmp.setHSL(((t / 8) + k / n) % 1, 0.9, 0.55); col = "#" + tmp.getHexString(); }
-          const wash = L.wash || (!L.spot && !L.back && !L.chase && !L.strobe && !L.blinder);
-          on = wash ? 0.9 : 0.12;
-          if (L.back) on = f.y < 0.45 ? 1 : 0.06;
-          if (L.spot && (f.type === "spot" || f.type === "beam")) on = 1;
-          if (L.chase) { const step = Math.floor(t / beat) % n; on = k === step || k === (step + Math.floor(n / 2)) % n ? 1 : 0.1; }
-          if (L.strobe && (f.type === "strobe" || L.strobe === "all" || !st.hasStrobe)) on = (Math.floor(t * 12) % 2) ? 1 : 0;
-          if (f.type === "blinder") on = L.blinder ? (Math.floor(t / beat) % 2 ? 1 : 0.15) : 0;
-          if (L.blackout) on = 0;
+        let win = null, k = k0, blackout = false; // the cue lighting it, and its place in that cue
+        if (runs.length) {
+          on = 0;
+          runs.forEach((r) => {
+            const kk = r.only ? r.act.indexOf(f) : k0;
+            if (r.only && kk < 0) return; // not in this cue
+            const v = evalRun(r, f, kk);
+            if (v.dark) { on = 0; win = r; k = kk; blackout = true; return; }
+            if (blackout) return; // a Blackout cue keeps it dark
+            if (!win || v.on >= on) { on = v.on; col = v.col; win = r; k = kk; }
+          });
+          if (!win) col = f.base;
+        } else {
+          if (f.type === "strobe") on = 0;
+          if (f.off || st.dark) on = 0; // switched off (job 392); a cue still lights it (job 421)
         }
-        if (f.type === "strobe" && !(L?.strobe)) { on = 0; }
-        if (L) { if (only && k < 0) on = 0; on *= rise; }
-        if (f.off || (!L && st.dark)) on = 0; // switched off (job 392)
+        const W2 = win?.L, t = win ? win.t : t0, n = win ? win.n : 1;
         f.mat.color.set(col);
-        f.mat.opacity = (L?.haze ? 0.22 : 0.12) * on;
+        f.mat.opacity = 0.14 * on;
         f.pool.material.color.set(col);
         f.pool.material.opacity = 0.22 * on;
         f.body.material.emissive.set(col);
         f.body.material.emissiveIntensity = 0.15 + 0.85 * on;
         // Spots / beams find the singers when "Spot on vocals" is up.
-        if (L?.spot && (f.type === "spot" || f.type === "beam") && st.singers.length && !f.up) {
-          const s = st.singers[Math.max(0, k) % st.singers.length];
-          f.head.lookAt(s.x, DECK + 3, s.z);
-        } else if (L?.motion && L.motion !== "" && (f.type === "spot" || f.type === "beam" || f.type === "wash") && !(only && k < 0)) {
+        // Spot the singer (job 421): every light in the cue (not LED bars or
+        // strobes) aims at the singer - or the front middle if there's none.
+        if (W2?.spot && !blackout && f.type !== "led_bar" && f.type !== "strobe") {
+          const s2 = st.singers.length ? st.singers[Math.max(0, k) % st.singers.length] : { x: 0, z: (st.D || 24) * 0.2 };
+          f.head.lookAt(s2.x, DECK + 3, s2.z);
+          f.pool.material.opacity = 0; // the pool stays under it; it's aimed away
+        } else if (W2?.motion && W2.motion !== "" && (f.type === "spot" || f.type === "beam" || f.type === "wash")) {
           // Motion (job 399): pan / tilt off where it's aimed.
           const w = Math.PI * 0.5 * t; // a cycle every 4 s at x1
           const kk = Math.max(0, k);
           let pan = 0, tl = 0;
-          if (L.motion === "sweep") pan = 0.6 * Math.sin(w + kk * 0.4);
-          else if (L.motion === "nod") tl = 0.5 * Math.sin(w + kk * 0.4);
-          else if (L.motion === "circle") { pan = 0.35 * Math.cos(w + kk * 0.6); tl = 0.35 * Math.sin(w + kk * 0.6); }
-          else if (L.motion === "figure8") { pan = 0.45 * Math.sin(w); tl = 0.28 * Math.sin(2 * w); }
-          else if (L.motion === "fan") pan = ((kk - (n - 1) / 2) / Math.max(1, n)) * 1.4 * (0.5 + 0.5 * Math.sin(w));
-          else if (L.motion === "ballyhoo") { pan = 0.6 * Math.sin(w * 1.3 + kk * 1.7); tl = 0.4 * Math.sin(w * 0.9 + kk * 2.3); }
+          if (W2.motion === "sweep") pan = 0.6 * Math.sin(w + kk * 0.4);
+          else if (W2.motion === "nod") tl = 0.5 * Math.sin(w + kk * 0.4);
+          else if (W2.motion === "circle") { pan = 0.35 * Math.cos(w + kk * 0.6); tl = 0.35 * Math.sin(w + kk * 0.6); }
+          else if (W2.motion === "figure8") { pan = 0.45 * Math.sin(w); tl = 0.28 * Math.sin(2 * w); }
+          else if (W2.motion === "fan") pan = ((kk - (n - 1) / 2) / Math.max(1, n)) * 1.4 * (0.5 + 0.5 * Math.sin(w));
+          else if (W2.motion === "ballyhoo") { pan = 0.6 * Math.sin(w * 1.3 + kk * 1.7); tl = 0.4 * Math.sin(w * 0.9 + kk * 2.3); }
           // Swing it side to side (about the light's front-back line) and
           // front to back (about its side-to-side line).
           f.mv.copy(f.dir).applyAxisAngle(f.fwdAxis, pan).applyAxisAngle(f.rightAxis, tl);
@@ -404,6 +433,7 @@ export default function Stage3D({
           f.head.lookAt(f.wp.x + f.dir.x * 20, f.wp.y + f.dir.y * 20, f.wp.z + f.dir.z * 20 + 0.0001);
         }
       });
+      const t = t0 * (L?.speed || 1);
       // LED screens: the look's color while a cue plays, else the rig blue.
       (st.screens || []).forEach((sc, k) => {
         const L2 = st.look;
@@ -418,7 +448,7 @@ export default function Stage3D({
         sc.mat.emissive.set(col);
         sc.mat.emissiveIntensity = sc.off ? 0.02 : lvl;
       });
-      if (st.hazeMesh) st.hazeMesh.material.opacity = L?.haze ? 0.08 + 0.02 * Math.sin(t) : 0;
+      if (st.hazeMesh) st.hazeMesh.material.opacity = 0; // no Haze function (job 421)
       controls.update();
       renderer.render(scene, camera);
       // A thumbnail: read straight after drawing a settled frame.
@@ -716,7 +746,17 @@ export default function Stage3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rig, members, selKey, movKey, pickedMember, labels]);
 
-  useEffect(() => { if (S.current) { S.current.look = look; S.current.lookStart = S.current.clock?.getElapsedTime() || 0; } }, [look]);
+  // look: one cue's look, or a list of them playing together (job 421).
+  // A look keeps its own startAt (performance.now() s) for its fade in; one
+  // without it starts now.
+  useEffect(() => {
+    if (!S.current) return;
+    const now = performance.now() / 1000;
+    const list = (Array.isArray(look) ? look : look ? [look] : []).filter(Boolean);
+    const prev = S.current.looks || [];
+    S.current.looks = list.map((lk, i) => ({ ...lk, startAt: lk.startAt ?? (prev[i] && prev[i].key === lk.key && prev[i].key !== undefined ? prev[i].startAt : now) }));
+    S.current.look = S.current.looks[S.current.looks.length - 1] || null;
+  }, [look]);
   useEffect(() => { if (S.current) S.current.dark = dark; }, [dark]);
   useEffect(() => { if (S.current) S.current.liftTo = lift; }, [lift]);
 
