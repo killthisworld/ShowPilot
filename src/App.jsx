@@ -42,6 +42,7 @@ import OpenerIntake from '@/pages/OpenerIntake';
 import ManagerLinksPage from '@/pages/ManagerLinksPage';
 import MyTemplates from '@/pages/MyTemplates';
 import RigStage from '@/pages/RigStage';
+import OpenEvent from '@/pages/OpenEvent';
 import VenueRecords from '@/pages/VenueRecords';
 import NewEventForNonTech from '@/pages/NewEventForNonTech';
 import Logbook from '@/pages/Logbook';
@@ -139,6 +140,8 @@ const AuthenticatedApp = () => {
         <Route path="/band/calendar" element={<BandCalendar />} />
         <Route path="/show/:id" element={<ShowDetail />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        {/* A calendar entry's link (job 411). */}
+        <Route path="/open/:id" element={<OpenEvent />} />
         <Route path="/experience" element={<Experience />} />
         <Route path="/chats" element={<TechChats />} />
         <Route path="/archived" element={<ArchivedShows />} />

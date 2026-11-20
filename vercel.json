@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/cal/:token.ics",
+      "destination": "/api/calendar?t=:token"
+    },
+    {
       "source": "/v/:code",
       "has": [
         {

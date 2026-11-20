@@ -8,6 +8,7 @@ import AccountSwitcher from "@/components/showpilot/AccountSwitcher";
 import GenreColors from "@/components/showpilot/GenreColors";
 import StagePlotColors from "@/components/showpilot/StagePlotColors";
 import ExtraServicesSettings from "@/components/showpilot/ExtraServicesSettings";
+import CalendarSyncCard from "@/components/showpilot/CalendarSyncCard";
 
 // The body of the Settings drawer, in the same console language as the
 // homes: a profile readout card, mono field labels, bank-style navigation
@@ -280,6 +281,9 @@ export default function SettingsPanel({
         </div>
         <LoginDetails user={user} />
       </div>
+
+      {/* Every profile: their events in Google Calendar (job 411). */}
+      <CalendarSyncCard accent={color} className="mb-4" />
 
       {/* Navigation banks */}
       <div className="space-y-2 mb-4">
