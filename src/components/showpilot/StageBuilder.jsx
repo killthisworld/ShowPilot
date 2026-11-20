@@ -290,7 +290,11 @@ export default function StageBuilder({
   const setStageCue = (i, p) => setRig((r) => ({ ...r, cues: r.cues.map((c, k) => (k === i ? { ...c, ...p } : c)) }));
   const newCue = () => { const d = newStageCue(stageCues.length); setDraft(d); setCueAt(-1); setEditing(true); startPlay("draft", d.secs); };
   const saveCue = () => {
-    if (draft) { setRig((r) => ({ ...r, cues: [...(r.cues || []), draft] })); setCueAt(stageCues.length); setDraft(null); }
+    if (draft) {
+      setRig((r) => ({ ...r, cues: [...(r.cues || []), draft] })); setCueAt(stageCues.length); setDraft(null);
+      // A new cue playing goes on playing as the saved one (job 413).
+      if (play?.i === "draft") startPlay(stageCues.length, draft.secs);
+    }
     setEditing(false);
   };
   const deleteCue = (i) => {
@@ -803,9 +807,10 @@ export default function StageBuilder({
         </div>
         <div className="lg:w-[380px] shrink-0 flex-1 lg:flex-none min-h-0 overflow-y-auto overscroll-contain p-3 pb-[max(16px,env(safe-area-inset-bottom))] border-t lg:border-t-0 lg:border-l" style={{ borderColor: MA.line, background: "#121212" }}>
           <div className="flex flex-col gap-3">
-            {/* RIG / PEOPLE / CUES on a phone, RIG / CUES on a computer; it stays
-                at the top as the panel scrolls (job 401). */}
-            <div className="flex gap-1.5 sticky top-0 z-10 -mx-3 -mt-3 px-3 pt-3 pb-2 bg-[#121212]" role="tablist">
+            {/* RIG / PEOPLE / CUES on a phone, RIG / CUES on a computer. On a
+                computer it stays at the top as the panel scrolls (job 401); on
+                a phone it scrolls away with it (job 413). */}
+            <div className="flex gap-1.5 lg:sticky lg:top-0 lg:z-10 -mx-3 -mt-3 px-3 pt-3 pb-2 bg-[#121212]" role="tablist">
               {[["rig", "RIG", ""], ["people", "PEOPLE", "lg:hidden"], ["cues", "CUES", ""]].map(([id, label, cls]) => {
                 const on = id === "cues" ? tab === "cues" : tab === "rig" && (id === "rig" ? rigPane === "rig" : rigPane === "people");
                 const onWide = id === "rig" ? tab === "rig" : on;

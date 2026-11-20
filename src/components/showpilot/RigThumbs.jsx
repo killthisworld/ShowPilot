@@ -11,7 +11,13 @@ const ver = (s) => String(s.updated_at || "");
 //   thumbs[id] -> image URL; render {drawer} somewhere on the page.
 export default function useRigThumbs(stages) {
   const [shots, setShots] = useState({}); // id -> { at, url }
-  const list = useMemo(() => (stages || []).filter((s) => s && s.id && s.rig && (s.rig.items || []).length), [stages]);
+  const all = (stages || []).filter((s) => s && s.id && s.rig && (s.rig.items || []).length);
+  // Job 413: keyed by the stages' ids and versions, not the array - a new
+  // array each render re-ran the effect below, which set state every time
+  // (an endless loop once a picture was kept), redrawing the 3D stage
+  // non-stop so cues never showed.
+  const sig = all.map((s) => `${s.id}@${ver(s)}`).join("|");
+  const list = useMemo(() => all, [sig]); // eslint-disable-line react-hooks/exhaustive-deps
   // The ones kept from before, if they're still current.
   useEffect(() => {
     const got = {};
@@ -21,7 +27,8 @@ export default function useRigThumbs(stages) {
         if (c && c.at === ver(s) && c.url) got[s.id] = c;
       } catch { /* no storage: draw it */ }
     });
-    if (Object.keys(got).length) setShots((t) => ({ ...got, ...t }));
+    // Only when something's new, so this never loops.
+    setShots((t) => (Object.keys(got).some((id) => t[id]?.at !== got[id].at) ? { ...got, ...t } : t));
   }, [list]);
   // One at a time: the first stage without a current picture.
   const next = list.find((s) => shots[s.id]?.at !== ver(s));

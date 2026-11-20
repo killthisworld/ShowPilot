@@ -130,6 +130,12 @@ export default function Stage3D({
       const r = renderer.domElement.getBoundingClientRect();
       return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height];
     };
+    // Tests (dev only): each light's level and color right now, and the look.
+    if (import.meta.env.DEV) window.__stage3dLevels = () => ({
+      look: S.current?.look ? { ...S.current.look } : null,
+      t: S.current?.clock?.elapsedTime, n: (S.current?.fixtures || []).length,
+      lights: (S.current?.fixtures || []).map((f) => ({ id: f.id, on: +((f.body.material.emissiveIntensity - 0.15) / 0.85).toFixed(2), col: "#" + f.mat.color.getHexString() })),
+    });
     const size = () => {
       const w = el.clientWidth || 300, h = el.clientHeight || 300;
       renderer.setSize(w, h, false);
