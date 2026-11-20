@@ -145,3 +145,40 @@ export function LdActMembers({ act, onOpen }) {
     </div>
   );
 }
+
+// The act on the event, for the LD (job 431): a small picture of the
+// event's 3D stage with the act's members where they put themselves; tap
+// it to open the full stage. Drawn once in 3D and kept as a picture (no
+// live 3D view per act). onPdf: the act's cue sheet as a PDF, when they
+// sent cues.
+export function LdActStage({ act, rig, onOpen, onPdf = null }) {
+  const colors = useMyStageColors();
+  const r = useMemo(() => (rigHasItems(rig) ? normalizeRig(rig) : emptyRig()), [rig]);
+  const members = useMemo(() => actMembers3D(act, colors), [act, colors]);
+  const sig = useMemo(() => JSON.stringify([r.items, r.dark, members.map((m) => [m.x, m.y, m.part, m.name])]), [r, members]);
+  const [shot, setShot] = useState(null); // { sig, url }
+  const list = (act?.band_members || []).filter((m) => m.name || instrumentsOf(m).length);
+  const placed = members.length;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button type="button" onClick={onOpen} aria-label={`Open the 3D stage for ${act?.band_name || "this act"}`}
+        className="relative w-full rounded-[10px] border overflow-hidden bg-black text-left" style={{ aspectRatio: "16 / 9", borderColor: "#2f4d1f" }}>
+        {shot?.sig === sig && shot.url
+          ? <img src={shot.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          : <div className="absolute inset-0 flex items-center justify-center text-white/35 text-[12.5px]">Drawing the stage…</div>}
+        {shot?.sig !== sig && (
+          <div aria-hidden="true" style={{ position: "fixed", left: -10000, top: 0, width: 640, height: 360, pointerEvents: "none" }}>
+            <Suspense fallback={null}>
+              <Stage3D key={sig} rig={r} members={members} labels={false} mode="view" onSnapshot={(url) => setShot({ sig, url: url || "" })} />
+            </Suspense>
+          </div>
+        )}
+        <span className="absolute left-0 right-0 bottom-0 px-3 py-2 flex items-center gap-2" style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.85))" }}>
+          <span className="text-[12px] font-bold tracking-[0.12em]" style={{ fontFamily: SCENE_MONO, color: AMBER }}>3D STAGE</span>
+          <span className="ml-auto text-[12px] text-white/70">{list.length ? `${placed} of ${list.length} on the stage` : "No members yet"} · Tap to open</span>
+        </span>
+      </button>
+      {onPdf && <button type="button" onClick={onPdf} className="self-start text-[12.5px] font-semibold px-1 min-h-[32px]" style={{ color: AMBER }}>Their cue sheet (PDF)</button>}
+    </div>
+  );
+}

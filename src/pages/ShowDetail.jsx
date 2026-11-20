@@ -8,7 +8,8 @@ import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
 import LdStageCard, { EventStageBuilder } from "@/components/showpilot/LdStageCard";
 import { StagePlotInbox } from "@/components/showpilot/StagePlotShare";
-import { LdActMembers } from "@/components/showpilot/LdStageWindow";
+import { LdActStage } from "@/components/showpilot/LdStageWindow";
+import { openCueSheetPdf } from "@/lib/cueSheetPdf";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
 import { createPortal } from "react-dom";
@@ -1268,7 +1269,12 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             withPhoto={sectionPhotos}
             // The LD doesn't edit the stage plot (job 383): who stands where
             // comes from the act (they place themselves on the 3D stage).
-            membersSlot={isLightingAccount ? <LdActMembers act={activeBand} onOpen={() => setPlotAt(activeBandIndex)} /> : undefined}
+            // Job 429: the LD sees a picture of the event's 3D stage with the
+            // act on it (tap to open the full stage) - no members list, no
+            // stage plot uploads.
+            membersSlot={isLightingAccount ? <LdActStage act={activeBand} rig={show.lighting_rig || myVenueRig} onOpen={() => setPlotAt(activeBandIndex)}
+              onPdf={cueSheetHasAny(activeBand?.lighting_cues) ? () => openCueSheetPdf({ actName: activeBand.band_name || "Act", eventLine: [show?.date ? new Date(show.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "", show?.venue].filter(Boolean).join(" · "), sheet: activeBand.lighting_cues }).catch(() => {}) : null} /> : undefined}
+            withPlotFiles={!isLightingAccount}
             setLengthAction={
               <div className="flex items-center gap-2 flex-wrap">
                 {multitrackFor(activeBand?.band_name) !== undefined && <MultitrackChip value={multitrackFor(activeBand?.band_name)} />}
@@ -1276,9 +1282,10 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
                 <ActNotesButton act={activeBand} onClick={() => { setFxTarget(activeBandIndex); setFxAct(activeBandIndex); setShowFxModal(true); }} />
                 <ActTracksButton entry={tracksFor(activeBand?.band_name)} actName={activeBand?.band_name} onClick={() => setTracksAct(activeBand?.band_name)} />
                 {/* Always here, empty stage or not: open it to build one (job 286). */}
-                <ActStagePlotButton act={activeBand} always onClick={() => setPlotAt(activeBandIndex)} />
-                {/* The act's lighting cues (job 377): for the LD, or when the act sent some. */}
-                {(isLightingAccount || cueSheetHasAny(activeBand?.lighting_cues)) && <ActCuesButton act={activeBand} onClick={() => setCuesAt(activeBandIndex)} />}
+                {/* Not for the LD (job 431): the 3D stage below has it all. */}
+                {!isLightingAccount && <ActStagePlotButton act={activeBand} always onClick={() => setPlotAt(activeBandIndex)} />}
+                {/* The act's lighting cues (job 377), when the act sent some. */}
+                {!isLightingAccount && cueSheetHasAny(activeBand?.lighting_cues) && <ActCuesButton act={activeBand} onClick={() => setCuesAt(activeBandIndex)} />}
               </div>
             }
             onPatch={(patch) => setBands((prev) => { const next = [...prev]; next[activeBandIndex] = { ...next[activeBandIndex], ...patch }; return next; })}

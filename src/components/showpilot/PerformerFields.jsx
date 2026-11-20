@@ -43,6 +43,7 @@ export default function PerformerFields({
   membersSlot = null,    // shown instead of the stage editor (My Templates passes its own, job 254)
   stagePlotExtra = null, // under the Stage Plot uploads (My Templates: make / save the PDF, job 254)
   withStage = true,      // false: no stage / stage plot (an LD's artist templates, job 407)
+  withPlotFiles = true,  // false: no Stage Plot uploads (the LD's event, job 431)
 }) {
   const b = band || {};
   const members = b.band_members || [];
@@ -186,7 +187,7 @@ export default function PerformerFields({
         )}
       </div>
 
-      <div className="border-t border-[#222] pt-3">
+      {withPlotFiles && <div className="border-t border-[#222] pt-3">
         <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
         {(b.stage_plot_files || []).length > 0 && (
           <div className="space-y-2 mb-3">
@@ -212,7 +213,7 @@ export default function PerformerFields({
           <input type="file" accept="image/*,.pdf,.png,.jpg,.jpeg" multiple className="hidden" onChange={onStagePlotUpload} />
         </label>
         {stagePlotExtra && <div className="mt-3">{stagePlotExtra}</div>}
-      </div>
+      </div>}
       </>}
 
       {showNotes && (
