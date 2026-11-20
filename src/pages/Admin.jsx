@@ -15,7 +15,7 @@ const rpc = async (fn, args) => {
   return data;
 };
 const when = (t) => (t ? new Date(t).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "");
-const label = (k) => k.replace(/_/g, " ");
+const label = (k) => String(k ?? "").replace(/_/g, " ");
 
 // Shows any JSON as readable labelled rows, so nothing a user typed is hidden.
 function Pretty({ v, depth = 0 }) {
@@ -74,15 +74,19 @@ function Row({ onClick, children }) {
 function Home({ go }) {
   const [tab, setTab] = useState("users");
   const [q, setQ] = useState("");
-  const [rows, setRows] = useState(null);
+  // The rows remember which tab they belong to, so switching tabs never
+  // draws one tab's rows with another tab's layout (that crashed the page).
+  const [res, setRes] = useState(null);
   const [err, setErr] = useState("");
+  const rows = res && res.tab === tab && Array.isArray(res.data) ? res.data : null;
 
   const run = async (t = tab, text = q) => {
-    setErr(""); setRows(null);
+    setErr(""); setRes(null);
     try {
-      if (t === "users") setRows(await rpc("admin_find_users", { p_q: text }));
-      else if (t === "events") setRows(await rpc("admin_find_events", { p_q: text }));
-      else setRows(await rpc("admin_access_log_list", { p_limit: 200 }));
+      const data = t === "users" ? await rpc("admin_find_users", { p_q: text })
+        : t === "events" ? await rpc("admin_find_events", { p_q: text })
+        : await rpc("admin_access_log_list", { p_limit: 200 });
+      setRes({ tab: t, data });
     } catch (e) { setErr(e.message || "Something went wrong"); }
   };
   useEffect(() => { run(tab, q); /* eslint-disable-next-line */ }, [tab]);
