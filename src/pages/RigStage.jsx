@@ -67,8 +67,10 @@ export default function RigStage() {
   const fresh = () => setOpen({ id: null, name: "", rig: emptyRig(), band: isBands });
   const openOne = (s, rig) => setOpen({ id: s.id, name: s.name, rig, band: isBands });
   return (
-    <div className="min-h-screen bg-[#0b0b0b] text-white pb-28">
-      <div className="max-w-[1100px] mx-auto px-4 pt-[max(14px,env(safe-area-inset-top))]">
+    // A computer (job 420): the full window beside the app's rail, not a
+    // centered column; a phone keeps the centered page and bottom tabs.
+    <div className="min-h-screen bg-[#0b0b0b] text-white pb-28 lg:pb-8">
+      <div className="max-w-[1100px] lg:max-w-none mx-auto lg:mx-0 px-4 lg:px-8 pt-[max(14px,env(safe-area-inset-top))] lg:pt-5">
         <div className="flex items-center gap-2 py-2">
           <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="w-10 h-10 -ml-2 flex items-center justify-center text-white/70"><ChevronLeft className="w-6 h-6" /></button>
           <div className="flex-1">
@@ -152,7 +154,9 @@ export default function RigStage() {
         ? <StageBuilder name={open.name} rig={open.rig} saving={saving} onSave={save} onClose={() => { setOpen(null); reloadBands(); }}
             title="THE BAND ON STAGE" nameLabel="Artist name (e.g. The Midnight)" />
         : <StageBuilder name={open.name} rig={open.rig} saving={saving} onSave={save} onClose={() => { setOpen(null); reload(); }} saveParts />)}
-      <div className="lg:hidden"><BottomTabs /></div>
+      {/* Bottom tabs on a phone, the tech rail on a computer (job 420: it
+          was hidden there, leaving an empty strip on the left). */}
+      <BottomTabs />
     </div>
   );
 }
