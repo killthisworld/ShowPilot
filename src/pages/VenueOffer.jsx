@@ -129,8 +129,12 @@ export default function VenueOffer() {
           const t = fromVenueTemplate(house?.data);
           const base = { name: prefs?.display_name || "", photo_url: prefs?.profile_photo_url || "" };
           if (!gone) setTplStart({ items, t, base });
-          if (!gone && items.length) setChoosing(true);
-          else if (!gone) fillFresh(t, base);
+          // From My Templates (job 437): ?tpl=<id> starts from that one, ?tpl=fresh from none.
+          const want = new URLSearchParams(window.location.search).get("tpl") || "";
+          const picked = items.find((x) => x.id === want);
+          if (gone) { /* left */ } else if (picked) fillFromTemplate(picked, { t, base });
+          else if (items.length && want !== "fresh") setChoosing(true);
+          else fillFresh(t, base);
         } catch (e) { console.error(e); }
       }
       setLoading(false);

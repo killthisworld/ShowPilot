@@ -6,7 +6,7 @@ import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { gigFromTemplate, templateFromGig, templateExclude, VENUE_TECH_KEYS } from "@/lib/roleTemplates";
 import RoleWorkspace from "@/components/showpilot/RoleWorkspace";
-import SavedTemplatesList from "@/components/showpilot/SavedTemplatesList";
+import TemplatesHub, { useNamedTemplates } from "@/components/showpilot/TemplatesHub";
 import { useAuth } from "@/lib/AuthContext";
 import { uploadIconImage } from "@/lib/eventIcons";
 import { cropImage } from "@/lib/cropImage";
@@ -380,6 +380,13 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   const [saveState, setSaveState] = useState("saved");
   const [sheet, setSheet] = useState(null); // look | loads | preview | section:<key>
   const [reorder, setReorder] = useState(false);
+  // Tabs (job 437): House (this template) and the named Offer / Event
+  // templates on top of it. ?tab=offers | events opens one.
+  const kinds = role === "venue" ? ["offer", "event"] : ["event"];
+  const named = useNamedTemplates(role === "venue" ? "venue" : "manager", kinds);
+  const [tab, setTab] = useState(() => {
+    try { const t = new URLSearchParams(window.location.search).get("tab"); return t === "offers" ? "offer" : t === "events" ? "event" : "house"; } catch { return "house"; }
+  });
   const first = useRef(true);
   const timer = useRef(null);
 
@@ -530,7 +537,21 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
   );
 
   // Named offer / event templates on top of this house template (job 434).
-  const savedBlock = <SavedTemplatesList category={role === "venue" ? "venue" : "manager"} kinds={role === "venue" ? ["offer", "event"] : ["event"]} color={ring} desktop={desktop} />;
+  const count = (k) => (named.lists?.[k] || []).length;
+  const tabBar = (
+    <div role="tablist" aria-label="Templates" className="flex gap-1 p-1 rounded-[12px] bg-[#111] border border-[#222] self-start max-w-full overflow-x-auto">
+      {[["house", role === "venue" ? "House" : "Your side"], ...kinds.map((k) => [k, k === "offer" ? "Offers" : "Events"])].map(([k, l]) => (
+        <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+          className="min-h-[40px] px-4 rounded-[9px] text-[14px] font-bold whitespace-nowrap flex items-center gap-1.5"
+          style={tab === k ? { background: ring, color: "#0d0d0d" } : { color: "rgba(255,255,255,0.7)" }}>
+          {l}{k !== "house" && <span className="text-[11px] font-semibold opacity-70" style={MONO}>{named.lists ? count(k) : ""}</span>}
+        </button>
+      ))}
+    </div>
+  );
+  const hub = tab !== "house" ? (
+    <TemplatesHub category={role === "venue" ? "venue" : "manager"} kind={tab} color={ring} desktop={desktop} items={named.lists?.[tab] || []} reload={named.reload} />
+  ) : null;
 
   const progress = (
     <div className="flex items-center gap-3 rounded-[12px] bg-[#151515] border border-[#262626] px-3 py-2.5">
@@ -678,17 +699,19 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
     return (
       <div className="flex flex-col gap-4" style={{ fontFamily: SCENE_FONT }}>
         <div className="flex items-center gap-3">
-          <div className="flex-1 max-w-[420px]">{nameInput}</div>
+          {tabBar}
+          {tab === "house" && <div className="flex-1 max-w-[420px] ml-2">{nameInput}</div>}
           <span className="flex-1" />
-          {topButtons}
+          {tab === "house" && topButtons}
         </div>
+        {hub}
+        {tab === "house" && (<>
         {/* Sections across the wide side, so they all show at once (job 432);
             the preview and the look stack on the right. */}
         <div className="grid gap-5 items-start" style={{ gridTemplateColumns: "minmax(0, 1fr) 340px" }}>
           <div className="flex flex-col gap-4 min-w-0">
             {progress}
             {sectionsBlock}
-            {savedBlock}
           </div>
           <div className="flex flex-col gap-3 min-w-0">
             <div className="rounded-[18px] border border-[#1f1f1f] bg-[#111] p-3">
@@ -700,12 +723,16 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
             </div>
           </div>
         </div>
+        </>)}
         {sheetEl}
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-4" style={{ fontFamily: SCENE_FONT }}>
+      {tabBar}
+      {hub}
+      {tab === "house" && (<>
       <div className="flex items-center justify-end gap-2">
         {topButtons}
       </div>
@@ -713,7 +740,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
       {nameInput}
       {progress}
       {sectionsBlock}
-      {savedBlock}
+      </>)}
       {sheetEl}
     </div>
   );

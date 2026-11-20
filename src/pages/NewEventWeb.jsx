@@ -9,21 +9,7 @@ import TimeSelect from "@/components/showpilot/TimeSelect";
 import { loadNamed, saveNamed } from "@/lib/namedTemplates";
 import { TemplateChooser, SaveAsTemplate } from "@/components/showpilot/TemplateChooser";
 
-// Event templates (job 434): what a Create event web keeps under a name.
-// Not the date, the event name, promo (this show only) or paperwork files.
-const EVENT_KEYS = ["loadIn", "doors", "onStage", "curfew", "crew", "onFile", "people", "acts", "stagePlot", "stagePlotSave"];
-const eventSnapshot = (f) => Object.fromEntries(EVENT_KEYS.filter((k) => f[k] !== undefined && f[k] !== null).map((k) => [k, f[k]]));
-function eventTemplateLine(item) {
-  const d = item?.data || {};
-  const acts = Array.isArray(d.acts) ? d.acts.length : 0;
-  const people = Array.isArray(d.people) ? d.people.length : 0;
-  return [
-    (d.loadIn || d.doors || d.onStage || d.curfew) && "times",
-    acts && (acts === 1 ? d.acts[0].name : `${acts} acts`),
-    d.crew && "sound / lights",
-    people && `${people} co-host${people === 1 ? "" : "s"}`,
-  ].filter(Boolean).join(", ");
-}
+import { eventSnapshot, eventTemplateLine } from "@/lib/eventTemplate";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { useGoBack } from "@/lib/navHistory";
 import {
@@ -147,17 +133,22 @@ export default function NewEventWeb({ side = "manager" }) {
     loadNamed(user.id, venueSide ? "venue" : "manager", "event").then(({ items }) => {
       if (gone) return;
       setTpl({ items });
-      if (items.length) setChoosing(true);
+      // From My Templates (job 437): ?tpl=<id> starts from that one, ?tpl=fresh from none.
+      const want = new URLSearchParams(location.search).get("tpl") || "";
+      const picked = items.find((x) => x.id === want);
+      if (picked) applyTemplate(picked);
+      else if (items.length && want !== "fresh") setChoosing(true);
     }).catch((e) => { console.error(e); setTpl({ items: [] }); });
     return () => { gone = true; };
   }, [user]);
+  function applyTemplate(item) {
+    const d = item.data || {};
+    setF((cur) => ({ ...cur, ...d, crew: { ...cur.crew, ...(d.crew || {}) }, onFile: { ...(d.onFile || {}) } }));
+    setFromTpl(item.name);
+  }
   const pickTemplate = (id) => {
     const item = (tpl?.items || []).find((x) => x.id === id);
-    if (item) {
-      const d = item.data || {};
-      setF((cur) => ({ ...cur, ...d, crew: { ...cur.crew, ...(d.crew || {}) }, onFile: { ...(d.onFile || {}) } }));
-      setFromTpl(item.name);
-    }
+    if (item) applyTemplate(item);
     setChoosing(false);
   };
   const saveAsTemplate = async (nm) => {
