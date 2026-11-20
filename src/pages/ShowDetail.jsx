@@ -7,6 +7,7 @@ import CueSheetWindow, { ActCuesButton } from "@/components/showpilot/CueSheetWi
 import { cueSheetHasAny } from "@/lib/cueSheet";
 import useMyVenueRig from "@/lib/useMyVenueRig";
 import LdStageCard, { EventStageBuilder } from "@/components/showpilot/LdStageCard";
+import { StagePlotInbox } from "@/components/showpilot/StagePlotShare";
 import { LdActMembers } from "@/components/showpilot/LdStageWindow";
 import SubmittedBy from "@/components/showpilot/SubmittedBy";
 import { eventTitle } from "@/lib/eventTitle";
@@ -131,6 +132,20 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const myVenueRig = useMyVenueRig(show?.venue, isLightingAccount); // the LD's rig here (job 377)
   const [showFanPage, setShowFanPage] = useState(false);
   const [bands, setBands] = usePersistedState(`${draftKey}_bands`, [emptyBand("N/A", 0)]);
+  // A stage plot an audio engineer sent this LD (job 400): each act's members
+  // go onto the act of the same name, or a new act; an empty first act is used.
+  const loadSentPlot = (acts) => setBands((prev) => {
+    const key = (v) => String(v || "").trim().toLowerCase();
+    const next = [...prev];
+    (acts || []).forEach((a) => {
+      const members = Array.isArray(a.band_members) ? a.band_members : [];
+      const i = key(a.band_name) ? next.findIndex((b) => key(b.band_name) === key(a.band_name)) : -1;
+      if (i >= 0) next[i] = { ...next[i], band_members: members };
+      else if (next.length === 1 && !key(next[0].band_name) && !(next[0].band_members || []).length) next[0] = { ...next[0], band_name: a.band_name || "", band_members: members };
+      else next.push({ ...emptyBand("N/A", next.length), band_name: a.band_name || "", band_members: members });
+    });
+    return next;
+  });
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [activeBandIndex, setActiveBandIndex] = useState(0);
   const [orderDraft, setOrderDraft] = useState(null);
@@ -1157,6 +1172,8 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
           <CollapsibleSection title="Venue Info" icon={Info} color="#60A5FA" defaultOpen={isDesktop}>
             {techPhone && !isNew && identityBlock}
             {/* The LD's 3D stage for this event (job 383). */}
+            {/* Stage plots audio engineers sent this LD (job 400). */}
+            {isLightingAccount && <div className="mb-3"><StagePlotInbox date={show.date} onLoad={loadSentPlot} /></div>}
             {isLightingAccount && <div className="mb-3"><LdStageCard rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} /></div>}
             <VenueInfoFields
               value={show}
@@ -1296,7 +1313,7 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
       {/* The LD sees the act on the event's 3D stage, cues and all (job 383). */}
       {/* The LD runs the act's cues on the event's stage (job 387). */}
       {plotAt !== null && isLightingAccount && <EventStageBuilder rig={show.lighting_rig || myVenueRig} venueName={show.venue} onChange={(r) => update("lighting_rig", r)} acts={bands} onActs={setBands} startAct={plotAt} startTab="cues" onClose={() => setPlotAt(null)} />}
-      {plotAt !== null && !isLightingAccount && <StagePlotView acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
+      {plotAt !== null && !isLightingAccount && <StagePlotView show={show?.id ? show : null} acts={bands} start={plotAt} onClose={() => setPlotAt(null)} token={show?.share_token} onActs={setBands} busColors={iemMonitorColors} onBusSettings={openBusSettings} onEditMembers={editStage} onOpenNotes={(i) => { setFxTarget(i); setFxAct(i); setShowFxModal(true); }} />}
       {showFxModal && (
         <FxNotesWindow
           acts={bands}

@@ -1,3 +1,4 @@
+import { SendPlotToLdButton } from "@/components/showpilot/StagePlotShare";
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronsDown, Loader2, X } from "lucide-react";
@@ -186,7 +187,8 @@ function PersonCard({ m, i, colors, onClose }) {
 //   neither: look only; a member's line opens their card.
 // rig / lighting (job 377): the LD's rig for the venue drawn under the
 // members (with a 3D view), and no audio details for an LD.
-export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null, rig = null, lighting = false }) {
+// show (job 400): the audio engineer's own event - a "Send to my LD" key.
+export function StagePlotView({ acts = [], start = 0, onClose, token = null, onActs = null, onEditMembers = null, startEditing = false, onOpenNotes = null, busColors = null, onBusSettings = null, rig = null, lighting = false, show = null }) {
   const colors = useMyStageColors();
   const rigN = rigHasItems(rig) ? normalizeRig(rig) : null;
   const [show3d, setShow3d] = useState(false);
@@ -249,6 +251,7 @@ export function StagePlotView({ acts = [], start = 0, onClose, token = null, onA
         {/* Keep this act's stage in My Templates (job 254), right of notes;
             always there (job 287), ready once someone is on the stage. */}
         {act && <SaveStageTemplateButton key={cur} act={{ ...act, band_members: list }} iconOnly className={iconBtn} />}
+        {show && <SendPlotToLdButton acts={acts} show={show} className={iconBtn} />}
       </div>
       {tabs.length > 1 && (
         <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto shrink-0">

@@ -6,6 +6,8 @@ import { supabase } from "@/api/supabaseClient";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { MultitrackChip, ServiceChips } from "@/components/showpilot/MultitrackQuestion";
 import { TracksChip } from "@/components/showpilot/IntakeTracks";
+import LdStagePicker from "@/components/showpilot/LdStagePicker";
+import useAccountType from "@/hooks/useAccountType";
 
 // This event's intake links (job 74, Oct 26): the Links feature on the Audio /
 // Lighting web on desktop. Everything Manage Links shows, for this event only:
@@ -37,6 +39,9 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
   const [making, setMaking] = useState(false);
   const [services, setServices] = useState(false);
   const [askTracks, setAskTracks] = useState(false);
+  // An LD's links (job 400): no services / tracks questions; they pick the 3D stage.
+  const isLD = useAccountType() === "lighting";
+  const [ldStage, setLdStage] = useState({ id: "", rig: null });
   const [adding, setAdding] = useState(null); // { id, include } while asking about services for another act's link
   const [busy, setBusy] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null); // link / opener id waiting for a second click
@@ -81,7 +86,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
       const engineerName = prefs?.display_name || user.user_metadata?.full_name || user.email || "";
       const { data, error } = await supabase
         .from("tour_manager_requests")
-        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, include_services: services, ...(askTracks ? { ask_tracks: true } : {}) })
+        .insert({ engineer_user_id: user.id, engineer_name: engineerName, status: "pending", target_show_id: gig.id, event_name: gig.event_name || null, date: gig.date || null, ...(isLD ? { include_services: false, ...(ldStage.rig ? { lighting_rig: ldStage.rig } : {}) } : { include_services: services, ...(askTracks ? { ask_tracks: true } : {}) }) })
         .select().single();
       if (error) throw error;
       await load();
@@ -99,7 +104,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
     try {
       const { data, error } = await supabase
         .from("opener_requests")
-        .insert({ tour_manager_request_id: r.id, engineer_user_id: user.id, order_index: (r.openers?.length || 0) + 1, include_services: !!include, ...(tracks ? { ask_tracks: true } : {}) })
+        .insert({ tour_manager_request_id: r.id, engineer_user_id: user.id, order_index: (r.openers?.length || 0) + 1, include_services: !isLD && !!include, ...(!isLD && tracks ? { ask_tracks: true } : {}) })
         .select().single();
       if (error) throw error;
       await load();
@@ -182,7 +187,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                 </div>
               ))}
 
-              {adding?.id === r.id ? (
+              {adding?.id === r.id && !isLD ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#2a2a2a] px-3 py-2">
                   <span className="text-[13px] text-white/65">Include additional services?</span>
                   {[[true, "Yes"], [false, "No"]].map(([v, t]) => (
@@ -197,7 +202,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                   <button type="button" onClick={() => setAdding(null)} className="h-8 px-2 text-[13px] text-white/45 hover:text-white">Cancel</button>
                 </div>
               ) : (
-                <button type="button" onClick={() => setAdding({ id: r.id, include: !!r.include_services, tracks: !!r.ask_tracks })} disabled={busy === r.id}
+                <button type="button" onClick={() => (isLD ? makeOpener(r, false, false) : setAdding({ id: r.id, include: !!r.include_services, tracks: !!r.ask_tracks }))} disabled={busy === r.id}
                   className="h-9 rounded-lg border text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ borderColor: color + "55", color }}>
                   <Plus className="w-3.5 h-3.5" /> {busy === r.id ? "Making…" : "Link for another act"}
                 </button>
@@ -210,6 +215,9 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
         <div className="px-5 py-4 border-t border-[#222] flex flex-wrap items-center gap-3">
           {isOwner && (
             <>
+              {isLD ? (
+                <div className="w-full sm:w-auto sm:min-w-[260px]"><LdStagePicker value={ldStage.id} onChange={(id, rig) => setLdStage({ id, rig })} /></div>
+              ) : (<>
               <label className="flex items-center gap-2 text-[13px] text-white/70 cursor-pointer">
                 <input type="checkbox" checked={services} onChange={(e) => setServices(e.target.checked)} className="accent-[#8CFF3D]" />
                 Include additional services
@@ -218,6 +226,7 @@ export default function EventLinksSheet({ gig, user, isOwner, color = "#8CFF3D",
                 <input type="checkbox" checked={askTracks} onChange={(e) => setAskTracks(e.target.checked)} className="accent-[#FDE047]" />
                 Ask for tracks
               </label>
+              </>)}
               <button type="button" onClick={makeMain} disabled={making} className="h-10 px-4 rounded-[10px] flex items-center gap-1.5 text-[14px] font-bold disabled:opacity-60" style={{ background: color, color: "#0d0d0d" }}>
                 <Plus className="w-4 h-4" /> {making ? "Making…" : "New link for this event"}
               </button>

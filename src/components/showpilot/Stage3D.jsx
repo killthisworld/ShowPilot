@@ -42,6 +42,7 @@ function labelSprite(name, sub, color) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
   s.scale.set(9, 2.8, 1);
   s.renderOrder = 10;
+  s.raycast = () => {}; // a name tag never takes the tap
   return s;
 }
 
@@ -557,11 +558,15 @@ export default function Stage3D({
         const cone = new THREE.Mesh(new THREE.ConeGeometry(r, len, 24, 1, true), mat);
         cone.rotation.x = -Math.PI / 2;
         cone.position.z = len / 2 + 0.45;
+        // Beams and their pools can't be clicked: a tap goes through the
+        // light to the riser / person / truss under it (job 400).
+        cone.raycast = () => {};
         const aim = new THREE.Group();
         aim.add(body, cone);
         head.add(aim);
         const pool = new THREE.Mesh(new THREE.CircleGeometry(r, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
         pool.rotation.x = -Math.PI / 2;
+        pool.raycast = () => {};
         pool.position.y = -(it.h || 0) + 0.04;
         pool.position.z = (it.h || 0) * Math.tan(Math.max(-1.3, Math.min(1.3, tilt)));
         if (Math.abs(it.tilt || 0) > 70) pool.visible = false;

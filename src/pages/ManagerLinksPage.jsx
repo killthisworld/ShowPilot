@@ -1,3 +1,4 @@
+import useAccountType from "@/hooks/useAccountType";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
@@ -20,6 +21,8 @@ export default function ManagerLinksPage() {
   const [deleting, setDeleting] = useState(false);
   // "Include additional services?" before making an opener link: { request, include }
   const [servicesAsk, setServicesAsk] = useState(null);
+  // An LD's links (job 400): no services / tracks questions.
+  const isLD = useAccountType() === "lighting";
 
   useEffect(() => {
     const init = async () => {
@@ -68,8 +71,8 @@ export default function ManagerLinksPage() {
           tour_manager_request_id: request.id,
           engineer_user_id: user.id,
           order_index: nextOrder,
-          include_services: !!includeServices,
-          ...(askTracks ? { ask_tracks: true } : {}),
+          include_services: !isLD && !!includeServices,
+          ...(!isLD && askTracks ? { ask_tracks: true } : {}),
         })
         .select()
         .single();
@@ -349,7 +352,7 @@ export default function ManagerLinksPage() {
               )}
 
               <Button
-                onClick={() => setServicesAsk({ request: r, include: !!r.include_services, tracks: !!r.ask_tracks })}
+                onClick={() => (isLD ? generateOpenerLink(r, false, false) : setServicesAsk({ request: r, include: !!r.include_services, tracks: !!r.ask_tracks }))}
                 disabled={generatingFor === r.id}
                 variant="outline"
                 size="sm"
