@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ClipboardList, MessageCircle, Plus, Search, X, Box, Camera } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, MessageCircle, Plus, Search, X, Box, Camera, ListMusic } from "lucide-react";
 import { cropImage } from "@/lib/cropImage";
 import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
@@ -9,6 +9,7 @@ import { localISO, addDaysISO, visibleChats } from "@/lib/needsMe";
 import useNeedsMe from "@/hooks/useNeedsMe";
 import { clearNewShowDraft } from "@/hooks/usePersistedState";
 import TechRail from "@/components/showpilot/TechRail";
+import useRigThumbs from "@/components/showpilot/RigThumbs";
 
 // The LD's desk (job 383), laid out like a grandMA3: the week's shows are
 // executors in a playback bank - a label screen (date, show, venue), the
@@ -117,16 +118,15 @@ function usePhotoPicker() {
   return { pick, input, photoOf, busyOf: (s) => !!s && busy === (s.id || s.share_token) };
 }
 
-// One executor: label screen, keys, fader, GO. With an event photo it sits
-// behind the whole executor, as on the audio tech's strips (job 451).
-export function Executor({ n, s, info, onGo, compact = false, empty = false, dayLabel = "", photo = "", onPhoto = null, busyPhoto = false }) {
+// One executor: the show's 3D stage on top (job 453), its title and venue,
+// who's on, keys, fader, GO. With an event photo it sits behind the whole
+// executor, as on the audio tech's strips (job 451).
+export function Executor({ n, s, info, onGo, compact = false, empty = false, dayLabel = "", photo = "", onPhoto = null, busyPhoto = false, thumb = "" }) {
   const navigate = useNavigate();
   if (empty || !s) {
     return (
       <div className="h-full min-h-0 rounded-[6px] border flex flex-col" style={{ background: "#101010", borderColor: "#1e1e1e" }}>
-        <div className="h-[78px] m-1.5 rounded-[3px] flex flex-col justify-between p-1.5" style={{ background: "#070707", border: "1px solid #1c1c1c" }}>
-          <span />
-        </div>
+        <div className="m-1.5 rounded-[4px] aspect-square" style={{ background: "#070707", border: "1px solid #1c1c1c" }} />
         <div className="flex-1" />
       </div>
     );
@@ -153,9 +153,30 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
           <div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))" }} />
         </>
       )}
-      {/* Label screen */}
-      <button type="button" onClick={() => onGo(s)} title="Open the show" className="m-1.5 rounded-[3px] p-1.5 text-left flex flex-col gap-0.5 overflow-hidden"
-        style={{ background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.15))" : "#050505", border: `1px solid ${photo ? "rgba(140,255,61,0.45)" : MA.amberDim}`, height: compact ? 92 : 104, boxShadow: "inset 0 0 12px rgba(140,255,61,0.06)", textShadow: ts }}>
+      {/* The show's 3D stage at the top (job 453): its picture, tap to open
+          it on the event. A linked show opens its event web. */}
+      {(() => {
+        const own = s.is_owned !== false && !!s.id;
+        const rigged = (s.lighting_rig?.items || []).length > 0;
+        return (
+          <button type="button" onClick={() => onGo(s, own ? "stage" : undefined)} aria-label={`3D stage for ${sceneTitle(s)}`} title={own ? "Open the 3D stage" : "Open the show"}
+            className="m-1.5 mb-0 relative rounded-[4px] overflow-hidden aspect-square shrink-0 group"
+            style={{ background: "#050505", border: `1px solid ${photo ? "rgba(140,255,61,0.55)" : MA.amberDim}`, boxShadow: "inset 0 0 14px rgba(140,255,61,0.08)" }}>
+            {thumb ? (
+              <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5" style={{ color: MA.amber }}>
+                <Box className="w-6 h-6" />
+                <span className="text-[10px] tracking-[0.14em] font-bold" style={monoStyle}>{rigged ? "3D STAGE" : "RIG THE STAGE"}</span>
+              </span>
+            )}
+            <span className="absolute left-1 top-1 px-1 rounded-[2px] text-[9px] font-bold tracking-[0.12em]" style={{ ...monoStyle, background: "rgba(0,0,0,0.7)", color: MA.amber }}>3D</span>
+            <span aria-hidden="true" className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ boxShadow: `inset 0 0 0 2px ${MA.amber}` }} />
+          </button>
+        );
+      })()}
+      {/* Title and venue */}
+      <button type="button" onClick={() => onGo(s)} title="Open the show" className="mx-1.5 mt-1 mb-1 px-1 py-1 text-left flex flex-col gap-0.5 overflow-hidden shrink-0" style={{ textShadow: ts }}>
         {/* The date only where no day header sits above it (job 407). */}
         {!dayLabel && (
           <span className="text-[10px]" style={{ ...monoStyle, color: MA.amber }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
@@ -173,16 +194,22 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
           );
         })}
       </div>
-      {/* Keys above the fader */}
-      <div className={`mx-1.5 mt-1 grid ${onPhoto ? "grid-cols-3" : "grid-cols-2"} gap-1`}>
-        <Link to={`/gig/tasks?token=${s.share_token}`} aria-label={myTasks ? `${myTasks} tasks for you` : "Tasks"} className={keyBase + " h-9 text-[12px]"}
+      {/* Keys: tasks, chat, the cue sheet (job 453), the photo */}
+      <div className="mx-1.5 mt-1 grid grid-flow-col auto-cols-fr gap-1">
+        <Link to={`/gig/tasks?token=${s.share_token}`} aria-label={myTasks ? `${myTasks} tasks for you` : "Tasks"} title="Tasks" className={keyBase + " h-9 text-[12px]"}
           style={myTasks ? { background: "#1a2e0e", borderColor: MA.amber, color: MA.amber } : idleKey}>
           <ClipboardList className="w-3.5 h-3.5" />{myTasks || ""}
         </Link>
-        <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} className={keyBase + " h-9 text-[12px]"}
+        <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className={keyBase + " h-9 text-[12px]"}
           style={unread ? { background: "#0d2a31", borderColor: MA.cyan, color: MA.cyan } : idleKey}>
           <MessageCircle className="w-3.5 h-3.5" />{unread || ""}
         </Link>
+        {s.is_owned !== false && s.id && (
+          <button type="button" onClick={() => onGo(s, "cues")} aria-label={`Cue sheet for ${sceneTitle(s)}`} title="Cue sheet"
+            className={keyBase + " h-9 text-[12px]"} style={{ ...idleKey, color: MA.amber, borderColor: photo ? "rgba(140,255,61,0.5)" : MA.amberDim }}>
+            <ListMusic className="w-3.5 h-3.5" />
+          </button>
+        )}
         {onPhoto && (
           <button type="button" onClick={() => onPhoto(s)} disabled={busyPhoto} aria-label={photo ? "Change photo" : "Add photo"} title={photo ? "Change photo" : "Add photo"}
             className={keyBase + " h-9 text-[12px] disabled:opacity-50"} style={idleKey}>
@@ -241,11 +268,14 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
   const info = useDeskInfo(onDesk);
   const [dayPick, setDayPick] = useState({});
   const photos = usePhotoPicker();
+  // Each show's 3D stage as a picture (job 453), drawn once and kept.
+  const [thumbs, thumbDrawer] = useRigThumbs(onDesk.map((s) => ({ id: s.id, rig: s.lighting_rig, updated_at: s.updated_at })));
 
   return (
     <div className="fixed inset-0 flex overflow-hidden" style={{ background: MA.bg, color: MA.text, fontFamily: "Inter, system-ui, sans-serif" }}>
       <TechRail accent={MA.amber} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
       {photos.input}
+      {thumbDrawer}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Title bar */}
         <div className="h-[60px] shrink-0 flex items-center gap-3 px-5 border-b" style={{ borderColor: "#1f1f1f", background: "#0f0f0f" }}>
@@ -279,7 +309,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
         <div className="flex-1 min-h-0 px-5 pb-4 overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
           {found ? (
             found.length ? (
-              <div className="h-full flex gap-2">{found.map((s, i) => <div key={s.id || s.share_token} className="w-[170px] shrink-0 h-full"><Executor n={i + 1} s={s} info={info} onGo={onOpenShow} photo={photos.photoOf(s)} onPhoto={photos.pick} busyPhoto={photos.busyOf(s)} /></div>)}</div>
+              <div className="h-full flex gap-2">{found.map((s, i) => <div key={s.id || s.share_token} className="w-[170px] shrink-0 h-full"><Executor n={i + 1} s={s} info={info} onGo={onOpenShow} photo={photos.photoOf(s)} onPhoto={photos.pick} busyPhoto={photos.busyOf(s)} thumb={thumbs[s.id] || ""} /></div>)}</div>
             ) : <p className="text-white/40 text-[14px] pt-10 text-center">No shows match.</p>
           ) : (
             <div className="h-full grid gap-2" style={{ gridTemplateColumns: "repeat(7, minmax(128px, 1fr))" }}>
@@ -301,7 +331,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
                       )}
                     </div>
                     <div className="flex-1 min-h-0">
-                      <Executor n={i + 1} s={list[idx]} empty={!list.length} info={info} onGo={onOpenShow} dayLabel={label} photo={photos.photoOf(list[idx])} onPhoto={photos.pick} busyPhoto={photos.busyOf(list[idx])} />
+                      <Executor n={i + 1} s={list[idx]} empty={!list.length} info={info} onGo={onOpenShow} dayLabel={label} photo={photos.photoOf(list[idx])} onPhoto={photos.pick} busyPhoto={photos.busyOf(list[idx])} thumb={(list[idx] && thumbs[list[idx].id]) || ""} />
                     </div>
                   </div>
                 );

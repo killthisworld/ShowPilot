@@ -373,7 +373,9 @@ export default function Home() {
   );
 
   const stripCells = useMemo(() => buildStatusStrip(accountTypeOf(preferences), shows), [accountTypeOf(preferences), shows]);
-  const openShow = (s) => navigate(techShowPath(s, { desktop: isDesktopNow() }));
+  // open (job 453): "stage" / "cues" opens the 3D stage or the cue sheet on
+  // the event (the LD desk's keys).
+  const openShow = (s, open) => navigate(techShowPath(s, { desktop: isDesktopNow() }), typeof open === "string" ? { state: { open } } : undefined);
 
   const genreTagMap = useMemo(() => {
     const map = {};

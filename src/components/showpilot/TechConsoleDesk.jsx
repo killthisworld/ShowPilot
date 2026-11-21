@@ -447,17 +447,13 @@ function Strip({ fluid, s, accent, photo, pr, on, unread, myTasks, busyPhoto, me
             <ChevronRight className="w-3.5 h-3.5 ml-auto shrink-0" />
           </Link>
 
-          {/* Sends: a 2 x 2 square at the bottom */}
-          <div className="mt-auto grid grid-cols-2 gap-1.5">
+          {/* Sends at the bottom: chat, share, photo. No fan page on tech
+              profiles (job 453). */}
+          <div className="mt-auto grid grid-cols-3 gap-1.5">
             <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} title="Chat" className="aspect-square rounded-[9px] flex items-center justify-center relative hover:brightness-125" style={sendBtn(SEND.chat)}>
               <MessageCircle className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
               {unread > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[17px] h-[17px] px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
             </Link>
-            {FAN_RSVP_OPEN && (
-              <button type="button" aria-label="Fan page" title="Fan page" onClick={onFan} className="aspect-square rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.fan)}>
-                <Ticket className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
-              </button>
-            )}
             <button type="button" aria-label="Share crew link" title="Share crew link" onClick={onShare} className="aspect-square rounded-[9px] flex items-center justify-center hover:brightness-125" style={sendBtn(SEND.share)}>
               <Share2 className="w-[20px] h-[20px] min-[1400px]:w-[22px] min-[1400px]:h-[22px]" />
             </button>

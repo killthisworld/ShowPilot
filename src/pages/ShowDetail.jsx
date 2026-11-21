@@ -100,6 +100,10 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
     }
     setCuesAt(i);
   };
+  // Arriving from the LD desk's 3D / CUES keys (job 453): open that window
+  // once the event is loaded, then forget it (a reload doesn't reopen it).
+  const [arrivalOpen] = useState(() => location.state?.open || null);
+  const arrivedRef = useRef(false);
   const isTechProductionAccount = !accountTypeOf(preferences) || accountTypeOf(preferences) === "engineer" || accountTypeOf(preferences) === "lighting";
   // Tech phones: no picture uploads in the Venue / Performer sections (job 148).
   const sectionPhotos = !(isTechProductionAccount && !isDesktop);
@@ -239,6 +243,14 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
   const multitrackFor = (name) => { const r = servicesFor(name); return r && typeof r.multitrack_interest === "boolean" ? r.multitrack_interest : undefined; };
   const [tracksAct, setTracksAct] = useState(null);
   const [plotAt, setPlotAt] = useState(null); // stage plot open on this act (job 251)
+  useEffect(() => {
+    if (!arrivalOpen || arrivedRef.current || loading || !isLightingAccount) return;
+    arrivedRef.current = true;
+    if (arrivalOpen === "stage") setPlotAt(0);
+    else if (arrivalOpen === "cues" && bands.length) openLdCues(0);
+    navigate(location.pathname, { replace: true, state: { ...(location.state || {}), open: null } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrivalOpen, loading, isLightingAccount, bands.length]);
   const [showGenreSettings, setShowGenreSettings] = useState(false);
   const [showBusSettings, setShowBusSettings] = useState(false);
   const [genreDraft, setGenreDraft] = useState([]);
@@ -1156,8 +1168,9 @@ export default function ShowDetail({ embeddedId, onSaved, actionSlot = null, bef
             </Select>
           </div>
           {!techPhone && eventIconField}
-          {/* Fan page: set up from the event once it exists, not while creating it. */}
-          {FAN_RSVP_OPEN && !isNew && <div>
+          {/* Fan page: set up from the event once it exists, not while creating it.
+              Not for tech profiles (job 453). */}
+          {FAN_RSVP_OPEN && !isNew && !isTechProductionAccount && <div>
             <Label className="text-white/50 text-xs">Fan page</Label>
             <div className="mt-1 flex items-center gap-3">
               <span className="text-[11px] tracking-[0.1em]" style={{ fontFamily: "'IBM Plex Mono', monospace", color: show.fan_page_enabled ? "#8CFF3D" : "rgba(255,255,255,0.45)" }}>{show.fan_page_enabled ? "LIVE" : "OFF"}</span>

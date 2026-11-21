@@ -287,16 +287,12 @@ export default function ConsoleStrips({ shows, onOpen, accent = "#8CFF3D" }) {
                       ) : (
                         <span className="flex-1 text-[13px] text-white/70 leading-snug py-1">Linked show. Open the web to see who's on it.</span>
                       )}
-                      <div className="shrink-0 pt-1 grid grid-cols-4 gap-1.5">
+                      {/* No fan page on tech profiles (job 453). */}
+                      <div className="shrink-0 pt-1 grid grid-cols-3 gap-1.5">
                         <Link to={`/gig/rooms?token=${s.share_token}`} aria-label="Chat" className="h-9 rounded-lg flex items-center justify-center relative text-white" style={{ background: btnBg }}>
                           <MessageCircle className="w-4 h-4" />
                           {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 rounded-full bg-[#60A5FA] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">{unread}</span>}
                         </Link>
-                        {FAN_RSVP_OPEN && (
-                          <button type="button" aria-label="Fan page" onClick={() => setFanShow(s)} className="h-9 rounded-lg flex items-center justify-center text-white" style={{ background: btnBg }}>
-                            <Ticket className="w-4 h-4" />
-                          </button>
-                        )}
                         <Link to={`/gig/web?token=${s.share_token}`} aria-label="Open web" className="h-9 rounded-lg flex items-center justify-center text-white" style={{ background: btnBg }}>
                           <WebIcon size={17} />
                         </Link>
