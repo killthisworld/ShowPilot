@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 
-// Hold and drag to rearrange a grid (job 439), phone and computer.
-// Press and hold a tile (or grab its handle) and it lifts; drag it over the
-// others and they make room; let go to drop. A quick swipe or scroll does
-// what it always does, since the hold is cancelled once the finger moves.
+// Drag to rearrange a grid (job 439; job 446), phone and computer.
+//   Phone: press and hold a tile (or grab its handle straight away), then
+//   drag; a quick swipe or scroll does what it always does.
+//   Computer: just drag it (up, down or to the right); a drag to the left is
+//   left for the row's swipe.
+// It lifts, the others make room as it passes, and it drops where you let go.
+// While a drag is on, document.body.dataset.sorting is "1" so a SwipeRow
+// inside leaves it alone.
 //   items: the things in order; keyOf(item) -> key
 //   onMove(key, toIndex): put that one at toIndex
 //   render(item, { dragging, handle }): the tile; spread `handle` on a grip
@@ -14,7 +18,7 @@ const SLOP = 8;
 export default function SortableGrid({ items, keyOf, onMove, render, className = "", extra = null }) {
   const [dragKey, setDragKey] = useState("");
   const [ghost, setGhost] = useState(null); // { x, y, w, h, label }
-  const st = useRef({ timer: 0, x0: 0, y0: 0, key: "", el: null, dragged: false, offX: 0, offY: 0 });
+  const st = useRef({ timer: 0, x0: 0, y0: 0, key: "", el: null, dragged: false, offX: 0, offY: 0, pendKey: "", mouse: false, touch: false });
   const keys = items.map(keyOf);
   const keysRef = useRef(keys);
   keysRef.current = keys;
@@ -24,6 +28,7 @@ export default function SortableGrid({ items, keyOf, onMove, render, className =
     cancelHold();
     const r = el.getBoundingClientRect();
     st.current = { ...st.current, key, el, dragged: true, offX: x - r.left, offY: y - r.top };
+    try { document.body.dataset.sorting = "1"; } catch { /* ignore */ }
     setDragKey(key);
     setGhost({ x: r.left, y: r.top, w: r.width, h: r.height });
     try { navigator.vibrate?.(12); } catch { /* not on this phone */ }
@@ -31,50 +36,73 @@ export default function SortableGrid({ items, keyOf, onMove, render, className =
   const onDown = (key) => (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const el = e.currentTarget;
-    st.current = { ...st.current, x0: e.clientX, y0: e.clientY, key: "", el, dragged: false };
+    st.current = { ...st.current, x0: e.clientX, y0: e.clientY, key: "", el, dragged: false, pendKey: key, mouse: e.pointerType === "mouse", touch: e.pointerType === "touch" };
     cancelHold();
     st.current.timer = setTimeout(() => begin(key, el, st.current.x0, st.current.y0), HOLD_MS);
   };
   const handle = (key) => ({
-    onPointerDown: (e) => { e.stopPropagation(); begin(key, e.currentTarget.closest("[data-sort-key]"), e.clientX, e.clientY); },
+    onPointerDown: (e) => { e.stopPropagation(); st.current.touch = e.pointerType === "touch"; begin(key, e.currentTarget.closest("[data-sort-key]"), e.clientX, e.clientY); },
     style: { touchAction: "none", cursor: "grab" },
     "aria-label": "Hold and drag to move",
   });
 
   useEffect(() => {
-    const move = (e) => {
+    const dragTo = (x, y) => {
       const s = st.current;
-      if (!s.key) {
-        if (s.timer && Math.hypot(e.clientX - s.x0, e.clientY - s.y0) > SLOP) cancelHold();
-        return;
-      }
-      e.preventDefault?.();
-      setGhost((g) => (g ? { ...g, x: e.clientX - s.offX, y: e.clientY - s.offY } : g));
-      const under = document.elementsFromPoint(e.clientX, e.clientY).map((n) => n.closest?.("[data-sort-key]")).find((n) => n && n.dataset.sortKey !== s.key);
+      setGhost((g) => (g ? { ...g, x: x - s.offX, y: y - s.offY } : g));
+      const under = document.elementsFromPoint(x, y).map((n) => n.closest?.("[data-sort-key]")).find((n) => n && n.dataset.sortKey !== s.key);
       if (!under) return;
       const to = keysRef.current.indexOf(under.dataset.sortKey);
       if (to >= 0 && keysRef.current.indexOf(s.key) !== to) onMove(s.key, to);
+    };
+    const move = (e) => {
+      const s = st.current;
+      if (!s.key) {
+        if (!s.timer) return;
+        const dx = e.clientX - s.x0, dy = e.clientY - s.y0;
+        if (Math.hypot(dx, dy) <= SLOP) return;
+        // A mouse drags straight away, unless it's going left (the swipe).
+        if (s.mouse && !(dx < 0 && Math.abs(dx) > Math.abs(dy) * 1.2) && s.el && s.pendKey) { begin(s.pendKey, s.el, s.x0, s.y0); dragTo(e.clientX, e.clientY); return; }
+        cancelHold();
+        return;
+      }
+      e.preventDefault?.();
+      dragTo(e.clientX, e.clientY);
     };
     const up = () => {
       cancelHold();
       if (st.current.key) {
         st.current.key = "";
+        st.current.touch = false;
+        try { delete document.body.dataset.sorting; } catch { /* ignore */ }
         setDragKey("");
         setGhost(null);
         setTimeout(() => { st.current.dragged = false; }, 0);
       }
     };
-    // Stop the page scrolling while a tile is being dragged on a phone.
-    const touchMove = (e) => { if (st.current.key) e.preventDefault(); };
+    // A phone may hand the touch to scrolling (pointercancel); while a drag
+    // is on, follow the touch itself and keep the page still.
+    const cancel = () => { if (st.current.key && st.current.touch) return; up(); };
+    const touchMove = (e) => {
+      if (!st.current.key) return;
+      e.preventDefault();
+      const t = e.touches?.[0];
+      if (t) dragTo(t.clientX, t.clientY);
+    };
+    const touchEnd = () => { if (st.current.key) up(); };
     window.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
+    window.addEventListener("pointercancel", cancel);
     window.addEventListener("touchmove", touchMove, { passive: false });
+    window.addEventListener("touchend", touchEnd);
+    window.addEventListener("touchcancel", touchEnd);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("touchmove", touchMove);
+      window.removeEventListener("touchend", touchEnd);
+      window.removeEventListener("touchcancel", touchEnd);
     };
   }, [onMove]);
 

@@ -412,7 +412,8 @@ export default function MyTemplates() {
   // The inside of a venue / act template (its fields, Put on your dates,
   // Save). Shown in a template's dropdown, or full-screen from My Template's
   // Sections (job 73, one act vs many).
-  const editorBody = (t) => {
+  // wide (job 446): the act's own page on a computer, details beside the stage.
+  const editorBody = (t, wide = false) => {
     const category = t.category;
     const g = GROUP[category];
     return (
@@ -445,6 +446,7 @@ export default function MyTemplates() {
                   )}
                   {category === "venue" ? null : (
                     <PerformerFields
+                      wide={wide}
                       band={{ ...t.data, band_name: t.name }}
                       // Venue / manager / artist: no act photo here, their
                       // banner and circle are enough (job 303). Techs keep it.
@@ -749,9 +751,9 @@ export default function MyTemplates() {
         <span className="flex-1 min-w-0 text-[17px] font-semibold truncate">{actT ? (actT.name || (oneAct ? "Your act" : "New act")) : "Your acts"}</span>
         {!actT && <span className="text-[11px] tracking-[0.08em] text-white/50" style={{ fontFamily: SCENE_MONO }}>{savedCount("artist")} OF {actsLimit == null ? "∞" : actsLimit}</span>}
       </div>
-      <div className={`mx-auto ${desktop ? "max-w-[760px]" : "max-w-lg"} px-4 py-4`}>
+      <div className={`mx-auto ${desktop ? (actT ? "max-w-[1280px] px-8" : "max-w-[760px] px-4") : "max-w-lg px-4"} py-4`}>
         {actT ? (
-          <div className="rounded-xl border overflow-hidden" style={{ borderColor: actColor + "40" }}>{editorBody(actT)}</div>
+          <div className="rounded-xl border" style={{ borderColor: actColor + "40" }}>{editorBody(actT, desktop)}</div>
         ) : (
           <div className="flex flex-col gap-2">
             {acts.map((t) => actRow(t.name || "Untitled act", summaryLine(t) || "Members, stage plot, notes", "ACT", () => setActOpen(t.key)))}

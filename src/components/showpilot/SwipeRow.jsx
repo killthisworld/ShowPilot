@@ -25,6 +25,8 @@ export default function SwipeRow({ actions = [], children, radius = 14, label = 
   const move = (e) => {
     const d = drag.current;
     if (!d) return;
+    // A tile being dragged to a new spot (SortableGrid, job 446) isn't a swipe.
+    if (document.body.dataset.sorting === "1") { drag.current = null; setDragging(false); setX(0); return; }
     const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
     if (!d.axis) {
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;

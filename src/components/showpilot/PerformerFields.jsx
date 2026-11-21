@@ -44,6 +44,7 @@ export default function PerformerFields({
   stagePlotExtra = null, // under the Stage Plot uploads (My Templates: make / save the PDF, job 254)
   withStage = true,      // false: no stage / stage plot (an LD's artist templates, job 407)
   withPlotFiles = true,  // false: no Stage Plot uploads (the LD's event, job 431)
+  wide = false,          // a computer's full page: the act's details left, the stage right (job 446)
 }) {
   const b = band || {};
   const members = b.band_members || [];
@@ -92,8 +93,8 @@ export default function PerformerFields({
     onPatch({ artist_fx_notes: list });
   };
 
-  return (
-    <div className="space-y-3">
+  const infoPart = (
+    <>
       {withPhoto && <VenuePhoto kind="artist" accent="#EF4444" value={b.photo_url || ""} onChange={(url) => onPatch({ photo_url: url })} />}
       <div>
         <div className="flex items-center justify-between">
@@ -170,9 +171,11 @@ export default function PerformerFields({
         )}
       </div>
 
-      {/* Members are built on the stage (job 267): who stands where and what
-          they play, instead of the old list of member rows. */}
-      {withStage && <>
+    </>
+  );
+  // Members are built on the stage (job 267): who stands where and what
+  // they play, instead of the old list of member rows.
+  const stagePart = withStage ? (
       <div className="border-t border-[#222] pt-3">
         {membersSlot || (
           <StageEditor
@@ -186,7 +189,9 @@ export default function PerformerFields({
           />
         )}
       </div>
-
+  ) : null;
+  const plotPart = withStage ? (
+    <>
       {withPlotFiles && <div className="border-t border-[#222] pt-3">
         <Label className="text-white/30 text-[10px] uppercase tracking-widest font-medium block mb-2">Stage Plot</Label>
         {(b.stage_plot_files || []).length > 0 && (
@@ -214,7 +219,10 @@ export default function PerformerFields({
         </label>
         {stagePlotExtra && <div className="mt-3">{stagePlotExtra}</div>}
       </div>}
-      </>}
+    </>
+  ) : null;
+  const notesPart = (
+    <>
 
       {showNotes && (
         <div className="border-t border-[#222] pt-3">
@@ -239,6 +247,22 @@ export default function PerformerFields({
           <Textarea value={noteFor(notesTarget)} onChange={(e) => setNote(notesTarget, e.target.value)} className="bg-[#111] border-[#222] text-white min-h-[70px]" placeholder={notesTarget === "__general__" ? "General notes for this act..." : `Notes for ${notesTarget}...`} />
         </div>
       )}
+    </>
+  );
+  if (wide) {
+    return (
+      <div className="grid gap-6 items-start" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.5fr)" }}>
+        <div className="space-y-3 min-w-0">{infoPart}{plotPart}{notesPart}</div>
+        <div className="min-w-0 lg:sticky lg:top-16 [&>div]:border-t-0 [&>div]:pt-0">{stagePart}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {infoPart}
+      {stagePart}
+      {plotPart}
+      {notesPart}
     </div>
   );
 }

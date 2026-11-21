@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, Camera, Check, ChevronRight, Copy, ImagePlus, Mail, MessageSquare, Palette, Plus, Send, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Camera, Check, ChevronRight, Copy, ImagePlus, Mail, MessageSquare, Palette, Plus, Send, Trash2, X } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import { ACCOUNT_TYPE_STYLES } from "@/lib/accountTypeStyle";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
@@ -509,21 +509,28 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
 
   // On a phone the sections are two-across tiles (job 432), so the whole list
   // shows with little or no scrolling; a computer keeps rows, three across.
-  const sectionTile = (s) => (
+  // grip: SortableGrid's handle props, to drag from straight away (job 446).
+  const gripEl = (grip, s) => (grip ? (
+    <span {...grip} aria-label={`Drag ${s.label} to move it`} className="shrink-0 w-7 h-9 -my-1 flex items-center justify-center text-white/30 hover:text-white/60 rounded-md"><GripVertical className="w-4 h-4" /></span>
+  ) : null);
+  const sectionTile = (s, grip) => (
     <div key={s.key} className="flex flex-col rounded-[12px] bg-[#151515] border border-[#262626] min-w-0 h-full" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
       <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex flex-col items-start gap-1 min-h-[76px] px-2.5 py-2 text-left">
         <span className="flex items-center gap-1 w-full">
           <span className="shrink-0 text-[9px] tracking-[0.1em] px-1.5 py-[3px] rounded-[5px] border border-[#333] text-white/75" style={MONO}>{MODE[s.mode]}</span>
+          <span className="flex-1" />
           {!s.builtIn && <span className="shrink-0 text-[9px] tracking-[0.1em] px-1.5 py-[3px] rounded" style={{ ...MONO, background: `${ring}26`, color: ring }}>YOURS</span>}
+          {gripEl(grip, s)}
         </span>
         <span className="text-[14px] font-semibold leading-tight line-clamp-2 break-words w-full">{s.label}</span>
         <span className="block text-[11.5px] text-white/55 truncate w-full">{s.mode === "off" ? "Left out" : s.sub || (s.builtIn ? "Not filled in yet" : "No fields yet")}</span>
       </button>
     </div>
   );
-  const sectionRow = (s) => (
-    <div key={s.key} className="flex items-center gap-1.5 rounded-[12px] bg-[#151515] border border-[#262626] min-w-0 h-full" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
-      <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex items-center gap-2.5 min-h-[56px] pl-3 pr-1 text-left">
+  const sectionRow = (s, grip) => (
+    <div key={s.key} className="flex items-center gap-1 rounded-[12px] bg-[#151515] border border-[#262626] min-w-0 h-full pl-1" style={{ opacity: s.mode === "off" ? 0.5 : 1 }}>
+      {gripEl(grip, s)}
+      <button type="button" onClick={() => setSheet(`section:${s.key}`)} className="flex-1 min-w-0 flex items-center gap-2.5 min-h-[56px] pl-1 pr-1 text-left">
         <span className="flex-1 min-w-0">
           <span className="flex items-center gap-1.5">
             <span className="text-[14.5px] font-semibold truncate">{s.label}</span>
@@ -555,8 +562,9 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
         items={shown}
         keyOf={(s) => s.key}
         onMove={moveTo}
-        render={(s, { ghost }) => {
-          const tile = desktop ? sectionRow(s) : sectionTile(s);
+        render={(s, { ghost, handle }) => {
+          const grip = ghost ? null : handle;
+          const tile = desktop ? sectionRow(s, grip) : sectionTile(s, grip);
           if (ghost || s.mode === "kept") return tile;
           return (
             <SwipeRow radius={12} label={s.label} actions={[{ label: s.builtIn ? "Leave out" : "Delete", icon: Trash2, color: "#F87171", onClick: () => takeOut(s) }]}>
@@ -569,7 +577,7 @@ export default function CompanyTemplatePage({ role, template, displayName, deskt
           <Plus className="w-4 h-4 shrink-0" strokeWidth={2.5} />{desktop ? "Add your own section" : "Add a section"}
         </button>}
       />
-      <p className="m-0 px-0.5 text-[11.5px] text-white/40">Hold a section to drag it into a new spot. Swipe left to take it out.</p>
+      <p className="m-0 px-0.5 text-[11.5px] text-white/40">{desktop ? "Drag a section by its handle (or hold it, then drag) to move it. Swipe left to take it out." : "Hold a section, or grab its handle, to drag it into a new spot. Swipe left to take it out."}</p>
       {undo && createPortal(
         <div role="status" className="fixed left-1/2 -translate-x-1/2 bottom-[96px] lg:bottom-8 z-[95] flex items-center gap-3 rounded-[12px] bg-[#1d1d1d] border border-[#333] pl-4 pr-1.5 py-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)] text-[14px]" style={{ fontFamily: SCENE_FONT }}>
           <span className="text-white/85">{undo.label}</span>
