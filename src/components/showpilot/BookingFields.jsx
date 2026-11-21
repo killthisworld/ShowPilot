@@ -10,6 +10,8 @@ import { DAYS } from "@/lib/bookingPackage";
 import TimeSelect from "@/components/showpilot/TimeSelect";
 import FxNotesWindow, { ActNotesButton, actHasNotes } from "@/components/showpilot/FxNotesWindow";
 import { StagePlotView, StageIcon, hasStagePlot } from "@/components/showpilot/StagePlotView";
+import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
+import { cueSheetHasAny } from "@/lib/cueSheet";
 
 // The booking package's own circles (job 246): Hospitality & merch, Promo,
 // Dates wanted, and the "Send to" corner. The act circles (Artist,
@@ -87,7 +89,7 @@ const tabHas = (d, k) => {
   const t = techOf(d, k);
   if ([t.who, t.name, t.phone, t.email, t.cues, t.notes].some(has)) return true;
   if (k === "audio") return !!riderOf(d, "tech") || (d.stage_plot_files || []).length > 0 || (d.band_members || []).length > 0 || actHasNotes(d);
-  return !!riderOf(d, "lighting") || !!riderOf(d, "cues");
+  return !!riderOf(d, "lighting") || !!riderOf(d, "cues") || cueSheetHasAny(d?.lighting_cues);
 };
 export const techRiderHas = (form) => tabHas(form, "audio") || tabHas(form, "lighting");
 function TechTabs({ tab, setTab, d }) {
@@ -214,9 +216,15 @@ export function TechRiderBody({ form, update, updateWith, uploadFile, h, pullTem
         </>
       ) : (
         <>
-          <label><span className={label}>LIGHTING CUES</span><textarea rows={4} value={t.cues || ""} onChange={(e) => setT({ cues: e.target.value })} placeholder={"Song 1: blue wash, no strobe\nSong 4: blackout on the drop\nEncore: full white"} className={`${inputCls} py-2.5 resize-none`} /></label>
-          <RiderFile form={form} update={update} updateWith={updateWith} uploadFile={uploadFile} kind="cues" />
-          <label><span className={label}>NOTES FOR THE LD</span><textarea rows={2} value={t.notes || ""} onChange={(e) => setT({ notes: e.target.value })} placeholder="No haze, please. Strobe is OK." className={`${inputCls} py-2.5 resize-none`} /></label>
+          {/* The cue list (job 445), the same one an LD's intake has: song by
+              song, title, feel, tempo, main color and the looks. Kept on the
+              act (lighting_cues) like their template's, so it loads from it. */}
+          <span className={label + " mb-0"}>LIGHTING CUES</span>
+          <CueSheetEditor value={form.lighting_cues} onChange={(v) => update("lighting_cues", v)} onUpload={uploadFile} notesPlaceholder="For the LD: no strobes, haze is fine, keep it dark between songs…" />
+          {/* Written before the cue list: still shown, and can be cleared. */}
+          {has(t.cues) && <label><span className={label}>EARLIER CUE NOTES</span><textarea rows={3} value={t.cues || ""} onChange={(e) => setT({ cues: e.target.value })} className={`${inputCls} py-2.5 resize-none`} /></label>}
+          {riderOf(form, "cues") && <RiderFile form={form} update={update} updateWith={updateWith} uploadFile={uploadFile} kind="cues" />}
+          {has(t.notes) && <label><span className={label}>NOTES FOR THE LD</span><textarea rows={2} value={t.notes || ""} onChange={(e) => setT({ notes: e.target.value })} className={`${inputCls} py-2.5 resize-none`} /></label>}
         </>
       )}
     </div>
@@ -706,7 +714,7 @@ const instrumentsOf = (m) => (Array.isArray(m.instruments) ? m.instruments : m.i
 const MERCH = { own: "Their own table + seller", venue: "They'd like the venue to sell it", none: "No merch" };
 
 // The Tech rider as the venue reads it (job 332): the same two tabs.
-function TechRiderRead({ d, actName = "" }) {
+export function TechRiderRead({ d, actName = "" }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [tab, setTab] = useState(() => (tabHas(d, "audio") || !tabHas(d, "lighting") ? "audio" : "lighting"));
   const t = techOf(d, tab);
@@ -750,7 +758,9 @@ function TechRiderRead({ d, actName = "" }) {
             </>
           ) : (
             <>
-              {has(t.cues) && <div className="flex flex-col gap-1"><span className={label + " mb-0"}>LIGHTING CUES</span><p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{t.cues}</p></div>}
+              {/* The act's cue list, song by song (job 445). */}
+              {cueSheetHasAny(d.lighting_cues) && <div className="flex flex-col gap-1.5"><span className={label + " mb-0"}>LIGHTING CUES</span><CueSheetEditor value={d.lighting_cues} readOnly /></div>}
+              {has(t.cues) && <div className="flex flex-col gap-1"><span className={label + " mb-0"}>{cueSheetHasAny(d.lighting_cues) ? "MORE CUE NOTES" : "LIGHTING CUES"}</span><p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{t.cues}</p></div>}
               {fileLink(cues, "cues", "Cue sheet")}
               {has(t.notes) && <div className="flex flex-col gap-1"><span className={label + " mb-0"}>NOTES FOR THE LD</span><p className="m-0 text-[14.5px] text-white/85 whitespace-pre-wrap">{t.notes}</p></div>}
             </>

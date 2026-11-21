@@ -139,6 +139,7 @@ export default function BookingPackage() {
             stage_plot_files: act.stage_plot_files || f.stage_plot_files,
             general_notes: act.general_notes || f.general_notes,
             artist_fx_notes: act.artist_fx_notes || f.artist_fx_notes,
+            lighting_cues: act.lighting_cues || f.lighting_cues, // the act's cue list (job 445)
             photo_url: act.photo_url || f.photo_url,
           } : {}),
         }));
@@ -193,6 +194,7 @@ export default function BookingPackage() {
           stage_plot_files: t.stage_plot_files || prev.stage_plot_files,
           general_notes: t.general_notes || prev.general_notes,
           artist_fx_notes: t.artist_fx_notes || prev.artist_fx_notes,
+          lighting_cues: t.lighting_cues || prev.lighting_cues, // the act's cue list (job 445)
           photo_url: t.photo_url || prev.photo_url,
         }));
         toast({ title: "Filled in from your artist template" });
