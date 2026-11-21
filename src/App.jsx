@@ -59,6 +59,7 @@ import EventTasks from '@/pages/EventTasks';
 import GigDirectMessages from '@/pages/GigDirectMessages';
 import LinkedGigs from '@/pages/LinkedGigs';
 import About from '@/pages/About';
+import Privacy from '@/pages/Privacy';
 import MePage from "@/pages/MePage";
 import Admin from '@/pages/Admin';
 import DjTools from '@/pages/DjTools';
@@ -134,6 +135,7 @@ const AuthenticatedApp = () => {
       <Route path="/gig/messages" element={DIRECT_MESSAGES_OPEN ? <GigDirectMessages /> : <MessagesToRooms />} />
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route path="/dj/set/:token" element={<DjSetUpload />} />
       <Route path="/s/:code" element={<DjShortLink />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />

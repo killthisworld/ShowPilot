@@ -37,6 +37,8 @@ export default function AuthShell({ children, width = 420, compact = false }) {
       </div>
 
       <div className="w-full" style={{ maxWidth: width }}>{children}</div>
+      {/* The privacy policy under sign-in and register (job 449). */}
+      <a href="/privacy" className="mt-5 text-[13px] text-white/45 hover:text-white/75 underline-offset-2 hover:underline">Privacy policy</a>
     </div>
   );
 }
