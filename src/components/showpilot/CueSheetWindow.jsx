@@ -5,7 +5,9 @@ import { SCENE_MONO } from "@/lib/sceneStyle";
 import CueSheetEditor from "@/components/showpilot/CueSheetEditor";
 import { cueSheetHasAny, cueSheetSummary } from "@/lib/cueSheet";
 import { supabase } from "@/api/supabaseClient";
-import { openCueSheetPdf } from "@/lib/cueSheetPdf";
+import { cueSheetFile } from "@/lib/cueSheetPdf";
+import PdfStyleSheet from "@/components/showpilot/PdfStyleSheet";
+import { saveOrShare } from "@/lib/guestListPdf";
 import { toast } from "@/components/ui/use-toast";
 
 // Cue sheet files from the event go with the stage plots.
@@ -56,7 +58,7 @@ export function CueSheetButton({ act, onClick, size = "md" }) {
 // eventLine: "Sat, Dec 5 · The Fillmore" on the PDF (job 418).
 export default function CueSheetWindow({ acts = [], start = 0, onChange = null, onSave = null, saving = false, onUpload = uploadCueFile, onClose, eventLine = "" }) {
   const [cur, setCur] = useState(start);
-  const [making, setMaking] = useState(false);
+  const [styling, setStyling] = useState(false); // the PDF style sheet (job 451)
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -75,12 +77,12 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
             <div className="text-white text-[18px] font-semibold truncate">{act.band_name || `Act ${cur + 1}`}</div>
             {summary && <div className="text-white/45 text-[12.5px]">{summary}</div>}
           </div>
-          {/* The act's cue sheet as a PDF to view or print (job 418). */}
+          {/* The act's cue sheet as a PDF (job 418); styled first like the
+              other PDFs - background and font color (job 451). */}
           {cueSheetHasAny(act.lighting_cues) && (
-            <button type="button" disabled={making} aria-label={`${act.band_name || "This act"}'s cue sheet as a PDF`}
-              onClick={async () => { setMaking(true); try { await openCueSheetPdf({ actName: act.band_name || `Act ${cur + 1}`, eventLine, sheet: act.lighting_cues }); } catch (e) { console.error(e); toast({ title: "Couldn't make the PDF", variant: "destructive" }); } setMaking(false); }}
-              className="h-10 px-3 rounded-[6px] border text-[13px] font-bold shrink-0 flex items-center gap-1.5 disabled:opacity-50" style={{ borderColor: "#2f4d1f", color: G, background: "#13200b" }}>
-              <FileText className="w-4 h-4" />{making ? "…" : "PDF"}
+            <button type="button" onClick={() => setStyling(true)} aria-label={`${act.band_name || "This act"}'s cue sheet as a PDF`}
+              className="h-10 px-3 rounded-[6px] border text-[13px] font-bold shrink-0 flex items-center gap-1.5" style={{ borderColor: "#2f4d1f", color: G, background: "#13200b" }}>
+              <FileText className="w-4 h-4" />PDF
             </button>
           )}
           <button type="button" onClick={onClose} aria-label="Close" className="w-10 h-10 -mr-2 flex items-center justify-center text-white/50"><X className="w-5 h-5" /></button>
@@ -106,6 +108,15 @@ export default function CueSheetWindow({ acts = [], start = 0, onChange = null, 
               {saving ? "Saving…" : "Save cues"}
             </button>
           </div>
+        )}
+        {styling && (
+          <PdfStyleSheet title="Lighting cues" eventName={act.band_name || `Act ${cur + 1}`}
+            previewLine={summary || "Songs and cues"}
+            onCreate={async (style) => {
+              try { await saveOrShare(await cueSheetFile({ actName: act.band_name || `Act ${cur + 1}`, eventLine, sheet: act.lighting_cues, style })); }
+              catch (e) { if (e?.needsTap) throw e; console.error(e); toast({ title: "Couldn't make the PDF", variant: "destructive" }); }
+            }}
+            onClose={() => setStyling(false)} />
         )}
       </div>
     </div>,

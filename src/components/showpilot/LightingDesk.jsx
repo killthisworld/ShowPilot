@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ClipboardList, MessageCircle, Plus, Search, X, Box } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardList, MessageCircle, Plus, Search, X, Box, Camera } from "lucide-react";
+import { cropImage } from "@/lib/cropImage";
+import { uploadIconImage, saveMyIcon } from "@/lib/eventIcons";
 import { supabase } from "@/api/supabaseClient";
 import { SCENE_MONO, sceneTitle } from "@/lib/sceneStyle";
 import { localISO, addDaysISO, visibleChats } from "@/lib/needsMe";
@@ -78,8 +80,46 @@ export function useDeskInfo(shows) {
   return { progress, roles, tasks, unread };
 }
 
-// One executor: label screen, keys, fader, GO.
-export function Executor({ n, s, info, onGo, compact = false, empty = false, dayLabel = "" }) {
+// The event photo on the desk (job 451, like the audio tech's strips): pick
+// one with the camera key; owners change the event's own photo, anyone else
+// sets their personal one.
+function usePhotoPicker() {
+  const fileRef = useRef(null);
+  const target = useRef(null);
+  const [override, setOverride] = useState({});
+  const [busy, setBusy] = useState(null);
+  const pick = (s) => { target.current = s; fileRef.current?.click(); };
+  const onFile = async (e) => {
+    const picked = e.target.files?.[0];
+    const s = target.current;
+    e.target.value = "";
+    const file = picked && s ? await cropImage(picked, { aspectW: 1, aspectH: 1 }) : null;
+    if (!file || !s) return;
+    const key = s.id || s.share_token;
+    setBusy(key);
+    try {
+      const url = await uploadIconImage(file);
+      if (s.is_owned !== false) {
+        const { error } = await supabase.from("shows").update({ icon_url: url }).eq("id", s.id);
+        if (error) throw error;
+      } else {
+        await saveMyIcon(s.id, url);
+      }
+      setOverride((m) => ({ ...m, [key]: url }));
+    } catch (err) {
+      console.error(err);
+      window.alert("Couldn't change the photo. Try again.");
+    }
+    setBusy(null);
+  };
+  const input = <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />;
+  const photoOf = (s) => (s ? override[s.id || s.share_token] || s.icon_url || "" : "");
+  return { pick, input, photoOf, busyOf: (s) => !!s && busy === (s.id || s.share_token) };
+}
+
+// One executor: label screen, keys, fader, GO. With an event photo it sits
+// behind the whole executor, as on the audio tech's strips (job 451).
+export function Executor({ n, s, info, onGo, compact = false, empty = false, dayLabel = "", photo = "", onPhoto = null, busyPhoto = false }) {
   const navigate = useNavigate();
   if (empty || !s) {
     return (
@@ -98,17 +138,30 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
   const unread = Number(info.unread[s.share_token] || 0);
   const d = s.date ? new Date(s.date + "T00:00:00") : null;
   const keyBase = "rounded-[4px] border flex items-center justify-center gap-1 font-bold";
+  const ts = photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none";
+  const idleKey = photo ? { background: "rgba(20,20,20,0.85)", borderColor: "rgba(255,255,255,0.18)", color: "#e0e0e0" } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" };
   return (
-    <div className="h-full min-h-0 rounded-[6px] border flex flex-col" style={{ background: MA.panel, borderColor: "#262626" }}>
+    <div className="h-full min-h-0 rounded-[6px] border flex flex-col relative isolate overflow-hidden" style={{ background: MA.panel, borderColor: photo ? MA.amber : "#262626" }}>
+      {photo && (
+        <>
+          <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
+          {/* The photo turned sideways to fill the tall executor, as on the
+              audio tech's strips. */}
+          <div aria-hidden="true" className="absolute inset-0 -z-20 overflow-hidden" style={{ containerType: "size" }}>
+            <img src={photo} alt="" className="absolute max-w-none" style={{ top: "50%", left: "50%", width: "100cqh", height: "100cqw", objectFit: "cover", transform: "translate(-50%, -50%) rotate(90deg)" }} />
+          </div>
+          <div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.55))" }} />
+        </>
+      )}
       {/* Label screen */}
       <button type="button" onClick={() => onGo(s)} title="Open the show" className="m-1.5 rounded-[3px] p-1.5 text-left flex flex-col gap-0.5 overflow-hidden"
-        style={{ background: "#050505", border: `1px solid ${MA.amberDim}`, height: compact ? 92 : 104, boxShadow: "inset 0 0 12px rgba(140,255,61,0.06)" }}>
+        style={{ background: photo ? "linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.15))" : "#050505", border: `1px solid ${photo ? "rgba(140,255,61,0.45)" : MA.amberDim}`, height: compact ? 92 : 104, boxShadow: "inset 0 0 12px rgba(140,255,61,0.06)", textShadow: ts }}>
         {/* The date only where no day header sits above it (job 407). */}
         {!dayLabel && (
           <span className="text-[10px]" style={{ ...monoStyle, color: MA.amber }}>{d ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }).toUpperCase() : "NO DATE"}</span>
         )}
         <span className="text-[14px] font-bold leading-tight line-clamp-2" style={{ color: "#effbe6" }}>{sceneTitle(s)}</span>
-        <span className="text-[11.5px] truncate" style={{ color: "rgba(225,245,210,0.6)" }}>{s.venue || "No venue yet"}</span>
+        <span className="text-[11.5px] truncate" style={{ color: photo ? "rgba(240,250,230,0.85)" : "rgba(225,245,210,0.6)" }}>{s.venue || "No venue yet"}</span>
       </button>
       {/* Who's on: three LEDs */}
       <div className="mx-1.5 grid grid-cols-3 gap-1">
@@ -121,15 +174,21 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
         })}
       </div>
       {/* Keys above the fader */}
-      <div className="mx-1.5 mt-1 grid grid-cols-2 gap-1">
+      <div className={`mx-1.5 mt-1 grid ${onPhoto ? "grid-cols-3" : "grid-cols-2"} gap-1`}>
         <Link to={`/gig/tasks?token=${s.share_token}`} aria-label={myTasks ? `${myTasks} tasks for you` : "Tasks"} className={keyBase + " h-9 text-[12px]"}
-          style={myTasks ? { background: "#1a2e0e", borderColor: MA.amber, color: MA.amber } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" }}>
+          style={myTasks ? { background: "#1a2e0e", borderColor: MA.amber, color: MA.amber } : idleKey}>
           <ClipboardList className="w-3.5 h-3.5" />{myTasks || ""}
         </Link>
         <Link to={`/gig/rooms?token=${s.share_token}`} aria-label={unread ? `Chat, ${unread} unread` : "Chat"} className={keyBase + " h-9 text-[12px]"}
-          style={unread ? { background: "#0d2a31", borderColor: MA.cyan, color: MA.cyan } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" }}>
+          style={unread ? { background: "#0d2a31", borderColor: MA.cyan, color: MA.cyan } : idleKey}>
           <MessageCircle className="w-3.5 h-3.5" />{unread || ""}
         </Link>
+        {onPhoto && (
+          <button type="button" onClick={() => onPhoto(s)} disabled={busyPhoto} aria-label={photo ? "Change photo" : "Add photo"} title={photo ? "Change photo" : "Add photo"}
+            className={keyBase + " h-9 text-[12px] disabled:opacity-50"} style={idleKey}>
+            <Camera className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
       {/* Fader: how ready the show is */}
       <div className="flex-1 min-h-[90px] flex items-stretch justify-center gap-5 px-2 py-2" title="Profiles confirmed on this show">
@@ -141,7 +200,7 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
             <div className="absolute left-1 right-1 top-1/2 h-px" style={{ background: MA.amber }} />
           </div>
         </div>
-        <span className="self-end text-[11px] tabular-nums" style={{ ...monoStyle, color: pct ? MA.amber : "#666" }} aria-label={`${pct}% ready`}>{pct}%</span>
+        <span className="self-end text-[11px] tabular-nums" style={{ ...monoStyle, color: pct ? MA.amber : photo ? "#cfcfcf" : "#666", textShadow: ts }} aria-label={`${pct}% ready`}>{pct}%</span>
       </div>
       {/* GO */}
       <button type="button" onClick={() => onGo(s)} aria-label={`Go: open ${sceneTitle(s)}`}
@@ -181,10 +240,12 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
   const onDesk = useMemo(() => found || weekDays.flatMap((d) => d.shows), [found, weekDays]);
   const info = useDeskInfo(onDesk);
   const [dayPick, setDayPick] = useState({});
+  const photos = usePhotoPicker();
 
   return (
     <div className="fixed inset-0 flex overflow-hidden" style={{ background: MA.bg, color: MA.text, fontFamily: "Inter, system-ui, sans-serif" }}>
       <TechRail accent={MA.amber} preferences={preferences} onPreferencesUpdate={onPreferencesUpdate} />
+      {photos.input}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Title bar */}
         <div className="h-[60px] shrink-0 flex items-center gap-3 px-5 border-b" style={{ borderColor: "#1f1f1f", background: "#0f0f0f" }}>
@@ -218,7 +279,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
         <div className="flex-1 min-h-0 px-5 pb-4 overflow-x-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
           {found ? (
             found.length ? (
-              <div className="h-full flex gap-2">{found.map((s, i) => <div key={s.id || s.share_token} className="w-[170px] shrink-0 h-full"><Executor n={i + 1} s={s} info={info} onGo={onOpenShow} /></div>)}</div>
+              <div className="h-full flex gap-2">{found.map((s, i) => <div key={s.id || s.share_token} className="w-[170px] shrink-0 h-full"><Executor n={i + 1} s={s} info={info} onGo={onOpenShow} photo={photos.photoOf(s)} onPhoto={photos.pick} busyPhoto={photos.busyOf(s)} /></div>)}</div>
             ) : <p className="text-white/40 text-[14px] pt-10 text-center">No shows match.</p>
           ) : (
             <div className="h-full grid gap-2" style={{ gridTemplateColumns: "repeat(7, minmax(128px, 1fr))" }}>
@@ -240,7 +301,7 @@ export default function LightingDesk({ shows, preferences, onPreferencesUpdate, 
                       )}
                     </div>
                     <div className="flex-1 min-h-0">
-                      <Executor n={i + 1} s={list[idx]} empty={!list.length} info={info} onGo={onOpenShow} dayLabel={label} />
+                      <Executor n={i + 1} s={list[idx]} empty={!list.length} info={info} onGo={onOpenShow} dayLabel={label} photo={photos.photoOf(list[idx])} onPhoto={photos.pick} busyPhoto={photos.busyOf(list[idx])} />
                     </div>
                   </div>
                 );

@@ -1,7 +1,6 @@
 import jsPDF from "jspdf";
-import { pdfSafe } from "@/lib/guestListPdf";
+import { pdfSafe, DEFAULT_PDF_STYLE } from "@/lib/guestListPdf";
 import { normalizeCueSheet } from "@/lib/cueSheet";
-import { LOOK_KEYS, MOTIONS } from "@/lib/cueLooks";
 
 // An act's lighting cue sheet as a PDF (job 418): what they filled in on the
 // Lighting cues circle of the LD's intake - each song (BPM, feel, color) and
@@ -36,79 +35,83 @@ async function imageData(url) {
   } catch { return null; }
 }
 
-export async function cueSheetPdf({ actName = "", eventLine = "", sheet: raw }) {
+// Job 451: simpler, and styled like the other PDFs (the PDF style sheet:
+// a background color or picture, and the font color). Each song is its main
+// color as a dot in front of the name, the tempo if given, and its cues
+// underneath. Then their notes and uploaded cue sheets.
+export async function cueSheetPdf({ actName = "", eventLine = "", sheet: raw, style = DEFAULT_PDF_STYLE }) {
   const sheet = normalizeCueSheet(raw);
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  const M = 48;
-  let y = M;
-  const room = (need) => { if (y + need > H - M) { doc.addPage(); y = M; } };
-  const text = (t, x, size = 11, style = "normal", color = [20, 20, 20]) => {
-    doc.setFont("helvetica", style); doc.setFontSize(size); doc.setTextColor(...color);
-    doc.text(t, x, y);
+  const M = 54;
+  // Colors (the PDF style sheet).
+  const okHex = (c, d) => (/^#[0-9a-f]{6}$/i.test(c || "") ? c : d);
+  const BG = okHex(style?.bg, "#FFFFFF"), FONT = okHex(style?.font, "#000000");
+  const IMG = typeof style?.image === "string" && style.image.startsWith("data:image/") ? style.image : null;
+  const FADE = Math.max(0, Math.min(0.85, Number(style?.fade ?? 0.55)));
+  const alpha = (v) => doc.setGState(new doc.GState({ opacity: v, "stroke-opacity": v }));
+  const ink = (v = 1) => { doc.setTextColor(FONT); alpha(v); };
+  const paintBg = () => {
+    alpha(1);
+    if (IMG) {
+      doc.addImage(IMG, "JPEG", 0, 0, W, H, "pagebg", "FAST");
+      if (FADE > 0) { doc.setFillColor(BG); alpha(FADE); doc.rect(0, 0, W, H, "F"); alpha(1); }
+    } else if (BG.toUpperCase() !== "#FFFFFF") {
+      doc.setFillColor(BG); doc.rect(0, 0, W, H, "F");
+    }
   };
-  const wrap = (t, width, size) => { doc.setFontSize(size); return doc.splitTextToSize(pdfSafe(t), width); };
+  paintBg();
+  let y = M;
+  const room = (need) => { if (y + need > H - M) { doc.addPage(); paintBg(); y = M; } };
+  const text = (t, x, size, style2 = "normal", a = 1) => { doc.setFont("helvetica", style2); doc.setFontSize(size); ink(a); doc.text(t, x, y); alpha(1); };
+  const wrap = (t, width, size, style2 = "normal") => { doc.setFont("helvetica", style2); doc.setFontSize(size); return doc.splitTextToSize(pdfSafe(t), width); };
 
-  // Header
-  text("LIGHTING CUES", M, 9, "bold", [110, 110, 110]); y += 22;
-  text(pdfSafe(actName) || "Act", M, 22, "bold"); y += 18;
-  if (eventLine) { text(pdfSafe(eventLine), M, 11, "normal", [90, 90, 90]); y += 8; }
-  doc.setDrawColor(200); doc.setLineWidth(0.8); doc.line(M, y + 6, W - M, y + 6); y += 28;
+  // Header: the act, the event.
+  text("LIGHTING CUES", M, 9, "bold", 0.55); y += 26;
+  wrap(actName || "Act", W - 2 * M, 24, "bold").slice(0, 2).forEach((l) => { text(l, M, 24, "bold"); y += 26; });
+  if (eventLine) { y -= 6; text(pdfSafe(eventLine), M, 11.5, "normal", 0.65); y += 10; }
+  doc.setDrawColor(FONT); alpha(0.25); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); alpha(1); y += 30;
 
+  // Songs: color dot, name, tempo; the cues under it.
   const songs = sheet.songs.filter((s) => s.title.trim() || s.cues.length);
-  const colAt = M + 22, colLook = M + 110, colColor = W - M - 70;
+  const cueX = M + 22;
   songs.forEach((s, si) => {
-    room(60);
-    // Song line: number, title, BPM / feel, its color.
-    text(`${si + 1}`, M, 13, "bold", [140, 140, 140]);
-    text(pdfSafe(s.title) || `Song ${si + 1}`, M + 22, 13, "bold");
-    const meta = [s.bpm ? `${s.bpm} BPM` : "", pdfSafe(s.feel)].filter(Boolean).join(" · ");
-    if (meta) text(meta, W - M - 140, 10, "normal", [90, 90, 90]);
-    const sc = hex(s.color);
-    if (sc) { doc.setFillColor(...sc); doc.circle(W - M - 6, y - 4, 5, "F"); }
-    y += 16;
-    if (!s.cues.length) { text("No cues", colAt, 10, "italic", [130, 130, 130]); y += 18; return; }
-    // Column heads
-    text("WHEN", colAt, 8, "bold", [130, 130, 130]); text("LOOK", colLook, 8, "bold", [130, 130, 130]); text("COLOR", colColor, 8, "bold", [130, 130, 130]);
-    y += 12;
-    s.cues.forEach((q, qi) => {
-      const extra = [
-        ...(q.keys ? LOOK_KEYS.filter((k) => q.keys[k.id]).map((k) => k.label) : []),
-        ...(q.motion ? [`Motion: ${MOTIONS.find((m) => m.id === q.motion)?.label || q.motion}`] : []),
-        ...(q.fadeIn ? [`Fade ${q.fadeIn}s`] : []),
-      ].join(", ");
-      const lookLines = wrap(q.look || "-", colColor - colLook - 12, 10.5);
-      const atLines = wrap(q.at || "", colLook - colAt - 10, 10);
-      const extraLines = extra ? wrap(extra, colColor - colLook - 12, 8.5) : [];
-      const h = Math.max(lookLines.length, atLines.length) * 13 + extraLines.length * 11 + 6;
-      room(h + 4);
-      if (qi % 2 === 0) { doc.setFillColor(245, 245, 245); doc.rect(M + 14, y - 10, W - 2 * M - 14, h, "F"); }
-      doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
-      doc.text(atLines, colAt, y);
-      doc.setFontSize(10.5); doc.setTextColor(20, 20, 20);
-      doc.text(lookLines, colLook, y);
-      if (extraLines.length) { doc.setFontSize(8.5); doc.setTextColor(100, 100, 100); doc.text(extraLines, colLook, y + lookLines.length * 13); }
-      const qc = hex(q.color) || hex(s.color);
-      if (qc) { doc.setFillColor(...qc); doc.setDrawColor(170); doc.setLineWidth(0.5); doc.roundedRect(colColor, y - 9, 26, 11, 2, 2, "FD"); }
-      y += h;
+    const title = s.title.trim() || `Song ${si + 1}`;
+    const cueLines = s.cues.map((q) => wrap([q.at && q.at.trim() ? `${q.at.trim()}:` : "", q.look || ""].filter(Boolean).join(" ") || "-", W - M - cueX, 11.5));
+    const firstCue = cueLines[0] ? cueLines[0].length * 15 : 0;
+    room(34 + firstCue);
+    const c = hex(s.color);
+    if (c) { doc.setFillColor(...c); alpha(1); doc.circle(M + 6, y - 5, 6, "F"); }
+    else { doc.setDrawColor(FONT); alpha(0.4); doc.setLineWidth(0.8); doc.circle(M + 6, y - 5, 5.5, "S"); alpha(1); }
+    const titleLines = wrap(title, W - M - cueX - 90, 15, "bold");
+    text(titleLines[0], cueX, 15, "bold");
+    if (s.bpm) { doc.setFont("helvetica", "normal"); doc.setFontSize(11); ink(0.65); doc.text(`${String(s.bpm).trim()} BPM`, W - M, y, { align: "right" }); alpha(1); }
+    y += 20;
+    titleLines.slice(1).forEach((l) => { y -= 2; text(l, cueX, 15, "bold"); y += 18; });
+    cueLines.forEach((lines) => {
+      room(lines.length * 15 + 4);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11.5); ink(0.9);
+      doc.text(lines, cueX, y); alpha(1);
+      y += lines.length * 15 + 3;
     });
-    y += 14;
+    if (!cueLines.length) { text("No cues yet", cueX, 11, "italic", 0.5); y += 15; }
+    y += 16;
   });
-  if (!songs.length) { text("No songs or cues typed in.", M, 11, "italic", [120, 120, 120]); y += 22; }
+  if (!songs.length) { text("No songs or cues typed in.", M, 11.5, "italic", 0.6); y += 24; }
 
   // Notes
   if (sheet.notes.trim()) {
-    const lines = wrap(sheet.notes, W - 2 * M, 11);
-    room(30 + lines.length * 14);
-    text("NOTES", M, 9, "bold", [110, 110, 110]); y += 16;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.setTextColor(20, 20, 20);
-    doc.text(lines, M, y); y += lines.length * 14 + 12;
+    const lines = wrap(sheet.notes, W - 2 * M, 11.5);
+    room(34 + Math.min(lines.length, 6) * 15);
+    text("NOTES", M, 9, "bold", 0.55); y += 18;
+    lines.forEach((l) => { room(16); text(l, M, 11.5, "normal", 0.9); y += 15; });
+    y += 12;
   }
 
   // Their uploaded cue sheets: pictures drawn in, anything else as a link.
   if (sheet.files.length) {
     room(40);
-    text("UPLOADED CUE SHEETS", M, 9, "bold", [110, 110, 110]); y += 18;
+    text("UPLOADED CUE SHEETS", M, 9, "bold", 0.55); y += 18;
     for (const f of sheet.files) {
       const name = pdfSafe(f.name) || "Cue sheet";
       const img = /^image\//i.test(f.type || "") || /\.(png|jpe?g|webp)(\?|$)/i.test(f.url) ? await imageData(f.url) : null;
@@ -122,7 +125,7 @@ export async function cueSheetPdf({ actName = "", eventLine = "", sheet: raw }) 
         y += h + 20;
       } else {
         room(18);
-        doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.setTextColor(30, 80, 200);
+        doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); ink(1);
         doc.textWithLink(`${name} (open)`, M, y, { url: f.url });
         y += 16;
       }
@@ -131,10 +134,19 @@ export async function cueSheetPdf({ actName = "", eventLine = "", sheet: raw }) 
   // Page numbers
   const n = doc.getNumberOfPages();
   for (let p = 1; p <= n; p++) {
-    doc.setPage(p); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(150, 150, 150);
-    doc.text(`${pdfSafe(actName) || "Act"} · Lighting cues · ${p} / ${n}`, M, H - 24);
+    doc.setPage(p); doc.setFont("helvetica", "normal"); doc.setFontSize(8); ink(0.5);
+    doc.text(`${pdfSafe(actName) || "Act"} · Lighting cues`, M, H - 26);
+    doc.text(`Page ${p} of ${n}`, W - M, H - 26, { align: "right" });
+    alpha(1);
   }
   return doc;
+}
+
+// The PDF as a file to save or share (job 451).
+export async function cueSheetFile(opts) {
+  const doc = await cueSheetPdf(opts);
+  const base = (pdfSafe(opts.actName) || "Act").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "Act";
+  return new File([doc.output("blob")], `${base} - Lighting cues.pdf`, { type: "application/pdf" });
 }
 
 // Opens the PDF in a new tab to view (or saves it if the tab is blocked).
