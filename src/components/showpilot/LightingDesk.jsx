@@ -141,7 +141,11 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
   const ts = photo ? "0 1px 3px rgba(0,0,0,0.9)" : "none";
   const idleKey = photo ? { background: "rgba(20,20,20,0.85)", borderColor: "rgba(255,255,255,0.18)", color: "#e0e0e0" } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" };
   return (
-    <div className="h-full min-h-0 rounded-[6px] border flex flex-col relative isolate overflow-hidden" style={{ background: MA.panel, borderColor: photo ? MA.amber : "#262626" }}>
+    // The whole executor opens the show (job 454), except its own keys; a
+    // green outline on hover, like the stage square.
+    <div onClick={(e) => { if (!e.target.closest("a, button, input, label")) onGo(s); }} title="Open the show"
+      className="group/ex h-full min-h-0 rounded-[6px] border flex flex-col relative isolate overflow-hidden cursor-pointer" style={{ background: MA.panel, borderColor: photo ? MA.amber : "#262626" }}>
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 rounded-[6px] opacity-0 group-hover/ex:opacity-100 transition-opacity" style={{ boxShadow: `inset 0 0 0 2px ${MA.amber}` }} />
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
@@ -170,7 +174,6 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
                 <span className="text-[10px] tracking-[0.14em] font-bold" style={monoStyle}>{rigged ? "3D STAGE" : "RIG THE STAGE"}</span>
               </span>
             )}
-            <span className="absolute left-1 top-1 px-1 rounded-[2px] text-[9px] font-bold tracking-[0.12em]" style={{ ...monoStyle, background: "rgba(0,0,0,0.7)", color: MA.amber }}>3D</span>
             <span aria-hidden="true" className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ boxShadow: `inset 0 0 0 2px ${MA.amber}` }} />
           </button>
         );
