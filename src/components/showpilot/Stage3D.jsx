@@ -79,11 +79,22 @@ function updatePipes(pipes, world) {
   });
 }
 
+// The picture fitted above a box covering the bottom `cover` px (job 450):
+// a little smaller (down to 72%) and moved up, so the box doesn't hide the
+// front of the stage. Done with the camera's view offset: the picture is
+// drawn into the free space at the top, centered.
+function fitAbove(camera, w, h, cover) {
+  const free = Math.max(h * 0.3, h - cover);
+  const k = Math.max(0.72, Math.min(1, free / h)); // how much smaller
+  const fw = w * k, fh = h * k;
+  camera.setViewOffset(fw, fh, (fw - w) / 2, fh - free, w, h);
+}
+
 export default function Stage3D({
   rig, members = [], look = null, dark = false, mode = "view", selected = null, moving = null,
   onTapItem, onDragStart, onMoveItems, onTapDeck, onMoveMember, pickedMember = null, className = "", labels = true,
   onSnapshot = null, // job 396: a picture of the stage, once it's drawn (thumbnails)
-  lift = 0, // job 405: px to move the picture up (an edit box covers the bottom)
+  lift = 0, // job 405 / 450: px an edit box covers at the bottom - the picture fits above it
 }) {
   const selIds = [].concat(selected || []);
   const movingIds = [].concat(moving || []);
@@ -142,7 +153,7 @@ export default function Stage3D({
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       camera.aspect = w / h;
-      if (S.current?.lift) camera.setViewOffset(w, h, 0, S.current.lift, w, h);
+      if (S.current?.lift) fitAbove(camera, w, h, S.current.lift);
       camera.updateProjectionMatrix();
     };
     size();
@@ -339,7 +350,7 @@ export default function Stage3D({
       if (Math.abs((st.lift || 0) - want) > 0.5 || (st.lift && !want)) {
         st.lift = Math.abs((st.lift || 0) - want) > 0.5 ? (st.lift || 0) + (want - (st.lift || 0)) * 0.2 : want;
         const w = el.clientWidth || 300, h = el.clientHeight || 300;
-        if (st.lift) camera.setViewOffset(w, h, 0, st.lift, w, h); else camera.clearViewOffset();
+        if (st.lift) fitAbove(camera, w, h, st.lift); else camera.clearViewOffset();
       }
       // Cues playing (job 421): one or more at once, each over its own
       // lights (none picked = all) with its own speed, beat and fade in.

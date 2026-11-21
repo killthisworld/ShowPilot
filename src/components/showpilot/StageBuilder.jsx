@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Tag, Music2, Power, FlipVertical2, UserRound, ChevronUp, ChevronDown, ChevronRight, ChevronLeft, Undo2, Redo2, Copy, Trash2, RotateCw, RotateCcw, Minus, Plus, Move, Check, Lightbulb } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
@@ -46,18 +46,19 @@ export default function StageBuilder({
   // null name crashed the builder so the stage never opened (job 433).
   const [name, setName] = useState(startName || "");
   const [rig, setRigNow] = useState(() => normalizeRig(start));
-  // The edit box's height over the stage (job 405): the stage moves up by
-  // half of it so the box doesn't cover the middle.
+  // The edit box's height over the stage (job 405): the stage fits itself
+  // above it. Job 450: one ref for good - a new one every render reset the
+  // height to 0, so the stage never moved.
   const [boxH, setBoxH] = useState(0);
   const boxObs = useRef(null);
-  const boxRef = (el) => {
+  const boxRef = useCallback((el) => {
     boxObs.current?.disconnect();
     boxObs.current = null;
     if (!el) { setBoxH(0); return; }
-    const ro = new ResizeObserver(() => setBoxH(el.getBoundingClientRect().height || 0));
+    const ro = new ResizeObserver(() => setBoxH(Math.round(el.getBoundingClientRect().height || 0)));
     ro.observe(el);
     boxObs.current = ro;
-  };
+  }, []);
   // Undo / redo (job 388): every change to the rig goes through here. Quick
   // runs of changes (a slider, typing a name) count as one step.
   const hist = useRef({ past: [], future: [], at: 0 });
@@ -814,7 +815,7 @@ export default function StageBuilder({
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         <div className="relative lg:flex-1 min-h-0 h-[44dvh] [@media(max-height:720px)]:h-[36dvh] lg:h-auto lg:[@media(max-height:720px)]:h-auto shrink-0">
           <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-white/40 text-[13px]">Loading the stage…</div>}>
-            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look.length} lift={sel.length && tab === "rig" ? Math.round(boxH / 2) : 0}
+            <Stage3D rig={rig} members={shownMembers} look={look} dark={rigDark && !look.length} lift={sel.length && tab === "rig" && boxH ? boxH + 8 : 0}
               mode={tab === "rig" ? "build" : cur && (draft || editing) ? "pick" : "view"}
               selected={tab === "rig" ? sel : cur && (draft || editing) ? curLights : []} moving={moving && tab === "rig" ? sel : []}
               onTapItem={tab === "rig" ? onTapItem : toggleCueLight} onTapDeck={onTapDeck} onDragStart={onDragStart} onMoveItems={onMoveItems} />
