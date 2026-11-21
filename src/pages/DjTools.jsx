@@ -504,13 +504,14 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
       {/* The set at a glance (job 372): the night, one bar with a section
           per act that fills as each act sends their set, then what you can
           do with it. */}
-      <section className="relative isolate overflow-hidden rounded-2xl border border-[#262626] bg-[#111]/90 backdrop-blur p-4 flex flex-col gap-3">
-        {/* The event's picture behind it (job 380). */}
+      <section className="relative isolate rounded-2xl border border-[#262626] bg-[#111]/90 backdrop-blur p-4 flex flex-col gap-3">
+        {/* The event's picture behind it (job 380), clipped in its own layer so
+            the card doesn't cut off the ... menu (job 448). */}
         {evPhoto && (
-          <>
-            <img src={evPhoto} alt="" aria-hidden="true" className="absolute inset-0 -z-10 w-full h-full object-cover" onError={() => setEvPhoto("")} />
-            <span aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.45) 0%, rgba(13,13,13,0.8) 55%, rgba(13,13,13,0.95) 100%)" }} />
-          </>
+          <span aria-hidden="true" className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+            <img src={evPhoto} alt="" className="absolute inset-0 w-full h-full object-cover" onError={() => setEvPhoto("")} />
+            <span className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(13,13,13,0.45) 0%, rgba(13,13,13,0.8) 55%, rgba(13,13,13,0.95) 100%)" }} />
+          </span>
         )}
         <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
@@ -639,13 +640,14 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", pho
   };
 
   return (
-    <li className="relative isolate overflow-hidden rounded-xl border bg-[#141414] transition-colors" style={{ borderColor: open ? DJ_COLOR + "55" : "#232323" }}>
-      {/* The act's photo behind their card (job 380). */}
+    <li className="relative isolate rounded-xl border bg-[#141414] transition-colors" style={{ borderColor: open ? DJ_COLOR + "55" : "#232323" }}>
+      {/* The act's photo behind their card (job 380), in its own clipped layer
+          so the act's ... menu can open past the card (job 448). */}
       {photo && !photoBroken && (
-        <>
-          <img src={photo} alt="" aria-hidden="true" className="absolute inset-0 -z-10 w-full h-full object-cover" onError={() => setPhotoBroken(true)} />
-          <span aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(20,20,20,0.93) 0%, rgba(20,20,20,0.8) 55%, rgba(20,20,20,0.6) 100%)" }} />
-        </>
+        <span aria-hidden="true" className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+          <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" onError={() => setPhotoBroken(true)} />
+          <span className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(20,20,20,0.93) 0%, rgba(20,20,20,0.8) 55%, rgba(20,20,20,0.6) 100%)" }} />
+        </span>
       )}
       {/* Clicking the row (not its controls) opens the act's tracks. */}
       {/* On a phone the row wraps: number + name, then time, status dot,
