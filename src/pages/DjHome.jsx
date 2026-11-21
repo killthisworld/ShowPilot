@@ -8,7 +8,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import DriveIcon from "@/components/showpilot/DriveIcon";
 import MonthDropdown from "@/components/showpilot/MonthDropdown";
 import { ActBar } from "@/components/showpilot/DjWeekMonths";
-import { DJ_COLOR, driveCall } from "@/lib/djTools";
+import { DJ_COLOR, DESK_HEADER, DESK_MAIN, driveCall } from "@/lib/djTools";
 
 // DJ view home (job 353): an Artist with DJ Mode on lands here. It's
 // built around collecting each performer's set: the space background, a
@@ -146,8 +146,8 @@ export default function DjHome() {
   return (
     <div className="relative min-h-screen text-white" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#000" }}>
       <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-sets" dim={0.3} /></div>
-      <main className="relative z-[1] max-w-[1080px] mx-auto px-4 lg:px-8 pt-5 lg:pt-8 pb-[120px] lg:pb-12 flex flex-col gap-3">
-        <div className="flex items-center gap-3">
+      <main className={`relative z-[1] ${DESK_MAIN} pt-5 pb-[120px] flex flex-col gap-3`}>
+        <div className={`flex items-center gap-3 ${DESK_HEADER}`}>
           <span className="w-[46px] h-[46px] rounded-full overflow-hidden shrink-0 border-2 flex items-center justify-center text-[18px]" style={{ ...cond, borderColor: RED, color: RED, background: "#1a1012" }}>
             {preferences?.profile_photo_url ? <img src={preferences.profile_photo_url} alt="" className="w-full h-full object-cover" /> : initials(name)}
           </span>
@@ -174,7 +174,7 @@ export default function DjHome() {
             {inMonth.length === 0 ? (
               <p className="m-0 py-6 text-center text-[15px] text-white/60">No sets in {monthName(month)}.</p>
             ) : (
-              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">
                 {inMonth.map((r) => <SetCard key={r.id} r={r} c={counts[r.id]} onOpen={() => open(r)} />)}
               </div>
             )}

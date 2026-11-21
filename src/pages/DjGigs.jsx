@@ -1,20 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import TicketCard from "@/components/showpilot/TicketCard";
 import NightSky from "@/components/showpilot/NightSky";
-import DjWeekMonths, { ActBar } from "@/components/showpilot/DjWeekMonths";
-import { DJ_COLOR } from "@/lib/djTools";
+import { ActBar } from "@/components/showpilot/DjWeekMonths";
+import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
 
 // The DJ view's Bookings tab (jobs 362, 372, Jay 2026-11-19): the events
 // you're on, to keep track of them. DJs get added to events rather than
 // booking dates, so there's no Book a date or booking packages here: this
 // week on top, the months below, each event a small ticket with when it
-// is and its set (the sets in, or + Set to start one). A filter on top
-// moves between years and months (job 372, Jay 2026-11-19), so past gigs
-// are here too. The sets and their links are on the Sets tab.
+// is and its set (the sets in, or + Set to start one). One month at a time
+// with arrows (job 452, was a year + month filter and month dropdowns), so
+// past gigs are here too. The sets and their links are on the Sets tab.
 const GREEN = "#8CFF3D";
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
@@ -61,18 +61,6 @@ function GigTicket({ g, set, onOpen, onSet }) {
         <SetChip g={g} set={set} onSet={onSet} />
       </div>
       {set?.all > 0 && <div className="mt-1.5"><ActBar slots={set.slots} height={4} /></div>}
-    </TicketCard>
-  );
-}
-
-function WeekGig({ g, set, onOpen }) {
-  return (
-    <TicketCard className="shrink-0 w-[168px]" color={DJ_COLOR} date={g.date} photo={g.icon_url} compact stubWidth={42} notch={6} shadow={false} onClick={onOpen} ariaLabel={g.name}>
-      <div className="min-h-[50px] flex flex-col justify-center gap-1">
-        <span className="text-[13.5px] font-bold leading-tight line-clamp-2 break-words">{g.name}</span>
-        <span className="text-[9px] tracking-[0.06em] truncate" style={{ ...mono, color: daysTo(g.date) <= 0 ? DJ_COLOR : "rgba(255,255,255,0.6)" }}>{whenLabel(g.date) || g.venue.toUpperCase()}</span>
-        {set?.all > 0 && <ActBar slots={set.slots} height={3} />}
-      </div>
     </TicketCard>
   );
 }
@@ -128,76 +116,72 @@ export default function DjGigs() {
     return () => { gone = true; };
   }, []);
 
-  // The filter: a year, and all of it or one month.
-  const thisYear = new Date().getFullYear();
-  const [year, setYear] = useState(thisYear);
-  const [month, setMonth] = useState(null); // "01".."12" or null for all
-  const years = useMemo(() => {
-    const ys = new Set([thisYear, ...(gigs || []).filter((g) => g.date).map((g) => Number(g.date.slice(0, 4)))]);
-    return [...ys].sort((x, y) => x - y);
-  }, [gigs, thisYear]);
-  const inYear = useMemo(() => (gigs || []).filter((g) => g.date && Number(g.date.slice(0, 4)) === year), [gigs, year]);
-  const perMonth = useMemo(() => { const m = {}; inYear.forEach((g) => { const k = g.date.slice(5, 7); m[k] = (m[k] || 0) + 1; }); return m; }, [inYear]);
-  const shown = month ? inYear.filter((g) => g.date.slice(5, 7) === month) : inYear;
-  const upcoming = (gigs || []).filter((g) => !g.date || g.date >= today()).length;
-  const stepYear = (d) => {
-    const i = years.indexOf(year) + d;
-    if (i >= 0 && i < years.length) { setYear(years[i]); setMonth(null); }
+  // One month at a time (job 452, Jay 2026-11-21): arrows step through the
+  // months (and into other years), and that month's gigs are right there on
+  // the screen, no dropdown. It opens on this month; swipe sideways on a
+  // phone to change month too.
+  const thisYm = today().slice(0, 7);
+  const [ym, setYm] = useState(thisYm);
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const dated = (gigs || []).filter((g) => g.date);
+  // How far the arrows go: from the first gig (or this month) to the last.
+  const firstYm = dated.reduce((m, g) => (g.date.slice(0, 7) < m ? g.date.slice(0, 7) : m), thisYm);
+  const lastYm = dated.reduce((m, g) => (g.date.slice(0, 7) > m ? g.date.slice(0, 7) : m), thisYm);
+  const step = (d) => {
+    const [y, m] = ym.split("-").map(Number);
+    const t = new Date(y, m - 1 + d, 1);
+    const k = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}`;
+    if (k >= firstYm && k <= lastYm) setYm(k);
   };
-  // Keep the chosen month chip (or All) in view on a phone.
-  const chips = useRef(null);
-  useEffect(() => { chips.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "center" }); }, [year, month, gigs]);
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const shown = [...dated.filter((g) => g.date.slice(0, 7) === ym), ...(ym === thisYm ? (gigs || []).filter((g) => !g.date) : [])];
+  const upcoming = (gigs || []).filter((g) => !g.date || g.date >= today()).length;
+  const [yy, mm] = ym.split("-").map(Number);
+  const swipe = useRef(null);
+  const onTouchStart = (e) => { const t = e.touches[0]; swipe.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const s0 = swipe.current; swipe.current = null;
+    if (!s0) return;
+    const t = e.changedTouches[0]; const dx = t.clientX - s0.x; const dy = t.clientY - s0.y;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+  };
+  const arrow = "w-11 h-11 rounded-full flex items-center justify-center border border-white/15 bg-[#0d0e14]/85 text-white/85 hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent";
 
   const openSet = (g) => { const s = sets[g.id]; navigate(s ? `/dj?event=${s.id}` : `/dj?show=${g.id}`); };
 
   return (
     <div className="relative min-h-screen text-white" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#000" }}>
       <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-gigs" dim={0.3} /></div>
-      <main className="relative z-[1] max-w-[1080px] mx-auto px-4 lg:px-8 pt-5 lg:pt-8 pb-[120px] lg:pb-12 flex flex-col gap-3">
-        <div>
-          <h1 className="m-0 text-[34px] leading-none" style={cond}>Gigs</h1>
-          {upcoming > 0 && <div className="mt-1 text-[11px] tracking-[0.14em] text-white/60" style={mono}>{upcoming} COMING UP</div>}
-        </div>
+      {/* On a computer the page uses the full width under a header bar, like the Sets page (job 452). */}
+      <main className={`relative z-[1] ${DESK_MAIN} pt-5 pb-[120px] flex flex-col gap-3`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <header className={DESK_HEADER}>
+          <h1 className="m-0 text-[34px] lg:text-3xl leading-none" style={cond}>Gigs</h1>
+          {upcoming > 0 && <span className="mt-1 lg:mt-0 lg:ml-auto block text-[11px] tracking-[0.14em] text-white/60" style={mono}>{upcoming} COMING UP</span>}
+        </header>
         {gigs === null ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} /></div>
         ) : (
           <>
-          {/* The filter: the year, then all months or one. */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => stepYear(-1)} disabled={years.indexOf(year) <= 0} aria-label="Year before"
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 disabled:opacity-25 hover:bg-white/10"><ChevronLeft className="w-5 h-5" /></button>
-              <span className="min-w-[64px] text-center text-[24px] leading-none" style={{ ...cond, color: DJ_COLOR }} aria-live="polite">{year}</span>
-              <button type="button" onClick={() => stepYear(1)} disabled={years.indexOf(year) >= years.length - 1} aria-label="Year after"
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white/80 disabled:opacity-25 hover:bg-white/10"><ChevronRight className="w-5 h-5" /></button>
-              <span className="ml-auto text-[11px] tracking-[0.12em] text-white/55" style={mono}>{inYear.length} GIG{inYear.length === 1 ? "" : "S"}</span>
+          {/* The month: arrows either side, Today to come back. */}
+          <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2">
+            <button type="button" onClick={() => step(-1)} disabled={ym <= firstYm} aria-label="Month before" className={arrow}><ChevronLeft className="w-5 h-5" /></button>
+            <div className="flex-1 lg:flex-none lg:min-w-[260px] text-center leading-none" aria-live="polite">
+              <div className="text-[26px] lg:text-[30px] tracking-[0.04em]" style={{ ...cond, color: DJ_COLOR }}>{MONTHS[mm - 1].toUpperCase()}</div>
+              <div className="mt-1 text-[11px] tracking-[0.18em] text-white/60" style={mono}>{yy} · {shown.length} GIG{shown.length === 1 ? "" : "S"}</div>
             </div>
-            <div ref={chips} className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap" role="tablist" aria-label="Month">
-              {[[null, "All"], ...MONTHS.map((m, i) => [String(i + 1).padStart(2, "0"), m])].map(([k, l]) => {
-                const on = month === k;
-                const n = k ? perMonth[k] || 0 : inYear.length;
-                return (
-                  <button key={l} type="button" role="tab" aria-selected={on} onClick={() => setMonth(k)} disabled={k && !n}
-                    className="shrink-0 min-h-[36px] px-3 rounded-full text-[13px] font-semibold flex items-center gap-1.5 border disabled:opacity-30"
-                    style={on ? { background: DJ_COLOR, color: "#0d0d0d", borderColor: DJ_COLOR } : { background: "rgba(13,14,20,0.85)", color: "rgba(255,255,255,0.85)", borderColor: "#2a2a2a" }}>
-                    {l}{k && n > 0 && <span className="text-[10.5px] tabular-nums opacity-70" style={mono}>{n}</span>}
-                  </button>
-                );
-              })}
-            </div>
+            <button type="button" onClick={() => step(1)} disabled={ym >= lastYm} aria-label="Month after" className={arrow}><ChevronRight className="w-5 h-5" /></button>
+            {ym !== thisYm && (
+              <button type="button" onClick={() => setYm(thisYm)} className="hidden lg:flex ml-2 min-h-[36px] px-3.5 rounded-full text-[13px] font-semibold items-center border" style={{ borderColor: `${DJ_COLOR}88`, color: DJ_COLOR }}>Today</button>
+            )}
           </div>
-          {shown.length === 0 && (year !== thisYear || month) ? (
-            <p className="m-0 py-6 text-center text-[14px] text-white/50">No gigs in {month ? `${MONTHS[Number(month) - 1]} ` : ""}{year}.</p>
+          {ym !== thisYm && (
+            <button type="button" onClick={() => setYm(thisYm)} className="lg:hidden self-center -mt-1 min-h-[32px] px-3 rounded-full text-[12.5px] font-semibold flex items-center border" style={{ borderColor: `${DJ_COLOR}88`, color: DJ_COLOR }}>Back to this month</button>
+          )}
+          {shown.length === 0 ? (
+            <p className="m-0 py-10 text-center text-[15px] text-white/55">No gigs in {MONTHS[mm - 1]} {yy}.</p>
           ) : (
-          <DjWeekMonths
-            items={shown}
-            showWeek={year === thisYear && !month}
-            openAll={!!month}
-            empty="No gigs this week."
-            week={(g) => <WeekGig g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} />}
-            row={(g) => <GigTicket g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} onSet={() => openSet(g)} />}
-          />
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+              {shown.map((g) => <React.Fragment key={g.key}><GigTicket g={g} set={sets[g.id]} onOpen={() => navigate(g.href)} onSet={() => openSet(g)} /></React.Fragment>)}
+            </div>
           )}
           </>
         )}

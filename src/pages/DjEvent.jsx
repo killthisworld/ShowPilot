@@ -6,7 +6,7 @@ import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
 import EventBanner from "@/components/showpilot/EventBanner";
 import { ActBar } from "@/components/showpilot/DjWeekMonths";
-import { DJ_COLOR } from "@/lib/djTools";
+import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
 
 // An event opened from the DJ Bookings tab (job 375, Jay 2026-11-19):
 // /dj/event?token=<share token>. The event banner card, then an overview of
@@ -90,10 +90,12 @@ export default function DjEvent() {
   return (
     <div className="relative min-h-screen text-white" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#000" }}>
       <div aria-hidden="true" className="fixed inset-0 isolate pointer-events-none" style={{ zIndex: 0 }}><NightSky seed="dj-gigs" dim={0.3} /></div>
-      <main className="relative z-[1] max-w-[720px] mx-auto px-4 pt-4 lg:pt-8 pb-[120px] lg:pb-12 flex flex-col gap-3">
-        <button type="button" onClick={back} className="self-start min-h-[44px] -ml-2 px-2 flex items-center gap-1.5 text-[15px] font-semibold text-white/80 hover:text-white">
-          <ArrowLeft className="w-5 h-5" />Gigs
-        </button>
+      <main className={`relative z-[1] ${DESK_MAIN} pt-4 pb-[120px] flex flex-col gap-3`}>
+        <header className={DESK_HEADER}>
+          <button type="button" onClick={back} className="self-start min-h-[44px] -ml-2 px-2 flex items-center gap-1.5 text-[15px] font-semibold text-white/80 hover:text-white">
+            <ArrowLeft className="w-5 h-5" />Gigs
+          </button>
+        </header>
         {err ? (
           <p className="m-0 py-10 text-center text-[15px] text-white/65">{err}</p>
         ) : !gig ? (
@@ -101,6 +103,9 @@ export default function DjEvent() {
         ) : (
           <>
             <EventBanner gig={gig} />
+
+            {/* On a computer the set and the artists sit side by side (job 452). */}
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start">
 
             {/* The set: how many are in, and each act's slot. */}
             {setReq === undefined ? null : setReq ? (
@@ -172,6 +177,7 @@ export default function DjEvent() {
                 </ul>
               </Card>
             )}
+            </div>
 
             <button type="button" onClick={() => navigate(fullEvent)} className="self-center mt-1 min-h-[44px] px-3 flex items-center gap-1.5 text-[14px] font-semibold text-white/65 hover:text-white">
               Full event details<ExternalLink className="w-3.5 h-3.5" />

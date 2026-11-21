@@ -3,6 +3,12 @@ import { supabase } from "@/api/supabaseClient";
 // DJ Tools' own accent (lemon): no role, event type, Linked or status color uses it.
 export const DJ_COLOR = "#FDE047";
 
+// The DJ pages on a computer (job 452): the full width beside the rail, with
+// a header bar across the top like the Sets page, instead of a narrow column
+// in the middle. Phones keep their own layout.
+export const DESK_MAIN = "max-w-[1080px] mx-auto px-4 lg:max-w-none lg:mx-0 lg:px-6 lg:pt-0 lg:pb-12";
+export const DESK_HEADER = "lg:-mx-6 lg:px-6 lg:min-h-[69px] lg:py-3 lg:border-b lg:border-[#1a1a1a] lg:flex lg:items-center lg:gap-4 lg:mb-2";
+
 // Calls an edge function and returns its JSON, or throws an Error whose
 // message is the function's own readable error.
 async function call(fn, body, fallback) {
