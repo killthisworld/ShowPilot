@@ -142,10 +142,11 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
   const idleKey = photo ? { background: "rgba(20,20,20,0.85)", borderColor: "rgba(255,255,255,0.18)", color: "#e0e0e0" } : { background: MA.key, borderColor: MA.keyLine, color: "#bdbdbd" };
   return (
     // The whole executor opens the show (job 454), except its own keys; a
-    // green outline on hover, like the stage square.
+    // green outline on hover, like the stage square - one or the other, never
+    // both (job 455).
     <div onClick={(e) => { if (!e.target.closest("a, button, input, label")) onGo(s); }} title="Open the show"
       className="group/ex h-full min-h-0 rounded-[6px] border flex flex-col relative isolate overflow-hidden cursor-pointer" style={{ background: MA.panel, borderColor: photo ? MA.amber : "#262626" }}>
-      <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 rounded-[6px] opacity-0 group-hover/ex:opacity-100 transition-opacity" style={{ boxShadow: `inset 0 0 0 2px ${MA.amber}` }} />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 rounded-[6px] opacity-0 group-hover/ex:opacity-100 group-has-[.ld-stage:hover]/ex:!opacity-0 transition-opacity" style={{ boxShadow: `inset 0 0 0 2px ${MA.amber}` }} />
       {photo && (
         <>
           <div aria-hidden="true" className="absolute inset-0 -z-30 bg-black" />
@@ -164,7 +165,7 @@ export function Executor({ n, s, info, onGo, compact = false, empty = false, day
         const rigged = (s.lighting_rig?.items || []).length > 0;
         return (
           <button type="button" onClick={() => onGo(s, own ? "stage" : undefined)} aria-label={`3D stage for ${sceneTitle(s)}`} title={own ? "Open the 3D stage" : "Open the show"}
-            className="m-1.5 mb-0 relative rounded-[4px] overflow-hidden aspect-square shrink-0 group"
+            className="ld-stage m-1.5 mb-0 relative rounded-[4px] overflow-hidden aspect-square shrink-0 group"
             style={{ background: "#050505", border: `1px solid ${photo ? "rgba(140,255,61,0.55)" : MA.amberDim}`, boxShadow: "inset 0 0 14px rgba(140,255,61,0.08)" }}>
             {thumb ? (
               <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
