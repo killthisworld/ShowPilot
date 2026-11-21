@@ -756,9 +756,13 @@ export default function NewEventWeb({ side = "manager" }) {
         sending={sending}
         sendLabel="Create event"
         belowSend={tpl ? (
+          <>
+          {/* Use a template (job 447): back to the list of event templates. */}
+          {tpl.items.length > 0 && <button type="button" onClick={() => setChoosing(true)} className="min-h-[44px] text-[14px] font-semibold" style={{ color: ACCENT }}>Use a template</button>}
           <SaveAsTemplate color={ACCENT} current={fromTpl} names={tpl.items.map((x) => x.name)}
             suggest={tpl.items.length ? (firstAct?.name || "") : venueSide ? "House night" : (firstAct?.name || "My usual show")}
             note={fromTpl ? `Filled in from "${fromTpl}".` : ""} onSave={saveAsTemplate} />
+          </>
         ) : null}
         error={error}
         sent={sent}

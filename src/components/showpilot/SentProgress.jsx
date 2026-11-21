@@ -131,7 +131,7 @@ export default function SentProgress({ data, isVenue, made = [], hidden = null, 
       <h2 className="m-0 text-sm font-bold tracking-[0.08em] text-white/55 flex items-center" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
         {label.toUpperCase()}<span className="ml-auto text-[11px] tracking-[0.1em] text-white/40" style={mono}>{items.length}</span>
       </h2>
-      <div className="grid gap-2.5 lg:grid-cols-2">{items}</div>
+      <div className="grid gap-2.5 lg:grid-cols-2 2xl:grid-cols-3">{items}</div>
     </section>
   ) : null);
 

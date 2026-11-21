@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { circleIconFor } from "@/lib/circleIcons";
 import { createPortal } from "react-dom";
 import { Lock, Check, CheckCircle, CalendarDays, X, Plane, ChevronLeft } from "lucide-react";
@@ -69,14 +69,27 @@ export function DesktopFit({ reserved = 250, top = null, web, below = null, pane
   const size = Math.max(340, Math.min(tall, avail - GAP - 340));
   const panelW = fill ? Math.max(320, avail - GAP - size) : Math.max(320, Math.min(440, avail - GAP - size));
   const body = panel || idle;
+  // An open window may run down to the bottom of the screen, not just the
+  // web's height, so long ones scroll less or not at all (job 447); the
+  // "Fill it in" list stays a narrow column beside the web.
+  const panelRef = useRef(null);
+  const [roomBelow, setRoomBelow] = useState(0);
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    setRoomBelow(Math.max(0, Math.round(h - (top - window.scrollY) - 24)));
+  }, [h, w, panelKey, !!panel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maxH = panel ? Math.max(size, roomBelow) : size;
+  const boxW = !panel && fill ? Math.min(460, panelW) : panelW;
   return (
     <div className="mx-auto flex flex-col gap-4" style={{ width: fill ? "100%" : size + GAP + panelW, maxWidth: "100%" }}>
       {top}
       <div className="flex items-start" style={{ gap: GAP }}>
         <div className="flex flex-col gap-4 shrink-0" style={{ width: size }}>{web}{below}</div>
-        <div className="shrink-0" style={{ width: panelW }}>
+        <div className="shrink-0" style={{ width: panelW }} ref={panelRef}>
           {body && (
-            <div key={panel ? panelKey : "idle"} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y" style={{ maxHeight: size }}>
+            <div key={panel ? panelKey : "idle"} className="ikw-in rounded-[18px] border border-[#262626] bg-[#151515]/95 backdrop-blur p-6 shadow-[0_20px_50px_rgba(0,0,0,0.55)] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y" style={{ maxHeight: maxH, width: boxW, maxWidth: "100%" }}>
               {body}
             </div>
           )}

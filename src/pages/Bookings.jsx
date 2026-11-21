@@ -11,6 +11,7 @@ import { wantsLine } from "@/lib/bookingPackage";
 import { usePreferences } from "@/hooks/usePreferences";
 import { SCENE_FONT, SCENE_MONO } from "@/lib/sceneStyle";
 import { accountTypeOf } from "@/lib/accountTypeStyle";
+import { useIsDesktop } from "@/components/showpilot/IntakeKeyWeb";
 
 // Every booking package in one place (job 246): Incoming / Dates offered /
 // Booked. Side by side on a laptop, stacked on a phone. A venue sees what's
@@ -39,6 +40,7 @@ export default function Bookings() {
   const navigate = useNavigate();
   const { preferences } = usePreferences();
   const { data, loading, reload } = useBookings();
+  const wide = useIsDesktop(); // the full desktop board (job 447)
   const [asking, setAsking] = useState(null); // the booked item
   const [asks, setAsks] = useState({}); // show_id -> asks
   const canSend = ["manager", "band"].includes(accountTypeOf(preferences));
@@ -216,12 +218,28 @@ export default function Bookings() {
     );
   };
 
+  const tabs = (cls) => (
+    <div role="tablist" aria-label="Bookings view" className={`${cls} grid-cols-2 gap-1 p-1 rounded-xl bg-[#161616] border border-[#262626]`}>
+      {[["board", "All bookings"], ["sent", "Sent"]].map(([k, text]) => (
+        <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
+          className="min-h-[42px] rounded-[9px] text-[15px] transition-colors"
+          style={view === k ? { background: isVenue ? BLUE : RED, color: "#0d0d0d", fontWeight: 700 } : { color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+  const sideCol = wide && (drafts.length > 0 || passed.length > 0);
+  const desktopCols = wide ? `repeat(${COLS.length}, minmax(0, 1fr))${sideCol ? " minmax(260px, 0.8fr)" : ""}` : undefined;
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-white pb-28 lg:pb-8" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <div className="max-w-lg lg:max-w-[1180px] mx-auto px-5 pt-[22px]">
-        <div className="flex items-center gap-2 mb-4">
+      {/* Full width on a computer (job 447): title, tabs and buttons on one
+          row, the columns running down to the bottom of the screen. */}
+      <div className="max-w-lg lg:max-w-none mx-auto px-5 lg:px-8 pt-[22px]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-3 mb-4 lg:gap-x-5">
           <button type="button" onClick={() => navigate(-1)} aria-label="Back" className="w-11 h-11 -ml-3 rounded-full flex items-center justify-center text-white/60 hover:text-white lg:hidden"><ChevronLeft className="w-6 h-6" /></button>
-          <h1 className="m-0 text-[34px] font-bold tracking-[0.04em] leading-none" style={{ fontFamily: SCENE_FONT }}>BOOKINGS</h1>
+          <h1 className="m-0 text-[30px] sm:text-[34px] font-bold tracking-[0.04em] leading-none" style={{ fontFamily: SCENE_FONT }}>BOOKINGS</h1>
+          {tabs("hidden lg:grid w-[340px]")}
           {canSend && (
             <Link to="/book" className="ml-auto min-h-[44px] px-4 rounded-[10px] flex items-center gap-1.5 text-[15px] font-bold" style={{ background: RED, color: "#0d0d0d" }}><Plus className="w-4 h-4" strokeWidth={3} />Book a date</Link>
           )}
@@ -233,15 +251,7 @@ export default function Bookings() {
           )}
         </div>
 
-        <div role="tablist" aria-label="Bookings view" className="grid grid-cols-2 gap-1 p-1 mb-5 rounded-xl bg-[#161616] border border-[#262626] lg:max-w-[360px]">
-          {[["board", "All bookings"], ["sent", "Sent"]].map(([k, text]) => (
-            <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
-              className="min-h-[42px] rounded-[9px] text-[15px] transition-colors"
-              style={view === k ? { background: isVenue ? BLUE : RED, color: "#0d0d0d", fontWeight: 700 } : { color: "rgba(255,255,255,0.65)", fontWeight: 600 }}>
-              {text}
-            </button>
-          ))}
-        </div>
+        {tabs("grid lg:hidden mb-5")}
 
         {loading ? (
           <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" /></div>
@@ -253,11 +263,11 @@ export default function Bookings() {
             <p className="m-0 text-sm text-white/55">{canSend ? "Send a booking package to a venue and it shows up here, all the way to booked." : "Booking packages acts send you show up here, and events you make with New event."}</p>
           </div>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-3 lg:gap-4 items-start">
+          <div className="grid gap-5 lg:gap-4 items-start lg:items-stretch lg:h-[calc(100dvh-112px)]" style={{ gridTemplateColumns: desktopCols }}>
             {COLS.map((c) => {
               const list = by(c.key);
               return (
-                <section key={c.key} aria-label={c.label} className="flex flex-col gap-2.5 lg:rounded-[16px] lg:bg-[#101010] lg:border lg:border-[#1d1d1d] lg:p-3 lg:min-h-[320px]">
+                <section key={c.key} aria-label={c.label} className="flex flex-col gap-2.5 lg:rounded-[16px] lg:bg-[#101010] lg:border lg:border-[#1d1d1d] lg:p-3 lg:min-h-0 lg:overflow-y-auto">
                   <div className="flex items-center text-sm font-bold tracking-[0.08em] text-white/55 px-0.5" style={{ fontFamily: SCENE_FONT }}>
                     {c.label}<span className="ml-auto text-[11px] tracking-[0.1em] text-white/40" style={{ fontFamily: SCENE_MONO }}>{list.length}</span>
                   </div>
@@ -265,17 +275,30 @@ export default function Bookings() {
                 </section>
               );
             })}
+            {/* Drafts and passed as their own column on a computer. */}
+            {wide && (drafts.length > 0 || passed.length > 0) && (
+              <section aria-label="Drafts and passed" className="flex flex-col gap-2.5 rounded-[16px] bg-[#0b0b0b] border border-[#1d1d1d] p-3 min-h-0 overflow-y-auto">
+                {drafts.length > 0 && <>
+                  <div className="flex items-center text-sm font-bold tracking-[0.08em] text-white/45 px-0.5" style={{ fontFamily: SCENE_FONT }}>DRAFTS<span className="ml-auto text-[11px] text-white/35" style={{ fontFamily: SCENE_MONO }}>{drafts.length}</span></div>
+                  {drafts.map(card)}
+                </>}
+                {passed.length > 0 && <>
+                  <div className={`flex items-center text-sm font-bold tracking-[0.08em] text-white/45 px-0.5 ${drafts.length ? "mt-3" : ""}`} style={{ fontFamily: SCENE_FONT }}>PASSED<span className="ml-auto text-[11px] text-white/35" style={{ fontFamily: SCENE_MONO }}>{passed.length}</span></div>
+                  {passed.map(card)}
+                </>}
+              </section>
+            )}
           </div>
         )}
 
-        {view === "board" && drafts.length > 0 && (
+        {view === "board" && !wide && drafts.length > 0 && (
           <details className="mt-6">
             <summary className="min-h-[44px] flex items-center text-sm font-bold tracking-[0.08em] text-white/50 cursor-pointer" style={{ fontFamily: SCENE_FONT }}>DRAFTS · {drafts.length}</summary>
             <div className="grid gap-2.5 lg:grid-cols-3 mt-2">{drafts.map(card)}</div>
           </details>
         )}
 
-        {view === "board" && passed.length > 0 && (
+        {view === "board" && !wide && passed.length > 0 && (
           <details className="mt-6">
             <summary className="min-h-[44px] flex items-center text-sm font-bold tracking-[0.08em] text-white/50 cursor-pointer" style={{ fontFamily: SCENE_FONT }}>PASSED · {passed.length}</summary>
             <div className="grid gap-2.5 lg:grid-cols-3 mt-2">{passed.map(card)}</div>

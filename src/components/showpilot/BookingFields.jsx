@@ -282,7 +282,7 @@ export function ActCenterBody({ form, update, uploadFile, artistBody, card }) {
     setBusy(false);
   };
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <span className="w-[84px] h-[84px] rounded-full overflow-hidden shrink-0 border-2 bg-[#101010] flex items-center justify-center" style={{ borderColor: RED }}>
           {form.photo_url ? <img src={form.photo_url} alt="" className="w-full h-full object-cover" /> : <ImagePlus className="w-6 h-6 text-white/40" />}
@@ -437,11 +437,12 @@ export function DealBody({ form, update, updateWith, uploadFile }) {
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      {/* One row on a wide window, so the deal fits without scrolling (job 447). */}
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1.4fr] gap-2">
         <label><span className={label}>EXPECTED DRAW</span><input type="number" inputMode="numeric" min="0" value={deal.draw ?? ""} onChange={(e) => set("draw", e.target.value === "" ? "" : Number(e.target.value))} placeholder="150" className={inputCls} /></label>
         <label><span className={label}>TICKET PRICE</span><input value={deal.ticket_price || ""} onChange={(e) => set("ticket_price", e.target.value)} placeholder="$15" className={inputCls} /></label>
+        <label className="col-span-2 sm:col-span-1"><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
       </div>
-      <label><span className={label}>BASED IN</span><input value={deal.hometown || ""} onChange={(e) => set("hometown", e.target.value)} placeholder="Atlanta, GA" autoComplete="address-level2" className={inputCls} /></label>
       <div className="flex flex-col gap-2"><span className={label}>AGES</span>{choice(AGES, "age")}</div>
       <div className="flex flex-col gap-2">
         <span className={label}>BACKLINE</span>

@@ -69,6 +69,7 @@ export default function BookingPackage() {
   const [pickedAct, setPickedAct] = useState(null);
   const [savingTpl, setSavingTpl] = useState(false);
   const [tplMsg, setTplMsg] = useState("");
+  const [tplOpen, setTplOpen] = useState(false); // the Use a template list under Send (job 447)
   const h = useActForm(form, (fn) => { dirty.current = true; setForm(fn); }, `booking_${user?.id || "anon"}`);
 
   // Signed in only: a package belongs to its sender.
@@ -275,7 +276,7 @@ export default function BookingPackage() {
     done: !!form.band_name.trim(),
     body: () => (
       <>
-      {tplActs.length > 1 && <div className="mb-4"><ActPicker acts={tplActs} pickedId={pickedAct} onPick={pickAct} /></div>}
+      {tplActs.length > 1 && <div className="mb-3"><ActPicker acts={tplActs} pickedId={pickedAct} onPick={pickAct} /></div>}
       <ActCenterBody form={form} update={h.update} uploadFile={h.uploadFile}
         artistBody={byKey.artist ? byKey.artist.body() : null}
         card={{ token: me?.card_share_token || "", name: me?.display_name || "", photo: me?.profile_photo_url || "", line: "Open your digital card" }} />
@@ -330,10 +331,28 @@ export default function BookingPackage() {
       <Eye className="w-4 h-4" />View as {to.name || "the venue"}
     </button>
   );
-  // Under Send on the web (job 349): keep this package as the act's template.
+  // Under Send on the web (job 349): keep this package as the act's template,
+  // and (job 447) Use a template: pick an act's saved booking template here.
+  const picked = tplActs.find((a) => a.id === pickedAct) || null;
+  const withTpl = tplActs.filter((a) => a.booking);
   const webBelowSend = (
     <>
       {viewAsVenue}
+      {picked?.booking && !tplOpen && <p className="m-0 text-center text-[12.5px] text-white/50">Filled in from {picked.name}'s booking template.</p>}
+      {tplActs.length > 0 && (
+        <button type="button" onClick={() => setTplOpen(true)} className="min-h-[44px] text-[14px] font-semibold" style={{ color: PACKAGE_RED }}>Use a template</button>
+      )}
+      {tplOpen && (
+        // Over the page, so the web keeps its size (job 447).
+        <div className="fixed inset-0 z-[80] bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={() => setTplOpen(false)}>
+          <div role="dialog" aria-modal="true" aria-label="Use a template" onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[460px] max-h-[88dvh] overflow-y-auto rounded-t-[20px] sm:rounded-[20px] border border-[#2a2a2a] bg-[#141414] p-5 flex flex-col gap-3 text-left">
+            <div className="text-[24px] font-bold" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>Use a template</div>
+            <ActPicker acts={tplActs} pickedId={pickedAct} onPick={(id) => { pickAct(id); setTplOpen(false); }} />
+            <p className="m-0 text-[12.5px] text-white/50">{withTpl.length ? "An act with a booking template fills in the whole package: the deal, documents, promo, tech rider and hospitality. Dates and who it goes to stay yours to add." : "No booking templates yet. Picking an act fills in its members, stage plot and notes; Save as a booking template under Send keeps the rest for next time."}</p>
+            <button type="button" onClick={() => setTplOpen(false)} className="min-h-[44px] rounded-[12px] border border-[#333] text-[14.5px] font-semibold">Cancel</button>
+          </div>
+        </div>
+      )}
       {form.band_name.trim() && (
         <button type="button" onClick={saveAsTemplate} disabled={savingTpl} className="min-h-[44px] text-[14px] font-semibold disabled:opacity-60" style={{ color: PACKAGE_RED }}>
           {savingTpl ? "Saving…" : `Save as ${form.band_name}'s booking template`}

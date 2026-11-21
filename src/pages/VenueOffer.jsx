@@ -343,9 +343,15 @@ export default function VenueOffer() {
     return how === "created" ? `Saved "${item.name}". It's in the list next time you tap Offer dates.` : `Updated "${item.name}".`;
   };
   const belowSend = (
-    <SaveAsTemplate color={BLUE} current={fromTpl} names={(tplStart?.items || []).map((x) => x.name)}
-      suggest={(tplStart?.items || []).length ? (actName ? `${actName} offer` : "") : "House offer"}
-      note={fromTpl ? `Filled in from "${fromTpl}".` : ""} onSave={saveAsTemplate} />
+    <>
+      {/* Use a template (job 447): back to the list of offer templates. */}
+      {(tplStart?.items || []).length > 0 && !row && (
+        <button type="button" onClick={() => setChoosing(true)} className="min-h-[44px] text-[14px] font-semibold" style={{ color: BLUE }}>Use a template</button>
+      )}
+      <SaveAsTemplate color={BLUE} current={fromTpl} names={(tplStart?.items || []).map((x) => x.name)}
+        suggest={(tplStart?.items || []).length ? (actName ? `${actName} offer` : "") : "House offer"}
+        note={fromTpl ? `Filled in from "${fromTpl}".` : ""} onSave={saveAsTemplate} />
+    </>
   );
 
   return (
