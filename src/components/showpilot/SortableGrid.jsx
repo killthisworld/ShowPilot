@@ -3,8 +3,8 @@ import React, { useEffect, useRef, useState } from "react";
 // Drag to rearrange a grid (job 439; job 446), phone and computer.
 //   Phone: press and hold a tile (or grab its handle straight away), then
 //   drag; a quick swipe or scroll does what it always does.
-//   Computer: just drag it (up, down or to the right); a drag to the left is
-//   left for the row's swipe.
+//   Computer: just drag it, any direction; a short drag to the left that
+//   stays inside its row is the row's swipe.
 // It lifts, the others make room as it passes, and it drops where you let go.
 // While a drag is on, document.body.dataset.sorting is "1" so a SwipeRow
 // inside leaves it alone.
@@ -36,9 +36,11 @@ export default function SortableGrid({ items, keyOf, onMove, render, className =
   const onDown = (key) => (e) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     const el = e.currentTarget;
-    st.current = { ...st.current, x0: e.clientX, y0: e.clientY, key: "", el, dragged: false, pendKey: key, mouse: e.pointerType === "mouse", touch: e.pointerType === "touch" };
+    const mouse = e.pointerType === "mouse";
+    st.current = { ...st.current, x0: e.clientX, y0: e.clientY, key: "", el, dragged: false, pendKey: key, mouse, touch: e.pointerType === "touch", pending: true, rect: el.getBoundingClientRect() };
     cancelHold();
-    st.current.timer = setTimeout(() => begin(key, el, st.current.x0, st.current.y0), HOLD_MS);
+    // A finger holds first; a mouse decides as it moves (job 456).
+    if (!mouse) st.current.timer = setTimeout(() => begin(key, el, st.current.x0, st.current.y0), HOLD_MS);
   };
   const handle = (key) => ({
     onPointerDown: (e) => { e.stopPropagation(); st.current.touch = e.pointerType === "touch"; begin(key, e.currentTarget.closest("[data-sort-key]"), e.clientX, e.clientY); },
@@ -58,11 +60,20 @@ export default function SortableGrid({ items, keyOf, onMove, render, className =
     const move = (e) => {
       const s = st.current;
       if (!s.key) {
-        if (!s.timer) return;
+        if (!s.pending) return;
         const dx = e.clientX - s.x0, dy = e.clientY - s.y0;
         if (Math.hypot(dx, dy) <= SLOP) return;
-        // A mouse drags straight away, unless it's going left (the swipe).
-        if (s.mouse && !(dx < 0 && Math.abs(dx) > Math.abs(dy) * 1.2) && s.el && s.pendKey) { begin(s.pendKey, s.el, s.x0, s.y0); dragTo(e.clientX, e.clientY); return; }
+        if (s.mouse) {
+          // A mouse drags straight away in any direction. A drag to the left
+          // that stays inside its own row is the swipe; once it leaves the
+          // row (or goes up or down), it's a drag after all (job 456).
+          const r = s.rect || { left: -1e9, right: 1e9, top: -1e9, bottom: 1e9 };
+          const inside = e.clientX >= r.left - 6 && e.clientX <= r.right + 6 && e.clientY >= r.top - 6 && e.clientY <= r.bottom + 6;
+          const leftSwipe = dx < 0 && Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dy) < 16 && inside;
+          if (!leftSwipe && s.el && s.pendKey) { s.pending = false; begin(s.pendKey, s.el, s.x0, s.y0); dragTo(e.clientX, e.clientY); }
+          return;
+        }
+        s.pending = false;
         cancelHold();
         return;
       }
@@ -71,6 +82,7 @@ export default function SortableGrid({ items, keyOf, onMove, render, className =
     };
     const up = () => {
       cancelHold();
+      st.current.pending = false;
       if (st.current.key) {
         st.current.key = "";
         st.current.touch = false;
