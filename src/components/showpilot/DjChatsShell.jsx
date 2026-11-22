@@ -23,8 +23,9 @@ const ago = (iso) => {
   return `${Math.round(m / 1440)}d`;
 };
 
-// DJ mode's Chats (job 466): the event chats as before, plus two tabs for
-// date requests: In progress (on hold, talking details) and Confirmed.
+// DJ mode's Chats (job 466): the event chats as before, plus a Requests tab
+// (job 468, was In progress + Confirmed) with every held or confirmed date
+// request chat, newest first, each labelled On hold or Confirmed.
 // ?thread=<request id> opens that chat (the DJ's email links here).
 export default function DjChatsShell({ children }) {
   const { search } = useLocation();
@@ -41,13 +42,12 @@ export default function DjChatsShell({ children }) {
     return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("dj-chats-changed", load); };
   }, [load]);
   const open = threads?.find((t) => t.id === threadId) || null;
-  useEffect(() => { if (open) setTab(open.status === "accepted" ? "confirmed" : "progress"); }, [open?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) setTab("requests"); }, [open?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const held = (threads || []).filter((t) => t.status === "hold");
-  const booked = (threads || []).filter((t) => t.status === "accepted");
-  const unread = (l) => l.filter((t) => t.unread).length;
-  const tabs = [["events", "Event chats", 0], ["progress", "In progress", unread(held)], ["confirmed", "Confirmed", unread(booked)]];
-  const list = tab === "progress" ? held : booked;
+  const list = (threads || [])
+    .filter((t) => t.status === "hold" || t.status === "accepted")
+    .sort((a, b) => Date.parse(b.last_message_at || 0) - Date.parse(a.last_message_at || 0));
+  const tabs = [["events", "Event chats", 0], ["requests", "Requests", list.filter((t) => t.unread).length]];
   const openThread = (id) => navigate(`/?view=chats&thread=${id}`);
   const closeThread = () => navigate("/?view=chats", { replace: true });
 
@@ -71,8 +71,8 @@ export default function DjChatsShell({ children }) {
           ) : list.length === 0 ? (
             <div className="rounded-xl bg-[#151515] border border-[#262626] p-5 flex flex-col items-center gap-2 text-center">
               <MessageCircle className="w-8 h-8 text-white/40" />
-              <p className="m-0 text-base font-semibold text-white">{tab === "progress" ? "Nothing on hold" : "No confirmed requests yet"}</p>
-              <p className="m-0 text-sm text-white/55">{tab === "progress" ? "Put a date request on hold in Bookings › Requests to talk details with them here." : "Requests you accept stay here, so you can keep talking with the promoter."}</p>
+              <p className="m-0 text-base font-semibold text-white">No request chats yet</p>
+              <p className="m-0 text-sm text-white/55">When you hold or accept a date request in Bookings › Requests, you can talk with the promoter here.</p>
             </div>
           ) : list.map((t) => {
             const dt = new Date(`${t.date}T00:00:00`);
@@ -87,7 +87,10 @@ export default function DjChatsShell({ children }) {
                     <span className={`text-[15.5px] truncate ${t.unread ? "font-bold text-white" : "font-semibold text-white/90"}`}>{t.name}</span>
                     <span className="ml-auto shrink-0 text-[11px] text-white/50">{ago(t.last_message_at)}</span>
                   </span>
-                  <span className="text-[13px] text-white/60 truncate">{[t.event_name, t.venue].filter(Boolean).join(" · ") || "A night"}</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0 px-2 py-[1px] rounded-full text-[10.5px] font-bold" style={{ background: color, color: "#000" }}>{t.status === "accepted" ? "Confirmed" : "On hold"}</span>
+                    <span className="text-[13px] text-white/60 truncate">{[t.event_name, t.venue].filter(Boolean).join(" · ") || "A night"}</span>
+                  </span>
                 </span>
                 <span className="pr-3 flex items-center gap-2">
                   {t.unread && <span className="w-2.5 h-2.5 rounded-full" style={{ background: GREEN }} aria-label="New message" />}

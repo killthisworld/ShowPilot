@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { DJ_COLOR } from "@/lib/djTools";
 
-// The chat itself (job 466), shared by the DJ (Chats > In progress /
-// Confirmed) and the promoter (their private link): messages, newest at the
+// The chat itself (job 466), shared by the DJ (Chats > Requests)
+// and the promoter (their private link): messages, newest at the
 // bottom, and a box to write in. `me` is "dj" or "promoter".
 const dayOf = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 const timeOf = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
