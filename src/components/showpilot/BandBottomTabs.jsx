@@ -31,6 +31,8 @@ const DJ_TABS = [
   { path: "/?view=chats", label: "Chats", icon: MessageCircle, chats: true },
   // DJs get their own Bookings: the gigs they're booked for (job 362).
   { path: "/dj/gigs", label: "Bookings", icon: Handshake, bookings: true },
+  // The DJ's press kit (job 457); settings sit under its gear.
+  { path: "/dj/profile", label: "Profile", icon: User, profile: true },
 ];
 
 // Phones: the company phone layout's bottom bar - Needs me / Calendar / + /
@@ -48,7 +50,7 @@ export default function BandBottomTabs() {
   // While the account loads, the last answer on this device (job 372), so
   // a DJ never sees the Artist tabs flash between pages.
   const dj = djNow(preferences);
-  const isActive = (tab) => (tab.chats ? onChats : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs") && !pathname.startsWith("/dj/event")) : tab.path === "/dj/gigs" ? pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
+  const isActive = (tab) => (tab.chats ? onChats : tab.profile ? pathname.startsWith("/dj/profile") || pathname.startsWith("/me") : tab.sets ? (pathname === "/" && !onChats) || (pathname.startsWith("/dj") && !pathname.startsWith("/dj/gigs") && !pathname.startsWith("/dj/event") && !pathname.startsWith("/dj/profile")) : tab.path === "/dj/gigs" ? pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") : tab.path === "/" ? pathname === "/" && !onChats : pathname.startsWith(tab.path));
 
   useEffect(() => {
     document.body.classList.add("has-rail");
@@ -194,7 +196,8 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
   );
 }
 
-// The DJ view's phone bar (job 353): Sets / Bookings / Chats / Me. No
+// The DJ view's phone bar (job 353): Sets / Bookings / Chats / Profile
+// (job 457: was Me; settings are under the Profile page's gear). No
 // quick-add: a DJ's work is the sets.
 function DjPhoneBar({ preferences, pathname, search }) {
   const { data } = useNeedsMe();
@@ -204,8 +207,8 @@ function DjPhoneBar({ preferences, pathname, search }) {
   const view = pathname === "/" ? new URLSearchParams(search).get("view") : null;
   const activeKey = view === "chats" || pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats"
     : pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") || pathname.startsWith("/bookings") ? "bookings"
-    : (pathname === "/" && !view) || pathname.startsWith("/dj") ? "sets"
-    : pathname.startsWith("/me") ? "me" : null;
+    : pathname.startsWith("/dj/profile") || pathname.startsWith("/me") ? "profile"
+    : (pathname === "/" && !view) || pathname.startsWith("/dj") ? "sets" : null;
   const tab = (key, to, label, Icon, badge = 0, badgeColor = "#8CFF3D") => {
     const active = activeKey === key;
     return (
@@ -240,7 +243,7 @@ function DjPhoneBar({ preferences, pathname, search }) {
         {tab("sets", "/", "Sets", Disc3)}
         {tab("bookings", "/dj/gigs", "Bookings", Handshake, needBookings, "#F87171")}
         {tab("chats", "/?view=chats", "Chats", MessageCircle, unread)}
-        {tab("me", "/me", "Me", "me")}
+        {tab("profile", "/dj/profile", "Profile", "me")}
       </div>
     </nav>
   );

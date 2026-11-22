@@ -64,6 +64,8 @@ import MePage from "@/pages/MePage";
 import Admin from '@/pages/Admin';
 import DjTools from '@/pages/DjTools';
 import DjGigs from '@/pages/DjGigs';
+import DjProfile from '@/pages/DjProfile';
+import DjPressKit from '@/pages/DjPressKit';
 import DjEvent from '@/pages/DjEvent';
 import DjShortLink from '@/pages/DjShortLink';
 import DjSetUpload from '@/pages/DjSetUpload';
@@ -136,6 +138,8 @@ const AuthenticatedApp = () => {
       <Route path="/linked" element={<LinkedGigs />} />
       <Route path="/about" element={<About />} />
       <Route path="/privacy" element={<Privacy />} />
+      {/* A DJ's press kit at its share link (job 457): public, no sign-in. */}
+      <Route path="/kit/:token" element={<DjPressKit />} />
       <Route path="/dj/set/:token" element={<DjSetUpload />} />
       <Route path="/s/:code" element={<DjShortLink />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />
@@ -165,6 +169,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin" element={<Admin />} />
         <Route path="/dj" element={<DjTools />} />
         <Route path="/dj/gigs" element={<DjGigs />} />
+        <Route path="/dj/profile" element={<DjProfile />} />
         <Route path="/dj/event" element={<DjEvent />} />
         <Route path="/dj/drive/callback" element={<DjDriveCallback />} />
       </Route>
