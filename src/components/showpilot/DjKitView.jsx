@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import DjRecordPlayer from "@/components/showpilot/DjRecordPlayer";
 import { Play, Download, Mail, Phone, Disc3, ChevronLeft, ChevronRight, Check, X, Loader2, CalendarPlus } from "lucide-react";
 import { DJ_COLOR } from "@/lib/djTools";
 import { href, platformOf, requestDate, todayIso } from "@/lib/djKit";
@@ -211,31 +212,9 @@ export function History({ history, own, limit = 6 }) {
   );
 }
 
-// Mixes as a record's tracklist: A1, A2... then B1, B2.
-export function Tracklist({ mixes }) {
-  const list = (mixes || []).filter((m) => m?.url);
-  if (!list.length) return null;
-  const half = Math.ceil(list.length / 2);
-  return (
-    <section className="flex flex-col gap-1">
-      <Label>TRACKLIST</Label>
-      {list.map((m, i) => (
-        <a key={`${m.url}-${i}`} href={href(m.url)} target="_blank" rel="noreferrer" className="group flex items-center gap-3 min-h-[48px] text-white no-underline">
-          <span className="w-7 shrink-0 text-[13px]" style={{ ...mono, color: DJ_COLOR }}>{i < half ? "A" : "B"}{i < half ? i + 1 : i - half + 1}</span>
-          <span className="min-w-0 flex-1 flex items-baseline gap-2">
-            <span className="text-[15px] font-semibold truncate group-hover:underline">{m.title || "Mix"}</span>
-            <span className="flex-1 border-b border-dotted border-white/20 translate-y-[-3px] min-w-[12px]" aria-hidden="true" />
-            <span className="shrink-0 text-[12px] text-white/55" style={mono}>{platformOf(m.url)}</span>
-          </span>
-          <span className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center" style={{ background: DJ_COLOR, color: "#000" }}><Play className="w-3.5 h-3.5 fill-current ml-0.5" /></span>
-        </a>
-      ))}
-    </section>
-  );
-}
-
 // A month of the DJ's nights: booked, on hold, or open. With requests on,
-// an open night can be tapped to ask for it.
+// an open night can be tapped to ask for it. It fills the height it's
+// given (job 460: the press kit fits one screen), so the days stretch.
 export function OpenDates({ booked, holds, takeRequests, onPick }) {
   const today = todayIso();
   const first = ymOf(today);
@@ -247,18 +226,21 @@ export function OpenDates({ booked, holds, takeRequests, onPick }) {
   const startDow = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday first
   const days = new Date(y, m, 0).getDate();
   const cells = [...Array(startDow).fill(null), ...Array.from({ length: days }, (_, i) => `${ym}-${String(i + 1).padStart(2, "0")}`)];
+  const rows = Math.ceil(cells.length / 7);
   const openCount = cells.filter((d) => d && d >= today && !bookedSet.has(d) && !holdSet.has(d)).length;
-  const arrow = "w-10 h-10 rounded-full flex items-center justify-center border border-white/15 text-white/85 hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent";
+  const arrow = "w-9 h-9 shrink-0 rounded-full flex items-center justify-center border border-white/15 text-white/85 hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent";
   return (
-    <section className="flex flex-col gap-3">
-      <Label right={<span className="text-[12px] text-white/55">{openCount} open in {MONTHS[m - 1]}</span>}>OPEN DATES</Label>
+    <section className="h-full min-h-0 flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <button type="button" className={arrow} onClick={() => setYm(addMonths(ym, -1))} disabled={ym <= first} aria-label="Month before"><ChevronLeft className="w-5 h-5" /></button>
-        <div className="flex-1 text-center text-[22px] leading-none tracking-[0.04em]" style={{ ...cond, color: DJ_COLOR }} aria-live="polite">{MONTHS[m - 1].toUpperCase()} <span className="text-white/60">{y}</span></div>
-        <button type="button" className={arrow} onClick={() => setYm(addMonths(ym, 1))} disabled={ym >= last} aria-label="Month after"><ChevronRight className="w-5 h-5" /></button>
+        <button type="button" className={arrow} onClick={() => setYm(addMonths(ym, -1))} disabled={ym <= first} aria-label="Month before"><ChevronLeft className="w-[18px] h-[18px]" /></button>
+        <div className="flex-1 text-center leading-none" aria-live="polite">
+          <div className="text-[21px] tracking-[0.04em]" style={{ ...cond, color: DJ_COLOR }}>{MONTHS[m - 1].toUpperCase()} <span className="text-white/60">{y}</span></div>
+          <div className="mt-0.5 text-[11px] text-white/55">{openCount} open{takeRequests && openCount ? " · tap one to ask for it" : ""}</div>
+        </div>
+        <button type="button" className={arrow} onClick={() => setYm(addMonths(ym, 1))} disabled={ym >= last} aria-label="Month after"><ChevronRight className="w-[18px] h-[18px]" /></button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <div key={i} className="text-[11px] text-white/45 py-1" style={mono}>{d}</div>)}
+      <div className="flex-1 min-h-0 grid grid-cols-7 gap-1 text-center" style={{ gridTemplateRows: `auto repeat(${rows}, minmax(0, 1fr))` }}>
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <div key={i} className="text-[10.5px] text-white/45 pb-0.5" style={mono}>{d}</div>)}
         {cells.map((d, i) => {
           if (!d) return <div key={`e${i}`} />;
           const n = Number(d.slice(8));
@@ -266,28 +248,27 @@ export function OpenDates({ booked, holds, takeRequests, onPick }) {
           const isBooked = bookedSet.has(d);
           const isHold = holdSet.has(d);
           const open = !past && !isBooked && !isHold;
-          const base = "relative aspect-square min-h-[40px] rounded-lg flex flex-col items-center justify-center text-[14px]";
+          const base = "relative min-h-0 rounded-lg flex flex-col items-center justify-center text-[13.5px]";
           if (open && takeRequests) {
             return (
-              <button key={d} type="button" onClick={() => onPick?.(d)} aria-label={`Request ${longDate(d)}`} className={`${base} font-semibold border border-white/15 hover:border-[#FDE047] hover:bg-[#FDE047]/10`}>
+              <button key={d} type="button" onClick={() => onPick?.(d)} aria-label={`Request ${longDate(d)}`} className={`${base} font-semibold border border-white/20 bg-black/20 hover:border-[#FDE047] hover:bg-[#FDE047]/10`}>
                 {n}
               </button>
             );
           }
           return (
-            <div key={d} className={`${base} ${past ? "text-white/20" : isBooked ? "text-white/35 bg-white/[0.04]" : isHold ? "text-white/70" : "font-semibold border border-white/15"}`} aria-label={isBooked ? `${longDate(d)}, booked` : isHold ? `${longDate(d)}, on hold` : undefined}>
+            <div key={d} className={`${base} ${past ? "text-white/20" : isBooked ? "text-white/35 bg-white/[0.05]" : isHold ? "text-white/70" : "font-semibold border border-white/20"}`} aria-label={isBooked ? `${longDate(d)}, booked` : isHold ? `${longDate(d)}, on hold` : undefined}>
               <span className={isBooked ? "line-through" : ""}>{n}</span>
-              {(isBooked || isHold) && <span className="absolute bottom-1 w-1.5 h-1.5 rounded-full" style={{ background: isBooked ? "rgba(255,255,255,0.45)" : "#FB923C" }} />}
+              {(isBooked || isHold) && <span className="absolute bottom-[12%] w-1.5 h-1.5 rounded-full" style={{ background: isBooked ? "rgba(255,255,255,0.45)" : "#FB923C" }} />}
             </div>
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-white/60">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded border border-white/30" />Open</span>
+      <div className="flex flex-wrap justify-center gap-x-4 text-[11.5px] text-white/60">
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded border border-white/35" />Open</span>
         <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/45" />Booked</span>
         <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: "#FB923C" }} />On hold</span>
       </div>
-      {takeRequests && <p className="m-0 text-[13px] text-white/55">Tap an open night to ask for it.</p>}
     </section>
   );
 }
@@ -295,7 +276,9 @@ export function OpenDates({ booked, holds, takeRequests, onPick }) {
 const input = "w-full min-h-[44px] px-3 rounded-xl bg-[#0d0e14] border border-white/15 text-[15px] text-white placeholder:text-white/35 outline-none focus:border-[#FDE047]";
 
 // Asking for a night: a sheet over the press kit.
-export function RequestSheet({ token, date, djName, onClose }) {
+export function RequestSheet({ token, date: date0, djName, onClose }) {
+  // No date yet (the Request a date button): pick one in the sheet.
+  const [date, setDate] = useState(date0 || "");
   const [f, setF] = useState({ name: "", email: "", phone: "", event_name: "", venue: "", city: "", set_time: "", message: "" });
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -309,6 +292,7 @@ export function RequestSheet({ token, date, djName, onClose }) {
   const send = async (e) => {
     e.preventDefault();
     setError("");
+    if (!date) { setError("Pick a date."); return; }
     if (!f.name.trim()) { setError("Add your name."); return; }
     if (!f.email.trim() && !f.phone.trim()) { setError("Add an email or a phone number so the DJ can reply."); return; }
     setSending(true);
@@ -318,11 +302,11 @@ export function RequestSheet({ token, date, djName, onClose }) {
   };
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={`Request ${longDate(date)}`} onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[480px] max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-3">
+      <div role="dialog" aria-modal="true" aria-label={date ? `Request ${longDate(date)}` : "Request a date"} onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[480px] max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[11px] tracking-[0.18em] text-white/60" style={mono}>REQUEST A DATE</div>
-            <div className="text-[28px] leading-tight" style={{ ...cond, color: DJ_COLOR }}>{longDate(date)}</div>
+            <div className="text-[28px] leading-tight" style={{ ...cond, color: DJ_COLOR }}>{date ? longDate(date) : "Pick a night"}</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 -mt-1 rounded-xl flex items-center justify-center text-white/70 hover:bg-white/10"><X className="w-5 h-5" /></button>
         </div>
@@ -335,6 +319,7 @@ export function RequestSheet({ token, date, djName, onClose }) {
           </div>
         ) : (
           <form onSubmit={send} className="flex flex-col gap-2.5">
+            {!date0 && <input className={input} aria-label="Date" type="date" min={todayIso()} value={date} onChange={(e) => setDate(e.target.value)} style={{ colorScheme: "dark" }} />}
             <input className={input} aria-label="Your name" value={f.name} onChange={set("name")} placeholder="Your name *" autoComplete="name" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <input className={input} aria-label="Email" type="email" inputMode="email" value={f.email} onChange={set("email")} placeholder="Email" autoComplete="email" />
@@ -359,135 +344,294 @@ export function RequestSheet({ token, date, djName, onClose }) {
   );
 }
 
-// The record sleeve: the cover photo with the name on it, and the record
-// sliding out of the side.
-export function Sleeve({ kit }) {
-  const cover = kit.press_photos?.find((p) => p?.url)?.url || kit.photo_url;
-  const [out, setOut] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setOut(true), 250); return () => clearTimeout(t); }, []);
+
+// ---- The press kit on one screen (job 460, Jay 2026-11-22) ----
+// No scrolling on a phone or a computer: the banner is the background, the
+// record (profile pic on the sleeve) plays the DJ's tracks, and up to 5
+// photos swipe behind the bio at the bottom, like an artist's About on
+// Spotify. Lists page with arrows instead of scrolling; the calendar
+// stretches to the space it has.
+
+function useBox(ref) {
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return box;
+}
+
+function BioSheet({ kit, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
-    // The sleeve takes 64% of the width; the record slides out to its right.
-    <div className="relative w-full max-w-[640px] mx-auto" style={{ aspectRatio: "1 / 0.64" }}>
-      <div
-        aria-hidden="true"
-        className="absolute rounded-full motion-safe:transition-[left] motion-safe:duration-[1200ms] ease-out"
-        style={{ width: "60%", aspectRatio: "1 / 1", top: "3%", left: out ? "39%" : "4%" }}
-      >
-        <div
-          className="absolute inset-0 rounded-full motion-safe:animate-[spin_9s_linear_infinite]"
-          style={{
-            background: `radial-gradient(circle, #000 0 1.8%, ${DJ_COLOR} 2% 17%, #050505 17.5% 19.5%, transparent 20%), repeating-radial-gradient(circle, #0a0a0a 0 1.5px, #242424 1.5px 2.5px)`,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.8), inset 0 0 0 2px rgba(255,255,255,0.10)",
-          }}
-        >
-          <div className="absolute inset-0 rounded-full" style={{ background: "conic-gradient(from 20deg, transparent 0 18%, rgba(255,255,255,0.14) 24%, transparent 31% 68%, rgba(255,255,255,0.10) 74%, transparent 81%)" }} />
-          <div className="absolute rounded-full flex items-center justify-center" style={{ inset: "39%" }}>
-            <span className="text-[9px] tracking-[0.12em] text-black/80 rotate-[-18deg]" style={mono}>SIDE A</span>
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`About ${kit.name}`} onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[560px] max-h-[85dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] tracking-[0.18em] text-white/60" style={mono}>ABOUT</div>
+            <div className="text-[30px] leading-tight" style={{ ...cond, color: DJ_COLOR }}>{kit.name}</div>
           </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 -mt-1 rounded-xl flex items-center justify-center text-white/70 hover:bg-white/10"><X className="w-5 h-5" /></button>
         </div>
-      </div>
-      <div className="absolute left-0 top-0 h-full rounded-[4px] overflow-hidden bg-[#1c1d24] shadow-[0_16px_50px_rgba(0,0,0,0.75)]" style={{ aspectRatio: "1 / 1" }}>
-        {cover ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center"><Disc3 className="w-16 h-16 text-white/15" /></div>}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 48%, rgba(0,0,0,0.88) 100%)" }} />
-        <div className="absolute top-2.5 left-3 right-3 flex justify-between text-[9.5px] tracking-[0.18em]" style={mono}>
-          <span style={{ color: DJ_COLOR }}>SHOWPILOT</span><span className="text-white/75">PRESS KIT</span>
-        </div>
-        <div className="absolute left-3 right-3 bottom-3 flex flex-col gap-1.5">
-          <h1 className="m-0 text-[34px] sm:text-[52px] leading-[0.9] uppercase break-words font-bold" style={cond}>{kit.name}</h1>
-          {kit.city && <div className="text-[10px] tracking-[0.16em] text-white/75" style={mono}>{kit.city.toUpperCase()}</div>}
-        </div>
+        <p className="m-0 text-[15.5px] leading-relaxed text-white/85 whitespace-pre-line">{kit.bio}</p>
       </div>
     </div>
   );
 }
 
-// The public press kit page (/kit/:token): the sleeve on top, the back of
-// the sleeve below it.
+// Photos behind the bio: swipe (or the arrows) to move between them.
+export function AboutCard({ kit }) {
+  const photos = (kit.press_photos || []).filter((p) => p?.url).slice(0, 5);
+  const list = photos.length ? photos : [{ url: kit.banner_url || kit.photo_url || "" }];
+  const [i, setI] = useState(0);
+  const [full, setFull] = useState(false);
+  const textBox = useRef(null);
+  const { h } = useBox(textBox);
+  const lines = Math.max(2, Math.floor(h / 22.5));
+  const bioRef = useRef(null);
+  const [clipped, setClipped] = useState(false);
+  useEffect(() => { const el = bioRef.current; if (el) setClipped(el.scrollHeight > el.clientHeight + 2); }, [lines, kit.bio]);
+  const touch = useRef(null);
+  const go = (d) => setI((x) => (x + d + list.length) % list.length);
+  const cur = list[i]?.url;
+  return (
+    <section
+      className="relative h-full min-h-0 rounded-2xl overflow-hidden bg-[#15161c] border border-white/10 select-none"
+      onTouchStart={(e) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY }; }}
+      onTouchEnd={(e) => {
+        const s0 = touch.current; touch.current = null; if (!s0 || list.length < 2) return;
+        const t = e.changedTouches[0]; const dx = t.clientX - s0.x;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(t.clientY - s0.y)) go(dx < 0 ? 1 : -1);
+      }}
+      aria-roledescription="carousel"
+      aria-label={`About ${kit.name}`}
+    >
+      {list.map((p, j) => (
+        p.url ? <img key={`${p.url}-${j}`} src={p.url} alt="" draggable="false" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: j === i ? 1 : 0 }} /> : null
+      ))}
+      <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.55) 58%, rgba(0,0,0,0.92) 100%)" }} />
+      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+        <span className="text-[10.5px] tracking-[0.18em] text-white/85" style={mono}>ABOUT</span>
+        {photos.length > 0 && cur && (
+          <a href={cur} download target="_blank" rel="noreferrer" aria-label="Save this photo" className="w-9 h-9 rounded-full bg-black/55 flex items-center justify-center text-white/90 hover:bg-black/75"><Download className="w-4 h-4" /></a>
+        )}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 top-[34%] p-4 flex flex-col justify-end gap-2">
+        <GenreChips genres={kit.genre_tags} />
+        <div ref={textBox} className="min-h-0 flex-1 flex flex-col justify-end">
+          {kit.bio ? (
+            <p ref={bioRef} className="m-0 text-[15px] leading-[1.5] text-white/90 overflow-hidden whitespace-pre-line" style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: lines }}>{kit.bio}</p>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-2 min-h-[28px]">
+          {kit.bio && clipped ? <button type="button" onClick={() => setFull(true)} className="text-[13px] font-semibold underline underline-offset-2 text-white/85 hover:text-white">Read more</button> : <span />}
+          {list.length > 1 && (
+            <div className="flex items-center gap-1.5" role="tablist" aria-label="Photos">
+              <button type="button" onClick={() => go(-1)} aria-label="Previous photo" className="hidden lg:flex w-8 h-8 rounded-full bg-black/50 items-center justify-center hover:bg-black/75"><ChevronLeft className="w-4 h-4" /></button>
+              {list.map((_, j) => (
+                <button key={j} type="button" role="tab" aria-selected={j === i} aria-label={`Photo ${j + 1}`} onClick={() => setI(j)} className="h-6 flex items-center"><span className="block h-1.5 rounded-full transition-all" style={{ width: j === i ? 18 : 6, background: j === i ? DJ_COLOR : "rgba(255,255,255,0.5)" }} /></button>
+              ))}
+              <button type="button" onClick={() => go(1)} aria-label="Next photo" className="hidden lg:flex w-8 h-8 rounded-full bg-black/50 items-center justify-center hover:bg-black/75"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          )}
+        </div>
+      </div>
+      {full && <BioSheet kit={kit} onClose={() => setFull(false)} />}
+    </section>
+  );
+}
+
+// "Played at" paged to the room it has: as many nights as fit, arrows for more.
+function PlayedAtFit({ history }) {
+  const box = useRef(null);
+  const { h } = useBox(box);
+  const per = Math.max(1, Math.floor((h + 6) / 64));
+  const [page, setPage] = useState(0);
+  const list = history || [];
+  const pages = Math.max(1, Math.ceil(list.length / per));
+  const p = Math.min(page, pages - 1);
+  const shown = list.slice(p * per, p * per + per);
+  return (
+    <section className="h-full min-h-0 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label>PLAYED AT</Label>
+        {pages > 1 && (
+          <div className="flex items-center gap-1">
+            <span className="text-[11px] text-white/55 mr-1 tabular-nums" style={mono}>{p * per + 1}–{Math.min(list.length, p * per + per)} / {list.length}</span>
+            <button type="button" onClick={() => setPage(p - 1)} disabled={p === 0} aria-label="Earlier page" className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center disabled:opacity-25"><ChevronLeft className="w-4 h-4" /></button>
+            <button type="button" onClick={() => setPage(p + 1)} disabled={p >= pages - 1} aria-label="Next page" className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center disabled:opacity-25"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        )}
+      </div>
+      <div ref={box} className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
+        {list.length === 0 && <Empty>No nights on Show Pilot yet.</Empty>}
+        {shown.map((x, k) => {
+          const dt = new Date(`${x.date}T00:00:00`);
+          return (
+            <div key={`${x.date}-${k}`} className="h-[58px] shrink-0 flex items-stretch rounded-xl bg-black/35 border border-white/10 overflow-hidden">
+              <div className="w-[54px] shrink-0 flex flex-col items-center justify-center border-r border-dashed border-white/15 text-[9.5px] tracking-[0.1em] leading-tight" style={{ ...mono, color: `${DJ_COLOR}cc` }}>
+                {MON[dt.getMonth()]}<span className="text-[18px] text-white tracking-normal" style={cond}>{dt.getDate()}</span><span className="text-white/45">{dt.getFullYear()}</span>
+              </div>
+              <div className="min-w-0 flex-1 px-3 flex flex-col justify-center">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[14.5px] font-semibold truncate">{x.venue || x.name}</span>
+                  {x.confirmed && <span className="shrink-0 w-[16px] h-[16px] rounded-full flex items-center justify-center" style={{ background: DJ_COLOR, color: "#000" }} title="Confirmed: on the event's own lineup in Show Pilot" aria-label="Confirmed by the event"><Check className="w-2.5 h-2.5" strokeWidth={3.5} /></span>}
+                </div>
+                <div className="text-[12.5px] text-white/60 truncate">{[x.venue ? x.name : "", x.with?.length ? `with ${x.with.join(", ")}` : ""].filter(Boolean).join(" · ")}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {list.some((x) => x.confirmed) && <div className="flex items-center gap-1 text-[11px] text-white/50"><Check className="w-3 h-3" style={{ color: DJ_COLOR }} />Confirmed by the event on Show Pilot</div>}
+    </section>
+  );
+}
+
+function NextDates({ dates, max = 2 }) {
+  const list = (dates || []).slice(0, max);
+  if (!list.length) return null;
+  return (
+    <div className="flex flex-col gap-1">
+      {list.map((d, i) => {
+        const dt = new Date(`${d.date}T00:00:00`);
+        return (
+          <div key={`${d.date}-${i}`} className="flex items-baseline gap-2.5 text-[13.5px] min-w-0">
+            <span className="w-[50px] shrink-0 text-[11.5px]" style={{ ...mono, color: DJ_COLOR }}>{MON[dt.getMonth()]} {String(dt.getDate()).padStart(2, "0")}</span>
+            <span className="truncate">{d.name}</span>
+            {d.venue && <span className="ml-auto shrink-0 max-w-[45%] truncate text-white/55">{d.venue}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Links, full mixes and the logo, in one wrapping row.
+function LinkRow({ kit, max = 99 }) {
+  const items = [
+    ...(kit.links || []).filter((l) => l?.url).map((l) => ({ key: `l${l.url}`, href: href(l.url), label: l.kind || platformOf(l.url) })),
+    ...(kit.mixes || []).filter((m) => m?.url).map((m) => ({ key: `m${m.url}`, href: href(m.url), label: m.title || "Mix", mix: true })),
+    ...(kit.logo_url ? [{ key: "logo", href: kit.logo_url, label: "Logo", logo: true }] : []),
+  ].slice(0, max);
+  if (!items.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((x) => (
+        <a key={x.key} href={x.href} target="_blank" rel="noreferrer" download={x.logo ? "" : undefined} className="min-h-[34px] max-w-full px-3 rounded-full border border-white/20 bg-black/30 flex items-center gap-1.5 text-[13px] font-semibold text-white no-underline hover:border-white/45">
+          {x.mix && <Play className="w-3 h-3 fill-current shrink-0" style={{ color: DJ_COLOR }} />}
+          {x.logo && <Download className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">{x.label}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const glass = "rounded-2xl bg-black/45 backdrop-blur-md border border-white/10";
+
 export default function DjKitView({ kit, token }) {
   const [asking, setAsking] = useState(null); // a date being requested
+  const [tab, setTab] = useState("about");
   const take = kit.take_requests !== false && !!token;
-  const hasPhotos = kit.press_photos?.some((p) => p?.url) || kit.logo_url;
-  const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const hasHistory = (kit.history || []).length > 0;
+  const mail = kit.contact_email ? `mailto:${kit.contact_email}?subject=${encodeURIComponent(`Booking ${kit.name || ""}`.trim())}` : kit.contact_phone ? `tel:${kit.contact_phone}` : "";
+  const tabs = [["about", "About"], ...(hasHistory ? [["played", "Played at"]] : []), ["dates", take ? "Open dates" : "Dates"]];
+
+  const actions = (
+    <div className="flex gap-2">
+      {take && (
+        <button type="button" onClick={() => (tab === "dates" ? setAsking("") : setTab("dates"))} className="lg:hidden flex-1 min-h-[48px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: DJ_COLOR, color: "#000" }}>
+          <CalendarPlus className="w-4 h-4" />Request a date
+        </button>
+      )}
+      {mail && (
+        <a href={mail} className={`${take ? "lg:flex-1" : "flex-1"} min-h-[48px] px-5 rounded-full flex items-center justify-center gap-2 text-[15px] font-semibold no-underline ${take ? "border border-white/25 bg-black/40 text-white" : ""}`} style={take ? undefined : { background: DJ_COLOR, color: "#000" }}>
+          {kit.contact_email ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}{kit.contact_email ? "Email" : "Call"}
+        </a>
+      )}
+    </div>
+  );
+  const contact = (kit.contact_name || kit.contact_phone) && (
+    <div className="text-[12.5px] text-white/65 truncate">
+      <span className="text-[10px] tracking-[0.18em] text-white/45 mr-2" style={mono}>BOOKINGS</span>
+      {[kit.contact_name, kit.contact_phone].filter(Boolean).join(" · ")}
+    </div>
+  );
+
   return (
-    <div className="max-w-[880px] mx-auto px-4 pt-6 pb-12 overflow-x-hidden">
-      <Sleeve kit={kit} />
-      <div className="mt-5 flex flex-col gap-3 max-w-[640px] mx-auto">
-        <GenreChips genres={kit.genre_tags} />
-        <div className="flex flex-wrap gap-2">
-          {take && (
-            <button type="button" onClick={() => scrollTo("open-dates")} className="flex-1 min-w-[160px] min-h-[46px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: DJ_COLOR, color: "#000" }}>
-              <CalendarPlus className="w-4 h-4" />Request a date
-            </button>
-          )}
-          {kit.contact_email && (
-            <a href={`mailto:${kit.contact_email}?subject=${encodeURIComponent(`Booking ${kit.name || ""}`.trim())}`} className={`${take ? "" : "flex-1"} min-h-[46px] px-5 rounded-full flex items-center justify-center gap-2 text-[15px] font-semibold no-underline ${take ? "border border-white/25 text-white" : ""}`} style={take ? undefined : { background: DJ_COLOR, color: "#000" }}>
-              <Mail className="w-4 h-4" />Email
-            </a>
-          )}
-          {hasPhotos && (
-            <button type="button" onClick={() => scrollTo("photos")} className="min-h-[46px] px-5 rounded-full border border-white/25 flex items-center justify-center gap-2 text-[15px] font-semibold text-white">
-              <Download className="w-4 h-4" />{"Photos & logo"}
-            </button>
-          )}
-        </div>
+    <div className="relative h-[100dvh] overflow-hidden text-white bg-black">
+      {/* The banner, the whole background. */}
+      <div aria-hidden="true" className="absolute inset-0">
+        {kit.banner_url && <img src={kit.banner_url} alt="" className="w-full h-full object-cover" />}
+        <div className="absolute inset-0" style={{ background: kit.banner_url ? "linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.72) 45%, rgba(0,0,0,0.9) 100%)" : "#000" }} />
       </div>
 
-      {/* The back of the sleeve */}
-      <div className="mt-8 rounded-[6px] border border-[#232323] bg-[#0c0c0e] p-4 sm:p-7">
-        <div className="flex items-center gap-3 mb-5 text-[10.5px] tracking-[0.2em] text-white/50" style={mono}>
-          <span style={{ color: DJ_COLOR }}>SIDE B</span><span className="flex-1 h-px bg-white/15" /><span>{(kit.name || "").toUpperCase()}</span>
+      {/* Phone: the record on top, then tabs, then the buttons. */}
+      <div className="lg:hidden relative h-full flex flex-col gap-2.5 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))]">
+        <DjRecordPlayer kit={kit} maxHeight="25dvh" />
+        <div role="tablist" aria-label="Press kit" className="flex gap-1 p-1 rounded-full bg-black/45 border border-white/10">
+          {tabs.map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="flex-1 min-h-[36px] rounded-full text-[13px] font-semibold transition-colors" style={tab === k ? { background: DJ_COLOR, color: "#000" } : { color: "rgba(255,255,255,0.75)" }}>{label}</button>
+          ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-7">
-          <div className="flex flex-col gap-7">
-            {kit.bio && (
-              <section className="flex flex-col gap-2">
-                <Label>LINER NOTES</Label>
-                <p className="m-0 text-[15px] leading-relaxed text-white/85 whitespace-pre-line">{kit.bio}</p>
-              </section>
-            )}
-            <Tracklist mixes={kit.mixes} />
-            {kit.dates?.length > 0 && (
-              <section className="flex flex-col gap-1.5">
-                <Label>TOUR DATES</Label>
-                {kit.dates.map((d, i) => {
-                  const dt = new Date(`${d.date}T00:00:00`);
-                  return (
-                    <div key={`${d.date}-${i}`} className="flex items-baseline gap-3 py-2 border-b border-white/10 text-[14.5px]">
-                      <span className="w-[54px] shrink-0 text-[12px]" style={{ ...mono, color: DJ_COLOR }}>{MON[dt.getMonth()]} {String(dt.getDate()).padStart(2, "0")}</span>
-                      <span className="min-w-0 flex-1 truncate">{d.name}</span>
-                      {d.venue && <span className="shrink-0 max-w-[45%] truncate text-white/55">{d.venue}</span>}
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-          </div>
-          <div className="flex flex-col gap-7">
-            <History history={kit.history} />
-            <div id="open-dates" className="scroll-mt-4">
-              <OpenDates booked={kit.booked} holds={kit.holds} takeRequests={take} onPick={setAsking} />
+        <div className="flex-1 min-h-0" role="tabpanel">
+          {tab === "about" && (
+            <div className="h-full min-h-0 flex flex-col gap-2">
+              <div className="flex-1 min-h-0"><AboutCard kit={kit} /></div>
+              <div className="max-h-[76px] overflow-hidden"><LinkRow kit={kit} /></div>
             </div>
-          </div>
+          )}
+          {tab === "played" && <div className={`${glass} h-full p-3`}><PlayedAtFit history={kit.history} /></div>}
+          {tab === "dates" && (
+            <div id="kit-dates" tabIndex={-1} className={`${glass} h-full p-3 flex flex-col gap-2 outline-none`}>
+              <NextDates dates={kit.dates} max={2} />
+              <div className="flex-1 min-h-0"><OpenDates booked={kit.booked} holds={kit.holds} takeRequests={take} onPick={setAsking} /></div>
+            </div>
+          )}
         </div>
-        <div className="mt-8 flex flex-col gap-7">
-          <div id="photos" className="scroll-mt-4"><Photos photos={kit.press_photos} logo={kit.logo_url} grid="grid-cols-2 sm:grid-cols-4" /></div>
-          <Links links={kit.links} />
-          {/* Credits, like the small print on a sleeve. */}
-          <div className="pt-4 border-t border-white/10 flex flex-col gap-1.5 text-[13px] text-white/70">
-            {(kit.contact_name || kit.contact_email || kit.contact_phone) && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-[10.5px] tracking-[0.18em] text-white/45" style={mono}>BOOKINGS</span>
-                {kit.contact_name && <span className="font-semibold text-white">{kit.contact_name}</span>}
-                {kit.contact_email && <a href={`mailto:${kit.contact_email}`} className="text-white/80 hover:text-white">{kit.contact_email}</a>}
-                {kit.contact_phone && <a href={`tel:${kit.contact_phone}`} className="text-white/80 hover:text-white">{kit.contact_phone}</a>}
-              </div>
-            )}
-            {hasPhotos && <span className="text-white/45">Photos and logo may be used to promote {kit.name}'s shows.</span>}
-          </div>
-        </div>
+        {actions}
       </div>
-      <a href="https://get.showpilot.space" className="block mt-6 text-center text-[12px] text-white/45 no-underline hover:text-white/70">Made with Show Pilot</a>
-      {asking && <RequestSheet token={token} date={asking} djName={kit.name} onClose={() => setAsking(null)} />}
+
+      {/* Computer: the record and the buttons on the left; played at and
+          the calendar on top, the About card along the bottom. */}
+      <div className="hidden lg:grid relative h-full p-6 gap-5" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr)", gridTemplateRows: "minmax(0,1fr) minmax(0,0.85fr)" }}>
+        <div className="row-span-2 min-h-0 flex flex-col justify-center gap-4">
+          <DjRecordPlayer kit={kit} maxHeight="50dvh" />
+          {take && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setAsking("")} className="flex-1 min-h-[48px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold" style={{ background: DJ_COLOR, color: "#000" }}>
+                <CalendarPlus className="w-4 h-4" />Request a date
+              </button>
+              {mail && <a href={mail} className="min-h-[48px] px-5 rounded-full border border-white/25 bg-black/40 flex items-center justify-center gap-2 text-[15px] font-semibold text-white no-underline"><Mail className="w-4 h-4" />Email</a>}
+            </div>
+          )}
+          {!take && actions}
+          <LinkRow kit={kit} />
+          {contact}
+          <a href="https://get.showpilot.space" className="text-[12px] text-white/45 no-underline hover:text-white/70">Made with Show Pilot</a>
+        </div>
+        <div className={`${glass} min-h-0 p-4`}>
+          {hasHistory ? <PlayedAtFit history={kit.history} /> : (
+            <section className="h-full flex flex-col gap-2"><Label>UPCOMING</Label><NextDates dates={kit.dates} max={6} /></section>
+          )}
+        </div>
+        <div id="kit-cal" className={`${glass} min-h-0 p-4 flex flex-col gap-2`}>
+          <Label>{take ? "OPEN DATES" : "DATES"}</Label>
+          {hasHistory && <NextDates dates={kit.dates} max={2} />}
+          <div className="flex-1 min-h-0"><OpenDates booked={kit.booked} holds={kit.holds} takeRequests={take} onPick={setAsking} /></div>
+        </div>
+        <div className="col-span-2 min-h-0"><AboutCard kit={kit} /></div>
+      </div>
+
+      {asking !== null && <RequestSheet token={token} date={asking} djName={kit.name} onClose={() => setAsking(null)} />}
     </div>
   );
 }

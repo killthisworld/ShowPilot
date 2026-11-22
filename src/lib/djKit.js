@@ -171,3 +171,30 @@ export function useNewRequestCount(enabled = true) {
   }, [enabled]);
   return n;
 }
+
+// A track for the press kit's record (job 460): public, in the DJ's own
+// folder of the dj-kit-audio bucket. 30 MB at most (the bucket refuses more).
+export const TRACK_MAX_BYTES = 30 * 1024 * 1024;
+export const TRACK_ACCEPT = "audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,audio/flac,.mp3,.m4a,.aac,.wav,.ogg,.flac";
+export async function uploadKitTrack(userId, file) {
+  if (file.size > TRACK_MAX_BYTES) throw new Error(`${file.name} is over 30 MB. Use an MP3 or a shorter clip.`);
+  const ext = (file.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("dj-kit-audio").upload(path, file, { contentType: file.type || undefined });
+  if (error) {
+    if (/bucket/i.test(error.message || "")) throw new Error("Tracks need a database update first. Try again soon.");
+    throw new Error(error.message || "Couldn't upload that track");
+  }
+  return { url: supabase.storage.from("dj-kit-audio").getPublicUrl(path).data.publicUrl, path };
+}
+
+// Tracks taken off the record: delete their files (best effort).
+export async function removeKitTracks(paths) {
+  const list = (paths || []).filter(Boolean);
+  if (!list.length) return;
+  const { error } = await supabase.storage.from("dj-kit-audio").remove(list);
+  if (error) console.error(error);
+}
+
+// A track's title from its file name: "02 - Night Drive (Edit).mp3" -> "Night Drive (Edit)".
+export const titleFromFile = (name) => String(name || "").replace(/\.[^.]+$/, "").replace(/^\s*\d{1,3}\s*[-_.)]\s*/, "").replace(/[_]+/g, " ").trim() || "Untitled";

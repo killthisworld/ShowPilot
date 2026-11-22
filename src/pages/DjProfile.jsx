@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check, Eye } from "lucide-react";
+import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check, Eye, Music } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
 import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
-import { ensureKitLink, fetchMyExtras, kitUrl, loadKit, platformOf, saveKit, setKitFlags, uploadKitImage } from "@/lib/djKit";
+import { ensureKitLink, fetchMyExtras, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, titleFromFile, TRACK_ACCEPT, uploadKitImage, uploadKitTrack } from "@/lib/djKit";
+import DjRecordPlayer, { SIDE_MAX } from "@/components/showpilot/DjRecordPlayer";
 import { Avatar, Bio, Contact, Dates, GenreChips, History, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
 
 // DJ mode's Profile tab (job 457, Jay 2026-11-22): the DJ's press kit.
@@ -24,6 +25,8 @@ const toKit = (t, dates) => ({
   bio: t.data.kit_bio || "",
   mixes: t.data.kit_mixes || [],
   press_photos: t.data.kit_photos || [],
+  banner_url: t.data.kit_banner_url || "",
+  tracks: t.data.kit_tracks || { a: [], b: [] },
   logo_url: t.data.kit_logo_url || "",
   links: t.data.kit_links || [],
   contact_name: t.data.contact_name || "",
@@ -144,6 +147,7 @@ export default function DjProfile() {
             {/* Phone: one column. */}
             <div className="lg:hidden flex flex-col gap-4">
               <Identity kit={kit} actions={<div className="flex flex-col gap-2"><div className="flex gap-2">{actions}</div><PreviewBtn onClick={preview} /></div>} />
+              <OwnRecord kit={kit} />
               <Dates dates={dates} own />
               <History history={extras?.history || []} own />
               <Bio bio={kit.bio} own />
@@ -160,6 +164,7 @@ export default function DjProfile() {
                 <Contact kit={kit} own />
               </div>
               <div className="flex flex-col gap-5">
+                <OwnRecord kit={kit} />
                 <Dates dates={dates} own />
                 <Mixes mixes={kit.mixes} own />
                 <Photos photos={kit.press_photos} logo={kit.logo_url} own grid="grid-cols-4" />
@@ -171,6 +176,17 @@ export default function DjProfile() {
       </main>
       <BandBottomTabs />
     </div>
+  );
+}
+
+function OwnRecord({ kit }) {
+  const n = (kit.tracks?.a?.length || 0) + (kit.tracks?.b?.length || 0);
+  return (
+    <section className="flex flex-col gap-2">
+      <Label right={<span className="text-[12px] text-white/50">{n ? `${kit.tracks?.a?.length || 0} on A · ${kit.tracks?.b?.length || 0} on B` : "No tracks yet"}</span>}>THE RECORD</Label>
+      <DjRecordPlayer kit={kit} maxHeight="200px" />
+      {!n && <p className="m-0 text-[14px] text-white/50">Add up to 5 tracks a side in Edit. Promoters play them from your press kit.</p>}
+    </section>
   );
 }
 
@@ -249,8 +265,10 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
     kit_city: t.data.kit_city || "",
     kit_bio: t.data.kit_bio || "",
     kit_mixes: (t.data.kit_mixes || []).length ? t.data.kit_mixes : [{ title: "", url: "" }],
-    kit_photos: t.data.kit_photos || [],
+    kit_photos: (t.data.kit_photos || []).slice(0, 5),
     kit_logo_url: t.data.kit_logo_url || "",
+    kit_banner_url: t.data.kit_banner_url || "",
+    kit_tracks: { a: [...(t.data.kit_tracks?.a || [])], b: [...(t.data.kit_tracks?.b || [])] },
     kit_links: (t.data.kit_links || []).length ? t.data.kit_links : [{ kind: "", url: "" }],
     contact_name: t.data.contact_name || "",
     contact_email: t.data.contact_email || "",
@@ -265,6 +283,35 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   const photoIn = useRef(null);
   const pressIn = useRef(null);
   const logoIn = useRef(null);
+  const bannerIn = useRef(null);
+  const trackIn = { a: useRef(null), b: useRef(null) };
+
+  // Tracks for the record (job 460): up to 5 a side.
+  const addTracks = async (files, sideKey) => {
+    const room = SIDE_MAX - d.kit_tracks[sideKey].length;
+    const list = Array.from(files || []).filter((f) => f.type.startsWith("audio/") || /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name)).slice(0, Math.max(0, room));
+    if (!list.length) { if (room <= 0) toast({ title: `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` }); return; }
+    setUploading(`track-${sideKey}`);
+    try {
+      for (const f of list) {
+        const up = await uploadKitTrack(state.userId, f);
+        setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: [...x.kit_tracks[sideKey], { title: titleFromFile(f.name), url: up.url, path: up.path }].slice(0, SIDE_MAX) } }));
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: e?.message || "Couldn't upload that track", variant: "destructive" });
+    } finally {
+      setUploading("");
+    }
+  };
+  const setTrack = (sideKey, i, patch) => setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: x.kit_tracks[sideKey].map((tr, j) => (j === i ? { ...tr, ...patch } : tr)) } }));
+  const dropTrack = (sideKey, i) => setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: x.kit_tracks[sideKey].filter((_, j) => j !== i) } }));
+  const moveTrack = (sideKey, i, to) => setD((x) => {
+    const a = [...x.kit_tracks[sideKey]];
+    if (to < 0 || to >= a.length) return x;
+    [a[i], a[to]] = [a[to], a[i]];
+    return { ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: a } };
+  });
 
   const upload = async (files, what) => {
     const list = Array.from(files || []).filter((f) => f.type.startsWith("image/"));
@@ -275,7 +322,8 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       for (const f of list) urls.push(await uploadKitImage(state.userId, f));
       if (what === "photo") set("photo_url", urls[0]);
       else if (what === "logo") set("kit_logo_url", urls[0]);
-      else setD((x) => ({ ...x, kit_photos: [...x.kit_photos, ...urls.map((url) => ({ url }))] }));
+      else if (what === "banner") set("kit_banner_url", urls[0]);
+      else setD((x) => ({ ...x, kit_photos: [...x.kit_photos, ...urls.map((url) => ({ url }))].slice(0, 5) }));
     } catch (e) {
       console.error(e);
       toast({ title: "Couldn't upload that picture", variant: "destructive" });
@@ -306,9 +354,16 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
         contact_name: d.contact_name.trim(),
         contact_email: d.contact_email.trim(),
         contact_phone: d.contact_phone.trim(),
+        kit_tracks: {
+          a: d.kit_tracks.a.map((x) => ({ ...x, title: (x.title || "").trim() || "Untitled" })),
+          b: d.kit_tracks.b.map((x) => ({ ...x, title: (x.title || "").trim() || "Untitled" })),
+        },
       };
       const data = { ...t.data, ...clean };
       await saveKit(t.id, name, data);
+      // Files of tracks taken off the record go too.
+      const kept = new Set([...clean.kit_tracks.a, ...clean.kit_tracks.b].map((x) => x.path));
+      removeKitTracks([...(t.data.kit_tracks?.a || []), ...(t.data.kit_tracks?.b || [])].map((x) => x.path).filter((p) => p && !kept.has(p)));
       let link = null;
       if (Object.keys(flags).some((k) => flags[k] !== flags0[k])) {
         try { link = await setKitFlags(state.userId, t.id, flags); }
@@ -326,7 +381,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   return (
     <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start lg:pt-2">
       <div className="flex flex-col gap-3 lg:gap-5">
-        <Box title="YOU">
+        <Box title="YOU" hint="Your profile pic is the record's sleeve. The banner fills the background of your press kit.">
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => photoIn.current?.click()} className="relative rounded-full" aria-label="Change your photo">
               <Avatar name={name} url={d.photo_url} size={76} />
@@ -341,6 +396,16 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
               <label className="sr-only" htmlFor="kit-city">Based in</label>
               <input id="kit-city" className={field} value={d.kit_city} onChange={(e) => set("kit_city", e.target.value)} placeholder="Based in (city)" />
             </div>
+          </div>
+          <div className="relative h-[92px] rounded-xl overflow-hidden bg-[#1c1d24] border border-white/10">
+            {d.kit_banner_url && <img src={d.kit_banner_url} alt="Your banner" className="absolute inset-0 w-full h-full object-cover" />}
+            <div className="absolute inset-0 flex items-center justify-center gap-2">
+              <button type="button" onClick={() => bannerIn.current?.click()} className="min-h-[40px] px-3.5 rounded-full bg-black/65 border border-white/20 flex items-center gap-1.5 text-[14px] font-semibold hover:bg-black/80">
+                {uploading === "banner" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}{d.kit_banner_url ? "Change banner" : "Add a banner"}
+              </button>
+              {d.kit_banner_url && <button type="button" onClick={() => set("kit_banner_url", "")} aria-label="Remove banner" className="w-10 h-10 rounded-full bg-black/65 border border-white/20 flex items-center justify-center"><X className="w-4 h-4" /></button>}
+            </div>
+            <input ref={bannerIn} type="file" accept="image/*" className="hidden" onChange={(e) => { upload(e.target.files, "banner"); e.target.value = ""; }} />
           </div>
           <div className="flex flex-col gap-2">
             {d.genre_tags.length > 0 && (
@@ -374,7 +439,33 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       </div>
 
       <div className="flex flex-col gap-3 lg:gap-5">
-        <Box title="MIXES" hint="Paste a SoundCloud, Mixcloud or YouTube link.">
+        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side. Promoters play them from the record on your press kit. MP3 works best (30 MB a track at most).`}>
+          {["a", "b"].map((sk) => (
+            <div key={sk} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] tracking-[0.16em]" style={{ ...mono, color: DJ_COLOR }}>SIDE {sk.toUpperCase()}</span>
+                <span className="text-[12px] text-white/50">{d.kit_tracks[sk].length}/{SIDE_MAX}</span>
+              </div>
+              {d.kit_tracks[sk].map((tr, i) => (
+                <div key={`${tr.path || tr.url}-${i}`} className="flex items-center gap-1.5">
+                  <span className="w-7 shrink-0 text-[12px] text-white/55" style={mono}>{sk.toUpperCase()}{i + 1}</span>
+                  <input className={field} aria-label={`Side ${sk.toUpperCase()} track ${i + 1} title`} value={tr.title} onChange={(e) => setTrack(sk, i, { title: e.target.value })} placeholder="Track name" />
+                  <button type="button" onClick={() => moveTrack(sk, i, i - 1)} disabled={i === 0} aria-label="Move up" className="w-9 h-11 shrink-0 rounded-lg text-white/60 hover:text-white disabled:opacity-25">↑</button>
+                  <RemoveBtn label={`Remove ${tr.title || "track"}`} onClick={() => dropTrack(sk, i)} />
+                </div>
+              ))}
+              {d.kit_tracks[sk].length < SIDE_MAX && (
+                <button type="button" onClick={() => trackIn[sk].current?.click()} disabled={!!uploading} className="self-start min-h-[40px] px-3.5 rounded-full border border-dashed border-white/25 flex items-center gap-1.5 text-[14px] font-semibold text-white/80 hover:text-white hover:border-white/50 disabled:opacity-50">
+                  {uploading === `track-${sk}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}Add tracks to side {sk.toUpperCase()}
+                </button>
+              )}
+              <input ref={trackIn[sk]} type="file" accept={TRACK_ACCEPT} multiple className="hidden" onChange={(e) => { addTracks(e.target.files, sk); e.target.value = ""; }} />
+            </div>
+          ))}
+          <p className="m-0 text-[12px] text-white/45">Only put up music you have the rights to share: your own productions, edits or clips of your sets.</p>
+        </Box>
+
+        <Box title="FULL MIXES" hint="Links to longer mixes: SoundCloud, Mixcloud or YouTube.">
           <Rows
             items={d.kit_mixes}
             addLabel="Add a mix"
@@ -391,7 +482,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
           />
         </Box>
 
-        <Box title={"PRESS PHOTOS & LOGO"} hint="Promoters download these for flyers. The first photo leads your press kit.">
+        <Box title={"PHOTOS & LOGO"} hint="Up to 5 photos. They swipe behind your bio on the press kit, and promoters can save them for flyers.">
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {d.kit_photos.map((p, i) => (
               <div key={`${p.url}-${i}`} className="relative aspect-[4/5] rounded-[10px] overflow-hidden bg-[#1c1d24]">
@@ -399,9 +490,11 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
                 <button type="button" onClick={() => set("kit_photos", d.kit_photos.filter((_, j) => j !== i))} aria-label={`Remove photo ${i + 1}`} className="absolute top-1 right-1 w-8 h-8 rounded-full bg-black/70 flex items-center justify-center"><X className="w-4 h-4" /></button>
               </div>
             ))}
-            <button type="button" onClick={() => pressIn.current?.click()} className="aspect-[4/5] rounded-[10px] border border-dashed border-white/25 flex flex-col items-center justify-center gap-1 text-[12px] text-white/70 hover:border-white/50">
-              {uploading === "press" ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}Photos
-            </button>
+            {d.kit_photos.length < 5 && (
+              <button type="button" onClick={() => pressIn.current?.click()} className="aspect-[4/5] rounded-[10px] border border-dashed border-white/25 flex flex-col items-center justify-center gap-1 text-[12px] text-white/70 hover:border-white/50">
+                {uploading === "press" ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}{d.kit_photos.length}/5
+              </button>
+            )}
           </div>
           <input ref={pressIn} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { upload(e.target.files, "press"); e.target.value = ""; }} />
           <div className="flex items-center gap-3 pt-1">
