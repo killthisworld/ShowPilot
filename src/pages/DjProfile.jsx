@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check, Eye, Music } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
@@ -46,6 +46,7 @@ async function shareLink(url, name) {
 }
 
 export default function DjProfile() {
+  const navigate = useNavigate();
   const { preferences } = usePreferences();
   const { toast } = useToast();
   const [kitState, setKitState] = useState(null); // { userId, template, link }
@@ -97,13 +98,12 @@ export default function DjProfile() {
   // See the press kit the way promoters do.
   const preview = async () => {
     if (!kitState) return;
-    const win = window.open("", "_blank");
+    // Same tab, so the press kit's back button comes back here (job 464).
     try {
       const link = await ensureKitLink(kitState.userId, kitState.template.id, kitState.link);
       setKitState((s) => ({ ...s, link }));
-      if (win) win.location.href = kitUrl(link.token); else window.location.href = kitUrl(link.token);
+      navigate(`/kit/${link.token}`);
     } catch (e) {
-      win?.close();
       toast({ title: e?.message || "Couldn't open it", variant: "destructive" });
     }
   };

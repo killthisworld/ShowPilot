@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DjRecordPlayer from "@/components/showpilot/DjRecordPlayer";
-import { Play, Download, Mail, Phone, Disc3, ChevronLeft, ChevronRight, Check, X, Loader2, CalendarPlus } from "lucide-react";
+import { Play, Download, Mail, Phone, Disc3, ChevronLeft, ChevronRight, Check, X, Loader2, CalendarPlus, ArrowLeft } from "lucide-react";
 import { DJ_COLOR } from "@/lib/djTools";
 import { href, platformOf, requestDate, todayIso } from "@/lib/djKit";
 
@@ -212,6 +213,9 @@ export function History({ history, own, limit = 6 }) {
   );
 }
 
+const BOOKED = "#8CFF3D";
+const HOLD = "#FB923C";
+
 // A month of the DJ's nights: booked, on hold, or open. With requests on,
 // an open night can be tapped to ask for it. It fills the height it's
 // given (job 460: the press kit fits one screen), so the days stretch.
@@ -257,17 +261,17 @@ export function OpenDates({ booked, holds, takeRequests, onPick }) {
             );
           }
           return (
-            <div key={d} className={`${base} ${past ? "text-white/20" : isBooked ? "text-white/35 bg-white/[0.05]" : isHold ? "text-white/70" : "font-semibold border border-white/20"}`} aria-label={isBooked ? `${longDate(d)}, booked` : isHold ? `${longDate(d)}, on hold` : undefined}>
-              <span className={isBooked ? "line-through" : ""}>{n}</span>
-              {(isBooked || isHold) && <span className="absolute bottom-[12%] w-1.5 h-1.5 rounded-full" style={{ background: isBooked ? "rgba(255,255,255,0.45)" : "#FB923C" }} />}
+            // Booked nights fill green, held nights fill orange (Jay, job 464).
+            <div key={d} className={`${base} ${past ? "text-white/20" : isBooked || isHold ? "font-bold text-black" : "font-semibold border border-white/20"}`} style={!past && isBooked ? { background: BOOKED } : !past && isHold ? { background: HOLD } : undefined} aria-label={isBooked ? `${longDate(d)}, booked` : isHold ? `${longDate(d)}, on hold` : undefined}>
+              {n}
             </div>
           );
         })}
       </div>
       <div className="flex flex-wrap justify-center gap-x-4 text-[11.5px] text-white/60">
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded border border-white/35" />Open</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-white/45" />Booked</span>
-        <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: "#FB923C" }} />On hold</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded" style={{ background: BOOKED }} />Booked</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded" style={{ background: HOLD }} />On hold</span>
       </div>
     </section>
   );
@@ -537,6 +541,24 @@ function LinkRow({ kit, max = 99 }) {
 
 const glass = "rounded-2xl bg-black/45 backdrop-blur-md border border-white/10";
 
+// Back, top left (Jay, job 464): to wherever they came from in the app (the
+// DJ's own "See it the way promoters do"), else home for a signed-in user,
+// else Show Pilot's site for a promoter who opened the link.
+function BackButton() {
+  const navigate = useNavigate();
+  const back = () => {
+    if ((window.history.state?.idx ?? 0) > 0) { navigate(-1); return; }
+    let signedIn = false;
+    try { signedIn = Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)); } catch { /* private mode */ }
+    if (signedIn) navigate("/"); else window.location.href = "https://get.showpilot.space";
+  };
+  return (
+    <button type="button" onClick={back} aria-label="Back" className="w-11 h-11 shrink-0 rounded-full bg-black/55 border border-white/15 backdrop-blur flex items-center justify-center text-white hover:bg-black/75">
+      <ArrowLeft className="w-5 h-5" />
+    </button>
+  );
+}
+
 export default function DjKitView({ kit, token }) {
   const [asking, setAsking] = useState(null); // a date being requested
   const [tab, setTab] = useState("about");
@@ -576,7 +598,10 @@ export default function DjKitView({ kit, token }) {
 
       {/* Phone: the record on top, then tabs, then the buttons. */}
       <div className="lg:hidden relative h-full flex flex-col gap-2.5 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))]">
-        <DjRecordPlayer kit={kit} maxHeight="25dvh" />
+        <div className="relative">
+          <div className="absolute left-0 top-0 z-10"><BackButton /></div>
+          <div className="pl-12"><DjRecordPlayer kit={kit} maxHeight="25dvh" /></div>
+        </div>
         <div role="tablist" aria-label="Press kit" className="flex gap-1 p-1 rounded-full bg-black/45 border border-white/10">
           {tabs.map(([k, label]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="flex-1 min-h-[36px] rounded-full text-[13px] font-semibold transition-colors" style={tab === k ? { background: DJ_COLOR, color: "#000" } : { color: "rgba(255,255,255,0.75)" }}>{label}</button>
@@ -603,7 +628,8 @@ export default function DjKitView({ kit, token }) {
       {/* Computer: the record and the buttons on the left; played at and
           the calendar on top, the About card along the bottom. */}
       <div className="hidden lg:grid relative h-full p-6 gap-5" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr)", gridTemplateRows: "minmax(0,1fr) minmax(0,0.85fr)" }}>
-        <div className="row-span-2 min-h-0 flex flex-col justify-center gap-4">
+        <div className="row-span-2 min-h-0 flex flex-col justify-center gap-4 relative">
+          <div className="absolute left-0 top-0 z-10"><BackButton /></div>
           <DjRecordPlayer kit={kit} maxHeight="50dvh" />
           {take && (
             <div className="flex gap-2">
