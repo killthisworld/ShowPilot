@@ -16,7 +16,7 @@ const longDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefin
 // Accept: the night becomes one of the DJ's gigs and the promoter gets a
 // confirmation email. Decline: the DJ writes why, and it's emailed to them.
 // Hold is an answer too (job 466): the promoter gets the DJ's note, the night
-// shows orange on the press kit calendar, and they talk details in Chats >
+// shows orange on the press kit calendar, and they talk details in
 // Chats › Requests before the DJ confirms or declines.
 export default function DjDateRequests({ onBooked, onCount }) {
   const { toast } = useToast();
@@ -138,7 +138,7 @@ export function ReplySheet({ r, action, onClose, onDone }) {
           <span className="text-[11px] tracking-[0.16em] text-white/65" style={mono}>{accept ? "YOUR NOTE (OPTIONAL)" : hold ? "YOUR NOTE" : "WHY YOU'RE DECLINING"}</span>
           <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={5} className="w-full px-3 py-2.5 rounded-xl bg-[#0d0e14] border border-white/20 text-[15px] leading-relaxed text-white outline-none focus:border-[#FDE047] resize-y" />
         </label>
-        {accept && <p className="m-0 text-[13px] text-white/55">The night goes on your Gigs and shows green on your press kit calendar. You can keep chatting in Chats › Confirmed.</p>}
+        {accept && <p className="m-0 text-[13px] text-white/55">The night goes on your Gigs and shows green on your press kit calendar. You can keep chatting in Chats › Requests.</p>}
         {hold && <p className="m-0 text-[13px] text-white/55">The night shows orange on your press kit calendar. Your note starts a chat with {r.name} (Chats › Requests), and they get a link to it by email.</p>}
         {error && <p className="m-0 text-[14px] text-[#F87171]" role="alert">{error}</p>}
         <button type="button" onClick={send} disabled={sending} className="min-h-[48px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold disabled:opacity-60" style={accept ? { background: DJ_COLOR, color: "#000" } : hold ? { background: HOLD, color: "#000" } : { background: "#fff", color: "#000" }}>
