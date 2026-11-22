@@ -9,7 +9,7 @@ import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
 import { ensureKitLink, fetchMyExtras, isAudioFile, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, TRACK_ACCEPT, uploadKitClip, uploadKitImage } from "@/lib/djKit";
 import DjClipPicker from "@/components/showpilot/DjClipPicker";
 import { CLIP_SECONDS } from "@/lib/audioClip";
-import DjRecordPlayer, { SIDE_MAX } from "@/components/showpilot/DjRecordPlayer";
+import DjRecordPlayer, { TRACK_MAX, tracksOf } from "@/components/showpilot/DjRecordPlayer";
 import { Avatar, Bio, Contact, Dates, GenreChips, History, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
 
 // DJ mode's Profile tab (job 457, Jay 2026-11-22): the DJ's press kit.
@@ -28,7 +28,7 @@ const toKit = (t, dates) => ({
   mixes: t.data.kit_mixes || [],
   press_photos: t.data.kit_photos || [],
   banner_url: t.data.kit_banner_url || "",
-  tracks: t.data.kit_tracks || { a: [], b: [] },
+  tracks: tracksOf(t.data.kit_tracks),
   logo_url: t.data.kit_logo_url || "",
   links: t.data.kit_links || [],
   contact_name: t.data.contact_name || "",
@@ -182,12 +182,12 @@ export default function DjProfile() {
 }
 
 function OwnRecord({ kit }) {
-  const n = (kit.tracks?.a?.length || 0) + (kit.tracks?.b?.length || 0);
+  const n = tracksOf(kit.tracks).length;
   return (
     <section className="flex flex-col gap-2">
-      <Label right={<span className="text-[12px] text-white/50">{n ? `${kit.tracks?.a?.length || 0} on A · ${kit.tracks?.b?.length || 0} on B` : "No tracks yet"}</span>}>THE RECORD</Label>
+      <Label right={<span className="text-[12px] text-white/50">{n ? `${n} of ${TRACK_MAX} tracks` : "No tracks yet"}</span>}>THE RECORD</Label>
       <DjRecordPlayer kit={kit} maxHeight="200px" />
-      {!n && <p className="m-0 text-[14px] text-white/50">Add up to 5 tracks a side in Edit. Promoters play them from your press kit.</p>}
+      {!n && <p className="m-0 text-[14px] text-white/50">Add up to {TRACK_MAX} tracks in Edit. Promoters play them from your press kit.</p>}
     </section>
   );
 }
@@ -271,7 +271,8 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
     kit_photos: (t.data.kit_photos || []).slice(0, 5),
     kit_logo_url: t.data.kit_logo_url || "",
     kit_banner_url: t.data.kit_banner_url || "",
-    kit_tracks: { a: [...(t.data.kit_tracks?.a || [])], b: [...(t.data.kit_tracks?.b || [])] },
+    // One list of up to 3 (job 463); older kits had sides A and B.
+    kit_tracks: tracksOf(t.data.kit_tracks),
     kit_links: (t.data.kit_links || []).length ? t.data.kit_links : [{ kind: "", url: "" }],
     contact_name: t.data.contact_name || "",
     contact_email: t.data.contact_email || "",
@@ -287,26 +288,25 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   const pressIn = useRef(null);
   const logoIn = useRef(null);
   const bannerIn = useRef(null);
-  const trackIn = { a: useRef(null), b: useRef(null) };
+  const trackIn = useRef(null);
 
-  // Tracks for the record (jobs 460-462): pick a file, pick 15 seconds of
-  // it, and the clip goes up as a small MP3. SIDE_MAX a side.
-  const [picking, setPicking] = useState(null); // { file, side }
+  // Tracks for the record (jobs 460-463): pick a file, pick 15 seconds of
+  // it, and the clip goes up as a small MP3. TRACK_MAX in one list.
+  const [picking, setPicking] = useState(null); // the File being clipped
   const [pct, setPct] = useState(0);
-  const addTracks = (files, sideKey) => {
+  const addTracks = (files) => {
     const f = Array.from(files || [])[0];
     if (!f) return;
-    if (d.kit_tracks[sideKey].length >= SIDE_MAX) { toast({ title: `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` }); return; }
+    if (d.kit_tracks.length >= TRACK_MAX) { toast({ title: `Your record is full (${TRACK_MAX} tracks)` }); return; }
     if (!isAudioFile(f)) { toast({ title: "That doesn't look like an audio file", variant: "destructive" }); return; }
-    setPicking({ file: f, side: sideKey });
+    setPicking(f);
   };
   const clipPicked = async ({ blob, title, start }) => {
-    const sideKey = picking.side;
     setPicking(null);
-    setUploading(`track-${sideKey}`); setPct(0);
+    setUploading("track"); setPct(0);
     try {
       const up = await uploadKitClip(state.userId, blob, { onProgress: setPct });
-      setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: [...x.kit_tracks[sideKey], { title, url: up.url, path: up.path, clip_start: start }].slice(0, SIDE_MAX) } }));
+      setD((x) => ({ ...x, kit_tracks: [...x.kit_tracks, { title, url: up.url, path: up.path, clip_start: start }].slice(0, TRACK_MAX) }));
     } catch (e) {
       console.error(e);
       toast({ title: e?.message || "Couldn't upload that clip", variant: "destructive" });
@@ -314,13 +314,13 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       setUploading(""); setPct(0);
     }
   };
-  const setTrack = (sideKey, i, patch) => setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: x.kit_tracks[sideKey].map((tr, j) => (j === i ? { ...tr, ...patch } : tr)) } }));
-  const dropTrack = (sideKey, i) => setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: x.kit_tracks[sideKey].filter((_, j) => j !== i) } }));
-  const moveTrack = (sideKey, i, to) => setD((x) => {
-    const a = [...x.kit_tracks[sideKey]];
+  const setTrack = (i, patch) => setD((x) => ({ ...x, kit_tracks: x.kit_tracks.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)) }));
+  const dropTrack = (i) => setD((x) => ({ ...x, kit_tracks: x.kit_tracks.filter((_, j) => j !== i) }));
+  const moveTrack = (i, to) => setD((x) => {
+    const a = [...x.kit_tracks];
     if (to < 0 || to >= a.length) return x;
     [a[i], a[to]] = [a[to], a[i]];
-    return { ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: a } };
+    return { ...x, kit_tracks: a };
   });
 
   const upload = async (files, what) => {
@@ -367,16 +367,14 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
         contact_name: d.contact_name.trim(),
         contact_email: d.contact_email.trim(),
         contact_phone: d.contact_phone.trim(),
-        kit_tracks: {
-          a: d.kit_tracks.a.map((x) => ({ ...x, title: (x.title || "").trim() || "Untitled" })),
-          b: d.kit_tracks.b.map((x) => ({ ...x, title: (x.title || "").trim() || "Untitled" })),
-        },
+        kit_tracks: d.kit_tracks.map((x) => ({ ...x, title: (x.title || "").trim() || "Untitled" })),
       };
       const data = { ...t.data, ...clean };
       await saveKit(t.id, name, data);
       // Files of tracks taken off the record go too.
-      const kept = new Set([...clean.kit_tracks.a, ...clean.kit_tracks.b].map((x) => x.path));
-      removeKitTracks([...(t.data.kit_tracks?.a || []), ...(t.data.kit_tracks?.b || [])].map((x) => x.path).filter((p) => p && !kept.has(p)));
+      const kept = new Set(clean.kit_tracks.map((x) => x.path));
+      const before = Array.isArray(t.data.kit_tracks) ? t.data.kit_tracks : [...(t.data.kit_tracks?.a || []), ...(t.data.kit_tracks?.b || [])];
+      removeKitTracks(before.map((x) => x.path).filter((p) => p && !kept.has(p)));
       let link = null;
       if (Object.keys(flags).some((k) => flags[k] !== flags0[k])) {
         try { link = await setKitFlags(state.userId, t.id, flags); }
@@ -452,29 +450,26 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       </div>
 
       <div className="flex flex-col gap-3 lg:gap-5">
-        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side. Pick any audio file, then choose the ${CLIP_SECONDS} seconds promoters hear when they play your record.`}>
-          {["a", "b"].map((sk) => (
-            <div key={sk} className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] tracking-[0.16em]" style={{ ...mono, color: DJ_COLOR }}>SIDE {sk.toUpperCase()}</span>
-                <span className="text-[12px] text-white/50">{d.kit_tracks[sk].length}/{SIDE_MAX}</span>
+        <Box title="THE RECORD" hint={`Up to ${TRACK_MAX} tracks. Pick any audio file, choose the ${CLIP_SECONDS} seconds promoters hear, and name it the way you want it to show.`}>
+          <div className="flex flex-col gap-1.5">
+            {d.kit_tracks.map((tr, i) => (
+              <div key={`${tr.path || tr.url}-${i}`} className="flex items-center gap-1.5">
+                <span className="w-7 shrink-0 text-[12px]" style={{ ...mono, color: DJ_COLOR }} title={tr.clip_start != null ? `Clip from ${Math.floor(tr.clip_start / 60)}:${String(Math.floor(tr.clip_start % 60)).padStart(2, "0")}` : undefined}>{String(i + 1).padStart(2, "0")}</span>
+                <input className={field} aria-label={`Track ${i + 1} name`} value={tr.title} onChange={(e) => setTrack(i, { title: e.target.value })} placeholder="Track name" />
+                <button type="button" onClick={() => moveTrack(i, i - 1)} disabled={i === 0} aria-label="Move up" className="w-9 h-11 shrink-0 rounded-lg text-white/60 hover:text-white disabled:opacity-25">↑</button>
+                <RemoveBtn label={`Remove ${tr.title || "track"}`} onClick={() => dropTrack(i)} />
               </div>
-              {d.kit_tracks[sk].map((tr, i) => (
-                <div key={`${tr.path || tr.url}-${i}`} className="flex items-center gap-1.5">
-                  <span className="w-7 shrink-0 text-[12px] text-white/55" style={mono} title={tr.clip_start != null ? `Clip from ${Math.floor(tr.clip_start / 60)}:${String(Math.floor(tr.clip_start % 60)).padStart(2, "0")}` : undefined}>{sk.toUpperCase()}{i + 1}</span>
-                  <input className={field} aria-label={`Side ${sk.toUpperCase()} track ${i + 1} title`} value={tr.title} onChange={(e) => setTrack(sk, i, { title: e.target.value })} placeholder="Track name" />
-                  <button type="button" onClick={() => moveTrack(sk, i, i - 1)} disabled={i === 0} aria-label="Move up" className="w-9 h-11 shrink-0 rounded-lg text-white/60 hover:text-white disabled:opacity-25">↑</button>
-                  <RemoveBtn label={`Remove ${tr.title || "track"}`} onClick={() => dropTrack(sk, i)} />
-                </div>
-              ))}
-              {d.kit_tracks[sk].length < SIDE_MAX && (
-                <button type="button" onClick={() => trackIn[sk].current?.click()} disabled={!!uploading} className="self-start min-h-[40px] px-3.5 rounded-full border border-dashed border-white/25 flex items-center gap-1.5 text-[14px] font-semibold text-white/80 hover:text-white hover:border-white/50 disabled:opacity-50">
-                  {uploading === `track-${sk}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}{uploading === `track-${sk}` ? `Uploading ${Math.round(pct * 100)}%` : `Add a track to side ${sk.toUpperCase()}`}
+            ))}
+            <div className="flex items-center justify-between gap-2">
+              {d.kit_tracks.length < TRACK_MAX ? (
+                <button type="button" onClick={() => trackIn.current?.click()} disabled={!!uploading} className="min-h-[40px] px-3.5 rounded-full border border-dashed border-white/25 flex items-center gap-1.5 text-[14px] font-semibold text-white/80 hover:text-white hover:border-white/50 disabled:opacity-50">
+                  {uploading === "track" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}{uploading === "track" ? `Uploading ${Math.round(pct * 100)}%` : "Add a track"}
                 </button>
-              )}
-              <input ref={trackIn[sk]} type="file" accept={TRACK_ACCEPT} className="hidden" onChange={(e) => { addTracks(e.target.files, sk); e.target.value = ""; }} />
+              ) : <span />}
+              <span className="text-[12px] text-white/50">{d.kit_tracks.length}/{TRACK_MAX}</span>
             </div>
-          ))}
+            <input ref={trackIn} type="file" accept={TRACK_ACCEPT} className="hidden" onChange={(e) => { addTracks(e.target.files); e.target.value = ""; }} />
+          </div>
           <p className="m-0 text-[12px] text-white/45">Only put up music you have the rights to share: your own productions, edits or clips of your sets.</p>
         </Box>
 
@@ -553,7 +548,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
         </Box>
       </div>
 
-      {picking && <DjClipPicker file={picking.file} side={picking.side} onDone={clipPicked} onCancel={() => setPicking(null)} />}
+      {picking && <DjClipPicker file={picking} onDone={clipPicked} onCancel={() => setPicking(null)} />}
       <div className="lg:col-span-2 flex gap-2 sticky bottom-[84px] z-10 -mx-4 px-4 py-2.5 bg-black/85 backdrop-blur lg:static lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent lg:backdrop-blur-none">
         <button type="button" onClick={save} disabled={saving || !!uploading} className="flex-1 lg:flex-none min-h-[48px] px-7 rounded-full flex items-center justify-center gap-2 text-[15px] font-bold disabled:opacity-60" style={{ background: DJ_COLOR, color: "#000" }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}Save

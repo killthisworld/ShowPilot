@@ -400,10 +400,10 @@ export function AboutCard({ kit }) {
   useEffect(() => { const el = bioRef.current; if (el) setClipped(el.scrollHeight > el.clientHeight + 2); }, [lines, kit.bio]);
   const touch = useRef(null);
   const go = (d) => setI((x) => (x + d + list.length) % list.length);
-  const cur = list[i]?.url;
   return (
     <section
       className="relative h-full min-h-0 rounded-2xl overflow-hidden bg-[#15161c] border border-white/10 select-none"
+      onContextMenu={(e) => e.preventDefault()}
       onTouchStart={(e) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY }; }}
       onTouchEnd={(e) => {
         const s0 = touch.current; touch.current = null; if (!s0 || list.length < 2) return;
@@ -414,14 +414,13 @@ export function AboutCard({ kit }) {
       aria-label={`About ${kit.name}`}
     >
       {list.map((p, j) => (
-        p.url ? <img key={`${p.url}-${j}`} src={p.url} alt="" draggable="false" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: j === i ? 1 : 0 }} /> : null
+        // No saving photos from the press kit (Jay, job 463): no download
+        // button, no long-press menu, no dragging them out.
+        p.url ? <img key={`${p.url}-${j}`} src={p.url} alt="" draggable="false" onContextMenu={(e) => e.preventDefault()} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 pointer-events-none" style={{ opacity: j === i ? 1 : 0, WebkitTouchCallout: "none", WebkitUserSelect: "none" }} /> : null
       ))}
       <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.55) 58%, rgba(0,0,0,0.92) 100%)" }} />
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
         <span className="text-[10.5px] tracking-[0.18em] text-white/85" style={mono}>ABOUT</span>
-        {photos.length > 0 && cur && (
-          <a href={cur} download target="_blank" rel="noreferrer" aria-label="Save this photo" className="w-9 h-9 rounded-full bg-black/55 flex items-center justify-center text-white/90 hover:bg-black/75"><Download className="w-4 h-4" /></a>
-        )}
       </div>
       <div className="absolute inset-x-0 bottom-0 top-[34%] p-4 flex flex-col justify-end gap-2">
         <div ref={textBox} className="min-h-0 flex-1 flex flex-col justify-end">

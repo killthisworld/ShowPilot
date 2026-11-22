@@ -11,7 +11,7 @@ const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
 // Pick the 15 seconds of a track that go on the record (job 462). Drag the
 // window along the waveform (or nudge it a second at a time), preview it,
 // then "Use this clip": the phone cuts it to a small MP3 and hands it back.
-export default function DjClipPicker({ file, side, onDone, onCancel }) {
+export default function DjClipPicker({ file, onDone, onCancel }) {
   const [buffer, setBuffer] = useState(null);
   const [bars, setBars] = useState([]);
   const [error, setError] = useState("");
@@ -100,7 +100,7 @@ export default function DjClipPicker({ file, side, onDone, onCancel }) {
       <div role="dialog" aria-modal="true" aria-label="Pick 15 seconds" onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[560px] rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] tracking-[0.18em]" style={{ ...mono, color: DJ_COLOR }}>SIDE {side.toUpperCase()} · PICK {CLIP_SECONDS} SECONDS</div>
+            <div className="text-[11px] tracking-[0.18em]" style={{ ...mono, color: DJ_COLOR }}>PICK {CLIP_SECONDS} SECONDS</div>
             <div className="text-[13px] text-white/55 truncate">{file.name}</div>
           </div>
           <button type="button" onClick={onCancel} aria-label="Cancel" className="w-11 h-11 -mr-2 -mt-1 shrink-0 rounded-xl flex items-center justify-center text-white/70 hover:bg-white/10"><X className="w-5 h-5" /></button>
@@ -112,9 +112,10 @@ export default function DjClipPicker({ file, side, onDone, onCancel }) {
           <div className="py-10 flex flex-col items-center gap-2 text-[14px] text-white/60"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} />Opening the track…</div>
         ) : (
           <>
-            <label className="flex flex-col gap-1">
-              <span className="sr-only">Track name</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Track name" className="w-full min-h-[44px] px-3 rounded-xl bg-[#0d0e14] border border-white/15 text-[15px] text-white outline-none focus:border-[#FDE047]" />
+            {/* The name promoters see under the record (Jay, job 463). */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[11px] tracking-[0.16em] text-white/65" style={mono}>NAME VIEWERS SEE</span>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} onFocus={(e) => e.target.select()} placeholder="e.g. Night Drive (Nova Edit)" className="w-full min-h-[44px] px-3 rounded-xl bg-[#0d0e14] border border-white/20 text-[15px] text-white outline-none focus:border-[#FDE047]" />
             </label>
 
             {/* The waveform: drag (or tap) to move the 15-second window. */}
