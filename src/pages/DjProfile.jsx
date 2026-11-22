@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check } from "lucide-react";
-import { supabase } from "@/api/supabaseClient";
+import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check, Eye } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
 import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
-import { ensureKitLink, kitUrl, loadKit, platformOf, saveKit, setKitShowDates, uploadKitImage } from "@/lib/djKit";
-import { Avatar, Bio, Contact, Dates, GenreChips, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
+import { ensureKitLink, fetchMyExtras, kitUrl, loadKit, platformOf, saveKit, setKitFlags, uploadKitImage } from "@/lib/djKit";
+import { Avatar, Bio, Contact, Dates, GenreChips, History, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
 
 // DJ mode's Profile tab (job 457, Jay 2026-11-22): the DJ's press kit.
 // Photo, name, city, genres, bio, mixes, press photos + logo, links,
@@ -16,29 +15,6 @@ import { Avatar, Bio, Contact, Dates, GenreChips, Label, Links, Mixes, Photos, c
 // kit makes one public link (/kit/:token). Settings are under the gear.
 // No BPM range and no booking package (Jay: DJs are booked by the venue or
 // artist once the event exists).
-
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
-// The next dates: the DJ's own events and the ones they're linked to.
-async function loadDates(userId) {
-  const [{ data: owned }, { data: links }] = await Promise.all([
-    supabase.from("shows").select("id, date, event_name, band_name, venue").eq("owner_id", userId).eq("archived", false).gte("date", today()).order("date").limit(12),
-    supabase.from("linked_gigs").select("share_token").eq("user_id", userId).eq("archived", false),
-  ]);
-  const linked = (await Promise.all((links || []).map(async (l) => {
-    const { data } = await supabase.rpc("get_shared_gig", { p_token: l.share_token });
-    return data || null;
-  }))).filter((g) => g && g.date && g.date >= today() && !g.archived);
-  const seen = new Set();
-  return [...(owned || []), ...linked]
-    .filter((g) => (seen.has(g.id) ? false : seen.add(g.id)))
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .slice(0, 12)
-    .map((g) => ({ date: g.date, name: g.event_name || g.band_name || "Event", venue: g.venue || "" }));
-}
 
 const toKit = (t, dates) => ({
   name: t.name,
@@ -69,7 +45,8 @@ export default function DjProfile() {
   const { toast } = useToast();
   const [kitState, setKitState] = useState(null); // { userId, template, link }
   const [failed, setFailed] = useState("");
-  const [dates, setDates] = useState(null);
+  // Upcoming dates and "Played at" (job 459), worked out by the database.
+  const [extras, setExtras] = useState(null);
   const [editing, setEditing] = useState(false);
   const [sharing, setSharing] = useState(false);
 
@@ -79,7 +56,7 @@ export default function DjProfile() {
       .then((k) => {
         if (gone) return;
         setKitState(k);
-        loadDates(k.userId).then((d) => { if (!gone) setDates(d); }).catch((e) => { console.error(e); if (!gone) setDates([]); });
+        fetchMyExtras(k.template.name).then((x) => { if (!gone) setExtras(x); });
       })
       .catch((e) => { console.error(e); if (!gone) setFailed("Couldn't load your profile. Check your signal and try again."); });
     return () => { gone = true; };
@@ -104,8 +81,27 @@ export default function DjProfile() {
     }
   };
 
-  const kit = kitState ? toKit(kitState.template, kitState.link?.show_dates === false ? [] : dates) : null;
-  const showDates = kitState?.link?.show_dates !== false;
+  const dates = extras?.dates || [];
+  const kit = kitState ? toKit(kitState.template, dates) : null;
+  const flags = {
+    show_dates: kitState?.link?.show_dates !== false,
+    show_history: kitState?.link?.show_history !== false,
+    take_requests: kitState?.link?.take_requests !== false,
+  };
+
+  // See the press kit the way promoters do.
+  const preview = async () => {
+    if (!kitState) return;
+    const win = window.open("", "_blank");
+    try {
+      const link = await ensureKitLink(kitState.userId, kitState.template.id, kitState.link);
+      setKitState((s) => ({ ...s, link }));
+      if (win) win.location.href = kitUrl(link.token); else window.location.href = kitUrl(link.token);
+    } catch (e) {
+      win?.close();
+      toast({ title: e?.message || "Couldn't open it", variant: "destructive" });
+    }
+  };
 
   const actions = kitState && !editing && (
     <>
@@ -139,7 +135,7 @@ export default function DjProfile() {
         ) : editing ? (
           <KitEditor
             state={kitState}
-            showDates={showDates}
+            flags={flags}
             onCancel={() => setEditing(false)}
             onSaved={(template, link) => { setKitState((s) => ({ ...s, template, link: link || s.link })); setEditing(false); toast({ title: "Profile saved" }); }}
           />
@@ -147,8 +143,9 @@ export default function DjProfile() {
           <>
             {/* Phone: one column. */}
             <div className="lg:hidden flex flex-col gap-4">
-              <Identity kit={kit} actions={<div className="flex gap-2">{actions}</div>} />
-              {showDates && <Dates dates={dates || []} own />}
+              <Identity kit={kit} actions={<div className="flex flex-col gap-2"><div className="flex gap-2">{actions}</div><PreviewBtn onClick={preview} /></div>} />
+              <Dates dates={dates} own />
+              <History history={extras?.history || []} own />
               <Bio bio={kit.bio} own />
               <Mixes mixes={kit.mixes} own />
               <Photos photos={kit.press_photos} logo={kit.logo_url} own />
@@ -158,14 +155,15 @@ export default function DjProfile() {
             {/* Computer: who you are on the left, what you've got on the right. */}
             <div className="hidden lg:grid grid-cols-2 gap-6 items-start pt-2">
               <div className="flex flex-col gap-5">
-                <Identity kit={kit} big />
+                <Identity kit={kit} big actions={<PreviewBtn onClick={preview} />} />
                 <Links links={kit.links} own />
                 <Contact kit={kit} own />
               </div>
               <div className="flex flex-col gap-5">
-                {showDates && <Dates dates={dates || []} own />}
+                <Dates dates={dates} own />
                 <Mixes mixes={kit.mixes} own />
                 <Photos photos={kit.press_photos} logo={kit.logo_url} own grid="grid-cols-4" />
+                <History history={extras?.history || []} own />
               </div>
             </div>
           </>
@@ -173,6 +171,14 @@ export default function DjProfile() {
       </main>
       <BandBottomTabs />
     </div>
+  );
+}
+
+function PreviewBtn({ onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="self-start min-h-[40px] -ml-1 px-1 flex items-center gap-1.5 text-[13.5px] font-semibold text-white/70 hover:text-white">
+      <Eye className="w-4 h-4" />See it the way promoters do
+    </button>
   );
 }
 
@@ -233,7 +239,7 @@ function RemoveBtn({ onClick, label }) {
   );
 }
 
-function KitEditor({ state, showDates: showDates0, onCancel, onSaved }) {
+function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   const { toast } = useToast();
   const t = state.template;
   const [name, setName] = useState(t.name || "");
@@ -250,7 +256,8 @@ function KitEditor({ state, showDates: showDates0, onCancel, onSaved }) {
     contact_email: t.data.contact_email || "",
     contact_phone: t.data.contact_phone || "",
   }));
-  const [showDates, setShowDates] = useState(showDates0);
+  const [flags, setFlags] = useState(flags0);
+  const flag = (k) => (e) => setFlags((x) => ({ ...x, [k]: e.target.checked }));
   const [genre, setGenre] = useState("");
   const [uploading, setUploading] = useState("");
   const [saving, setSaving] = useState(false);
@@ -303,9 +310,9 @@ function KitEditor({ state, showDates: showDates0, onCancel, onSaved }) {
       const data = { ...t.data, ...clean };
       await saveKit(t.id, name, data);
       let link = null;
-      if (showDates !== showDates0 || (state.link && state.link.show_dates !== showDates)) {
-        try { link = await setKitShowDates(state.userId, t.id, showDates); }
-        catch (e) { console.error(e); toast({ title: "Couldn't change the dates setting", variant: "destructive" }); }
+      if (Object.keys(flags).some((k) => flags[k] !== flags0[k])) {
+        try { link = await setKitFlags(state.userId, t.id, flags); }
+        catch (e) { console.error(e); toast({ title: "Couldn't change those settings", description: "Try again in a moment.", variant: "destructive" }); }
       }
       onSaved({ ...t, name: name.trim(), data: { ...data, dj_kit: true } }, link);
     } catch (e) {
@@ -426,11 +433,17 @@ function KitEditor({ state, showDates: showDates0, onCancel, onSaved }) {
           />
         </Box>
 
-        <Box title="UPCOMING DATES">
-          <label className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
-            <span className="text-[15px]">Show my upcoming dates on the press kit<span className="block text-[13px] text-white/50">Taken from your Bookings: event, date and venue.</span></span>
-            <input type="checkbox" checked={showDates} onChange={(e) => setShowDates(e.target.checked)} className="w-5 h-5 shrink-0" style={{ accentColor: DJ_COLOR }} />
-          </label>
+        <Box title="ON YOUR PRESS KIT">
+          {[
+            ["show_dates", "Upcoming dates", "Event, date and venue, taken from your Bookings."],
+            ["show_history", "Played at", "Your past nights on Show Pilot. A check marks ones the event itself confirms."],
+            ["take_requests", "Date requests", "Promoters can tap an open night and ask for it. Requests land in your Bookings."],
+          ].map(([k, title, sub]) => (
+            <label key={k} className="flex items-center justify-between gap-3 min-h-[44px] cursor-pointer">
+              <span className="text-[15px]">{title}<span className="block text-[13px] text-white/50">{sub}</span></span>
+              <input type="checkbox" checked={flags[k]} onChange={flag(k)} className="w-5 h-5 shrink-0" style={{ accentColor: DJ_COLOR }} />
+            </label>
+          ))}
         </Box>
       </div>
 

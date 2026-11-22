@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake, Disc3 } from "lucide-react";
 import { djNow } from "@/lib/djMode";
 import { DJ_COLOR } from "@/lib/djTools";
+import { useNewRequestCount } from "@/lib/djKit";
 import useBookings from "@/lib/useBookings";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
@@ -80,7 +81,7 @@ export default function BandBottomTabs() {
               <span className="relative">
                 <tab.icon className="w-5 h-5" />
                 {tab.chats && <RailUnread />}
-                {tab.bookings && <RailBookings />}
+                {tab.bookings && <RailBookings dj={dj} />}
               </span>
               <span className="text-xs font-semibold tracking-[0.04em]">{tab.label}</span>
             </Link>
@@ -109,9 +110,10 @@ function RailUnread() {
 }
 
 // Bookings waiting on you, on the rail's Bookings tab.
-function RailBookings() {
+function RailBookings({ dj }) {
   const { data } = useBookings();
-  const n = (data?.needs || []).length;
+  const requests = useNewRequestCount(!!dj);
+  const n = (data?.needs || []).length + (dj ? requests : 0);
   if (!n) return null;
   return (
     <span className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#F87171] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">
@@ -203,7 +205,9 @@ function DjPhoneBar({ preferences, pathname, search }) {
   const { data } = useNeedsMe();
   const unread = visibleChats(data?.chats).reduce((n, c) => n + Number(c.unread || 0), 0);
   const { data: bookings } = useBookings();
-  const needBookings = (bookings?.needs || []).length;
+  // Plus date requests from the press kit (job 459).
+  const newRequests = useNewRequestCount();
+  const needBookings = (bookings?.needs || []).length + newRequests;
   const view = pathname === "/" ? new URLSearchParams(search).get("view") : null;
   const activeKey = view === "chats" || pathname.startsWith("/gig/rooms") || pathname.startsWith("/gig/messages") ? "chats"
     : pathname.startsWith("/dj/gigs") || pathname.startsWith("/dj/event") || pathname.startsWith("/bookings") ? "bookings"

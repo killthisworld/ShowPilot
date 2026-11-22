@@ -32,7 +32,7 @@ export default function DjPressKit() {
           <p className="m-0 text-[15px] text-white/60">The link may have been mistyped. Ask the DJ to send it again.</p>
         </div>
       ) : (
-        <DjKitView kit={kit} />
+        <DjKitView kit={kit} token={token} />
       )}
     </div>
   );

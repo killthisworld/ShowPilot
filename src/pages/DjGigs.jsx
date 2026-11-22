@@ -7,6 +7,7 @@ import TicketCard from "@/components/showpilot/TicketCard";
 import NightSky from "@/components/showpilot/NightSky";
 import { ActBar } from "@/components/showpilot/DjWeekMonths";
 import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
+import DjDateRequests from "@/components/showpilot/DjDateRequests";
 
 // The DJ view's Bookings tab (jobs 362, 372, Jay 2026-11-19): the events
 // you're on, to keep track of them. DJs get added to events rather than
@@ -157,6 +158,8 @@ export default function DjGigs() {
           <h1 className="m-0 text-[34px] lg:text-3xl leading-none" style={cond}>Gigs</h1>
           {upcoming > 0 && <span className="mt-1 lg:mt-0 lg:ml-auto block text-[11px] tracking-[0.14em] text-white/60" style={mono}>{upcoming} COMING UP</span>}
         </header>
+        {/* Promoters asking for a night from the press kit (job 459). */}
+        <DjDateRequests />
         {gigs === null ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} /></div>
         ) : (

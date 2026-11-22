@@ -9,6 +9,7 @@
 // Shared fields: name (the template's name), photo_url, genre_tags,
 // contact_name / contact_email / contact_phone.
 // The public link is a row in dj_press_kits (token) read by get_dj_press_kit.
+import React from "react";
 import { supabase } from "@/api/supabaseClient";
 import { emptyArtistTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
 
@@ -37,6 +38,8 @@ export function href(url) {
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 }
 
+const LINK_COLS = "*";
+
 export const kitUrl = (token) => `${window.location.origin}/kit/${token}`;
 
 // The DJ's kit: their template (made if they have none) and the share link
@@ -58,7 +61,8 @@ export async function loadKit(fallbackName = "") {
     if (e2) throw e2;
     t = made;
   }
-  const { data: link } = await supabase.from("dj_press_kits").select("token, template_id, show_dates").eq("owner_id", user.id).maybeSingle();
+  // All columns, so this still works before the round-2 switches exist.
+  const { data: link } = await supabase.from("dj_press_kits").select("*").eq("owner_id", user.id).maybeSingle();
   return { userId: user.id, template: { id: t.id, name: t.name || "", data: normalizeArtistTemplate(t.data || {}) }, link: link || null };
 }
 
@@ -76,7 +80,7 @@ export async function ensureKitLink(userId, templateId, current) {
   const { data, error } = await supabase
     .from("dj_press_kits")
     .upsert({ owner_id: userId, template_id: templateId }, { onConflict: "owner_id" })
-    .select("token, template_id, show_dates").single();
+    .select(LINK_COLS).single();
   if (error) {
     if (/dj_press_kits/.test(error.message || "")) throw new Error("Sharing needs a database update first. Try again soon.");
     throw error;
@@ -84,13 +88,53 @@ export async function ensureKitLink(userId, templateId, current) {
   return data;
 }
 
-export async function setKitShowDates(userId, templateId, on) {
+// The press kit's switches (job 459): show_dates, show_history, take_requests.
+export async function setKitFlags(userId, templateId, flags) {
   const { data, error } = await supabase
     .from("dj_press_kits")
-    .upsert({ owner_id: userId, template_id: templateId, show_dates: !!on }, { onConflict: "owner_id" })
-    .select("token, template_id, show_dates").single();
+    .upsert({ owner_id: userId, template_id: templateId, ...flags }, { onConflict: "owner_id" })
+    .select(LINK_COLS).single();
   if (error) throw error;
   return data;
+}
+
+// What Show Pilot knows about the DJ's nights (job 459): upcoming dates,
+// booked days, holds and the "Played at" history. Empty until the round-2
+// database update is in.
+export async function fetchMyExtras(name = "") {
+  const { data, error } = await supabase.rpc("get_my_dj_kit_extras", { p_name: name });
+  if (error) { console.error(error); return { dates: [], booked: [], holds: [], history: [] }; }
+  return data || { dates: [], booked: [], holds: [], history: [] };
+}
+
+// A promoter asking for a night, from the press kit. Throws the database's
+// own readable message (booked night, too many requests...).
+export async function requestDate(token, r) {
+  const { data, error } = await supabase.rpc("request_dj_date", {
+    p_token: token, p_date: r.date, p_name: r.name, p_email: r.email || "", p_phone: r.phone || "",
+    p_event_name: r.event_name || "", p_venue: r.venue || "", p_city: r.city || "", p_set_time: r.set_time || "",
+    p_message: r.message || "",
+  });
+  if (error) throw new Error(error.message || "Couldn't send it. Try again.");
+  return data;
+}
+
+// The DJ's date requests (Bookings): new and on hold, soonest first.
+export async function listRequests() {
+  const { data, error } = await supabase.from("dj_date_requests").select("*").in("status", ["new", "hold"]).order("date");
+  if (error) { console.error(error); return []; }
+  return (data || []).filter((r) => r.date >= todayIso());
+}
+
+export async function setRequestStatus(id, status) {
+  const { error } = await supabase.from("dj_date_requests").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+  window.dispatchEvent(new Event("dj-requests-changed"));
+}
+
+export function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Press photos, logo and the main photo are public: they're for flyers.
@@ -106,4 +150,24 @@ export async function fetchPublicKit(token) {
   const { data, error } = await supabase.rpc("get_dj_press_kit", { p_token: token });
   if (error) throw error;
   return data || null;
+}
+
+// New date requests, for the Bookings tab's badge in DJ mode (job 459).
+// Checked when the app opens and whenever it comes back to the front.
+export function useNewRequestCount(enabled = true) {
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    if (!enabled) return undefined;
+    let gone = false;
+    const load = async () => {
+      const { count, error } = await supabase.from("dj_date_requests").select("id", { count: "exact", head: true }).eq("status", "new").gte("date", todayIso());
+      if (!gone && !error) setN(count || 0);
+    };
+    load();
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("dj-requests-changed", load);
+    return () => { gone = true; document.removeEventListener("visibilitychange", onVis); window.removeEventListener("dj-requests-changed", load); };
+  }, [enabled]);
+  return n;
 }
