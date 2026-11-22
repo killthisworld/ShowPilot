@@ -12,7 +12,7 @@ export default function LdStagePicker({ value = "", onChange, eventLabel = "The 
   return (
     <div>
       <label className="flex items-center gap-1.5 text-white/50 text-xs"><Box className="w-3.5 h-3.5" style={{ color }} />3D stage for the act to place their members on</label>
-      <select value={value} onChange={(e) => { const s = usable.find((x) => x.id === e.target.value); onChange(e.target.value, s ? s.rig : null); }}
+      <select value={value} onChange={(e) => { const s = usable.find((x) => x.id === e.target.value); onChange(e.target.value, s ? { ...s.rig, name: s.name || "" } : null); }}
         aria-label="3D stage for this link"
         className="mt-1 block w-full h-11 rounded-xl bg-[#111] border border-[#2a2a2a] px-3 text-white text-sm focus:outline-none [color-scheme:dark]">
         <option value="">{eventLabel}</option>

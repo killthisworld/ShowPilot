@@ -116,7 +116,8 @@ export default function StageBuilder({
   const loadTemplate = (s) => {
     const t = normalizeRig(s.rig);
     setRig((r) => ({ ...t, cues: (r.cues || []).length ? r.cues : t.cues }));
-    if (!name.trim() && s.name) setName(s.name);
+    // The stage takes the template's name (job 458), not the venue's.
+    if (s.name) setName(s.name);
     pick([]);
   };
   // The Save window (job 407): what to save, and the band's artist name.

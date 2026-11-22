@@ -41,7 +41,8 @@ export async function saveLdStage({ id = null, name, rig }) {
   if (row) {
     const { error } = await supabase.from("saved_templates").update({ name: clean, data: { ...(row.data || {}), lighting_rig: rig }, updated_at: now }).eq("id", row.id);
     if (error) throw error;
-    await syncIntakeRigs(row.id, rig);
+    // Links waiting on this stage get it with its name (job 458).
+    await syncIntakeRigs(row.id, { ...rig, name: clean });
     return row.id;
   }
   const { data, error } = await supabase.from("saved_templates").insert({ owner_id: user.id, category: "venue", name: clean, data: { ...emptyVenueTemplate(), lighting_rig: rig } }).select("id").single();

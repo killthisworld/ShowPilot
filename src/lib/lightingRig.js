@@ -92,6 +92,8 @@ export function normalizeRig(r) {
     // Lights on / off as set in the editor (job 422): saved with the stage
     // so its picture matches.
     ...(r.dark ? { dark: true } : {}),
+    // The stage's name on an event (job 458): the template it came from.
+    ...(typeof r.name === "string" && r.name.trim() ? { name: r.name.trim().slice(0, 80) } : {}),
   };
 }
 

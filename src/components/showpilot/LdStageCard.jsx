@@ -54,7 +54,7 @@ export default function LdStageCard({ rig, onChange, venueName = "", acts = null
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {usable.map((s) => (
-                  <button key={s.id} type="button" onClick={() => { onChange(s.rig); setPicking(false); toast({ title: `Loaded ${s.name || "the stage"}` }); }}
+                  <button key={s.id} type="button" onClick={() => { onChange({ ...s.rig, name: s.name || "" }); setPicking(false); toast({ title: `Loaded ${s.name || "the stage"}` }); }}
                     className="rounded-[8px] border border-[#2c2c2c] bg-[#1a1a1a] p-1.5 text-left hover:border-[#8CFF3D]/60">
                     <span className="relative block w-full rounded-[6px] border border-[#333] border-b-2 border-b-white bg-black overflow-hidden" style={{ aspectRatio: "4 / 3" }}><RigLayer rig={s.rig} /></span>
                     <span className="block mt-1.5 px-0.5 text-[13.5px] font-semibold text-white truncate">{s.name || "Untitled"}</span>
@@ -78,10 +78,12 @@ export default function LdStageCard({ rig, onChange, venueName = "", acts = null
 export function EventStageBuilder({ rig, venueName = "", onChange, acts = null, onActs = null, startAct = 0, startTab = "rig", onSaved, onClose }) {
   const has = rigHasItems(rig) || (rig?.cues || []).length > 0;
   return (
-    <StageBuilder name={venueName || ""} rig={has ? normalizeRig(rig) : emptyRig()} title="THIS EVENT'S STAGE" acts={acts} startAct={startAct} startTab={startTab}
+    // The stage's name: the template loaded on it (job 458), else the venue.
+    <StageBuilder name={rig?.name || venueName || ""} rig={has ? normalizeRig(rig) : emptyRig()} title="THIS EVENT'S STAGE" acts={acts} startAct={startAct} startTab={startTab}
       onClose={onClose}
       onSave={async ({ name, rig: next, acts: nextActs }) => {
-        onChange(next);
+        const named = String(name || "").trim();
+        onChange(named ? { ...next, name: named } : (({ name: _n, ...rest }) => rest)(next));
         if (nextActs && onActs) onActs(nextActs);
         onClose();
         try { await saveLdStage({ name: name || venueName || "My stage", rig: next }); onSaved?.(); toast({ title: "Stage set for this event and saved to your stages" }); }

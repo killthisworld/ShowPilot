@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Plus } from "lucide-react";
+import { ChevronLeft, Plus, Search, X } from "lucide-react";
 import { SCENE_MONO } from "@/lib/sceneStyle";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import RigLayer from "@/components/showpilot/RigLayer";
@@ -55,11 +55,15 @@ export default function RigStage() {
     setSaving(false);
   };
   const isBands = tab === "bands";
+  // Search (job 458): across the pool picked, venues or bands.
+  const [q, setQ] = useState("");
+  const needle = q.trim().toLowerCase();
   const pool = isBands ? bands : stages;
-  const withRig = (pool || []).filter((s) => s.hasRig);
+  const found = (list) => (needle ? (list || []).filter((s) => (s.name || "").toLowerCase().includes(needle)) : list || []);
+  const withRig = found(pool).filter((s) => s.hasRig);
   // Each stage pictured as it was built, in 3D (job 396).
   const [thumbs, drawer] = useRigThumbs(withRig);
-  const without = (pool || []).filter((s) => !s.hasRig);
+  const without = found(pool).filter((s) => !s.hasRig);
   const count = (s, f) => (s.rig.items || []).filter((i) => f(i.type)).length;
   const counts = (s) => (isBands
     ? [["PPL", count(s, isPerson)], ["INST", count(s, isInstrument)], ["RSR", count(s, isRiser)]]
@@ -87,18 +91,26 @@ export default function RigStage() {
         <div className="rounded-[6px] border overflow-hidden" style={{ borderColor: "#2a2a2a", background: "#111" }}>
           <div className="h-9 px-3 flex items-center gap-3 border-b" style={{ ...mono, borderColor: "#2a2a2a", background: "linear-gradient(#1d1d1d, #151515)" }}>
             <span className="w-2 h-2 rounded-full" style={{ background: G, boxShadow: `0 0 6px ${G}` }} />
-            <span className="text-[11.5px] tracking-[0.18em] font-bold hidden sm:inline" style={{ color: G }}>STAGE POOL</span>
+            <span className="text-[11.5px] tracking-[0.18em] font-bold hidden lg:inline" style={{ color: G }}>STAGE POOL</span>
+            {/* Search the venues or the bands, whichever is picked (job 458). */}
+            <label className="relative flex-1 min-w-0 max-w-[340px] h-7 flex items-center">
+              <Search className="absolute left-2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+              <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isBands ? "Search bands" : "Search venues"} aria-label={isBands ? "Search bands" : "Search venues"}
+                className="w-full h-7 rounded-[3px] border bg-[#0c0c0c] pl-7 pr-7 text-[12.5px] text-white placeholder:text-white/35 focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+                style={{ fontFamily: "inherit", borderColor: q ? G : "#333" }} />
+              {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="absolute right-1 w-6 h-6 flex items-center justify-center text-white/50 hover:text-white"><X className="w-3.5 h-3.5" /></button>}
+            </label>
             {/* Venues / bands (job 415). */}
             <span className="flex gap-1" role="tablist" aria-label="Stage pool">
               {[["venues", "VENUES", stages], ["bands", "BANDS", bands]].map(([id, label, list]) => (
                 <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                   className="h-7 px-2.5 rounded-[3px] border text-[11px] font-bold tracking-[0.12em]"
                   style={tab === id ? { background: G, borderColor: G, color: "#0b0b0b" } : { background: "#121212", borderColor: "#333", color: "#bdbdbd" }}>
-                  {label}<span className="ml-1.5 opacity-60">{list ? list.filter((x) => x.hasRig).length : ""}</span>
+                  {label}<span className="ml-1.5 opacity-60">{list ? found(list).filter((x) => x.hasRig).length : ""}</span>
                 </button>
               ))}
             </span>
-            <span className="ml-auto text-[11px] text-white/35 hidden md:inline">TAP A CELL TO OPEN</span>
+            <span className="ml-auto text-[11px] text-white/35 hidden xl:inline">TAP A CELL TO OPEN</span>
           </div>
           {pool === null ? (
             <div className="py-16 flex justify-center"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${G}44`, borderTopColor: G }} /></div>
@@ -127,6 +139,12 @@ export default function RigStage() {
                   </span>
                 </button>
               ))}
+              {needle && !withRig.length && (
+                <div className="min-h-[200px] rounded-[4px] border border-[#262626] bg-[#0d0d0d] flex flex-col items-center justify-center gap-1 text-center px-4">
+                  <span className="text-[13px] font-semibold text-white/70">No {isBands ? "bands" : "venues"} match "{q.trim()}"</span>
+                  <button type="button" onClick={() => setQ("")} className="text-[12.5px] font-semibold" style={{ color: G }}>Clear search</button>
+                </div>
+              )}
               <button type="button" onClick={fresh}
                 className="rounded-[4px] border border-dashed min-h-[200px] flex flex-col items-center justify-center gap-2 text-white/50" style={{ borderColor: "#333", background: "#0d0d0d" }}>
                 <Plus className="w-7 h-7" />
