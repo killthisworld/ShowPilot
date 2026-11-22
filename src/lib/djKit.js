@@ -196,3 +196,26 @@ export async function removeKitTracks(paths) {
 
 // A track's title from its file name: "02 - Night Drive (Edit).mp3" -> "Night Drive (Edit)".
 export const titleFromFile = (name) => String(name || "").replace(/\.[^.]+$/, "").replace(/^\s*\d{1,3}\s*[-_.)]\s*/, "").replace(/[_]+/g, " ").trim() || "Untitled";
+
+// Answer a date request (job 465): "accept" adds the night to the DJ's gigs
+// and emails the promoter a confirmation; "decline" emails the DJ's message.
+// Resolves { ok, emailed, show_id, phone } (phone: text them, no email given).
+export async function replyToRequest(id, action, message) {
+  const { data, error } = await supabase.functions.invoke("dj-request-reply", { body: { request_id: id, action, message } });
+  if (error) {
+    let msg = "Couldn't send it. Try again.";
+    try { const j = await error.context?.json?.(); if (j?.error) msg = j.error; } catch { /* not JSON */ }
+    if (/not found|404/i.test(error.message || "") && msg.startsWith("Couldn't")) msg = "Answering requests needs an update on our side first. Try again soon.";
+    throw new Error(msg);
+  }
+  window.dispatchEvent(new Event("dj-requests-changed"));
+  return data;
+}
+
+// Is this press kit link the signed-in DJ's own? (Only their own row is visible to them.)
+export async function isMyKit(token) {
+  try {
+    const { data } = await supabase.from("dj_press_kits").select("token").eq("token", token).maybeSingle();
+    return !!data;
+  } catch { return false; }
+}

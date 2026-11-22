@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DjRecordPlayer from "@/components/showpilot/DjRecordPlayer";
 import { Play, Download, Mail, Phone, Disc3, ChevronLeft, ChevronRight, Check, X, Loader2, CalendarPlus, ArrowLeft } from "lucide-react";
 import { DJ_COLOR } from "@/lib/djTools";
-import { href, platformOf, requestDate, todayIso } from "@/lib/djKit";
+import { href, isMyKit, platformOf, requestDate, todayIso } from "@/lib/djKit";
 
 // The DJ press kit as people read it (job 457). Used by DJ mode's Profile
 // tab (the DJ's own view) and by the public link (/kit/:token).
@@ -541,12 +541,14 @@ function LinkRow({ kit, max = 99 }) {
 
 const glass = "rounded-2xl bg-black/45 backdrop-blur-md border border-white/10";
 
-// Back, top left (Jay, job 464): to wherever they came from in the app (the
-// DJ's own "See it the way promoters do"), else home for a signed-in user,
-// else Show Pilot's site for a promoter who opened the link.
-function BackButton() {
+// Back, top left (Jay, jobs 464-465): the DJ's own kit goes to their
+// Profile; anyone else goes back in the app, else home when signed in, else
+// Show Pilot's site.
+function BackButton({ token }) {
   const navigate = useNavigate();
-  const back = () => {
+  const back = async () => {
+    // The DJ's own press kit always goes back to their Profile (job 465).
+    if (token && (await isMyKit(token))) { navigate("/dj/profile"); return; }
     if ((window.history.state?.idx ?? 0) > 0) { navigate(-1); return; }
     let signedIn = false;
     try { signedIn = Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)); } catch { /* private mode */ }
@@ -599,7 +601,7 @@ export default function DjKitView({ kit, token }) {
       {/* Phone: the record on top, then tabs, then the buttons. */}
       <div className="lg:hidden relative h-full flex flex-col gap-2.5 px-4 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))]">
         <div className="relative">
-          <div className="absolute left-0 top-0 z-10"><BackButton /></div>
+          <div className="absolute left-0 top-0 z-10"><BackButton token={token} /></div>
           <div className="pl-12"><DjRecordPlayer kit={kit} maxHeight="25dvh" /></div>
         </div>
         <div role="tablist" aria-label="Press kit" className="flex gap-1 p-1 rounded-full bg-black/45 border border-white/10">
@@ -629,7 +631,7 @@ export default function DjKitView({ kit, token }) {
           the calendar on top, the About card along the bottom. */}
       <div className="hidden lg:grid relative h-full p-6 gap-5" style={{ gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr)", gridTemplateRows: "minmax(0,1fr) minmax(0,0.85fr)" }}>
         <div className="row-span-2 min-h-0 flex flex-col justify-center gap-4 relative">
-          <div className="absolute left-0 top-0 z-10"><BackButton /></div>
+          <div className="absolute left-0 top-0 z-10"><BackButton token={token} /></div>
           <DjRecordPlayer kit={kit} maxHeight="50dvh" />
           {take && (
             <div className="flex gap-2">

@@ -69,6 +69,10 @@ function GigTicket({ g, set, onOpen, onSet }) {
 export default function DjGigs() {
   const navigate = useNavigate();
   const [gigs, setGigs] = useState(null);
+  // Gigs | Requests (job 465). ?tab=requests opens on Requests.
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("tab") === "requests" ? "requests" : "gigs"));
+  const [newRequests, setNewRequests] = useState(0);
+  const [reload, setReload] = useState(0);
   const [sets, setSets] = useState({}); // show_id -> { id, in, all, slots }
 
   useEffect(() => {
@@ -115,7 +119,7 @@ export default function DjGigs() {
       setGigs(list);
     })().catch((e) => { console.error(e); if (!gone) setGigs([]); });
     return () => { gone = true; };
-  }, []);
+  }, [reload]);
 
   // One month at a time (job 452, Jay 2026-11-21): arrows step through the
   // months (and into other years), and that month's gigs are right there on
@@ -155,12 +159,23 @@ export default function DjGigs() {
       {/* On a computer the page uses the full width under a header bar, like the Sets page (job 452). */}
       <main className={`relative z-[1] ${DESK_MAIN} pt-5 pb-[120px] flex flex-col gap-3`} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <header className={DESK_HEADER}>
-          <h1 className="m-0 text-[34px] lg:text-3xl leading-none" style={cond}>Gigs</h1>
+          <h1 className="m-0 text-[34px] lg:text-3xl leading-none" style={cond}>Bookings</h1>
           {upcoming > 0 && <span className="mt-1 lg:mt-0 lg:ml-auto block text-[11px] tracking-[0.14em] text-white/60" style={mono}>{upcoming} COMING UP</span>}
         </header>
-        {/* Promoters asking for a night from the press kit (job 459). */}
-        <DjDateRequests />
-        {gigs === null ? (
+        <div role="tablist" aria-label="Bookings" className="flex gap-1 p-1 rounded-full bg-black/45 border border-white/10 lg:self-start lg:min-w-[320px]">
+          {[["gigs", "Gigs"], ["requests", "Requests"]].map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="flex-1 min-h-[38px] px-4 rounded-full text-[14px] font-semibold flex items-center justify-center gap-2 transition-colors" style={tab === k ? { background: DJ_COLOR, color: "#000" } : { color: "rgba(255,255,255,0.75)" }}>
+              {label}
+              {k === "requests" && newRequests > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center" style={tab === k ? { background: "#000", color: DJ_COLOR } : { background: "#F87171", color: "#0d0d0d" }}>{newRequests}</span>}
+            </button>
+          ))}
+        </div>
+        {/* Promoters asking for a night from the press kit (jobs 459, 465). Kept
+            mounted so the tab's count stays right. */}
+        <div className={tab === "requests" ? "" : "hidden"}>
+          <DjDateRequests onCount={setNewRequests} onBooked={() => setReload((n) => n + 1)} />
+        </div>
+        {tab !== "gigs" ? null : gigs === null ? (
           <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin" style={{ color: DJ_COLOR }} /></div>
         ) : (
           <>
