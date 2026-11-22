@@ -6,7 +6,7 @@ import NightSky from "@/components/showpilot/NightSky";
 import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
-import { ensureKitLink, fetchMyExtras, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, titleFromFile, TRACK_ACCEPT, uploadKitImage, uploadKitTrack } from "@/lib/djKit";
+import { ensureKitLink, fetchMyExtras, isAudioFile, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, titleFromFile, TRACK_ACCEPT, uploadKitImage, uploadKitTrack } from "@/lib/djKit";
 import DjRecordPlayer, { SIDE_MAX } from "@/components/showpilot/DjRecordPlayer";
 import { Avatar, Bio, Contact, Dates, GenreChips, History, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
 
@@ -210,10 +210,11 @@ function Identity({ kit, actions, big }) {
           <div className="min-w-0 flex flex-col gap-1.5">
             <div className={`${big ? "text-[44px]" : "text-[30px]"} leading-[0.95] break-words`} style={cond}>{kit.name}</div>
             {kit.city && <div className="text-[11px] tracking-[0.14em] text-white/65" style={mono}>{kit.city.toUpperCase()}</div>}
-            <GenreChips genres={kit.genre_tags} />
+            {!big && <GenreChips genres={kit.genre_tags} />}
           </div>
         </div>
         {big && <Bio bio={kit.bio} own />}
+        {big && <GenreChips genres={kit.genre_tags} />}
         {actions}
       </div>
     </section>
@@ -289,8 +290,11 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   // Tracks for the record (job 460): up to 5 a side.
   const addTracks = async (files, sideKey) => {
     const room = SIDE_MAX - d.kit_tracks[sideKey].length;
-    const list = Array.from(files || []).filter((f) => f.type.startsWith("audio/") || /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name)).slice(0, Math.max(0, room));
-    if (!list.length) { if (room <= 0) toast({ title: `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` }); return; }
+    const list = Array.from(files || []).filter(isAudioFile).slice(0, Math.max(0, room));
+    if (!list.length) {
+      toast({ title: room <= 0 ? `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` : "That doesn't look like an audio file", variant: room <= 0 ? undefined : "destructive" });
+      return;
+    }
     setUploading(`track-${sideKey}`);
     try {
       for (const f of list) {
@@ -439,7 +443,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       </div>
 
       <div className="flex flex-col gap-3 lg:gap-5">
-        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side. Promoters play them from the record on your press kit. MP3 works best (30 MB a track at most).`}>
+        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side, any audio file (MP3, WAV, AIFF, FLAC...). Promoters play them from the record on your press kit. MP3, WAV and M4A play on every phone and browser.`}>
           {["a", "b"].map((sk) => (
             <div key={sk} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">

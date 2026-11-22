@@ -424,12 +424,13 @@ export function AboutCard({ kit }) {
         )}
       </div>
       <div className="absolute inset-x-0 bottom-0 top-[34%] p-4 flex flex-col justify-end gap-2">
-        <GenreChips genres={kit.genre_tags} />
         <div ref={textBox} className="min-h-0 flex-1 flex flex-col justify-end">
           {kit.bio ? (
             <p ref={bioRef} className="m-0 text-[15px] leading-[1.5] text-white/90 overflow-hidden whitespace-pre-line" style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: lines }}>{kit.bio}</p>
           ) : null}
         </div>
+        {/* Genres under the bio (Jay, job 461). */}
+        <GenreChips genres={kit.genre_tags} />
         <div className="flex items-center justify-between gap-2 min-h-[28px]">
           {kit.bio && clipped ? <button type="button" onClick={() => setFull(true)} className="text-[13px] font-semibold underline underline-offset-2 text-white/85 hover:text-white">Read more</button> : <span />}
           {list.length > 1 && (

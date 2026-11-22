@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, Pause, SkipBack, SkipForward, RefreshCw, Disc3 } from "lucide-react";
 import { DJ_COLOR } from "@/lib/djTools";
 
-// The press kit's record (job 460, Jay 2026-11-22): the DJ puts up to 5
-// tracks on each side; the label is the play button, the record spins while
+// The press kit's record (job 460, Jay 2026-11-22): the DJ puts up to 2
+// tracks on each side (SIDE_MAX); the label is the play button, the record spins while
 // it plays, and the track's name shows under it. A side plays through and
 // stops, like vinyl: flip it for Side B.
 //   kit: { name, city, photo_url, press_photos, tracks: { a: [{ title, url }], b: [...] } }
@@ -11,7 +11,8 @@ import { DJ_COLOR } from "@/lib/djTools";
 
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
-export const SIDE_MAX = 5;
+// 2 a side keeps storage down (Jay, job 461; was 5).
+export const SIDE_MAX = 2;
 
 export const sidesOf = (tracks) => ({
   a: (tracks?.a || []).filter((t) => t?.url).slice(0, SIDE_MAX),

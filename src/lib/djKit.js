@@ -173,17 +173,23 @@ export function useNewRequestCount(enabled = true) {
 }
 
 // A track for the press kit's record (job 460): public, in the DJ's own
-// folder of the dj-kit-audio bucket. 30 MB at most (the bucket refuses more).
-export const TRACK_MAX_BYTES = 30 * 1024 * 1024;
-export const TRACK_ACCEPT = "audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,audio/flac,.mp3,.m4a,.aac,.wav,.ogg,.flac";
+// folder of the dj-kit-audio bucket. Any audio file, any size the project's
+// upload limit allows (job 461, Jay: was MP3-ish only and 30 MB).
+const AUDIO_EXT = { mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac", wav: "audio/wav", wave: "audio/wav", aif: "audio/aiff", aiff: "audio/aiff", aifc: "audio/aiff", flac: "audio/flac", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/opus", webm: "audio/webm", alac: "audio/mp4", caf: "audio/x-caf", wma: "audio/x-ms-wma", amr: "audio/amr" };
+export const TRACK_ACCEPT = ["audio/*", ...Object.keys(AUDIO_EXT).map((e) => `.${e}`)].join(",");
+const extOf = (name) => (String(name || "").split(".").pop() || "").toLowerCase();
+export const isAudioFile = (f) => (f?.type || "").startsWith("audio/") || !!AUDIO_EXT[extOf(f?.name)];
 export async function uploadKitTrack(userId, file) {
-  if (file.size > TRACK_MAX_BYTES) throw new Error(`${file.name} is over 30 MB. Use an MP3 or a shorter clip.`);
-  const ext = (file.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+  const ext = extOf(file.name).replace(/[^a-z0-9]/g, "") || "audio";
   const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from("dj-kit-audio").upload(path, file, { contentType: file.type || undefined });
+  // Phones often leave the type blank for AIFF or FLAC: name it from the extension.
+  const contentType = (file.type || "").startsWith("audio/") ? file.type : AUDIO_EXT[ext] || "application/octet-stream";
+  const { error } = await supabase.storage.from("dj-kit-audio").upload(path, file, { contentType });
   if (error) {
-    if (/bucket/i.test(error.message || "")) throw new Error("Tracks need a database update first. Try again soon.");
-    throw new Error(error.message || "Couldn't upload that track");
+    const m = error.message || "";
+    if (/maximum allowed size|too large|payload/i.test(m)) throw new Error(`${file.name} is bigger than Show Pilot's upload limit. Try an MP3 of it.`);
+    if (/bucket/i.test(m)) throw new Error("Tracks need a database update first. Try again soon.");
+    throw new Error(m || "Couldn't upload that track");
   }
   return { url: supabase.storage.from("dj-kit-audio").getPublicUrl(path).data.publicUrl, path };
 }
