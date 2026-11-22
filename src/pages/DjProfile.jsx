@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import AlertsCard from "@/components/showpilot/AlertsCard";
 import { Loader2, Settings, Share2, Pencil, Plus, X, Camera, ImagePlus, Check, Eye, Music } from "lucide-react";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
@@ -149,6 +150,7 @@ export default function DjProfile() {
             {/* Phone: one column. */}
             <div className="lg:hidden flex flex-col gap-4">
               <Identity kit={kit} actions={<div className="flex flex-col gap-2"><div className="flex gap-2">{actions}</div><PreviewBtn onClick={preview} /></div>} />
+              <AlertsCard accent={DJ_COLOR} className="" what={DJ_ALERTS} onlyWhenOff />
               <OwnRecord kit={kit} />
               <Dates dates={dates} own />
               <History history={extras?.history || []} own />
@@ -162,6 +164,7 @@ export default function DjProfile() {
             <div className="hidden lg:grid grid-cols-2 gap-6 items-start pt-2">
               <div className="flex flex-col gap-5">
                 <Identity kit={kit} big actions={<PreviewBtn onClick={preview} />} />
+                <AlertsCard accent={DJ_COLOR} className="" what={DJ_ALERTS} onlyWhenOff />
                 <Links links={kit.links} own />
                 <Contact kit={kit} own />
               </div>
@@ -180,6 +183,9 @@ export default function DjProfile() {
     </div>
   );
 }
+
+// What a DJ's lock-screen alerts cover (job 469).
+const DJ_ALERTS = "new date requests, promoter messages and submitted sets";
 
 function OwnRecord({ kit }) {
   const n = tracksOf(kit.tracks).length;

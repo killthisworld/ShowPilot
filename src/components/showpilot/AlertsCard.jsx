@@ -5,13 +5,15 @@ import { usePush } from "@/lib/push";
 // "Lock-screen alerts" switch (job 305), in Me (company phones) and the
 // settings drawer (tech accounts). Round 1 sends event announcements and
 // time changes.
-export default function AlertsCard({ accent = "#8CFF3D", className = "mx-5 mt-4" }) {
+// what: what the alerts cover, for this screen (DJ Profile passes its own).
+// onlyWhenOff: hide the card once alerts are on (a nudge, not a setting).
+export default function AlertsCard({ accent = "#8CFF3D", className = "mx-5 mt-4", what = "announcements and time changes on your events", onlyWhenOff = false }) {
   const { state, busy, err, turnOn, turnOff } = usePush();
-  if (state === "loading" || state === "unsupported") return null;
+  if (state === "loading" || state === "unsupported" || (onlyWhenOff && state === "on")) return null;
   const on = state === "on";
   const sub = {
-    on: "On for this phone: announcements and time changes on your events.",
-    off: "Get announcements and time changes on your lock screen, even with Show Pilot closed.",
+    on: `On for this phone: ${what}.`,
+    off: `Get ${what} on your lock screen, even with Show Pilot closed.`,
     blocked: "Alerts are blocked for Show Pilot. Turn them on in your phone's Settings, then come back.",
     "needs-home-screen": "On iPhone, add Show Pilot to your home screen first, then open it from there to turn alerts on.",
   }[state];

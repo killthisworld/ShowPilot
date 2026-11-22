@@ -8,7 +8,7 @@ import { supabase } from "@/api/supabaseClient";
 
 // The public half of Show Pilot's VAPID key (safe to ship; the private half
 // is a Supabase secret). Can be overridden with VITE_VAPID_PUBLIC_KEY.
-export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BKkwkWKrBxihWAX2ZwFGEUtdbYZtpF_F8hzCACR5PQLYckw8OeUhSup6vzyf-UIKAAiao8E_0dKQ43Lx5Z8VKmo";
+export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "BPhRDup1bkSJdQU8O-BUsO15EP7Wtaqbrid5fmM23raPn7w_sKsWy1lmtvpTwRsDRodUY8tUem0y5xWC60Gx4d4";
 
 const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
 const standalone = () => window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -17,6 +17,21 @@ function keyBytes(b64) {
   const pad = "=".repeat((4 - (b64.length % 4)) % 4);
   const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+// A phone that turned alerts on with an older key (job 469 made a new pair)
+// moves to the current one by itself, no tap needed.
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  const { error } = await supabase.rpc("save_push_subscription", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_user_agent: navigator.userAgent });
+  if (error) throw error;
+}
+function sameKey(sub) {
+  const k = sub?.options?.applicationServerKey;
+  if (!k) return true; // can't tell: leave it
+  const a = new Uint8Array(k);
+  const b = keyBytes(VAPID_PUBLIC_KEY);
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 // "on" | "off" | "blocked" (said no in the phone's settings) |
@@ -32,7 +47,14 @@ export function usePush() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) { setState("unsupported"); return; }
       if (Notification.permission === "denied") { setState("blocked"); return; }
       const reg = await navigator.serviceWorker.getRegistration();
-      const sub = await reg?.pushManager?.getSubscription();
+      let sub = await reg?.pushManager?.getSubscription();
+      if (sub && Notification.permission === "granted" && !sameKey(sub)) {
+        try {
+          await sub.unsubscribe();
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) });
+          await saveSub(sub);
+        } catch (e) { console.error(e); sub = null; }
+      }
       setState(sub && Notification.permission === "granted" ? "on" : "off");
     } catch { setState("unsupported"); }
   }, []);
@@ -47,9 +69,8 @@ export function usePush() {
       await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) });
-      const j = sub.toJSON();
-      const { error } = await supabase.rpc("save_push_subscription", { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_user_agent: navigator.userAgent });
-      if (error) throw error;
+      if (!sameKey(sub)) { await sub.unsubscribe(); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) }); }
+      await saveSub(sub);
       setState("on");
     } catch (e) {
       console.error(e);
