@@ -12,6 +12,7 @@
 import React from "react";
 import { supabase } from "@/api/supabaseClient";
 import { emptyArtistTemplate, normalizeArtistTemplate } from "@/lib/showTemplates";
+import { shrinkImage, uploadDirect } from "@/lib/directUpload";
 
 // Platforms a DJ links to, in the order they're offered.
 export const KIT_PLATFORMS = ["Instagram", "SoundCloud", "Mixcloud", "Resident Advisor", "Spotify", "Bandcamp", "YouTube", "TikTok", "Beatport", "Website"];
@@ -137,13 +138,13 @@ export function todayIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Press photos, logo and the main photo are public: they're for flyers.
-export async function uploadKitImage(userId, file) {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+// Press photos, logo, banner and the profile pic are public: they're for
+// flyers. Shrunk on the phone first, then uploaded with progress (job 462).
+export async function uploadKitImage(userId, file, { onProgress, max = 2400 } = {}) {
+  const img = await shrinkImage(file, { max });
+  const ext = img.type === "image/png" ? "png" : img.type === "image/jpeg" ? "jpg" : ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg");
   const path = `${userId}/djkit/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from("profile-photos").upload(path, file, { contentType: file.type || undefined });
-  if (error) throw error;
-  return supabase.storage.from("profile-photos").getPublicUrl(path).data.publicUrl;
+  return uploadDirect("profile-photos", path, img, { contentType: img.type || file.type || undefined, onProgress });
 }
 
 export async function fetchPublicKit(token) {
@@ -172,26 +173,17 @@ export function useNewRequestCount(enabled = true) {
   return n;
 }
 
-// A track for the press kit's record (job 460): public, in the DJ's own
-// folder of the dj-kit-audio bucket. Any audio file, any size the project's
-// upload limit allows (job 461, Jay: was MP3-ish only and 30 MB).
+// A track on the press kit's record (jobs 460-462): the DJ picks any audio
+// file and 15 seconds of it (DjClipPicker); the phone makes that a small MP3
+// and it goes up to the DJ's own folder of the dj-kit-audio bucket.
 const AUDIO_EXT = { mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "audio/mp4", aac: "audio/aac", wav: "audio/wav", wave: "audio/wav", aif: "audio/aiff", aiff: "audio/aiff", aifc: "audio/aiff", flac: "audio/flac", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/opus", webm: "audio/webm", alac: "audio/mp4", caf: "audio/x-caf", wma: "audio/x-ms-wma", amr: "audio/amr" };
 export const TRACK_ACCEPT = ["audio/*", ...Object.keys(AUDIO_EXT).map((e) => `.${e}`)].join(",");
 const extOf = (name) => (String(name || "").split(".").pop() || "").toLowerCase();
 export const isAudioFile = (f) => (f?.type || "").startsWith("audio/") || !!AUDIO_EXT[extOf(f?.name)];
-export async function uploadKitTrack(userId, file) {
-  const ext = extOf(file.name).replace(/[^a-z0-9]/g, "") || "audio";
-  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  // Phones often leave the type blank for AIFF or FLAC: name it from the extension.
-  const contentType = (file.type || "").startsWith("audio/") ? file.type : AUDIO_EXT[ext] || "application/octet-stream";
-  const { error } = await supabase.storage.from("dj-kit-audio").upload(path, file, { contentType });
-  if (error) {
-    const m = error.message || "";
-    if (/maximum allowed size|too large|payload/i.test(m)) throw new Error(`${file.name} is bigger than Show Pilot's upload limit. Try an MP3 of it.`);
-    if (/bucket/i.test(m)) throw new Error("Tracks need a database update first. Try again soon.");
-    throw new Error(m || "Couldn't upload that track");
-  }
-  return { url: supabase.storage.from("dj-kit-audio").getPublicUrl(path).data.publicUrl, path };
+export async function uploadKitClip(userId, blob, { onProgress } = {}) {
+  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`;
+  const url = await uploadDirect("dj-kit-audio", path, blob, { contentType: "audio/mpeg", onProgress });
+  return { url, path };
 }
 
 // Tracks taken off the record: delete their files (best effort).

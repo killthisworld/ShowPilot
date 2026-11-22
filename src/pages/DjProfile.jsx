@@ -6,7 +6,9 @@ import NightSky from "@/components/showpilot/NightSky";
 import { useToast } from "@/components/ui/use-toast";
 import { usePreferences } from "@/hooks/usePreferences";
 import { DJ_COLOR, DESK_HEADER, DESK_MAIN } from "@/lib/djTools";
-import { ensureKitLink, fetchMyExtras, isAudioFile, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, titleFromFile, TRACK_ACCEPT, uploadKitImage, uploadKitTrack } from "@/lib/djKit";
+import { ensureKitLink, fetchMyExtras, isAudioFile, kitUrl, loadKit, platformOf, removeKitTracks, saveKit, setKitFlags, TRACK_ACCEPT, uploadKitClip, uploadKitImage } from "@/lib/djKit";
+import DjClipPicker from "@/components/showpilot/DjClipPicker";
+import { CLIP_SECONDS } from "@/lib/audioClip";
 import DjRecordPlayer, { SIDE_MAX } from "@/components/showpilot/DjRecordPlayer";
 import { Avatar, Bio, Contact, Dates, GenreChips, History, Label, Links, Mixes, Photos, cond, mono } from "@/components/showpilot/DjKitView";
 
@@ -287,25 +289,29 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   const bannerIn = useRef(null);
   const trackIn = { a: useRef(null), b: useRef(null) };
 
-  // Tracks for the record (job 460): up to 5 a side.
-  const addTracks = async (files, sideKey) => {
-    const room = SIDE_MAX - d.kit_tracks[sideKey].length;
-    const list = Array.from(files || []).filter(isAudioFile).slice(0, Math.max(0, room));
-    if (!list.length) {
-      toast({ title: room <= 0 ? `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` : "That doesn't look like an audio file", variant: room <= 0 ? undefined : "destructive" });
-      return;
-    }
-    setUploading(`track-${sideKey}`);
+  // Tracks for the record (jobs 460-462): pick a file, pick 15 seconds of
+  // it, and the clip goes up as a small MP3. SIDE_MAX a side.
+  const [picking, setPicking] = useState(null); // { file, side }
+  const [pct, setPct] = useState(0);
+  const addTracks = (files, sideKey) => {
+    const f = Array.from(files || [])[0];
+    if (!f) return;
+    if (d.kit_tracks[sideKey].length >= SIDE_MAX) { toast({ title: `Side ${sideKey.toUpperCase()} is full (${SIDE_MAX} tracks)` }); return; }
+    if (!isAudioFile(f)) { toast({ title: "That doesn't look like an audio file", variant: "destructive" }); return; }
+    setPicking({ file: f, side: sideKey });
+  };
+  const clipPicked = async ({ blob, title, start }) => {
+    const sideKey = picking.side;
+    setPicking(null);
+    setUploading(`track-${sideKey}`); setPct(0);
     try {
-      for (const f of list) {
-        const up = await uploadKitTrack(state.userId, f);
-        setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: [...x.kit_tracks[sideKey], { title: titleFromFile(f.name), url: up.url, path: up.path }].slice(0, SIDE_MAX) } }));
-      }
+      const up = await uploadKitClip(state.userId, blob, { onProgress: setPct });
+      setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: [...x.kit_tracks[sideKey], { title, url: up.url, path: up.path, clip_start: start }].slice(0, SIDE_MAX) } }));
     } catch (e) {
       console.error(e);
-      toast({ title: e?.message || "Couldn't upload that track", variant: "destructive" });
+      toast({ title: e?.message || "Couldn't upload that clip", variant: "destructive" });
     } finally {
-      setUploading("");
+      setUploading(""); setPct(0);
     }
   };
   const setTrack = (sideKey, i, patch) => setD((x) => ({ ...x, kit_tracks: { ...x.kit_tracks, [sideKey]: x.kit_tracks[sideKey].map((tr, j) => (j === i ? { ...tr, ...patch } : tr)) } }));
@@ -318,21 +324,24 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
   });
 
   const upload = async (files, what) => {
-    const list = Array.from(files || []).filter((f) => f.type.startsWith("image/"));
+    let list = Array.from(files || []).filter((f) => (f.type || "").startsWith("image/") || /\.(heic|heif|jpe?g|png|webp|gif)$/i.test(f.name));
+    if (what === "press") list = list.slice(0, Math.max(0, 5 - d.kit_photos.length));
     if (!list.length) return;
-    setUploading(what);
+    setUploading(what); setPct(0);
     try {
-      const urls = [];
-      for (const f of list) urls.push(await uploadKitImage(state.userId, f));
-      if (what === "photo") set("photo_url", urls[0]);
-      else if (what === "logo") set("kit_logo_url", urls[0]);
-      else if (what === "banner") set("kit_banner_url", urls[0]);
-      else setD((x) => ({ ...x, kit_photos: [...x.kit_photos, ...urls.map((url) => ({ url }))].slice(0, 5) }));
+      for (let n = 0; n < list.length; n++) {
+        const url = await uploadKitImage(state.userId, list[n], { max: what === "logo" ? 1600 : 2400, onProgress: (p) => setPct((n + p) / list.length) });
+        // Each one shows as soon as it's up, so one slow photo doesn't hide the rest.
+        if (what === "photo") set("photo_url", url);
+        else if (what === "logo") set("kit_logo_url", url);
+        else if (what === "banner") set("kit_banner_url", url);
+        else setD((x) => ({ ...x, kit_photos: [...x.kit_photos, { url }].slice(0, 5) }));
+      }
     } catch (e) {
       console.error(e);
-      toast({ title: "Couldn't upload that picture", variant: "destructive" });
+      toast({ title: e?.message || "Couldn't upload that picture", variant: "destructive" });
     } finally {
-      setUploading("");
+      setUploading(""); setPct(0);
     }
   };
 
@@ -443,7 +452,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
       </div>
 
       <div className="flex flex-col gap-3 lg:gap-5">
-        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side, any audio file (MP3, WAV, AIFF, FLAC...). Promoters play them from the record on your press kit. MP3, WAV and M4A play on every phone and browser.`}>
+        <Box title="THE RECORD" hint={`Up to ${SIDE_MAX} tracks on each side. Pick any audio file, then choose the ${CLIP_SECONDS} seconds promoters hear when they play your record.`}>
           {["a", "b"].map((sk) => (
             <div key={sk} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
@@ -452,7 +461,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
               </div>
               {d.kit_tracks[sk].map((tr, i) => (
                 <div key={`${tr.path || tr.url}-${i}`} className="flex items-center gap-1.5">
-                  <span className="w-7 shrink-0 text-[12px] text-white/55" style={mono}>{sk.toUpperCase()}{i + 1}</span>
+                  <span className="w-7 shrink-0 text-[12px] text-white/55" style={mono} title={tr.clip_start != null ? `Clip from ${Math.floor(tr.clip_start / 60)}:${String(Math.floor(tr.clip_start % 60)).padStart(2, "0")}` : undefined}>{sk.toUpperCase()}{i + 1}</span>
                   <input className={field} aria-label={`Side ${sk.toUpperCase()} track ${i + 1} title`} value={tr.title} onChange={(e) => setTrack(sk, i, { title: e.target.value })} placeholder="Track name" />
                   <button type="button" onClick={() => moveTrack(sk, i, i - 1)} disabled={i === 0} aria-label="Move up" className="w-9 h-11 shrink-0 rounded-lg text-white/60 hover:text-white disabled:opacity-25">↑</button>
                   <RemoveBtn label={`Remove ${tr.title || "track"}`} onClick={() => dropTrack(sk, i)} />
@@ -460,10 +469,10 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
               ))}
               {d.kit_tracks[sk].length < SIDE_MAX && (
                 <button type="button" onClick={() => trackIn[sk].current?.click()} disabled={!!uploading} className="self-start min-h-[40px] px-3.5 rounded-full border border-dashed border-white/25 flex items-center gap-1.5 text-[14px] font-semibold text-white/80 hover:text-white hover:border-white/50 disabled:opacity-50">
-                  {uploading === `track-${sk}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}Add tracks to side {sk.toUpperCase()}
+                  {uploading === `track-${sk}` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Music className="w-4 h-4" />}{uploading === `track-${sk}` ? `Uploading ${Math.round(pct * 100)}%` : `Add a track to side ${sk.toUpperCase()}`}
                 </button>
               )}
-              <input ref={trackIn[sk]} type="file" accept={TRACK_ACCEPT} multiple className="hidden" onChange={(e) => { addTracks(e.target.files, sk); e.target.value = ""; }} />
+              <input ref={trackIn[sk]} type="file" accept={TRACK_ACCEPT} className="hidden" onChange={(e) => { addTracks(e.target.files, sk); e.target.value = ""; }} />
             </div>
           ))}
           <p className="m-0 text-[12px] text-white/45">Only put up music you have the rights to share: your own productions, edits or clips of your sets.</p>
@@ -496,7 +505,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
             ))}
             {d.kit_photos.length < 5 && (
               <button type="button" onClick={() => pressIn.current?.click()} className="aspect-[4/5] rounded-[10px] border border-dashed border-white/25 flex flex-col items-center justify-center gap-1 text-[12px] text-white/70 hover:border-white/50">
-                {uploading === "press" ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}{d.kit_photos.length}/5
+                {uploading === "press" ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}{uploading === "press" ? `${Math.round(pct * 100)}%` : `${d.kit_photos.length}/5`}
               </button>
             )}
           </div>
@@ -544,6 +553,7 @@ function KitEditor({ state, flags: flags0, onCancel, onSaved }) {
         </Box>
       </div>
 
+      {picking && <DjClipPicker file={picking.file} side={picking.side} onDone={clipPicked} onCancel={() => setPicking(null)} />}
       <div className="lg:col-span-2 flex gap-2 sticky bottom-[84px] z-10 -mx-4 px-4 py-2.5 bg-black/85 backdrop-blur lg:static lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent lg:backdrop-blur-none">
         <button type="button" onClick={save} disabled={saving || !!uploading} className="flex-1 lg:flex-none min-h-[48px] px-7 rounded-full flex items-center justify-center gap-2 text-[15px] font-bold disabled:opacity-60" style={{ background: DJ_COLOR, color: "#000" }}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}Save
