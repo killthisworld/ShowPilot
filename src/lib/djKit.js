@@ -219,3 +219,61 @@ export async function isMyKit(token) {
     return !!data;
   } catch { return false; }
 }
+
+// ---- Request chats (job 466): DJ <-> promoter on held / confirmed requests ----
+
+// The DJ's chats: held (In progress) and confirmed (Confirmed), newest first.
+export async function listRequestThreads() {
+  const { data, error } = await supabase.from("dj_date_requests")
+    .select("id, date, status, event_name, venue, city, set_time, name, email, phone, message, last_message_at, last_sender, dj_seen_at, chat_token, show_id")
+    .in("status", ["hold", "accepted"]).order("last_message_at", { ascending: false, nullsFirst: false });
+  if (error) { console.error(error); return []; }
+  return (data || []).map((r) => ({ ...r, unread: r.last_sender === "promoter" && (!r.dj_seen_at || r.last_message_at > r.dj_seen_at) }));
+}
+
+// One chat's messages, for the DJ; marks it seen.
+export async function loadThread(id) {
+  const { data, error } = await supabase.from("dj_request_messages").select("id, sender, body, created_at").eq("request_id", id).order("created_at");
+  if (error) { console.error(error); return null; }
+  supabase.from("dj_date_requests").update({ dj_seen_at: new Date().toISOString() }).eq("id", id)
+    .then(() => window.dispatchEvent(new Event("dj-chats-changed")), () => {});
+  return (data || []).map((m) => ({ id: m.id, sender: m.sender, body: m.body, at: m.created_at }));
+}
+
+// The promoter's side, by the private link.
+export async function loadPromoterChat(token) {
+  const { data, error } = await supabase.rpc("get_dj_request_chat", { p_token: token });
+  if (error) throw error;
+  return data || null;
+}
+
+// Send a message: { token } for the promoter, { request_id } for the DJ.
+export async function sendChat(who, body) {
+  const { data, error } = await supabase.functions.invoke("dj-request-chat", { body: { ...who, body } });
+  if (error) {
+    let msg = "Couldn't send it. Try again.";
+    try { const j = await error.context?.json?.(); if (j?.error) msg = j.error; } catch { /* not JSON */ }
+    throw new Error(msg);
+  }
+  return data?.message;
+}
+
+// Chats with a new message from a promoter: the Chats badge in DJ mode.
+export function useRequestChatUnread(enabled = true) {
+  const [n, setN] = React.useState(0);
+  React.useEffect(() => {
+    if (!enabled) return undefined;
+    let gone = false;
+    const load = async () => {
+      const { data, error } = await supabase.rpc("dj_request_chat_unread");
+      if (!gone && !error) setN(Number(data) || 0);
+    };
+    load();
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    const iv = setInterval(load, 60000);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("dj-chats-changed", load);
+    return () => { gone = true; clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("dj-chats-changed", load); };
+  }, [enabled]);
+  return n;
+}

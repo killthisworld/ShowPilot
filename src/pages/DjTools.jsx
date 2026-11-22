@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import BottomTabs from "@/components/showpilot/BottomTabs";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/lib/navHistory";
 import { ArrowDown, ArrowLeft, ArrowUp, Check, Clock, Copy, Disc3, ExternalLink, FileAudio, FileText, FolderOpen, Loader2, MoreHorizontal, Pencil, Plus, Trash2, Share2, Send, Undo2 } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
@@ -29,10 +29,11 @@ const RED = "#F87171";
 const STATUS = {
   waiting: { label: "Not opened yet", color: "#9A9A9A" },
   started: { label: "Started", color: BLUE },
-  submitted: { label: "Sent", color: G },
+  // Words, not dots (Jay, job 466): green Submitted, yellow Sent.
+  submitted: { label: "Submitted", color: G },
 };
 // Before anything comes in (job 354): has the link gone out yet?
-const LINK_SENT = { label: "Link sent", color: DJ_COLOR };
+const LINK_SENT = { label: "Sent", color: DJ_COLOR };
 const NO_LINK = { label: "No link yet", color: "#5c5c5c" };
 const slotState = (s) => (s.status && s.status !== "waiting" ? STATUS[s.status] || STATUS.waiting : s.link_sent_at ? LINK_SENT : NO_LINK);
 const sentDay = (iso) => { try { return new Date(iso).toLocaleDateString("en-US", { weekday: "short" }); } catch { return ""; } };
@@ -466,9 +467,13 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
   const [evTimes, setEvTimes] = useState({});
   const [evPhoto, setEvPhoto] = useState("");
   const [actPhotos, setActPhotos] = useState({});
+  // The event's Show Pilot event link code (/v/<code>), when it has one (job 466).
+  const [eventCode, setEventCode] = useState("");
   useEffect(() => {
-    if (!request.show_id) { setEvTimes({}); setEvPhoto(""); setActPhotos({}); return undefined; }
+    if (!request.show_id) { setEvTimes({}); setEvPhoto(""); setActPhotos({}); setEventCode(""); return undefined; }
     let gone = false;
+    supabase.rpc("dj_event_link_code", { p_show: request.show_id })
+      .then(({ data }) => { if (!gone) setEventCode(typeof data === "string" ? data : ""); }, () => {});
     supabase.from("shows").select("manager_info, icon_url").eq("id", request.show_id).maybeSingle()
       .then(({ data }) => { if (!gone) { setEvTimes(data?.manager_info?.set_times || {}); setEvPhoto(data?.icon_url || ""); } });
     supabase.from("show_bands").select("band_name, photo_url").eq("show_id", request.show_id)
@@ -530,6 +535,8 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
           <Menu label="More for this set" items={[
             slots.length > 0 && { label: sharedAll === "copied" ? "Copied" : sharedAll ? "Shared" : "Share all links", icon: Share2, onClick: async () => { const r = await onShareAll(); if (r) { setSharedAll(r); setTimeout(() => setSharedAll(""), 1800); } } },
             request.drive_folder_id && { label: "Event folder in Drive", icon: FolderOpen, onClick: () => window.open(folderUrl(request.drive_folder_id), "_blank", "noopener") },
+            // Delete lives here now (Jay, job 466), with the same check.
+            { label: "Delete set", icon: Trash2, danger: true, onClick: () => setConfirmDelete(true) },
           ]} />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -555,11 +562,12 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
             className="min-h-[40px] flex items-center gap-1.5 px-3.5 rounded-[10px] border text-sm font-semibold" style={editing ? { borderColor: DJ_COLOR + "88", color: DJ_COLOR, background: DJ_COLOR + "14" } : { borderColor: "#2a2a2a", color: "rgba(255,255,255,0.85)" }}>
             <Pencil className="w-3.5 h-3.5" /> {editing ? "Done" : "Edit"}
           </button>
-          {/* The night's event, everything on it (job 354). */}
-          {request.show_id && (
-            <Link to={`/show/${request.show_id}`} className="min-h-[40px] flex items-center gap-1.5 px-3 rounded-[10px] border border-[#2a2a2a] text-sm font-semibold" style={{ color: RED }}>
-              Event<ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+          {/* The event's Show Pilot event page, only when it has one (Jay, job 466;
+              was the event itself). */}
+          {eventCode && (
+            <a href={`/v/${eventCode}`} className="min-h-[40px] flex items-center gap-1.5 px-3 rounded-[10px] border border-[#2a2a2a] text-sm font-semibold no-underline" style={{ color: RED }}>
+              Event page<ExternalLink className="w-3.5 h-3.5" />
+            </a>
           )}
         </div>
         {!editing && note && <p className="m-0 text-[14px] text-white/70 border-l-[3px] pl-2.5" style={{ borderColor: DJ_COLOR }}>{note}</p>}
@@ -603,19 +611,13 @@ function RequestDetail({ request, slots, files, driveConnected, onUpdate, onDele
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 pt-1">
-        <span className="ml-auto">
-          {confirmDelete ? (
-            <span className="flex items-center gap-2 text-sm">
-              <span className="text-white/60">Delete this set? Files in Drive stay.</span>
-              <button type="button" onClick={onDelete} className="px-3 py-1.5 rounded-lg text-red-300 border border-red-400/40">Delete</button>
-              <button type="button" onClick={() => setConfirmDelete(false)} className="text-white/50">Keep</button>
-            </span>
-          ) : (
-            <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 text-[13px] text-white/35 hover:text-red-300"><Trash2 className="w-3.5 h-3.5" /> Delete set</button>
-          )}
-        </span>
-      </div>
+      {confirmDelete && (
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1 text-sm" role="alert">
+          <span className="text-white/70">Delete this set? Files in Drive stay.</span>
+          <button type="button" onClick={onDelete} className="min-h-[40px] px-3.5 rounded-lg text-red-300 border border-red-400/40 font-semibold">Delete</button>
+          <button type="button" onClick={() => setConfirmDelete(false)} className="min-h-[40px] px-3 text-white/60">Keep</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -665,9 +667,8 @@ function SlotRow({ s, i, count, files, eventTitle, request, auto, time = "", pho
             green sent. */}
         {/* Waiting on them (job 354): the dot says whether the link went out,
             with a word, since nothing else on the row does. */}
-        <span className="flex-1 min-w-0 flex items-center gap-1.5" title={statusText} aria-label={statusText}>
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: st.color }} />
-          {waiting && <span className="text-[12px] whitespace-nowrap truncate" style={{ color: s.link_sent_at ? DJ_COLOR : "rgba(255,255,255,0.45)" }}>{st.label}</span>}
+        <span className="flex-1 min-w-0 flex items-center" title={statusText} aria-label={statusText}>
+          <span className="text-[13px] font-semibold whitespace-nowrap truncate" style={{ color: st.color }}>{st.label}</span>
         </span>
         <button type="button" onClick={async (e) => { stop(e); if (await copyText(slotLink(s))) { setCopied(true); setTimeout(() => setCopied(false), 1500); onMarkSent?.(true); } }}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border border-[#333] text-white/85 hover:text-white whitespace-nowrap">

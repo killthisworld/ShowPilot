@@ -27,6 +27,8 @@ import useNeedsMe from "@/hooks/useNeedsMe";
 import NeedsMeHome from "@/components/showpilot/NeedsMeHome";
 import CompanyChats from "@/components/showpilot/CompanyChats";
 import CompanyChatsDesk from "@/components/showpilot/CompanyChatsDesk";
+import DjChatsShell from "@/components/showpilot/DjChatsShell";
+import { isDjMode } from "@/lib/djMode";
 import { fetchMyIcons } from "@/lib/eventIcons";
 import { eventTypeColor, typeBarBackground, buildEventTypeOptions, matchesEventType, buildGenreOptions, matchesGenre, addCustomEventType, addGenreTag, ADD_NEW_VALUE } from "@/lib/eventTypes";
 
@@ -531,7 +533,10 @@ export default function BandHome() {
   if (isDesktop && phoneView === "chats") {
     return (
       <>
-        <CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} />
+        {/* DJs: Event chats plus their date-request chats (job 466). */}
+        {isDjMode(preferences) ? (
+          <DjChatsShell><CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} /></DjChatsShell>
+        ) : <CompanyChatsDesk preferences={preferences} gigs={gigs} gigsLoading={loading} />}
         <BandBottomTabs />
         {overlays}
       </>
@@ -770,7 +775,9 @@ export default function BandHome() {
   if (phoneView === "chats") {
     return (
       <div className="min-h-screen bg-[#0d0d0d] pb-28">
-        <CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} />
+        {isDjMode(preferences) ? (
+          <DjChatsShell><CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} /></DjChatsShell>
+        ) : <CompanyChats preferences={preferences} gigs={gigs} gigsLoading={loading} />}
         {overlays}
       </div>
     );

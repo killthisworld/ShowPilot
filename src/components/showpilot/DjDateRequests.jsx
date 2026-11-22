@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
-import { Mail, Phone, Loader2, X, Check } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Mail, Phone, Loader2, X, Check, MessageCircle, Pause } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { DJ_COLOR } from "@/lib/djTools";
-import { listRequests, replyToRequest, setRequestStatus } from "@/lib/djKit";
+import { listRequests, replyToRequest } from "@/lib/djKit";
 
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
 const cond = { fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700 };
@@ -15,9 +15,12 @@ const longDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefin
 // Date requests from the press kit (jobs 459, 465): Bookings > Requests.
 // Accept: the night becomes one of the DJ's gigs and the promoter gets a
 // confirmation email. Decline: the DJ writes why, and it's emailed to them.
-// Hold keeps the night orange on the press kit calendar while the DJ decides.
+// Hold is an answer too (job 466): the promoter gets the DJ's note, the night
+// shows orange on the press kit calendar, and they talk details in Chats >
+// In progress before the DJ confirms or declines.
 export default function DjDateRequests({ onBooked, onCount }) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [list, setList] = useState(null);
   const [busy, setBusy] = useState("");
   const [answering, setAnswering] = useState(null); // { r, action }
@@ -31,24 +34,13 @@ export default function DjDateRequests({ onBooked, onCount }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hold = async (r, on) => {
-    setBusy(r.id);
-    try {
-      await setRequestStatus(r.id, on ? "hold" : "new");
-      setList((l) => l.map((x) => (x.id === r.id ? { ...x, status: on ? "hold" : "new" } : x)));
-      toast({ title: on ? "On hold: the night shows orange on your press kit" : "Hold taken off" });
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Couldn't change it. Try again.", variant: "destructive" });
-    } finally { setBusy(""); }
-  };
-
   const answered = (r, action, res) => {
     setAnswering(null);
-    setList((l) => l.filter((x) => x.id !== r.id));
-    onCount?.((list || []).filter((x) => x.id !== r.id && x.status === "new").length);
-    const reach = res?.emailed ? `${r.name} got an email.` : r.phone ? `No email on this request: text ${r.name} at ${r.phone}.` : "";
-    toast({ title: action === "accept" ? "Booked: it's on your Gigs" : "Declined", description: reach });
+    const next = action === "hold" ? (list || []).map((x) => (x.id === r.id ? { ...x, status: "hold" } : x)) : (list || []).filter((x) => x.id !== r.id);
+    setList(next);
+    onCount?.(next.filter((x) => x.status === "new").length);
+    const reach = res?.emailed ? `${r.name} got an email${action === "decline" ? "" : " with a link to chat with you"}.` : r.phone ? `No email on this request: text ${r.name} at ${r.phone}.` : "";
+    toast({ title: action === "accept" ? "Booked: it's on your Gigs" : action === "hold" ? "On hold: chat in Chats › In progress" : "Declined", description: reach });
     if (action === "accept") onBooked?.();
   };
 
@@ -85,9 +77,15 @@ export default function DjDateRequests({ onBooked, onCount }) {
                   <Check className="w-4 h-4" />Accept
                 </button>
                 <button type="button" disabled={busy === r.id} onClick={() => setAnswering({ r, action: "decline" })} className="min-h-[38px] px-3.5 rounded-full border border-white/20 text-[13.5px] font-semibold hover:bg-white/5">Decline</button>
-                <button type="button" disabled={busy === r.id} onClick={() => hold(r, !isHold)} className="min-h-[38px] px-2.5 rounded-full text-[13px] font-semibold text-white/65 hover:text-white">
-                  {busy === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isHold ? "Take off hold" : "Hold"}
-                </button>
+                {isHold ? (
+                  <button type="button" onClick={() => navigate(`/?view=chats&thread=${r.id}`)} className="min-h-[38px] px-3 rounded-full border text-[13.5px] font-semibold flex items-center gap-1.5" style={{ borderColor: `${HOLD}99`, color: HOLD }}>
+                    <MessageCircle className="w-4 h-4" />Chat
+                  </button>
+                ) : (
+                  <button type="button" disabled={busy === r.id} onClick={() => setAnswering({ r, action: "hold" })} className="min-h-[38px] px-3 rounded-full border text-[13.5px] font-semibold flex items-center gap-1.5" style={{ borderColor: `${HOLD}99`, color: HOLD }}>
+                    <Pause className="w-3.5 h-3.5" />Hold
+                  </button>
+                )}
                 <span className="flex-1" />
                 {r.email && <a href={`mailto:${r.email}`} aria-label={`Email ${r.name}`} className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-white/80 hover:text-white"><Mail className="w-4 h-4" /></a>}
                 {r.phone && <a href={`tel:${r.phone}`} aria-label={`Call ${r.name}`} className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center text-white/80 hover:text-white"><Phone className="w-4 h-4" /></a>}
@@ -102,13 +100,16 @@ export default function DjDateRequests({ onBooked, onCount }) {
 }
 
 // The note that goes to the promoter: pre-written, the DJ edits it.
-function ReplySheet({ r, action, onClose, onDone }) {
+export function ReplySheet({ r, action, onClose, onDone }) {
   const accept = action === "accept";
+  const hold = action === "hold";
   const when = longDate(r.date);
   const first = (r.name || "").split(/\s+/)[0] || "there";
   const [msg, setMsg] = useState(accept
     ? `Hi ${first}, I'm confirmed for ${r.event_name || "your night"} on ${when}. Looking forward to it!`
-    : `Hi ${first}, thanks for reaching out about ${when}. Unfortunately I can't make it that night.`);
+    : hold
+      ? `Hi ${first}, I'm holding ${when} for you. Let's go over the details here before I confirm.`
+      : `Hi ${first}, thanks for reaching out about ${when}. Unfortunately I can't make it that night.`);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -124,24 +125,25 @@ function ReplySheet({ r, action, onClose, onDone }) {
   };
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/75" style={{ fontFamily: "Inter, system-ui, sans-serif" }} onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={accept ? "Accept the booking" : "Decline the request"} onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[520px] rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-3 text-white">
+      <div role="dialog" aria-modal="true" aria-label={accept ? "Accept the booking" : hold ? "Put the date on hold" : "Decline the request"} onClick={(e) => e.stopPropagation()} className="w-full sm:max-w-[520px] rounded-t-2xl sm:rounded-2xl bg-[#111216] border border-[#2a2a2a] p-5 flex flex-col gap-3 text-white">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] tracking-[0.18em]" style={{ ...mono, color: accept ? DJ_COLOR : "rgba(255,255,255,0.65)" }}>{accept ? "ACCEPT" : "DECLINE"} · {when.toUpperCase()}</div>
+            <div className="text-[11px] tracking-[0.18em]" style={{ ...mono, color: accept ? DJ_COLOR : hold ? HOLD : "rgba(255,255,255,0.65)" }}>{accept ? "ACCEPT" : hold ? "HOLD" : "DECLINE"} · {when.toUpperCase()}</div>
             <div className="text-[22px] leading-tight truncate" style={cond}>{r.event_name || "A night"}{r.venue ? ` · ${r.venue}` : ""}</div>
             <div className="text-[13px] text-white/55 truncate">{r.email ? `Goes to ${r.name} at ${r.email}` : `${r.name} left no email${r.phone ? `: text ${r.phone}` : ""}`}</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="w-11 h-11 -mr-2 -mt-1 shrink-0 rounded-xl flex items-center justify-center text-white/70 hover:bg-white/10"><X className="w-5 h-5" /></button>
         </div>
         <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] tracking-[0.16em] text-white/65" style={mono}>{accept ? "YOUR NOTE (OPTIONAL)" : "WHY YOU'RE DECLINING"}</span>
+          <span className="text-[11px] tracking-[0.16em] text-white/65" style={mono}>{accept ? "YOUR NOTE (OPTIONAL)" : hold ? "YOUR NOTE" : "WHY YOU'RE DECLINING"}</span>
           <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={5} className="w-full px-3 py-2.5 rounded-xl bg-[#0d0e14] border border-white/20 text-[15px] leading-relaxed text-white outline-none focus:border-[#FDE047] resize-y" />
         </label>
-        {accept && <p className="m-0 text-[13px] text-white/55">The night goes on your Gigs and shows green on your press kit calendar.</p>}
+        {accept && <p className="m-0 text-[13px] text-white/55">The night goes on your Gigs and shows green on your press kit calendar. You can keep chatting in Chats › Confirmed.</p>}
+        {hold && <p className="m-0 text-[13px] text-white/55">The night shows orange on your press kit calendar. Your note starts a chat with {r.name} (Chats › In progress), and they get a link to it by email.</p>}
         {error && <p className="m-0 text-[14px] text-[#F87171]" role="alert">{error}</p>}
-        <button type="button" onClick={send} disabled={sending} className="min-h-[48px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold disabled:opacity-60" style={accept ? { background: DJ_COLOR, color: "#000" } : { background: "#fff", color: "#000" }}>
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : accept ? <Check className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-          {accept ? "Confirm booking" : r.email ? "Send and decline" : "Decline"}
+        <button type="button" onClick={send} disabled={sending} className="min-h-[48px] rounded-full flex items-center justify-center gap-2 text-[15px] font-bold disabled:opacity-60" style={accept ? { background: DJ_COLOR, color: "#000" } : hold ? { background: HOLD, color: "#000" } : { background: "#fff", color: "#000" }}>
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : accept ? <Check className="w-4 h-4" /> : hold ? <Pause className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+          {accept ? "Confirm booking" : hold ? "Hold the date" : r.email ? "Send and decline" : "Decline"}
         </button>
       </div>
     </div>,

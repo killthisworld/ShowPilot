@@ -329,7 +329,7 @@ export function RequestSheet({ token, date: date0, djName, onClose }) {
               <input className={input} aria-label="Email" type="email" inputMode="email" value={f.email} onChange={set("email")} placeholder="Email" autoComplete="email" />
               <input className={input} aria-label="Phone" type="tel" inputMode="tel" value={f.phone} onChange={set("phone")} placeholder="Phone" autoComplete="tel" />
             </div>
-            <input className={input} aria-label="Event" value={f.event_name} onChange={set("event_name")} placeholder="Event or night" />
+            <input className={input} aria-label="Event" value={f.event_name} onChange={set("event_name")} placeholder="Event" />
             <div className="grid grid-cols-2 gap-2.5">
               <input className={input} aria-label="Venue" value={f.venue} onChange={set("venue")} placeholder="Venue" />
               <input className={input} aria-label="City" value={f.city} onChange={set("city")} placeholder="City" />

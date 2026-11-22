@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Clock, ChevronRight, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Clock, ChevronRight, Check } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import BandBottomTabs from "@/components/showpilot/BandBottomTabs";
 import NightSky from "@/components/showpilot/NightSky";
@@ -85,7 +85,7 @@ export default function DjEvent() {
   const dueDay = due ? due.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "";
   const setTimes = gig?.manager_info?.set_times || {};
   const artists = (gig?.bands || []).filter((b) => (b.band_name || "").trim());
-  const fullEvent = gig ? (mine ? `/show/${gig.id}` : `/gig/web?token=${token}`) : "";
+
 
   return (
     <div className="relative min-h-screen text-white" style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#000" }}>
@@ -179,9 +179,7 @@ export default function DjEvent() {
             )}
             </div>
 
-            <button type="button" onClick={() => navigate(fullEvent)} className="self-center mt-1 min-h-[44px] px-3 flex items-center gap-1.5 text-[14px] font-semibold text-white/65 hover:text-white">
-              Full event details<ExternalLink className="w-3.5 h-3.5" />
-            </button>
+
           </>
         )}
       </main>

@@ -66,6 +66,7 @@ import DjTools from '@/pages/DjTools';
 import DjGigs from '@/pages/DjGigs';
 import DjProfile from '@/pages/DjProfile';
 import DjPressKit from '@/pages/DjPressKit';
+import DjRequestChat from '@/pages/DjRequestChat';
 import DjEvent from '@/pages/DjEvent';
 import DjShortLink from '@/pages/DjShortLink';
 import DjSetUpload from '@/pages/DjSetUpload';
@@ -140,6 +141,8 @@ const AuthenticatedApp = () => {
       <Route path="/privacy" element={<Privacy />} />
       {/* A DJ's press kit at its share link (job 457): public, no sign-in. */}
       <Route path="/kit/:token" element={<DjPressKit />} />
+      {/* A promoter's chat with a DJ about a date (job 466): public, private link. */}
+      <Route path="/r/:token" element={<DjRequestChat />} />
       <Route path="/dj/set/:token" element={<DjSetUpload />} />
       <Route path="/s/:code" element={<DjShortLink />} />
       <Route path="/pilot/:token" element={<PilotCardView />} />

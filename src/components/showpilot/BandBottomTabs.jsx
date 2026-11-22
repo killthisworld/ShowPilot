@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Home, CalendarDays, PlaneTakeoff, Zap, MessageCircle, Plus, User, Handshake, Disc3 } from "lucide-react";
 import { djNow } from "@/lib/djMode";
 import { DJ_COLOR } from "@/lib/djTools";
-import { useNewRequestCount } from "@/lib/djKit";
+import { useNewRequestCount, useRequestChatUnread } from "@/lib/djKit";
 import useBookings from "@/lib/useBookings";
 import BandSettingsDrawer from "@/components/showpilot/BandSettingsDrawer";
 import QuickAddSheet from "@/components/showpilot/QuickAddSheet";
@@ -80,7 +80,7 @@ export default function BandBottomTabs() {
             >
               <span className="relative">
                 <tab.icon className="w-5 h-5" />
-                {tab.chats && <RailUnread />}
+                {tab.chats && <RailUnread dj={dj} />}
                 {tab.bookings && <RailBookings dj={dj} />}
               </span>
               <span className="text-xs font-semibold tracking-[0.04em]">{tab.label}</span>
@@ -98,9 +98,10 @@ export default function BandBottomTabs() {
 
 // Unread count on the rail's Chats tab (desktop only, so the phone bar's own
 // count isn't fetched twice).
-function RailUnread() {
+function RailUnread({ dj = false }) {
   const { data } = useNeedsMe();
-  const n = visibleChats(data?.chats).reduce((sum, c) => sum + Number(c.unread || 0), 0);
+  const requestChats = useRequestChatUnread(dj);
+  const n = visibleChats(data?.chats).reduce((sum, c) => sum + Number(c.unread || 0), 0) + (dj ? requestChats : 0);
   if (!n) return null;
   return (
     <span className="absolute -top-2 -right-3 min-w-[18px] h-[18px] px-[5px] rounded-full bg-[#8CFF3D] text-[#0d0d0d] text-[10px] font-bold flex items-center justify-center">
@@ -203,7 +204,9 @@ function CompanyPhoneBar({ preferences, pathname, search }) {
 // quick-add: a DJ's work is the sets.
 function DjPhoneBar({ preferences, pathname, search }) {
   const { data } = useNeedsMe();
-  const unread = visibleChats(data?.chats).reduce((n, c) => n + Number(c.unread || 0), 0);
+  // Plus date-request chats with a new message from a promoter (job 466).
+  const requestChats = useRequestChatUnread();
+  const unread = visibleChats(data?.chats).reduce((n, c) => n + Number(c.unread || 0), 0) + requestChats;
   const { data: bookings } = useBookings();
   // Plus date requests from the press kit (job 459).
   const newRequests = useNewRequestCount();
