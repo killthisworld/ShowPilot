@@ -52,7 +52,7 @@ function GigTicket({ g, set, onOpen, onSet }) {
   const when = whenLabel(g.date);
   const sub = [g.venue.toUpperCase(), g.time ? g.time.toUpperCase() : ""].filter(Boolean).join(" · ");
   return (
-    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url} compact dim={daysTo(g.date) < 0} onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={48} notch={7}>
+    <TicketCard color={DJ_COLOR} date={g.date} photo={g.icon_url} eagerPhoto compact dim={daysTo(g.date) < 0} onClick={onOpen} ariaLabel={`${g.name}${g.venue ? ` at ${g.venue}` : ""}`} stubWidth={48} notch={7}>
       <div className="flex items-center gap-2.5">
         <div className="flex-1 min-w-0">
           <div className="text-[16.5px] leading-tight truncate" style={cond}>{g.name}</div>
@@ -66,14 +66,35 @@ function GigTicket({ g, set, onOpen, onSet }) {
   );
 }
 
+// Kept per signed-in account, so a different account on this phone never
+// sees someone else's list for a moment.
+const CACHE = "sp_dj_gigs_v1";
+function signedInId() {
+  try {
+    const k = Object.keys(localStorage).find((x) => /^sb-.+-auth-token$/.test(x));
+    return k ? JSON.parse(localStorage.getItem(k) || "null")?.user?.id || "" : "";
+  } catch { return ""; }
+}
+function readCache() {
+  try {
+    const v = JSON.parse(localStorage.getItem(CACHE) || "null");
+    return v && v.uid && v.uid === signedInId() ? v : null;
+  } catch { return null; }
+}
+function writeCache(v) {
+  try { localStorage.setItem(CACHE, JSON.stringify({ ...v, uid: signedInId() })); } catch { /* full or private mode */ }
+}
+
 export default function DjGigs() {
   const navigate = useNavigate();
-  const [gigs, setGigs] = useState(null);
+  // The last list on this phone shows at once (job 467), so the tickets and
+  // their photos don't wait on the server; the fresh list replaces it.
+  const [gigs, setGigs] = useState(() => readCache()?.list || null);
   // Gigs | Requests (job 465). ?tab=requests opens on Requests.
   const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get("tab") === "requests" ? "requests" : "gigs"));
   const [newRequests, setNewRequests] = useState(0);
   const [reload, setReload] = useState(0);
-  const [sets, setSets] = useState({}); // show_id -> { id, in, all, slots }
+  const [sets, setSets] = useState(() => readCache()?.sets || {}); // show_id -> { id, in, all, slots }
 
   useEffect(() => {
     let gone = false;
@@ -117,7 +138,10 @@ export default function DjGigs() {
       if (gone) return;
       setSets(m);
       setGigs(list);
-    })().catch((e) => { console.error(e); if (!gone) setGigs([]); });
+      writeCache({ list, sets: m });
+      // Start every photo now, not when the browser gets round to it.
+      list.forEach((g) => { if (g.icon_url) { const im = new Image(); im.decoding = "async"; im.src = g.icon_url; } });
+    })().catch((e) => { console.error(e); if (!gone) setGigs((g) => g || []); });
     return () => { gone = true; };
   }, [reload]);
 

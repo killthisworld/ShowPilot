@@ -14,6 +14,7 @@ export default function TicketCard({
   color,
   date, // "YYYY-MM-DD" or null
   photo,
+  eagerPhoto = false, // load the photo right away (DJ Bookings, job 467)
   onClick,
   dim = false,
   stubWidth = 66,
@@ -72,7 +73,7 @@ export default function TicketCard({
         {/* The event's photo across the ticket body (job 73: clearly
             visible, not a faint wash), with a scrim so the text stays
             readable on any image. */}
-        <EventBarPhoto url={photo} opacity={0.6} />
+        <EventBarPhoto url={photo} opacity={0.6} eager={eagerPhoto} />
         {photo && (
           <span aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none" style={{ background: centered ? "radial-gradient(ellipse at 50% 50%, rgba(21,21,21,0.78), rgba(21,21,21,0.45) 75%)" : "linear-gradient(90deg, rgba(21,21,21,0.92) 0%, rgba(21,21,21,0.55) 55%, rgba(21,21,21,0.15) 100%)" }} />
         )}

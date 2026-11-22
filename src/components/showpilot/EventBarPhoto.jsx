@@ -5,14 +5,16 @@
 //
 // The bar must be `relative isolate overflow-hidden`: `isolate` makes this
 // -z-10 layer paint above the bar's own background but under its content.
-export default function EventBarPhoto({ url, opacity = 0.22 }) {
+// eager: load it straight away instead of when the browser gets round to it.
+export default function EventBarPhoto({ url, opacity = 0.22, eager = false }) {
   if (!url) return null;
   return (
     <span aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none overflow-hidden">
       <img
         src={url}
         alt=""
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
+        fetchpriority={eager ? "high" : undefined}
         decoding="async"
         className="absolute inset-0 w-full h-full object-cover"
         style={{
